@@ -32421,6 +32421,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_cucumber_json_decl(s)
             || is_nyc_json_decl(s)
             || is_c8_json_decl(s)
+            || is_tap_json_decl(s)
             || is_gomod_decl(s)
             || is_gemfile_decl(s)
             || is_brewfile_decl(s)
@@ -32752,6 +32753,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_cucumber_json_decl(s)
         || is_nyc_json_decl(s)
         || is_c8_json_decl(s)
+        || is_tap_json_decl(s)
         || is_gomod_decl(s)
         || is_gemfile_decl(s)
         || is_brewfile_decl(s)
@@ -52489,15 +52491,17 @@ fn nyc_json_string_ok(key: &str, value: &str) -> bool {
 /// `"src_folders"` / Jasmine `"spec_dir"` / AVA `"failFast"` /
 /// Mocha `"allowUncaught"` / Jest `"testEnvironment"` /
 /// Playwright `"testDir"` / Vitest `"pool"` / Cypress `"e2e"` /
-/// CSpell `"words"` / Oxlint `"categories"` / Knip `"entry"` /
-/// Deno `"nodeModulesDir"` / Renovate `"packageRules"` / launch
-/// `"configurations"` / tasks `"tasks": [` / Dev Container `"image"` /
-/// turbo `"pipeline"` / nx `"namedInputs"` / prettier `"printWidth"` /
-/// biome `"linter"` / eslint `"parser"` / package.json `"scripts"` /
-/// tsconfig `"compilerOptions"` stay out. Shared `"include"` /
-/// `"exclude"` / `"reporter"` / `"all"` / `"check-coverage"` /
-/// `"report-dir"` / thresholds / `"cwd"` also match neighbouring
-/// scanners when shapes overlap.
+/// node-tap `"coverage-map"` / `"allow-empty-coverage"` /
+/// `"omit-version"` / `"fail-todo"` / CSpell `"words"` / Oxlint
+/// `"categories"` / Knip `"entry"` / Deno `"nodeModulesDir"` /
+/// Renovate `"packageRules"` / launch `"configurations"` / tasks
+/// `"tasks": [` / Dev Container `"image"` / turbo `"pipeline"` / nx
+/// `"namedInputs"` / prettier `"printWidth"` / biome `"linter"` /
+/// eslint `"parser"` / package.json `"scripts"` / tsconfig
+/// `"compilerOptions"` stay out. Shared `"include"` / `"exclude"` /
+/// `"reporter"` / `"all"` / `"check-coverage"` / `"report-dir"` /
+/// thresholds / `"cwd"` also match neighbouring scanners when shapes
+/// overlap.
 fn is_c8_json_decl(s: &str) -> bool {
     let s = s.trim_start();
     let Some(rest) = s.strip_prefix('"') else {
@@ -52672,6 +52676,312 @@ fn c8_json_string_ok(key: &str, value: &str) -> bool {
         ),
         "src" | "include" | "exclude" | "report-dir" | "reports-dir" | "temp-directory"
         | "extension" | "cwd" | "wrapper" => true,
+        _ => false,
+    }
+}
+
+/// node-tap `package.json` `"tap"` / `.taprc` JSON keys:
+/// `"coverage-map": "…"`, `"coverage-report": [` / `"…"`,
+/// `"coverage-exclude": [` / `"…"`, `"allow-empty-coverage": true`,
+/// `"allow-incomplete-coverage": true`, `"disable-coverage": true`,
+/// `"show-full-coverage": true`, `"omit-version": true`,
+/// `"omit-whitespace": true`, `"fail-todo": true`, `"fail-skip": true`,
+/// `"fail-only": true`, `"reporter-file": "…"`, `"reporter-arg": [` /
+/// `"…"`, `"output-file": "…"`, `"output-dir": "…"`, `"test-arg": [` /
+/// `"…"`, `"test-env": [` / `"…"`, `"node-arg": [` / `"…"`,
+/// `"filter-quietly": true`, `"save-fixture": true`, `"snapshot": true`,
+/// `"snapshot-clean-cwd": true`, `"typecheck": true`,
+/// `"type-strip-only": true`, `"plugin": [` / `"…"`, `"files": [` /
+/// `"…"`, `"include": [` / `"…"`, `"exclude": [` / `"…"`,
+/// `"serial": [` / `"…"`, `"before": "…"`, `"after": "…"`,
+/// `"reporter": "…"`, `"extends": "…"`, `"tsconfig": "…"`,
+/// `"timeout": 60`, `"jobs": 4`, `"branches": 80`, `"functions": 80`,
+/// `"lines": 80`, `"statements": 80`, `"bail": true`, `"browser": true`,
+/// `"color": true`, `"comments": true`, `"passes": true`, `"diag": true`,
+/// `"shuffle": true`, `"only": true`, `"invert": true`, `"debug": true`,
+/// `"grep": [` / `"…"`. Optional trailing `,` and `//` / `/*` comment.
+/// Incomplete quotes / missing `:` stay out. Generic `"$schema"` /
+/// `"name"` / `"version"` / AVA `"failFast"` / `"serial": true` /
+/// `"tap": true` / Mocha `"allowUncaught"` / `"bail": true` /
+/// c8 `"src"` / `"allowExternal"` / `"temp-directory"` / nyc
+/// `"temp-dir"` / `"watermarks"` / Cucumber `"requireModule"` /
+/// Stryker `"mutate"` / `"testRunner": "jest"` / Detox `"apps"` /
+/// Codecept `"helpers": {` / WDIO `"waitforTimeout"` / TestCafe
+/// `"selectorTimeout"` / Karma `"frameworks"` / Nightwatch
+/// `"src_folders"` / Jasmine `"spec_dir"` / Jest `"testEnvironment"` /
+/// Playwright `"testDir"` / Vitest `"pool"` / Cypress `"e2e"` /
+/// CSpell `"words"` / Oxlint `"categories"` / Knip `"entry"` / Deno
+/// `"nodeModulesDir"` / Renovate `"packageRules"` / launch
+/// `"configurations"` / tasks `"tasks": [` / Dev Container `"image"` /
+/// turbo `"pipeline"` / nx `"namedInputs"` / prettier `"printWidth"` /
+/// biome `"linter"` / eslint `"parser"` / package.json `"scripts"` /
+/// tsconfig `"compilerOptions"` stay out. AVA `"serial": true` stays
+/// on AVA; tap uses `"serial": [` / `"…"`. Shared `"include"` /
+/// `"exclude"` / `"files"` / `"reporter"` / `"timeout"` / `"jobs"` /
+/// `"bail"` / thresholds also match neighbouring scanners when shapes
+/// overlap.
+fn is_tap_json_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    let Some(rest) = s.strip_prefix('"') else {
+        return false;
+    };
+    let Some(end) = rest.find('"') else {
+        return false;
+    };
+    let key = &rest[..end];
+    if !tap_json_key_ok(key) {
+        return false;
+    }
+    let after_key = rest[end + 1..].trim_start();
+    let Some(after_colon) = after_key.strip_prefix(':') else {
+        return false;
+    };
+    let after_colon = after_colon.trim_start();
+    tap_json_value_and_tail_ok(key, after_colon)
+}
+
+fn tap_json_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "coverage-map"
+            | "coverage-report"
+            | "coverage-exclude"
+            | "allow-empty-coverage"
+            | "allow-incomplete-coverage"
+            | "disable-coverage"
+            | "show-full-coverage"
+            | "omit-version"
+            | "omit-whitespace"
+            | "fail-todo"
+            | "fail-skip"
+            | "fail-only"
+            | "reporter-file"
+            | "reporter-arg"
+            | "output-file"
+            | "output-dir"
+            | "test-arg"
+            | "test-env"
+            | "node-arg"
+            | "filter-quietly"
+            | "save-fixture"
+            | "snapshot"
+            | "snapshot-clean-cwd"
+            | "typecheck"
+            | "type-strip-only"
+            | "plugin"
+            | "files"
+            | "include"
+            | "exclude"
+            | "serial"
+            | "before"
+            | "after"
+            | "reporter"
+            | "extends"
+            | "tsconfig"
+            | "timeout"
+            | "jobs"
+            | "branches"
+            | "functions"
+            | "lines"
+            | "statements"
+            | "bail"
+            | "browser"
+            | "color"
+            | "comments"
+            | "passes"
+            | "diag"
+            | "shuffle"
+            | "only"
+            | "invert"
+            | "debug"
+            | "grep"
+    )
+}
+
+fn tap_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool {
+    let bytes = after_colon.as_bytes();
+    let Some(first) = bytes.first().copied() else {
+        return false;
+    };
+    match first {
+        b'[' => {
+            if !tap_json_array_key_ok(key) {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[1..])
+        }
+        b'"' => {
+            if !tap_json_string_key_ok(key) {
+                return false;
+            }
+            let rest = &after_colon[1..];
+            let Some(end) = rest.find('"') else {
+                return false;
+            };
+            let value = &rest[..end];
+            if !tap_json_string_ok(key, value) {
+                return false;
+            }
+            package_json_tail_ok(&rest[end + 1..])
+        }
+        b't' | b'f' => {
+            let rest = if let Some(rest) = after_colon.strip_prefix("true") {
+                rest
+            } else if let Some(rest) = after_colon.strip_prefix("false") {
+                rest
+            } else {
+                return false;
+            };
+            if !tap_json_bool_key_ok(key) {
+                return false;
+            }
+            package_json_tail_ok(rest)
+        }
+        b'0'..=b'9' => {
+            if !tap_json_number_key_ok(key) {
+                return false;
+            }
+            let digits = after_colon
+                .bytes()
+                .take_while(|b| b.is_ascii_digit())
+                .count();
+            let max_digits = if matches!(key, "branches" | "functions" | "lines" | "statements") {
+                3
+            } else {
+                9
+            };
+            if digits == 0 || digits > max_digits {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[digits..])
+        }
+        _ => false,
+    }
+}
+
+fn tap_json_array_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "coverage-report"
+            | "coverage-exclude"
+            | "reporter-arg"
+            | "test-arg"
+            | "test-env"
+            | "node-arg"
+            | "plugin"
+            | "files"
+            | "include"
+            | "exclude"
+            | "serial"
+            | "grep"
+    )
+}
+
+fn tap_json_string_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "coverage-map"
+            | "coverage-report"
+            | "coverage-exclude"
+            | "reporter-file"
+            | "reporter-arg"
+            | "output-file"
+            | "output-dir"
+            | "test-arg"
+            | "test-env"
+            | "node-arg"
+            | "plugin"
+            | "files"
+            | "include"
+            | "exclude"
+            | "serial"
+            | "before"
+            | "after"
+            | "reporter"
+            | "extends"
+            | "tsconfig"
+            | "grep"
+    )
+}
+
+fn tap_json_bool_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "allow-empty-coverage"
+            | "allow-incomplete-coverage"
+            | "disable-coverage"
+            | "show-full-coverage"
+            | "omit-version"
+            | "omit-whitespace"
+            | "fail-todo"
+            | "fail-skip"
+            | "fail-only"
+            | "filter-quietly"
+            | "save-fixture"
+            | "snapshot"
+            | "snapshot-clean-cwd"
+            | "typecheck"
+            | "type-strip-only"
+            | "bail"
+            | "browser"
+            | "color"
+            | "comments"
+            | "passes"
+            | "diag"
+            | "shuffle"
+            | "only"
+            | "invert"
+            | "debug"
+    )
+}
+
+fn tap_json_number_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "timeout" | "jobs" | "branches" | "functions" | "lines" | "statements"
+    )
+}
+
+fn tap_json_string_ok(key: &str, value: &str) -> bool {
+    if value.is_empty() || value.len() > 512 || value.contains('\n') {
+        return false;
+    }
+    if value.chars().all(|c| c.is_ascii_whitespace()) {
+        return false;
+    }
+    match key {
+        "reporter" => matches!(
+            value,
+            "base"
+                | "terse"
+                | "tap"
+                | "spec"
+                | "markdown"
+                | "junit"
+                | "json"
+                | "jsonstream"
+                | "min"
+                | "dot"
+                | "silent"
+                | "dumps"
+        ),
+        "coverage-report" => matches!(
+            value,
+            "text"
+                | "text-summary"
+                | "html"
+                | "lcov"
+                | "lcovonly"
+                | "json"
+                | "json-summary"
+                | "clover"
+                | "cobertura"
+                | "teamcity"
+                | "none"
+        ),
+        "coverage-map" | "coverage-exclude" | "reporter-file" | "reporter-arg" | "output-file"
+        | "output-dir" | "test-arg" | "test-env" | "node-arg" | "plugin" | "files" | "include"
+        | "exclude" | "serial" | "before" | "after" | "extends" | "tsconfig" | "grep" => true,
         _ => false,
     }
 }
@@ -83337,16 +83647,17 @@ mod func_like_line_tests {
         is_stryker_json_decl, is_stylelint_json_decl, is_subuid_subgid_decl, is_sudoers_decl,
         is_supabase_toml_decl, is_supervisord_conf_decl, is_swc_json_decl, is_sysctl_conf_decl,
         is_syslog_ng_decl, is_systemd_networkd_decl, is_systemd_unit_decl, is_sysusers_d_decl,
-        is_taplo_toml_decl, is_tauri_json_decl, is_telegraf_toml_decl, is_testcafe_json_decl,
-        is_tmpfiles_d_decl, is_towncrier_ini_decl, is_tox_ini_decl, is_trunk_toml_decl,
-        is_tsconfig_json_decl, is_turbo_json_decl, is_ty_toml_decl, is_typos_toml_decl,
-        is_udev_rule_decl, is_unbound_nsd_conf_decl, is_uniffi_toml_decl, is_unimport_ini_decl,
-        is_uv_toml_decl, is_vconsole_conf_decl, is_vector_toml_decl, is_vercel_json_decl,
-        is_versioneer_ini_decl, is_vitest_json_decl, is_vscode_launch_json_decl,
-        is_vscode_tasks_json_decl, is_vulture_ini_decl, is_wails_json_decl, is_wdio_json_decl,
-        is_webextension_manifest_json_decl, is_wireguard_config_decl, is_wrangler_toml_decl,
-        is_xmake_decl, is_xorg_conf_decl, is_yapf_ini_decl, is_yarnrc_yml_decl, is_yum_repo_decl,
-        is_zest_releaser_ini_decl, line_is_func_like,
+        is_tap_json_decl, is_taplo_toml_decl, is_tauri_json_decl, is_telegraf_toml_decl,
+        is_testcafe_json_decl, is_tmpfiles_d_decl, is_towncrier_ini_decl, is_tox_ini_decl,
+        is_trunk_toml_decl, is_tsconfig_json_decl, is_turbo_json_decl, is_ty_toml_decl,
+        is_typos_toml_decl, is_udev_rule_decl, is_unbound_nsd_conf_decl, is_uniffi_toml_decl,
+        is_unimport_ini_decl, is_uv_toml_decl, is_vconsole_conf_decl, is_vector_toml_decl,
+        is_vercel_json_decl, is_versioneer_ini_decl, is_vitest_json_decl,
+        is_vscode_launch_json_decl, is_vscode_tasks_json_decl, is_vulture_ini_decl,
+        is_wails_json_decl, is_wdio_json_decl, is_webextension_manifest_json_decl,
+        is_wireguard_config_decl, is_wrangler_toml_decl, is_xmake_decl, is_xorg_conf_decl,
+        is_yapf_ini_decl, is_yarnrc_yml_decl, is_yum_repo_decl, is_zest_releaser_ini_decl,
+        line_is_func_like,
     };
 
     #[test]
@@ -104717,6 +105028,285 @@ mod func_like_line_tests {
         assert!(line_is_func_like(r#""branches": 80"#));
         assert!(line_is_func_like(r#""reporter": "lcov""#));
         assert!(line_is_func_like(r#""all": true"#));
+        // node-tap distinctive keys stay out of c8.
+        assert!(!is_c8_json_decl(r#""coverage-map": "./map.js""#));
+        assert!(is_tap_json_decl(r#""coverage-map": "./map.js""#));
+        assert!(!is_c8_json_decl(r#""allow-empty-coverage": true"#));
+        assert!(is_tap_json_decl(r#""allow-empty-coverage": true"#));
+        assert!(!is_c8_json_decl(r#""omit-version": true"#));
+        assert!(is_tap_json_decl(r#""omit-version": true"#));
+        assert!(!is_c8_json_decl(r#""fail-todo": true"#));
+        assert!(is_tap_json_decl(r#""fail-todo": true"#));
+    }
+
+    #[test]
+    fn tap_json_keys_smoke() {
+        assert!(is_tap_json_decl(r#""coverage-map": "./map.js""#));
+        assert!(is_tap_json_decl(r#""coverage-report": ["#));
+        assert!(is_tap_json_decl(r#""coverage-report": "lcov""#));
+        assert!(is_tap_json_decl(r#""coverage-exclude": ["#));
+        assert!(is_tap_json_decl(r#""allow-empty-coverage": true"#));
+        assert!(is_tap_json_decl(r#""allow-incomplete-coverage": true"#));
+        assert!(is_tap_json_decl(r#""disable-coverage": true"#));
+        assert!(is_tap_json_decl(r#""show-full-coverage": false"#));
+        assert!(is_tap_json_decl(r#""omit-version": true"#));
+        assert!(is_tap_json_decl(r#""omit-whitespace": true"#));
+        assert!(is_tap_json_decl(r#""fail-todo": true"#));
+        assert!(is_tap_json_decl(r#""fail-skip": true"#));
+        assert!(is_tap_json_decl(r#""fail-only": true"#));
+        assert!(is_tap_json_decl(r#""reporter-file": "out.tap""#));
+        assert!(is_tap_json_decl(r#""reporter-arg": ["#));
+        assert!(is_tap_json_decl(r#""output-file": "raw.tap""#));
+        assert!(is_tap_json_decl(r#""output-dir": "./.tap""#));
+        assert!(is_tap_json_decl(r#""test-arg": ["#));
+        assert!(is_tap_json_decl(r#""test-env": ["#));
+        assert!(is_tap_json_decl(r#""node-arg": ["#));
+        assert!(is_tap_json_decl(r#""filter-quietly": true"#));
+        assert!(is_tap_json_decl(r#""save-fixture": true"#));
+        assert!(is_tap_json_decl(r#""snapshot": true"#));
+        assert!(is_tap_json_decl(r#""snapshot-clean-cwd": true"#));
+        assert!(is_tap_json_decl(r#""typecheck": true"#));
+        assert!(is_tap_json_decl(r#""type-strip-only": true"#));
+        assert!(is_tap_json_decl(r#""plugin": ["#));
+        assert!(is_tap_json_decl(r#""files": ["#));
+        assert!(is_tap_json_decl(r#""include": ["#));
+        assert!(is_tap_json_decl(r#""exclude": ["#));
+        assert!(is_tap_json_decl(r#""serial": ["#));
+        assert!(is_tap_json_decl(r#""serial": "test/serial/*.js""#));
+        assert!(is_tap_json_decl(r#""before": "./setup.js""#));
+        assert!(is_tap_json_decl(r#""after": "./teardown.js""#));
+        assert!(is_tap_json_decl(r#""reporter": "spec""#));
+        assert!(is_tap_json_decl(r#""extends": "@scope/tap-config""#));
+        assert!(is_tap_json_decl(r#""tsconfig": "./tsconfig.tap.json""#));
+        assert!(is_tap_json_decl(r#""timeout": 60"#));
+        assert!(is_tap_json_decl(r#""jobs": 4"#));
+        assert!(is_tap_json_decl(r#""branches": 80"#));
+        assert!(is_tap_json_decl(r#""bail": true"#));
+        assert!(is_tap_json_decl(r#""browser": true"#));
+        assert!(is_tap_json_decl(r#""color": true"#));
+        assert!(is_tap_json_decl(r#""comments": true"#));
+        assert!(is_tap_json_decl(r#""passes": true"#));
+        assert!(is_tap_json_decl(r#""diag": true"#));
+        assert!(is_tap_json_decl(r#""shuffle": true"#));
+        assert!(is_tap_json_decl(r#""only": true"#));
+        assert!(is_tap_json_decl(r#""invert": true"#));
+        assert!(is_tap_json_decl(r#""debug": false"#));
+        assert!(is_tap_json_decl(r#""grep": ["#));
+        // Distinctive tap keys stay out of neighbours.
+        assert!(!is_c8_json_decl(r#""coverage-map": "./map.js""#));
+        assert!(!is_nyc_json_decl(r#""allow-empty-coverage": true"#));
+        assert!(!is_ava_json_decl(r#""omit-version": true"#));
+        assert!(!is_mocha_json_decl(r#""fail-todo": true"#));
+        assert!(!is_stryker_json_decl(r#""coverage-exclude": ["#));
+        assert!(!is_cucumber_json_decl(r#""reporter-file": "out.tap""#));
+        assert!(!is_jest_json_decl(r#""type-strip-only": true"#));
+        // AVA serial bool stays on AVA; tap uses array/string.
+        assert!(!is_tap_json_decl(r#""serial": true"#));
+        assert!(is_ava_json_decl(r#""serial": true"#));
+        assert!(!is_ava_json_decl(r#""serial": ["#));
+        assert!(is_tap_json_decl(r#""serial": ["#));
+        assert!(!is_tap_json_decl(r#""tap": true"#));
+        assert!(is_ava_json_decl(r#""tap": true"#));
+        assert!(!is_tap_json_decl(r#""failFast": true"#));
+        assert!(is_ava_json_decl(r#""failFast": true"#));
+        assert!(!is_tap_json_decl(r#""allowUncaught": true"#));
+        assert!(is_mocha_json_decl(r#""allowUncaught": true"#));
+        assert!(!is_tap_json_decl(r#""src": ["#));
+        assert!(is_c8_json_decl(r#""src": ["#));
+        assert!(!is_tap_json_decl(r#""temp-dir": "./.nyc_output""#));
+        assert!(is_nyc_json_decl(r#""temp-dir": "./.nyc_output""#));
+        assert!(!is_tap_json_decl(r#""mutate": ["#));
+        assert!(is_stryker_json_decl(r#""mutate": ["#));
+        assert!(!is_tap_json_decl(r#""apps": {"#));
+        assert!(is_detox_json_decl(r#""apps": {"#));
+    }
+
+    #[test]
+    fn tap_json_keys_count() {
+        assert!(is_tap_json_decl(r#""coverage-map": "./map.js""#));
+        assert!(is_tap_json_decl(r#""coverage-map": "./map.js", // map"#));
+        assert!(!is_tap_json_decl(r#""coverage-map": ["#));
+        assert!(!is_tap_json_decl(r#""coverage-map": {"#));
+        assert!(!is_tap_json_decl(r#""coverage-map": """#));
+        assert!(is_tap_json_decl(r#""coverage-report": ["#));
+        assert!(is_tap_json_decl(r#""coverage-report": "html""#));
+        assert!(is_tap_json_decl(r#""coverage-report": "lcov""#));
+        assert!(!is_tap_json_decl(r#""coverage-report": "fancy""#));
+        assert!(!is_tap_json_decl(r#""coverage-report": {"#));
+        assert!(is_tap_json_decl(r#""coverage-exclude": "dist/**""#));
+        assert!(is_tap_json_decl(r#""allow-empty-coverage": true"#));
+        assert!(is_tap_json_decl(r#""allow-incomplete-coverage": false,"#));
+        assert!(!is_tap_json_decl(r#""allow-empty-coverage": ["#));
+        assert!(is_tap_json_decl(r#""disable-coverage": true"#));
+        assert!(is_tap_json_decl(r#""show-full-coverage": true"#));
+        assert!(is_tap_json_decl(r#""omit-version": true"#));
+        assert!(is_tap_json_decl(r#""omit-whitespace": false"#));
+        assert!(is_tap_json_decl(r#""fail-todo": true"#));
+        assert!(is_tap_json_decl(r#""fail-skip": true"#));
+        assert!(is_tap_json_decl(r#""fail-only": true"#));
+        assert!(!is_tap_json_decl(r#""fail-todo": ["#));
+        assert!(is_tap_json_decl(r#""reporter-file": "out.tap""#));
+        assert!(!is_tap_json_decl(r#""reporter-file": ["#));
+        assert!(is_tap_json_decl(r#""reporter-arg": ["#));
+        assert!(is_tap_json_decl(r#""reporter-arg": "--verbose""#));
+        assert!(is_tap_json_decl(r#""output-file": "raw.tap""#));
+        assert!(is_tap_json_decl(r#""output-dir": "./.tap""#));
+        assert!(is_tap_json_decl(r#""test-arg": ["#));
+        assert!(is_tap_json_decl(r#""test-env": "FOO=bar""#));
+        assert!(is_tap_json_decl(r#""node-arg": "--no-warnings""#));
+        assert!(is_tap_json_decl(r#""filter-quietly": true"#));
+        assert!(is_tap_json_decl(r#""save-fixture": true"#));
+        assert!(is_tap_json_decl(r#""snapshot": true"#));
+        assert!(is_tap_json_decl(r#""snapshot-clean-cwd": false"#));
+        assert!(is_tap_json_decl(r#""typecheck": true"#));
+        assert!(is_tap_json_decl(r#""type-strip-only": true"#));
+        assert!(is_tap_json_decl(r#""plugin": ["#));
+        assert!(is_tap_json_decl(r#""plugin": "@tapjs/typescript""#));
+        assert!(is_tap_json_decl(r#""files": ["#));
+        assert!(is_tap_json_decl(r#""include": "test/**/*.ts""#));
+        assert!(is_tap_json_decl(r#""exclude": ["#));
+        assert!(is_tap_json_decl(r#""serial": ["#));
+        assert!(is_tap_json_decl(r#""serial": "test/serial/*.js""#));
+        assert!(!is_tap_json_decl(r#""serial": true"#));
+        assert!(!is_tap_json_decl(r#""serial": {"#));
+        assert!(is_tap_json_decl(r#""before": "./setup.js""#));
+        assert!(is_tap_json_decl(r#""after": "./teardown.js""#));
+        assert!(!is_tap_json_decl(r#""before": ["#));
+        assert!(is_tap_json_decl(r#""reporter": "base""#));
+        assert!(is_tap_json_decl(r#""reporter": "terse""#));
+        assert!(is_tap_json_decl(r#""reporter": "tap""#));
+        assert!(is_tap_json_decl(r#""reporter": "spec""#));
+        assert!(!is_tap_json_decl(r#""reporter": "lcov""#));
+        assert!(!is_tap_json_decl(r#""reporter": {"#));
+        assert!(is_tap_json_decl(r#""extends": "@scope/tap-config""#));
+        assert!(is_tap_json_decl(r#""tsconfig": "./tsconfig.tap.json""#));
+        assert!(is_tap_json_decl(r#""timeout": 60"#));
+        assert!(is_tap_json_decl(r#""jobs": 4"#));
+        assert!(is_tap_json_decl(r#""branches": 80"#));
+        assert!(is_tap_json_decl(r#""functions": 100"#));
+        assert!(is_tap_json_decl(r#""lines": 0"#));
+        assert!(is_tap_json_decl(r#""statements": 90, // thresh"#));
+        assert!(!is_tap_json_decl(r#""branches": "80""#));
+        assert!(!is_tap_json_decl(r#""branches": true"#));
+        assert!(!is_tap_json_decl(r#""branches": 1000"#));
+        assert!(is_tap_json_decl(r#""bail": true"#));
+        assert!(is_tap_json_decl(r#""browser": false"#));
+        assert!(is_tap_json_decl(r#""color": true"#));
+        assert!(is_tap_json_decl(r#""comments": true"#));
+        assert!(is_tap_json_decl(r#""passes": true"#));
+        assert!(is_tap_json_decl(r#""diag": true"#));
+        assert!(is_tap_json_decl(r#""shuffle": true"#));
+        assert!(is_tap_json_decl(r#""only": true"#));
+        assert!(is_tap_json_decl(r#""invert": false"#));
+        assert!(is_tap_json_decl(r#""debug": true"#));
+        assert!(is_tap_json_decl(r#""grep": ["#));
+        assert!(is_tap_json_decl(r#""grep": "/foo/i""#));
+        // Incomplete / wrong shapes stay out.
+        assert!(!is_tap_json_decl(r#""omit-version""#));
+        assert!(!is_tap_json_decl(r#""omit-version":"#));
+        assert!(!is_tap_json_decl(r#""omit-version: true"#));
+        assert!(!is_tap_json_decl(r#""coverage-map":"#));
+        assert!(!is_tap_json_decl(r#""fail-todo":"#));
+        // Generic / neighbouring stay out.
+        assert!(!is_tap_json_decl(
+            r#""$schema": "https://json.schemastore.org/taprc""#
+        ));
+        assert!(!is_tap_json_decl(r#""name": "tests""#));
+        assert!(!is_tap_json_decl(r#""version": "1.0.0""#));
+        assert!(!is_tap_json_decl(r#""failFast": true"#));
+        assert!(is_ava_json_decl(r#""failFast": true"#));
+        assert!(!is_tap_json_decl(r#""serial": true"#));
+        assert!(is_ava_json_decl(r#""serial": true"#));
+        assert!(!is_tap_json_decl(r#""tap": true"#));
+        assert!(is_ava_json_decl(r#""tap": true"#));
+        assert!(!is_tap_json_decl(r#""allowUncaught": true"#));
+        assert!(is_mocha_json_decl(r#""allowUncaught": true"#));
+        assert!(!is_tap_json_decl(r#""src": ["#));
+        assert!(is_c8_json_decl(r#""src": ["#));
+        assert!(!is_tap_json_decl(r#""allowExternal": true"#));
+        assert!(is_c8_json_decl(r#""allowExternal": true"#));
+        assert!(!is_tap_json_decl(r#""temp-directory": "./.c8_output""#));
+        assert!(is_c8_json_decl(r#""temp-directory": "./.c8_output""#));
+        assert!(!is_tap_json_decl(r#""temp-dir": "./.nyc_output""#));
+        assert!(is_nyc_json_decl(r#""temp-dir": "./.nyc_output""#));
+        assert!(!is_tap_json_decl(r#""watermarks": {"#));
+        assert!(is_nyc_json_decl(r#""watermarks": {"#));
+        assert!(!is_tap_json_decl(r#""requireModule": ["#));
+        assert!(is_cucumber_json_decl(r#""requireModule": ["#));
+        assert!(!is_tap_json_decl(r#""mutate": ["#));
+        assert!(is_stryker_json_decl(r#""mutate": ["#));
+        assert!(!is_tap_json_decl(r#""testRunner": "jest""#));
+        assert!(is_stryker_json_decl(r#""testRunner": "jest""#));
+        assert!(!is_tap_json_decl(r#""apps": {"#));
+        assert!(is_detox_json_decl(r#""apps": {"#));
+        assert!(!is_tap_json_decl(r#""helpers": {"#));
+        assert!(is_codecept_json_decl(r#""helpers": {"#));
+        assert!(!is_tap_json_decl(r#""waitforTimeout": 10000"#));
+        assert!(is_wdio_json_decl(r#""waitforTimeout": 10000"#));
+        assert!(!is_tap_json_decl(r#""selectorTimeout": 10000"#));
+        assert!(is_testcafe_json_decl(r#""selectorTimeout": 10000"#));
+        assert!(!is_tap_json_decl(r#""frameworks": ["#));
+        assert!(is_karma_json_decl(r#""frameworks": ["#));
+        assert!(!is_tap_json_decl(r#""src_folders": ["#));
+        assert!(is_nightwatch_json_decl(r#""src_folders": ["#));
+        assert!(!is_tap_json_decl(r#""spec_dir": "spec""#));
+        assert!(is_jasmine_json_decl(r#""spec_dir": "spec""#));
+        assert!(!is_tap_json_decl(r#""testEnvironment": "node""#));
+        assert!(is_jest_json_decl(r#""testEnvironment": "node""#));
+        assert!(!is_tap_json_decl(r#""testDir": "tests""#));
+        assert!(is_playwright_json_decl(r#""testDir": "tests""#));
+        assert!(!is_tap_json_decl(r#""pool": "threads""#));
+        assert!(is_vitest_json_decl(r#""pool": "threads""#));
+        assert!(!is_tap_json_decl(r#""e2e": {"#));
+        assert!(is_cypress_json_decl(r#""e2e": {"#));
+        assert!(!is_tap_json_decl(r#""words": ["#));
+        assert!(is_cspell_json_decl(r#""words": ["#));
+        assert!(!is_tap_json_decl(r#""categories": {"#));
+        assert!(is_oxlint_json_decl(r#""categories": {"#));
+        assert!(!is_tap_json_decl(r#""entry": ["#));
+        assert!(is_knip_json_decl(r#""entry": ["#));
+        assert!(!is_tap_json_decl(r#""nodeModulesDir": "auto""#));
+        assert!(is_deno_json_decl(r#""nodeModulesDir": "auto""#));
+        assert!(!is_tap_json_decl(r#""packageRules": ["#));
+        assert!(is_renovate_json_decl(r#""packageRules": ["#));
+        assert!(!is_tap_json_decl(r#""configurations": ["#));
+        assert!(is_vscode_launch_json_decl(r#""configurations": ["#));
+        assert!(!is_tap_json_decl(r#""tasks": ["#));
+        assert!(is_vscode_tasks_json_decl(r#""tasks": ["#));
+        assert!(!is_tap_json_decl(
+            r#""image": "mcr.microsoft.com/devcontainers/rust""#
+        ));
+        assert!(is_devcontainer_json_decl(
+            r#""image": "mcr.microsoft.com/devcontainers/rust""#
+        ));
+        assert!(!is_tap_json_decl(r#""pipeline": {"#));
+        assert!(is_turbo_json_decl(r#""pipeline": {"#));
+        assert!(!is_tap_json_decl(r#""namedInputs": {"#));
+        assert!(is_nx_json_decl(r#""namedInputs": {"#));
+        assert!(!is_tap_json_decl(r#""printWidth": 80"#));
+        assert!(is_prettier_json_decl(r#""printWidth": 80"#));
+        assert!(!is_tap_json_decl(r#""linter": {"#));
+        assert!(is_biome_json_decl(r#""linter": {"#));
+        assert!(!is_tap_json_decl(
+            r#""parser": "@typescript-eslint/parser""#
+        ));
+        assert!(is_eslint_json_decl(
+            r#""parser": "@typescript-eslint/parser""#
+        ));
+        assert!(!is_tap_json_decl(r#""scripts": {"#));
+        assert!(is_package_json_decl(r#""scripts": {"#));
+        assert!(!is_tap_json_decl(r#""compilerOptions": {"#));
+        assert!(is_tsconfig_json_decl(r#""compilerOptions": {"#));
+        // Distinctive + shared shapes list via tap scanner.
+        assert!(line_is_func_like(r#""coverage-map": "./map.js""#));
+        assert!(line_is_func_like(r#""allow-empty-coverage": true"#));
+        assert!(line_is_func_like(r#""omit-version": true"#));
+        assert!(line_is_func_like(r#""fail-todo": true"#));
+        assert!(line_is_func_like(r#""reporter-file": "out.tap""#));
+        assert!(line_is_func_like(r#""serial": ["#));
+        assert!(line_is_func_like(r#""type-strip-only": true"#));
+        assert!(line_is_func_like(r#""coverage-report": "lcov""#));
+        assert!(line_is_func_like(r#""branches": 80"#));
     }
 
     #[test]

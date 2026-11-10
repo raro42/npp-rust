@@ -1170,3 +1170,5 @@
 009 keep: Function List Cucumber.js .cucumberrc.json requireModule/formatOptions/retryTagFilter/publishQuiet/worldParameters/dryRun/paths/order/tags/loader/publish/parallel/strict (v0.3.751)
 
 009 keep: Function List Istanbul nyc .nycrc.json check-coverage/report-dir/temp-dir/watermarks/skip-full/show-process-tree/exclude-after-remap/branches/functions/lines/statements (v0.3.752)
+009 keep: Function List c8 .c8rc.json src/allowExternal/temp-directory/reports-dir/wrapper (v0.3.753)
+009 keep: Function List node-tap package.json "tap" / .taprc coverage-map/allow-empty-coverage/omit-version/fail-todo/reporter-file/serial[] (v0.3.754)
