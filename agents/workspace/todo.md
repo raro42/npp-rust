@@ -1188,3 +1188,7 @@
 009 keep: Function List release-please-config.json packages/bootstrap-sha/release-type/bump-minor-pre-major/include-v-in-tag/changelog-path (v0.3.760)
 
 009 keep: Function List standard-version .versionrc.json bumpFiles/packageFiles/infile/preMajor/skip/gitTagFallback/tagPrefix/releaseCommitMessageFormat (v0.3.761)
+
+009 keep: Function List API Extractor api-extractor.json mainEntryPointFilePath/bundledPackages/newlineKind/enumMemberOrder/apiReport/docModel/dtsRollup/tsdocMetadata (v0.3.763)
+
+009 keep: Function List TypeDoc typedoc.json entryPoints/entryPointStrategy/excludePrivate/excludeNotDocumented/disableSources/categorizeByGroup/visibilityFilters/kindSortOrder/hostedBaseUrl (v0.3.764)

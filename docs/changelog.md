@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.764] — 2026-11-10
+
+View:
+
+- **Function List** lists TypeDoc `typedoc.json` / `typedoc.jsonc` JSON keys: `"entryPoints": [`, `"entryPointStrategy": "resolve"` / `"expand"` / `"packages"`, `"excludePrivate": true`, `"excludeProtected": true`, `"excludeInternal": true`, `"excludeExternals": true`, `"excludeNotDocumented": true`, `"disableSources": true`, `"includeVersion": true`, `"categorizeByGroup": true`, `"searchInComments": true`, `"searchInDocuments": true`, `"cleanOutputDir": true`, `"hideGenerator": true`, `"treatWarningsAsErrors": true`, `"treatValidationWarningsAsErrors": true`, `"useHostedBaseUrlForAbsoluteLinks": true`, `"useTsLinkResolution": true`, `"skipErrorChecking": true`, `"preserveLinkText": true`, `"githubPages": true`, `"sourceLinkTemplate": "…"`, `"gitRevision": "…"`, `"gitRemote": "…"`, `"defaultCategory": "…"`, `"titleLink": "…"`, `"hostedBaseUrl": "https://…"`, `"categoryOrder": [`, `"kindSortOrder": [`, `"navigationLeaves": [`, `"highlightLanguages": [`, `"intentionallyNotExported": [`, `"requiredToBeDocumented": [`, `"projectDocuments": [`, `"visibilityFilters": {`, `"validation": {`, `"navigationLinks": {`, `"sidebarLinks": {`, `"jsDocCompatibility": {`, `"outputs": [`. Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing `:` stay out. Generic `"$schema"` / `"extends"` / `"name"` / `"out"` / `"json"` / `"readme"` / `"theme"` / `"plugin"` / `"tsconfig"` / `"compilerOptions"` / `"pretty"` / `"watch"` / api-extractor `"mainEntryPointFilePath"` / `"apiReport"` / syncpack `"semverGroups"` / versionrc `"bumpFiles"` / release-please `"packages": {` / rush `"rushVersion"` / prettier `"printWidth"` / package.json `"bin"` / karma `"basePath"` stay out.
+
 ## [0.3.763] — 2026-11-10
 
 View:

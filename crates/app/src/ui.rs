@@ -32431,6 +32431,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_versionrc_json_decl(s)
             || is_syncpack_json_decl(s)
             || is_api_extractor_json_decl(s)
+            || is_typedoc_json_decl(s)
             || is_gomod_decl(s)
             || is_gemfile_decl(s)
             || is_brewfile_decl(s)
@@ -32772,6 +32773,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_versionrc_json_decl(s)
         || is_syncpack_json_decl(s)
         || is_api_extractor_json_decl(s)
+        || is_typedoc_json_decl(s)
         || is_gomod_decl(s)
         || is_gemfile_decl(s)
         || is_brewfile_decl(s)
@@ -54688,6 +54690,260 @@ fn api_extractor_json_url_ok(value: &str) -> bool {
         return false;
     }
     value.bytes().all(|b| b.is_ascii() && !b.is_ascii_control())
+}
+
+/// TypeDoc `typedoc.json` / `typedoc.jsonc` JSON keys:
+/// `"entryPoints": [`, `"entryPointStrategy": "resolve"` / `"expand"` /
+/// `"packages"`, `"excludePrivate": true`, `"excludeProtected": true`,
+/// `"excludeInternal": true`, `"excludeExternals": true`,
+/// `"excludeNotDocumented": true`, `"disableSources": true`,
+/// `"includeVersion": true`, `"categorizeByGroup": true`,
+/// `"searchInComments": true`, `"searchInDocuments": true`,
+/// `"cleanOutputDir": true`, `"hideGenerator": true`,
+/// `"treatWarningsAsErrors": true`,
+/// `"treatValidationWarningsAsErrors": true`,
+/// `"useHostedBaseUrlForAbsoluteLinks": true`,
+/// `"useTsLinkResolution": true`, `"skipErrorChecking": true`,
+/// `"preserveLinkText": true`, `"githubPages": true`,
+/// `"sourceLinkTemplate": "…"`, `"gitRevision": "…"`, `"gitRemote": "…"`,
+/// `"defaultCategory": "…"`, `"titleLink": "…"`,
+/// `"hostedBaseUrl": "https://…"`, `"categoryOrder": [`,
+/// `"kindSortOrder": [`, `"navigationLeaves": [`,
+/// `"highlightLanguages": [`, `"intentionallyNotExported": [`,
+/// `"requiredToBeDocumented": [`, `"projectDocuments": [`,
+/// `"visibilityFilters": {`, `"validation": {`,
+/// `"navigationLinks": {`, `"sidebarLinks": {`,
+/// `"jsDocCompatibility": {`, `"outputs": [`.
+/// Optional trailing `,` and `//` / `/*` comment. Incomplete quotes /
+/// missing `:` stay out. Generic `"$schema"` / `"extends"` / `"name"` /
+/// `"out"` / `"json"` / `"readme"` / `"theme"` / `"plugin"` / `"tsconfig"` /
+/// `"compilerOptions"` / `"pretty"` / `"watch"` / api-extractor
+/// `"mainEntryPointFilePath"` / `"apiReport"` / syncpack `"semverGroups"` /
+/// versionrc `"bumpFiles"` / release-please `"packages": {` / rush
+/// `"rushVersion"` / prettier `"printWidth"` / package.json `"bin"` /
+/// karma `"basePath"` stay out.
+fn is_typedoc_json_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    let Some(rest) = s.strip_prefix('"') else {
+        return false;
+    };
+    let Some(end) = rest.find('"') else {
+        return false;
+    };
+    let key = &rest[..end];
+    if !typedoc_json_key_ok(key) {
+        return false;
+    }
+    let after_key = rest[end + 1..].trim_start();
+    let Some(after_colon) = after_key.strip_prefix(':') else {
+        return false;
+    };
+    let after_colon = after_colon.trim_start();
+    typedoc_json_value_and_tail_ok(key, after_colon)
+}
+
+fn typedoc_json_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "entryPoints"
+            | "entryPointStrategy"
+            | "excludePrivate"
+            | "excludeProtected"
+            | "excludeInternal"
+            | "excludeExternals"
+            | "excludeNotDocumented"
+            | "disableSources"
+            | "includeVersion"
+            | "categorizeByGroup"
+            | "searchInComments"
+            | "searchInDocuments"
+            | "cleanOutputDir"
+            | "hideGenerator"
+            | "treatWarningsAsErrors"
+            | "treatValidationWarningsAsErrors"
+            | "useHostedBaseUrlForAbsoluteLinks"
+            | "useTsLinkResolution"
+            | "skipErrorChecking"
+            | "preserveLinkText"
+            | "githubPages"
+            | "sourceLinkTemplate"
+            | "gitRevision"
+            | "gitRemote"
+            | "defaultCategory"
+            | "titleLink"
+            | "hostedBaseUrl"
+            | "categoryOrder"
+            | "kindSortOrder"
+            | "navigationLeaves"
+            | "highlightLanguages"
+            | "intentionallyNotExported"
+            | "requiredToBeDocumented"
+            | "projectDocuments"
+            | "visibilityFilters"
+            | "validation"
+            | "navigationLinks"
+            | "sidebarLinks"
+            | "jsDocCompatibility"
+            | "outputs"
+    )
+}
+
+fn typedoc_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool {
+    let bytes = after_colon.as_bytes();
+    let Some(first) = bytes.first().copied() else {
+        return false;
+    };
+    match first {
+        b'{' => {
+            if !typedoc_json_object_key_ok(key) {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[1..])
+        }
+        b'[' => {
+            if !typedoc_json_array_key_ok(key) {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[1..])
+        }
+        b'"' => {
+            if !typedoc_json_string_key_ok(key) {
+                return false;
+            }
+            let rest = &after_colon[1..];
+            let Some(end) = rest.find('"') else {
+                return false;
+            };
+            let value = &rest[..end];
+            if !typedoc_json_string_ok(key, value) {
+                return false;
+            }
+            package_json_tail_ok(&rest[end + 1..])
+        }
+        b't' | b'f' => {
+            let rest = if let Some(rest) = after_colon.strip_prefix("true") {
+                rest
+            } else if let Some(rest) = after_colon.strip_prefix("false") {
+                rest
+            } else {
+                return false;
+            };
+            if !typedoc_json_bool_key_ok(key) {
+                return false;
+            }
+            package_json_tail_ok(rest)
+        }
+        _ => false,
+    }
+}
+
+fn typedoc_json_object_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "visibilityFilters"
+            | "validation"
+            | "navigationLinks"
+            | "sidebarLinks"
+            | "jsDocCompatibility"
+    )
+}
+
+fn typedoc_json_array_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "entryPoints"
+            | "categoryOrder"
+            | "kindSortOrder"
+            | "navigationLeaves"
+            | "highlightLanguages"
+            | "intentionallyNotExported"
+            | "requiredToBeDocumented"
+            | "projectDocuments"
+            | "outputs"
+    )
+}
+
+fn typedoc_json_string_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "entryPointStrategy"
+            | "sourceLinkTemplate"
+            | "gitRevision"
+            | "gitRemote"
+            | "defaultCategory"
+            | "titleLink"
+            | "hostedBaseUrl"
+    )
+}
+
+fn typedoc_json_bool_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "excludePrivate"
+            | "excludeProtected"
+            | "excludeInternal"
+            | "excludeExternals"
+            | "excludeNotDocumented"
+            | "disableSources"
+            | "includeVersion"
+            | "categorizeByGroup"
+            | "searchInComments"
+            | "searchInDocuments"
+            | "cleanOutputDir"
+            | "hideGenerator"
+            | "treatWarningsAsErrors"
+            | "treatValidationWarningsAsErrors"
+            | "useHostedBaseUrlForAbsoluteLinks"
+            | "useTsLinkResolution"
+            | "skipErrorChecking"
+            | "preserveLinkText"
+            | "githubPages"
+    )
+}
+
+fn typedoc_json_string_ok(key: &str, value: &str) -> bool {
+    if value.contains('\n') {
+        return false;
+    }
+    match key {
+        "entryPointStrategy" => matches!(value, "resolve" | "expand" | "packages"),
+        "sourceLinkTemplate" | "gitRevision" | "gitRemote" | "defaultCategory" | "titleLink" => {
+            typedoc_json_text_ok(value)
+        }
+        "hostedBaseUrl" => api_extractor_json_url_ok(value),
+        _ => false,
+    }
+}
+
+fn typedoc_json_text_ok(value: &str) -> bool {
+    if value.is_empty() || value.len() > 512 {
+        return false;
+    }
+    if value.chars().all(|c| c.is_ascii_whitespace()) {
+        return false;
+    }
+    value.bytes().all(|b| {
+        b.is_ascii_alphanumeric()
+            || matches!(
+                b,
+                b'.' | b'-'
+                    | b'_'
+                    | b'/'
+                    | b'\\'
+                    | b':'
+                    | b'?'
+                    | b'='
+                    | b'&'
+                    | b'%'
+                    | b'#'
+                    | b'{'
+                    | b'}'
+                    | b'@'
+                    | b'+'
+                    | b' '
+                    | b'~'
+            )
+    })
 }
 
 /// go.mod / go.work directives: `module example.com/foo`, `go 1.22`,
@@ -85356,14 +85612,14 @@ mod func_like_line_tests {
         is_tap_json_decl, is_taplo_toml_decl, is_tauri_json_decl, is_telegraf_toml_decl,
         is_testcafe_json_decl, is_tmpfiles_d_decl, is_towncrier_ini_decl, is_tox_ini_decl,
         is_trunk_toml_decl, is_tsconfig_json_decl, is_turbo_json_decl, is_ty_toml_decl,
-        is_typos_toml_decl, is_udev_rule_decl, is_unbound_nsd_conf_decl, is_uniffi_toml_decl,
-        is_unimport_ini_decl, is_uv_toml_decl, is_vconsole_conf_decl, is_vector_toml_decl,
-        is_vercel_json_decl, is_versioneer_ini_decl, is_versionrc_json_decl, is_vitest_json_decl,
-        is_vscode_launch_json_decl, is_vscode_tasks_json_decl, is_vulture_ini_decl,
-        is_wails_json_decl, is_wdio_json_decl, is_webextension_manifest_json_decl,
-        is_wireguard_config_decl, is_wrangler_toml_decl, is_xmake_decl, is_xorg_conf_decl,
-        is_yapf_ini_decl, is_yarnrc_yml_decl, is_yum_repo_decl, is_zest_releaser_ini_decl,
-        line_is_func_like,
+        is_typedoc_json_decl, is_typos_toml_decl, is_udev_rule_decl, is_unbound_nsd_conf_decl,
+        is_uniffi_toml_decl, is_unimport_ini_decl, is_uv_toml_decl, is_vconsole_conf_decl,
+        is_vector_toml_decl, is_vercel_json_decl, is_versioneer_ini_decl, is_versionrc_json_decl,
+        is_vitest_json_decl, is_vscode_launch_json_decl, is_vscode_tasks_json_decl,
+        is_vulture_ini_decl, is_wails_json_decl, is_wdio_json_decl,
+        is_webextension_manifest_json_decl, is_wireguard_config_decl, is_wrangler_toml_decl,
+        is_xmake_decl, is_xorg_conf_decl, is_yapf_ini_decl, is_yarnrc_yml_decl, is_yum_repo_decl,
+        is_zest_releaser_ini_decl, line_is_func_like,
     };
 
     #[test]
@@ -108793,6 +109049,211 @@ mod func_like_line_tests {
             r#""projectFolderUrl": "https://github.com/org/repo""#
         ));
         assert!(line_is_func_like(r#""compilerMessageReporting": {"#));
+    }
+
+    #[test]
+    fn typedoc_json_keys_smoke() {
+        assert!(is_typedoc_json_decl(r#""entryPoints": ["#));
+        assert!(is_typedoc_json_decl(r#""entryPointStrategy": "resolve""#));
+        assert!(is_typedoc_json_decl(r#""entryPointStrategy": "expand""#));
+        assert!(is_typedoc_json_decl(r#""entryPointStrategy": "packages""#));
+        assert!(is_typedoc_json_decl(r#""excludePrivate": true"#));
+        assert!(is_typedoc_json_decl(r#""excludeProtected": true"#));
+        assert!(is_typedoc_json_decl(r#""excludeInternal": true"#));
+        assert!(is_typedoc_json_decl(r#""excludeExternals": true"#));
+        assert!(is_typedoc_json_decl(r#""excludeNotDocumented": true"#));
+        assert!(is_typedoc_json_decl(r#""disableSources": true"#));
+        assert!(is_typedoc_json_decl(r#""includeVersion": true"#));
+        assert!(is_typedoc_json_decl(r#""categorizeByGroup": true"#));
+        assert!(is_typedoc_json_decl(r#""searchInComments": true"#));
+        assert!(is_typedoc_json_decl(r#""searchInDocuments": true"#));
+        assert!(is_typedoc_json_decl(r#""cleanOutputDir": true"#));
+        assert!(is_typedoc_json_decl(r#""hideGenerator": true"#));
+        assert!(is_typedoc_json_decl(r#""treatWarningsAsErrors": true"#));
+        assert!(is_typedoc_json_decl(
+            r#""treatValidationWarningsAsErrors": true"#
+        ));
+        assert!(is_typedoc_json_decl(
+            r#""useHostedBaseUrlForAbsoluteLinks": true"#
+        ));
+        assert!(is_typedoc_json_decl(r#""useTsLinkResolution": true"#));
+        assert!(is_typedoc_json_decl(r#""skipErrorChecking": true"#));
+        assert!(is_typedoc_json_decl(r#""preserveLinkText": true"#));
+        assert!(is_typedoc_json_decl(r#""githubPages": true"#));
+        assert!(is_typedoc_json_decl(
+            r#""sourceLinkTemplate": "https://github.com/org/repo/blob/{gitRevision}/{path}#L{line}""#
+        ));
+        assert!(is_typedoc_json_decl(r#""gitRevision": "main""#));
+        assert!(is_typedoc_json_decl(r#""gitRemote": "origin""#));
+        assert!(is_typedoc_json_decl(r#""defaultCategory": "Other""#));
+        assert!(is_typedoc_json_decl(
+            r#""titleLink": "https://example.com""#
+        ));
+        assert!(is_typedoc_json_decl(
+            r#""hostedBaseUrl": "https://example.com/docs/""#
+        ));
+        assert!(is_typedoc_json_decl(r#""categoryOrder": ["#));
+        assert!(is_typedoc_json_decl(r#""kindSortOrder": ["#));
+        assert!(is_typedoc_json_decl(r#""navigationLeaves": ["#));
+        assert!(is_typedoc_json_decl(r#""highlightLanguages": ["#));
+        assert!(is_typedoc_json_decl(r#""intentionallyNotExported": ["#));
+        assert!(is_typedoc_json_decl(r#""requiredToBeDocumented": ["#));
+        assert!(is_typedoc_json_decl(r#""projectDocuments": ["#));
+        assert!(is_typedoc_json_decl(r#""visibilityFilters": {"#));
+        assert!(is_typedoc_json_decl(r#""validation": {"#));
+        assert!(is_typedoc_json_decl(r#""navigationLinks": {"#));
+        assert!(is_typedoc_json_decl(r#""sidebarLinks": {"#));
+        assert!(is_typedoc_json_decl(r#""jsDocCompatibility": {"#));
+        assert!(is_typedoc_json_decl(r#""outputs": ["#));
+        // Distinctive neighbours stay out of this scanner.
+        assert!(!is_api_extractor_json_decl(r#""entryPoints": ["#));
+        assert!(!is_syncpack_json_decl(r#""entryPoints": ["#));
+        assert!(!is_rush_json_decl(r#""entryPoints": ["#));
+        assert!(!is_package_json_decl(r#""entryPoints": ["#));
+        assert!(!is_tsconfig_json_decl(r#""excludePrivate": true"#));
+    }
+
+    #[test]
+    fn typedoc_json_keys_count() {
+        assert!(is_typedoc_json_decl(r#""entryPoints": ["#));
+        assert!(is_typedoc_json_decl(r#""entryPoints": [,"#));
+        assert!(is_typedoc_json_decl(r#""entryPoints": [ // src"#));
+        assert!(!is_typedoc_json_decl(r#""entryPoints": {"#));
+        assert!(!is_typedoc_json_decl(r#""entryPoints": "src/index.ts""#));
+        assert!(!is_typedoc_json_decl(r#""entryPoints": true"#));
+        assert!(is_typedoc_json_decl(r#""entryPointStrategy": "resolve""#));
+        assert!(is_typedoc_json_decl(r#""entryPointStrategy": "expand","#));
+        assert!(is_typedoc_json_decl(r#""entryPointStrategy": "packages""#));
+        assert!(!is_typedoc_json_decl(r#""entryPointStrategy": "Resolve""#));
+        assert!(!is_typedoc_json_decl(r#""entryPointStrategy": true"#));
+        assert!(!is_typedoc_json_decl(r#""entryPointStrategy": ["#));
+        assert!(is_typedoc_json_decl(r#""excludePrivate": true"#));
+        assert!(is_typedoc_json_decl(r#""excludePrivate": false,"#));
+        assert!(!is_typedoc_json_decl(r#""excludePrivate": "true""#));
+        assert!(!is_typedoc_json_decl(r#""excludePrivate": 1"#));
+        assert!(is_typedoc_json_decl(r#""excludeProtected": true"#));
+        assert!(is_typedoc_json_decl(r#""excludeInternal": true"#));
+        assert!(is_typedoc_json_decl(r#""excludeExternals": true"#));
+        assert!(is_typedoc_json_decl(r#""excludeNotDocumented": true"#));
+        assert!(is_typedoc_json_decl(r#""disableSources": false"#));
+        assert!(is_typedoc_json_decl(r#""includeVersion": true"#));
+        assert!(is_typedoc_json_decl(r#""categorizeByGroup": true"#));
+        assert!(is_typedoc_json_decl(r#""searchInComments": true"#));
+        assert!(is_typedoc_json_decl(r#""searchInDocuments": true"#));
+        assert!(is_typedoc_json_decl(r#""cleanOutputDir": true"#));
+        assert!(is_typedoc_json_decl(r#""hideGenerator": true"#));
+        assert!(is_typedoc_json_decl(r#""treatWarningsAsErrors": true"#));
+        assert!(is_typedoc_json_decl(
+            r#""treatValidationWarningsAsErrors": false,"#
+        ));
+        assert!(is_typedoc_json_decl(
+            r#""useHostedBaseUrlForAbsoluteLinks": true"#
+        ));
+        assert!(is_typedoc_json_decl(r#""useTsLinkResolution": true"#));
+        assert!(is_typedoc_json_decl(r#""skipErrorChecking": true"#));
+        assert!(is_typedoc_json_decl(r#""preserveLinkText": true"#));
+        assert!(is_typedoc_json_decl(r#""githubPages": true"#));
+        assert!(!is_typedoc_json_decl(r#""githubPages": "true""#));
+        assert!(is_typedoc_json_decl(
+            r#""sourceLinkTemplate": "https://github.com/org/repo/blob/{gitRevision}/{path}#L{line}""#
+        ));
+        assert!(!is_typedoc_json_decl(r#""sourceLinkTemplate": true"#));
+        assert!(!is_typedoc_json_decl(r#""sourceLinkTemplate": ["#));
+        assert!(!is_typedoc_json_decl(r#""sourceLinkTemplate": """#));
+        assert!(is_typedoc_json_decl(r#""gitRevision": "main""#));
+        assert!(is_typedoc_json_decl(r#""gitRemote": "origin""#));
+        assert!(!is_typedoc_json_decl(r#""gitRemote": true"#));
+        assert!(is_typedoc_json_decl(r#""defaultCategory": "Other""#));
+        assert!(is_typedoc_json_decl(
+            r#""titleLink": "https://example.com""#
+        ));
+        assert!(is_typedoc_json_decl(
+            r#""hostedBaseUrl": "https://example.com/docs/""#
+        ));
+        assert!(is_typedoc_json_decl(
+            r#""hostedBaseUrl": "http://example.com/docs/""#
+        ));
+        assert!(!is_typedoc_json_decl(
+            r#""hostedBaseUrl": "ftp://example.com/docs/""#
+        ));
+        assert!(!is_typedoc_json_decl(r#""hostedBaseUrl": ["#));
+        assert!(is_typedoc_json_decl(r#""categoryOrder": ["#));
+        assert!(!is_typedoc_json_decl(r#""categoryOrder": {"#));
+        assert!(is_typedoc_json_decl(r#""kindSortOrder": ["#));
+        assert!(is_typedoc_json_decl(r#""navigationLeaves": ["#));
+        assert!(is_typedoc_json_decl(r#""highlightLanguages": ["#));
+        assert!(is_typedoc_json_decl(r#""intentionallyNotExported": ["#));
+        assert!(is_typedoc_json_decl(r#""requiredToBeDocumented": ["#));
+        assert!(is_typedoc_json_decl(r#""projectDocuments": ["#));
+        assert!(is_typedoc_json_decl(r#""visibilityFilters": {"#));
+        assert!(is_typedoc_json_decl(r#""visibilityFilters": {,"#));
+        assert!(is_typedoc_json_decl(r#""visibilityFilters": { // filters"#));
+        assert!(!is_typedoc_json_decl(r#""visibilityFilters": ["#));
+        assert!(!is_typedoc_json_decl(r#""visibilityFilters": true"#));
+        assert!(is_typedoc_json_decl(r#""validation": {"#));
+        assert!(!is_typedoc_json_decl(r#""validation": ["#));
+        assert!(is_typedoc_json_decl(r#""navigationLinks": {"#));
+        assert!(is_typedoc_json_decl(r#""sidebarLinks": {"#));
+        assert!(is_typedoc_json_decl(r#""jsDocCompatibility": {"#));
+        assert!(is_typedoc_json_decl(r#""outputs": ["#));
+        assert!(!is_typedoc_json_decl(r#""outputs": {"#));
+        // Incomplete / wrong shapes stay out.
+        assert!(!is_typedoc_json_decl(r#""entryPoints""#));
+        assert!(!is_typedoc_json_decl(r#""entryPoints":"#));
+        assert!(!is_typedoc_json_decl(r#""excludePrivate""#));
+        assert!(!is_typedoc_json_decl(r#""visibilityFilters""#));
+        // Generic / neighbouring stay out.
+        assert!(!is_typedoc_json_decl(
+            r#""$schema": "https://typedoc.org/schema.json""#
+        ));
+        assert!(!is_typedoc_json_decl(r#""extends": "./typedoc.base.json""#));
+        assert!(!is_typedoc_json_decl(r#""name": "My Project""#));
+        assert!(!is_typedoc_json_decl(r#""out": "docs""#));
+        assert!(!is_typedoc_json_decl(r#""json": "docs.json""#));
+        assert!(!is_typedoc_json_decl(r#""readme": "README.md""#));
+        assert!(!is_typedoc_json_decl(r#""theme": "default""#));
+        assert!(!is_typedoc_json_decl(r#""plugin": ["#));
+        assert!(!is_typedoc_json_decl(r#""tsconfig": "tsconfig.json""#));
+        assert!(!is_typedoc_json_decl(r#""compilerOptions": {"#));
+        assert!(is_tsconfig_json_decl(r#""compilerOptions": {"#));
+        assert!(!is_typedoc_json_decl(r#""pretty": true"#));
+        assert!(!is_typedoc_json_decl(r#""watch": true"#));
+        assert!(!is_typedoc_json_decl(r#""basePath": ".""#));
+        assert!(is_karma_json_decl(r#""basePath": ".""#));
+        assert!(!is_typedoc_json_decl(
+            r#""mainEntryPointFilePath": "<projectFolder>/lib/index.d.ts""#
+        ));
+        assert!(is_api_extractor_json_decl(
+            r#""mainEntryPointFilePath": "<projectFolder>/lib/index.d.ts""#
+        ));
+        assert!(!is_typedoc_json_decl(r#""apiReport": {"#));
+        assert!(is_api_extractor_json_decl(r#""apiReport": {"#));
+        assert!(!is_typedoc_json_decl(r#""semverGroups": ["#));
+        assert!(is_syncpack_json_decl(r#""semverGroups": ["#));
+        assert!(!is_typedoc_json_decl(r#""bumpFiles": ["#));
+        assert!(is_versionrc_json_decl(r#""bumpFiles": ["#));
+        assert!(!is_typedoc_json_decl(r#""packages": {"#));
+        assert!(is_release_please_json_decl(r#""packages": {"#));
+        assert!(!is_typedoc_json_decl(r#""rushVersion": "5.147.1""#));
+        assert!(is_rush_json_decl(r#""rushVersion": "5.147.1""#));
+        assert!(!is_typedoc_json_decl(r#""printWidth": 80"#));
+        assert!(is_prettier_json_decl(r#""printWidth": 80"#));
+        assert!(!is_typedoc_json_decl(r#""bin": {"#));
+        assert!(is_package_json_decl(r#""bin": {"#));
+        // line_is_func_like wires the scanner.
+        assert!(line_is_func_like(r#""entryPoints": ["#));
+        assert!(line_is_func_like(r#""entryPointStrategy": "resolve""#));
+        assert!(line_is_func_like(r#""excludePrivate": true"#));
+        assert!(line_is_func_like(r#""excludeNotDocumented": true"#));
+        assert!(line_is_func_like(r#""disableSources": true"#));
+        assert!(line_is_func_like(r#""categorizeByGroup": true"#));
+        assert!(line_is_func_like(r#""visibilityFilters": {"#));
+        assert!(line_is_func_like(r#""validation": {"#));
+        assert!(line_is_func_like(r#""kindSortOrder": ["#));
+        assert!(line_is_func_like(
+            r#""hostedBaseUrl": "https://example.com/docs/""#
+        ));
+        assert!(line_is_func_like(r#""treatWarningsAsErrors": true"#));
     }
 
     #[test]
