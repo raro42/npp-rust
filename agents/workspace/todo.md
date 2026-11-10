@@ -1168,3 +1168,5 @@
 009 keep: Function List StrykerJS stryker.conf.json mutate/testRunner/coverageAnalysis/timeoutMS/timeoutFactor/dryRunTimeoutMinutes/maxConcurrentTestRunners/disableTypeChecks/ignoreStatic/appendPlugins/htmlReporter/commandRunner (v0.3.750)
 
 009 keep: Function List Cucumber.js .cucumberrc.json requireModule/formatOptions/retryTagFilter/publishQuiet/worldParameters/dryRun/paths/order/tags/loader/publish/parallel/strict (v0.3.751)
+
+009 keep: Function List Istanbul nyc .nycrc.json check-coverage/report-dir/temp-dir/watermarks/skip-full/show-process-tree/exclude-after-remap/branches/functions/lines/statements (v0.3.752)

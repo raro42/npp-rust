@@ -32419,6 +32419,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_detox_json_decl(s)
             || is_stryker_json_decl(s)
             || is_cucumber_json_decl(s)
+            || is_nyc_json_decl(s)
             || is_gomod_decl(s)
             || is_gemfile_decl(s)
             || is_brewfile_decl(s)
@@ -32748,6 +32749,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_detox_json_decl(s)
         || is_stryker_json_decl(s)
         || is_cucumber_json_decl(s)
+        || is_nyc_json_decl(s)
         || is_gomod_decl(s)
         || is_gemfile_decl(s)
         || is_brewfile_decl(s)
@@ -52207,6 +52209,255 @@ fn cucumber_json_string_ok(key: &str, value: &str) -> bool {
         "order" => matches!(value, "defined" | "random"),
         "requireModule" | "retryTagFilter" | "paths" | "format" | "tags" | "loader" | "import"
         | "require" | "language" => true,
+        _ => false,
+    }
+}
+
+/// Istanbul nyc `.nycrc` / `.nycrc.json` / `nyc.config` JSON keys:
+/// `"check-coverage": true`, `"report-dir": "…"`, `"temp-dir": "…"`,
+/// `"watermarks": {`, `"skip-full": true`, `"skip-empty": true`,
+/// `"show-process-tree": true`, `"exclude-after-remap": true`,
+/// `"instrumenter": "…"`, `"complete-copy": true`,
+/// `"produce-source-map": true`, `"hook-run-in-context": true`,
+/// `"hook-run-in-this-context": true`, `"hook-require": true`,
+/// `"branches": 80`, `"functions": 80`, `"lines": 80`, `"statements": 80`,
+/// `"babel-cache": true`, `"use-spawn-wrap": true`,
+/// `"excludeNodeModules": true`, `"exit-on-error": true`,
+/// `"omit-relative": true`, `"per-file": true`, `"eager": true`,
+/// `"cache-dir": "…"`, `"source-map": true`, `"instrument": true`,
+/// `"all": true`, `"include": [` / `"…"`, `"exclude": [` / `"…"`,
+/// `"reporter": [` / `"…"`, `"require": [` / `"…"`,
+/// `"extension": [` / `"…"`, `"cache": true`, `"clean": true`,
+/// `"cwd": "…"`. Optional trailing `,` and `//` / `/*` comment.
+/// Incomplete quotes / missing `:` stay out. Generic `"$schema"` /
+/// `"name"` / `"version"` / Cucumber `"requireModule"` /
+/// `"formatOptions"` / `"retryTagFilter"` / `"publishQuiet"` /
+/// `"worldParameters"` / `"dryRun"` / `"order": "defined"` /
+/// Stryker `"mutate"` / `"testRunner": "jest"` / `"coverageAnalysis"` /
+/// `"timeoutMS"` / Detox `"apps"` / `"devices"` /
+/// `"selectedConfiguration"` / Codecept `"helpers": {` /
+/// `"stepTimeout"` / WDIO `"waitforTimeout"` / TestCafe
+/// `"selectorTimeout"` / Karma `"frameworks"` / Nightwatch
+/// `"src_folders"` / Jasmine `"spec_dir"` / AVA `"failFast"` /
+/// Mocha `"allowUncaught"` / Jest `"testEnvironment"` /
+/// Playwright `"testDir"` / Vitest `"pool"` / Cypress `"e2e"` /
+/// CSpell `"words"` / Oxlint `"categories"` / Knip `"entry"` /
+/// Deno `"nodeModulesDir"` / Renovate `"packageRules"` / launch
+/// `"configurations"` / tasks `"tasks": [` / Dev Container `"image"` /
+/// turbo `"pipeline"` / nx `"namedInputs"` / prettier `"printWidth"` /
+/// biome `"linter"` / eslint `"parser"` / package.json `"scripts"` /
+/// tsconfig `"compilerOptions"` stay out. Shared `"include"` /
+/// `"exclude"` / `"reporter"` / `"require"` / `"all"` / `"cache"` /
+/// `"cwd"` also match neighbouring scanners when shapes overlap.
+fn is_nyc_json_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    let Some(rest) = s.strip_prefix('"') else {
+        return false;
+    };
+    let Some(end) = rest.find('"') else {
+        return false;
+    };
+    let key = &rest[..end];
+    if !nyc_json_key_ok(key) {
+        return false;
+    }
+    let after_key = rest[end + 1..].trim_start();
+    let Some(after_colon) = after_key.strip_prefix(':') else {
+        return false;
+    };
+    let after_colon = after_colon.trim_start();
+    nyc_json_value_and_tail_ok(key, after_colon)
+}
+
+fn nyc_json_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "check-coverage"
+            | "report-dir"
+            | "temp-dir"
+            | "watermarks"
+            | "skip-full"
+            | "skip-empty"
+            | "show-process-tree"
+            | "exclude-after-remap"
+            | "instrumenter"
+            | "complete-copy"
+            | "produce-source-map"
+            | "hook-run-in-context"
+            | "hook-run-in-this-context"
+            | "hook-require"
+            | "branches"
+            | "functions"
+            | "lines"
+            | "statements"
+            | "babel-cache"
+            | "use-spawn-wrap"
+            | "excludeNodeModules"
+            | "exit-on-error"
+            | "omit-relative"
+            | "per-file"
+            | "eager"
+            | "cache-dir"
+            | "source-map"
+            | "instrument"
+            | "all"
+            | "include"
+            | "exclude"
+            | "reporter"
+            | "require"
+            | "extension"
+            | "cache"
+            | "clean"
+            | "cwd"
+    )
+}
+
+fn nyc_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool {
+    let bytes = after_colon.as_bytes();
+    let Some(first) = bytes.first().copied() else {
+        return false;
+    };
+    match first {
+        b'{' => {
+            if !nyc_json_object_key_ok(key) {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[1..])
+        }
+        b'[' => {
+            if !nyc_json_array_key_ok(key) {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[1..])
+        }
+        b'"' => {
+            if !nyc_json_string_key_ok(key) {
+                return false;
+            }
+            let rest = &after_colon[1..];
+            let Some(end) = rest.find('"') else {
+                return false;
+            };
+            let value = &rest[..end];
+            if !nyc_json_string_ok(key, value) {
+                return false;
+            }
+            package_json_tail_ok(&rest[end + 1..])
+        }
+        b't' | b'f' => {
+            let rest = if let Some(rest) = after_colon.strip_prefix("true") {
+                rest
+            } else if let Some(rest) = after_colon.strip_prefix("false") {
+                rest
+            } else {
+                return false;
+            };
+            if !nyc_json_bool_key_ok(key) {
+                return false;
+            }
+            package_json_tail_ok(rest)
+        }
+        b'0'..=b'9' => {
+            if !nyc_json_number_key_ok(key) {
+                return false;
+            }
+            let digits = after_colon
+                .bytes()
+                .take_while(|b| b.is_ascii_digit())
+                .count();
+            if digits == 0 || digits > 3 {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[digits..])
+        }
+        _ => false,
+    }
+}
+
+fn nyc_json_object_key_ok(key: &str) -> bool {
+    matches!(key, "watermarks")
+}
+
+fn nyc_json_array_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "include" | "exclude" | "reporter" | "require" | "extension"
+    )
+}
+
+fn nyc_json_string_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "report-dir"
+            | "temp-dir"
+            | "instrumenter"
+            | "cache-dir"
+            | "cwd"
+            | "include"
+            | "exclude"
+            | "reporter"
+            | "require"
+            | "extension"
+    )
+}
+
+fn nyc_json_bool_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "check-coverage"
+            | "skip-full"
+            | "skip-empty"
+            | "show-process-tree"
+            | "exclude-after-remap"
+            | "complete-copy"
+            | "produce-source-map"
+            | "hook-run-in-context"
+            | "hook-run-in-this-context"
+            | "hook-require"
+            | "babel-cache"
+            | "use-spawn-wrap"
+            | "excludeNodeModules"
+            | "exit-on-error"
+            | "omit-relative"
+            | "per-file"
+            | "eager"
+            | "source-map"
+            | "instrument"
+            | "all"
+            | "cache"
+            | "clean"
+    )
+}
+
+fn nyc_json_number_key_ok(key: &str) -> bool {
+    matches!(key, "branches" | "functions" | "lines" | "statements")
+}
+
+fn nyc_json_string_ok(key: &str, value: &str) -> bool {
+    if value.is_empty() || value.len() > 512 || value.contains('\n') {
+        return false;
+    }
+    if value.chars().all(|c| c.is_ascii_whitespace()) {
+        return false;
+    }
+    match key {
+        "reporter" => matches!(
+            value,
+            "text"
+                | "text-summary"
+                | "text-lcov"
+                | "html"
+                | "lcov"
+                | "lcovonly"
+                | "json"
+                | "json-summary"
+                | "clover"
+                | "cobertura"
+                | "teamcity"
+                | "none"
+        ),
+        "report-dir" | "temp-dir" | "instrumenter" | "cache-dir" | "cwd" | "include"
+        | "exclude" | "require" | "extension" => true,
         _ => false,
     }
 }
@@ -82853,19 +83104,19 @@ mod func_like_line_tests {
         is_netlify_toml_decl, is_networks_file_decl, is_neutralino_json_decl, is_nextest_toml_decl,
         is_nftables_decl, is_nginx_conf_decl, is_nightwatch_json_decl, is_nixpacks_toml_decl,
         is_nm_connection_decl, is_npmrc_decl, is_nsswitch_conf_decl, is_nx_json_decl,
-        is_openvpn_decl, is_os_release_decl, is_oxlint_json_decl, is_package_json_decl,
-        is_pacman_conf_decl, is_pam_conf_decl, is_parcel_json_decl, is_paru_conf_decl,
-        is_passwd_group_file_decl, is_pdm_toml_decl, is_php_ini_decl, is_pip_conf_decl,
-        is_pipfile_decl, is_pixi_toml_decl, is_playwright_json_decl, is_podfile_decl,
-        is_poetry_toml_decl, is_postcss_json_decl, is_premake_decl, is_prettier_json_decl,
-        is_protocols_file_decl, is_pycln_ini_decl, is_pycodestyle_ini_decl, is_pydoclint_ini_decl,
-        is_pydocstyle_ini_decl, is_pylama_ini_decl, is_pylint_ini_decl, is_pypirc_ini_decl,
-        is_pyproject_toml_decl, is_pyre_configuration_decl, is_pyright_toml_decl,
-        is_pyrightconfig_json_decl, is_pytest_ini_decl, is_pytype_ini_decl, is_pyupgrade_ini_decl,
-        is_radon_ini_decl, is_railway_toml_decl, is_rake_decl, is_refurb_toml_decl,
-        is_release_toml_decl, is_renovate_json_decl, is_resolv_conf_decl, is_rpc_file_decl,
-        is_rstcheck_ini_decl, is_rsyslog_decl, is_ruff_toml_decl, is_rush_json_decl,
-        is_rust_toolchain_toml_decl, is_rustfmt_toml_decl, is_samba_conf_decl,
+        is_nyc_json_decl, is_openvpn_decl, is_os_release_decl, is_oxlint_json_decl,
+        is_package_json_decl, is_pacman_conf_decl, is_pam_conf_decl, is_parcel_json_decl,
+        is_paru_conf_decl, is_passwd_group_file_decl, is_pdm_toml_decl, is_php_ini_decl,
+        is_pip_conf_decl, is_pipfile_decl, is_pixi_toml_decl, is_playwright_json_decl,
+        is_podfile_decl, is_poetry_toml_decl, is_postcss_json_decl, is_premake_decl,
+        is_prettier_json_decl, is_protocols_file_decl, is_pycln_ini_decl, is_pycodestyle_ini_decl,
+        is_pydoclint_ini_decl, is_pydocstyle_ini_decl, is_pylama_ini_decl, is_pylint_ini_decl,
+        is_pypirc_ini_decl, is_pyproject_toml_decl, is_pyre_configuration_decl,
+        is_pyright_toml_decl, is_pyrightconfig_json_decl, is_pytest_ini_decl, is_pytype_ini_decl,
+        is_pyupgrade_ini_decl, is_radon_ini_decl, is_railway_toml_decl, is_rake_decl,
+        is_refurb_toml_decl, is_release_toml_decl, is_renovate_json_decl, is_resolv_conf_decl,
+        is_rpc_file_decl, is_rstcheck_ini_decl, is_rsyslog_decl, is_ruff_toml_decl,
+        is_rush_json_decl, is_rust_toolchain_toml_decl, is_rustfmt_toml_decl, is_samba_conf_decl,
         is_samconfig_toml_decl, is_scons_decl, is_scriv_ini_decl, is_sddm_conf_decl,
         is_semantic_release_ini_decl, is_services_file_decl, is_setup_cfg_decl,
         is_setuptools_scm_ini_decl, is_sqlfluff_ini_decl, is_ssh_config_decl, is_sssd_conf_decl,
@@ -103773,6 +104024,247 @@ mod func_like_line_tests {
         assert!(line_is_func_like(r#""publish": true"#));
         assert!(line_is_func_like(r#""parallel": 2"#));
         assert!(line_is_func_like(r#""strict": true"#));
+    }
+
+    #[test]
+    fn nyc_json_keys_smoke() {
+        assert!(is_nyc_json_decl(r#""check-coverage": true"#));
+        assert!(is_nyc_json_decl(r#""report-dir": "./coverage""#));
+        assert!(is_nyc_json_decl(r#""temp-dir": "./.nyc_output""#));
+        assert!(is_nyc_json_decl(r#""watermarks": {"#));
+        assert!(is_nyc_json_decl(r#""skip-full": true"#));
+        assert!(is_nyc_json_decl(r#""skip-empty": false"#));
+        assert!(is_nyc_json_decl(r#""show-process-tree": true"#));
+        assert!(is_nyc_json_decl(r#""exclude-after-remap": true"#));
+        assert!(is_nyc_json_decl(
+            r#""instrumenter": "./lib/instrumenters/istanbul""#
+        ));
+        assert!(is_nyc_json_decl(r#""complete-copy": true"#));
+        assert!(is_nyc_json_decl(r#""produce-source-map": true"#));
+        assert!(is_nyc_json_decl(r#""hook-run-in-context": true"#));
+        assert!(is_nyc_json_decl(r#""hook-run-in-this-context": false"#));
+        assert!(is_nyc_json_decl(r#""hook-require": true"#));
+        assert!(is_nyc_json_decl(r#""branches": 80"#));
+        assert!(is_nyc_json_decl(r#""functions": 80"#));
+        assert!(is_nyc_json_decl(r#""lines": 80"#));
+        assert!(is_nyc_json_decl(r#""statements": 80"#));
+        assert!(is_nyc_json_decl(r#""babel-cache": true"#));
+        assert!(is_nyc_json_decl(r#""use-spawn-wrap": false"#));
+        assert!(is_nyc_json_decl(r#""excludeNodeModules": true"#));
+        assert!(is_nyc_json_decl(r#""exit-on-error": true"#));
+        assert!(is_nyc_json_decl(r#""omit-relative": true"#));
+        assert!(is_nyc_json_decl(r#""per-file": true"#));
+        assert!(is_nyc_json_decl(r#""eager": true"#));
+        assert!(is_nyc_json_decl(r#""cache-dir": "./.nyc_cache""#));
+        assert!(is_nyc_json_decl(r#""source-map": true"#));
+        assert!(is_nyc_json_decl(r#""instrument": true"#));
+        assert!(is_nyc_json_decl(r#""all": true"#));
+        assert!(is_nyc_json_decl(r#""include": ["#));
+        assert!(is_nyc_json_decl(r#""exclude": ["#));
+        assert!(is_nyc_json_decl(r#""reporter": ["#));
+        assert!(is_nyc_json_decl(r#""reporter": "lcov""#));
+        assert!(is_nyc_json_decl(r#""require": ["#));
+        assert!(is_nyc_json_decl(r#""extension": ["#));
+        assert!(is_nyc_json_decl(r#""cache": true"#));
+        assert!(is_nyc_json_decl(r#""clean": true"#));
+        assert!(is_nyc_json_decl(r#""cwd": ".""#));
+        // Distinctive nyc keys stay out of Cucumber / neighbours.
+        assert!(!is_cucumber_json_decl(r#""check-coverage": true"#));
+        assert!(!is_stryker_json_decl(r#""report-dir": "./coverage""#));
+        assert!(!is_detox_json_decl(r#""watermarks": {"#));
+        assert!(!is_jest_json_decl(r#""skip-full": true"#));
+        assert!(!is_playwright_json_decl(r#""show-process-tree": true"#));
+        assert!(!is_mocha_json_decl(r#""exclude-after-remap": true"#));
+        assert!(!is_ava_json_decl(r#""branches": 80"#));
+        assert!(!is_nyc_json_decl(r#""requireModule": ["#));
+        assert!(is_cucumber_json_decl(r#""requireModule": ["#));
+        assert!(!is_nyc_json_decl(r#""mutate": ["#));
+        assert!(is_stryker_json_decl(r#""mutate": ["#));
+        assert!(!is_nyc_json_decl(r#""failFast": true"#));
+        assert!(is_ava_json_decl(r#""failFast": true"#));
+    }
+
+    #[test]
+    fn nyc_json_keys_count() {
+        assert!(is_nyc_json_decl(r#""check-coverage": true"#));
+        assert!(is_nyc_json_decl(r#""check-coverage": false,"#));
+        assert!(!is_nyc_json_decl(r#""check-coverage": ["#));
+        assert!(is_nyc_json_decl(r#""report-dir": "./coverage""#));
+        assert!(is_nyc_json_decl(r#""report-dir": "./coverage", // out"#));
+        assert!(!is_nyc_json_decl(r#""report-dir": ["#));
+        assert!(!is_nyc_json_decl(r#""report-dir": """#));
+        assert!(is_nyc_json_decl(r#""temp-dir": "./.nyc_output""#));
+        assert!(is_nyc_json_decl(r#""watermarks": {"#));
+        assert!(!is_nyc_json_decl(r#""watermarks": ["#));
+        assert!(is_nyc_json_decl(r#""skip-full": true"#));
+        assert!(is_nyc_json_decl(r#""skip-empty": false"#));
+        assert!(is_nyc_json_decl(r#""show-process-tree": true"#));
+        assert!(is_nyc_json_decl(r#""exclude-after-remap": true"#));
+        assert!(is_nyc_json_decl(
+            r#""instrumenter": "./lib/instrumenters/istanbul""#
+        ));
+        assert!(!is_nyc_json_decl(r#""instrumenter": {"#));
+        assert!(is_nyc_json_decl(r#""complete-copy": true"#));
+        assert!(is_nyc_json_decl(r#""produce-source-map": true"#));
+        assert!(is_nyc_json_decl(r#""hook-run-in-context": true"#));
+        assert!(is_nyc_json_decl(r#""hook-run-in-this-context": false"#));
+        assert!(is_nyc_json_decl(r#""hook-require": true"#));
+        assert!(is_nyc_json_decl(r#""branches": 80"#));
+        assert!(is_nyc_json_decl(r#""functions": 100"#));
+        assert!(is_nyc_json_decl(r#""lines": 0"#));
+        assert!(is_nyc_json_decl(r#""statements": 90, // thresh"#));
+        assert!(!is_nyc_json_decl(r#""branches": "80""#));
+        assert!(!is_nyc_json_decl(r#""branches": true"#));
+        assert!(!is_nyc_json_decl(r#""branches": 1000"#));
+        assert!(is_nyc_json_decl(r#""babel-cache": true"#));
+        assert!(is_nyc_json_decl(r#""use-spawn-wrap": false"#));
+        assert!(is_nyc_json_decl(r#""excludeNodeModules": true"#));
+        assert!(is_nyc_json_decl(r#""exit-on-error": true"#));
+        assert!(is_nyc_json_decl(r#""omit-relative": true"#));
+        assert!(is_nyc_json_decl(r#""per-file": true"#));
+        assert!(is_nyc_json_decl(r#""eager": true"#));
+        assert!(is_nyc_json_decl(r#""cache-dir": "./.nyc_cache""#));
+        assert!(is_nyc_json_decl(r#""source-map": true"#));
+        assert!(is_nyc_json_decl(r#""instrument": false"#));
+        assert!(is_nyc_json_decl(r#""all": true"#));
+        assert!(is_nyc_json_decl(r#""include": ["#));
+        assert!(is_nyc_json_decl(r#""include": "src/**/*.js""#));
+        assert!(!is_nyc_json_decl(r#""include": {"#));
+        assert!(is_nyc_json_decl(r#""exclude": ["#));
+        assert!(is_nyc_json_decl(r#""exclude": "**/*.test.js""#));
+        assert!(is_nyc_json_decl(r#""reporter": ["#));
+        assert!(is_nyc_json_decl(r#""reporter": "text""#));
+        assert!(is_nyc_json_decl(r#""reporter": "html""#));
+        assert!(is_nyc_json_decl(r#""reporter": "lcov""#));
+        assert!(is_nyc_json_decl(r#""reporter": "json-summary""#));
+        assert!(!is_nyc_json_decl(r#""reporter": "fancy""#));
+        assert!(!is_nyc_json_decl(r#""reporter": {"#));
+        assert!(is_nyc_json_decl(r#""require": ["#));
+        assert!(is_nyc_json_decl(r#""require": "@babel/register""#));
+        assert!(is_nyc_json_decl(r#""extension": ["#));
+        assert!(is_nyc_json_decl(r#""extension": ".ts""#));
+        assert!(is_nyc_json_decl(r#""cache": true"#));
+        assert!(is_nyc_json_decl(r#""clean": true"#));
+        assert!(is_nyc_json_decl(r#""cwd": ".""#));
+        // Incomplete / wrong shapes stay out.
+        assert!(!is_nyc_json_decl(r#""check-coverage""#));
+        assert!(!is_nyc_json_decl(r#""check-coverage":"#));
+        assert!(!is_nyc_json_decl(r#""check-coverage: true"#));
+        assert!(!is_nyc_json_decl(r#""report-dir":"#));
+        assert!(!is_nyc_json_decl(r#""branches":"#));
+        // Generic / neighbouring stay out.
+        assert!(!is_nyc_json_decl(
+            r#""$schema": "https://json.schemastore.org/nycrc""#
+        ));
+        assert!(!is_nyc_json_decl(r#""name": "coverage""#));
+        assert!(!is_nyc_json_decl(r#""version": "1.0.0""#));
+        assert!(!is_nyc_json_decl(r#""requireModule": ["#));
+        assert!(is_cucumber_json_decl(r#""requireModule": ["#));
+        assert!(!is_nyc_json_decl(r#""formatOptions": {"#));
+        assert!(is_cucumber_json_decl(r#""formatOptions": {"#));
+        assert!(!is_nyc_json_decl(r#""retryTagFilter": "@flaky""#));
+        assert!(is_cucumber_json_decl(r#""retryTagFilter": "@flaky""#));
+        assert!(!is_nyc_json_decl(r#""publishQuiet": true"#));
+        assert!(is_cucumber_json_decl(r#""publishQuiet": true"#));
+        assert!(!is_nyc_json_decl(r#""worldParameters": {"#));
+        assert!(is_cucumber_json_decl(r#""worldParameters": {"#));
+        assert!(!is_nyc_json_decl(r#""dryRun": true"#));
+        assert!(is_cucumber_json_decl(r#""dryRun": true"#));
+        assert!(!is_nyc_json_decl(r#""order": "defined""#));
+        assert!(is_cucumber_json_decl(r#""order": "defined""#));
+        assert!(!is_nyc_json_decl(r#""mutate": ["#));
+        assert!(is_stryker_json_decl(r#""mutate": ["#));
+        assert!(!is_nyc_json_decl(r#""testRunner": "jest""#));
+        assert!(is_stryker_json_decl(r#""testRunner": "jest""#));
+        assert!(!is_nyc_json_decl(r#""coverageAnalysis": "perTest""#));
+        assert!(is_stryker_json_decl(r#""coverageAnalysis": "perTest""#));
+        assert!(!is_nyc_json_decl(r#""timeoutMS": 60000"#));
+        assert!(is_stryker_json_decl(r#""timeoutMS": 60000"#));
+        assert!(!is_nyc_json_decl(r#""apps": {"#));
+        assert!(is_detox_json_decl(r#""apps": {"#));
+        assert!(!is_nyc_json_decl(r#""devices": {"#));
+        assert!(is_detox_json_decl(r#""devices": {"#));
+        assert!(!is_nyc_json_decl(
+            r#""selectedConfiguration": "ios.sim.debug""#
+        ));
+        assert!(is_detox_json_decl(
+            r#""selectedConfiguration": "ios.sim.debug""#
+        ));
+        assert!(!is_nyc_json_decl(r#""helpers": {"#));
+        assert!(is_codecept_json_decl(r#""helpers": {"#));
+        assert!(!is_nyc_json_decl(r#""stepTimeout": 5000"#));
+        assert!(is_codecept_json_decl(r#""stepTimeout": 5000"#));
+        assert!(!is_nyc_json_decl(r#""waitforTimeout": 10000"#));
+        assert!(is_wdio_json_decl(r#""waitforTimeout": 10000"#));
+        assert!(!is_nyc_json_decl(r#""selectorTimeout": 10000"#));
+        assert!(is_testcafe_json_decl(r#""selectorTimeout": 10000"#));
+        assert!(!is_nyc_json_decl(r#""frameworks": ["#));
+        assert!(is_karma_json_decl(r#""frameworks": ["#));
+        assert!(!is_nyc_json_decl(r#""src_folders": ["#));
+        assert!(is_nightwatch_json_decl(r#""src_folders": ["#));
+        assert!(!is_nyc_json_decl(r#""spec_dir": "spec""#));
+        assert!(is_jasmine_json_decl(r#""spec_dir": "spec""#));
+        assert!(!is_nyc_json_decl(r#""failFast": true"#));
+        assert!(is_ava_json_decl(r#""failFast": true"#));
+        assert!(!is_nyc_json_decl(r#""allowUncaught": true"#));
+        assert!(is_mocha_json_decl(r#""allowUncaught": true"#));
+        assert!(!is_nyc_json_decl(r#""testEnvironment": "node""#));
+        assert!(is_jest_json_decl(r#""testEnvironment": "node""#));
+        assert!(!is_nyc_json_decl(r#""testDir": "tests""#));
+        assert!(is_playwright_json_decl(r#""testDir": "tests""#));
+        assert!(!is_nyc_json_decl(r#""pool": "threads""#));
+        assert!(is_vitest_json_decl(r#""pool": "threads""#));
+        assert!(!is_nyc_json_decl(r#""e2e": {"#));
+        assert!(is_cypress_json_decl(r#""e2e": {"#));
+        assert!(!is_nyc_json_decl(r#""words": ["#));
+        assert!(is_cspell_json_decl(r#""words": ["#));
+        assert!(!is_nyc_json_decl(r#""categories": {"#));
+        assert!(is_oxlint_json_decl(r#""categories": {"#));
+        assert!(!is_nyc_json_decl(r#""entry": ["#));
+        assert!(is_knip_json_decl(r#""entry": ["#));
+        assert!(!is_nyc_json_decl(r#""nodeModulesDir": "auto""#));
+        assert!(is_deno_json_decl(r#""nodeModulesDir": "auto""#));
+        assert!(!is_nyc_json_decl(r#""packageRules": ["#));
+        assert!(is_renovate_json_decl(r#""packageRules": ["#));
+        assert!(!is_nyc_json_decl(r#""configurations": ["#));
+        assert!(is_vscode_launch_json_decl(r#""configurations": ["#));
+        assert!(!is_nyc_json_decl(r#""tasks": ["#));
+        assert!(is_vscode_tasks_json_decl(r#""tasks": ["#));
+        assert!(!is_nyc_json_decl(
+            r#""image": "mcr.microsoft.com/devcontainers/rust""#
+        ));
+        assert!(is_devcontainer_json_decl(
+            r#""image": "mcr.microsoft.com/devcontainers/rust""#
+        ));
+        assert!(!is_nyc_json_decl(r#""pipeline": {"#));
+        assert!(is_turbo_json_decl(r#""pipeline": {"#));
+        assert!(!is_nyc_json_decl(r#""namedInputs": {"#));
+        assert!(is_nx_json_decl(r#""namedInputs": {"#));
+        assert!(!is_nyc_json_decl(r#""printWidth": 80"#));
+        assert!(is_prettier_json_decl(r#""printWidth": 80"#));
+        assert!(!is_nyc_json_decl(r#""linter": {"#));
+        assert!(is_biome_json_decl(r#""linter": {"#));
+        assert!(!is_nyc_json_decl(
+            r#""parser": "@typescript-eslint/parser""#
+        ));
+        assert!(is_eslint_json_decl(
+            r#""parser": "@typescript-eslint/parser""#
+        ));
+        assert!(!is_nyc_json_decl(r#""scripts": {"#));
+        assert!(is_package_json_decl(r#""scripts": {"#));
+        assert!(!is_nyc_json_decl(r#""compilerOptions": {"#));
+        assert!(is_tsconfig_json_decl(r#""compilerOptions": {"#));
+        // Shared / distinctive shapes list via nyc scanner.
+        assert!(line_is_func_like(r#""check-coverage": true"#));
+        assert!(line_is_func_like(r#""report-dir": "./coverage""#));
+        assert!(line_is_func_like(r#""temp-dir": "./.nyc_output""#));
+        assert!(line_is_func_like(r#""watermarks": {"#));
+        assert!(line_is_func_like(r#""skip-full": true"#));
+        assert!(line_is_func_like(r#""show-process-tree": true"#));
+        assert!(line_is_func_like(r#""exclude-after-remap": true"#));
+        assert!(line_is_func_like(r#""branches": 80"#));
+        assert!(line_is_func_like(r#""reporter": "lcov""#));
+        assert!(line_is_func_like(r#""all": true"#));
     }
 
     #[test]

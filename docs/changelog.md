@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.752] — 2026-11-10
+
+View:
+
+- **Function List** lists Istanbul nyc `.nycrc` / `.nycrc.json` / `nyc.config` JSON keys: `"check-coverage": true`, `"report-dir": "…"`, `"temp-dir": "…"`, `"watermarks": {`, `"skip-full": true`, `"skip-empty": true`, `"show-process-tree": true`, `"exclude-after-remap": true`, `"instrumenter": "…"`, `"complete-copy": true`, `"produce-source-map": true`, `"hook-run-in-context": true`, `"hook-run-in-this-context": true`, `"hook-require": true`, `"branches": 80`, `"functions": 80`, `"lines": 80`, `"statements": 80`, `"babel-cache": true`, `"use-spawn-wrap": true`, `"excludeNodeModules": true`, `"exit-on-error": true`, `"omit-relative": true`, `"per-file": true`, `"eager": true`, `"cache-dir": "…"`, `"source-map": true`, `"instrument": true`, `"all": true`, `"include": [` / `"…"`, `"exclude": [` / `"…"`, `"reporter": [` / `"…"`, `"require": [` / `"…"`, `"extension": [` / `"…"`, `"cache": true`, `"clean": true`, `"cwd": "…"`. Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing `:` stay out. Generic `"$schema"` / `"name"` / `"version"` / Cucumber `"requireModule"` / `"formatOptions"` / `"retryTagFilter"` / `"publishQuiet"` / `"worldParameters"` / `"dryRun"` / `"order": "defined"` / Stryker `"mutate"` / `"testRunner": "jest"` / `"coverageAnalysis"` / `"timeoutMS"` / Detox `"apps"` / `"devices"` / `"selectedConfiguration"` / Codecept `"helpers": {` / `"stepTimeout"` / WDIO `"waitforTimeout"` / TestCafe `"selectorTimeout"` / Karma `"frameworks"` / Nightwatch `"src_folders"` / Jasmine `"spec_dir"` / AVA `"failFast"` / Mocha `"allowUncaught"` / Jest `"testEnvironment"` / Playwright `"testDir"` / Vitest `"pool"` / Cypress `"e2e"` / CSpell `"words"` / Oxlint `"categories"` / Knip `"entry"` / Deno `"nodeModulesDir"` / Renovate `"packageRules"` / launch `"configurations"` / tasks `"tasks": [` / Dev Container `"image"` / turbo `"pipeline"` / nx `"namedInputs"` / prettier `"printWidth"` / biome `"linter"` / eslint `"parser"` / package.json `"scripts"` / tsconfig `"compilerOptions"` stay out. Shared `"include"` / `"exclude"` / `"reporter"` / `"require"` / `"all"` / `"cache"` / `"cwd"` also match neighbouring scanners when shapes overlap.
+
 ## [0.3.751] — 2026-11-10
 
 View:
