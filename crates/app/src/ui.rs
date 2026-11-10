@@ -32411,6 +32411,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_mocha_json_decl(s)
             || is_ava_json_decl(s)
             || is_jasmine_json_decl(s)
+            || is_nightwatch_json_decl(s)
             || is_gomod_decl(s)
             || is_gemfile_decl(s)
             || is_brewfile_decl(s)
@@ -32732,6 +32733,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_mocha_json_decl(s)
         || is_ava_json_decl(s)
         || is_jasmine_json_decl(s)
+        || is_nightwatch_json_decl(s)
         || is_gomod_decl(s)
         || is_gemfile_decl(s)
         || is_brewfile_decl(s)
@@ -50321,6 +50323,257 @@ fn jasmine_json_string_ok(key: &str, value: &str) -> bool {
         "spec_dir" | "spec_files" | "helpers" | "requires" | "cssFiles" | "jsFiles" | "seed" => {
             true
         }
+        _ => false,
+    }
+}
+
+/// Nightwatch `nightwatch.json` / `nightwatch.conf.json` JSON keys:
+/// `"src_folders": [` / `"…"`, `"output_folder": "…"`,
+/// `"custom_commands_path": [` / `"…"`, `"custom_assertions_path": [` / `"…"`,
+/// `"page_objects_path": [` / `"…"`, `"globals_path": "…"`, `"globals": {`,
+/// `"launch_url": "…"`, `"webdriver": {`, `"selenium": {`,
+/// `"test_settings": {`, `"desiredCapabilities": {`, `"screenshots": {`,
+/// `"test_workers": true` / `{`, `"skip_testcases_on_fail": true`,
+/// `"end_session_on_fail": true`, `"unit_tests_mode": true`,
+/// `"live_output": true`, `"disable_colors": true`, `"persist_globals": true`,
+/// `"start_session": true`, `"silent": true`, `"output": true`,
+/// `"detailed_output": true`, `"parallel_mode": true`,
+/// `"enable_fail_fast": true`, `"always_async_commands": true`,
+/// `"use_xpath": true`, `"parallel_process_delay": 10`,
+/// `"filter": "…"`, `"exclude": [` / `"…"`, `"skipgroup": "…"`,
+/// `"skiptags": "…"`, `"tag_filter": "…"`, `"test_runner": "default"` /
+/// `"mocha"` / `{`. Optional trailing `,` and `//` / `/*` comment.
+/// Incomplete quotes / missing `:` stay out. Generic `"$schema"` /
+/// `"name"` / `"version"` / Jasmine `"spec_dir"` / `"spec_files"` /
+/// `"jsLoader"` / `"stopSpecOnExpectationFailure"` / AVA `"failFast"` /
+/// `"failWithoutAssertions"` / `"utilizeParallelBuilds"` /
+/// `"ignoredByWatcher"` / Mocha `"allowUncaught"` / `"ui": "bdd"` /
+/// `"watch-files"` / `"checkLeaks"` / Jest `"testEnvironment"` /
+/// `"setupFilesAfterEnv"` / `"coverageProvider"` / Playwright
+/// `"testDir"` / `"fullyParallel"` / `"webServer"` / `"preserveOutput"` /
+/// Vitest `"pool"` / `"fileParallelism"` / `"hookTimeout"` / Cypress
+/// `"baseUrl": "http://…"` / `"specPattern"` / `"chromeWebSecurity"` /
+/// `"e2e"` / CSpell `"words"` / Oxlint `"categories"` / Knip `"entry"` /
+/// Deno `"nodeModulesDir"` / Renovate `"packageRules"` / launch
+/// `"configurations"` / tasks `"tasks": [` / Dev Container `"image"` /
+/// turbo `"pipeline"` / nx `"namedInputs"` / prettier `"printWidth"` /
+/// biome `"linter"` / eslint `"parser"` / package.json `"scripts"` /
+/// tsconfig `"compilerOptions"` stay out. Shared `"exclude": [` /
+/// `"globals": {` / `"output": true` / `"silent": true` also match
+/// neighbouring scanners when shapes overlap.
+fn is_nightwatch_json_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    let Some(rest) = s.strip_prefix('"') else {
+        return false;
+    };
+    let Some(end) = rest.find('"') else {
+        return false;
+    };
+    let key = &rest[..end];
+    if !nightwatch_json_key_ok(key) {
+        return false;
+    }
+    let after_key = rest[end + 1..].trim_start();
+    let Some(after_colon) = after_key.strip_prefix(':') else {
+        return false;
+    };
+    let after_colon = after_colon.trim_start();
+    nightwatch_json_value_and_tail_ok(key, after_colon)
+}
+
+fn nightwatch_json_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "src_folders"
+            | "output_folder"
+            | "custom_commands_path"
+            | "custom_assertions_path"
+            | "page_objects_path"
+            | "globals_path"
+            | "globals"
+            | "launch_url"
+            | "webdriver"
+            | "selenium"
+            | "test_settings"
+            | "desiredCapabilities"
+            | "screenshots"
+            | "test_workers"
+            | "skip_testcases_on_fail"
+            | "end_session_on_fail"
+            | "unit_tests_mode"
+            | "live_output"
+            | "disable_colors"
+            | "persist_globals"
+            | "start_session"
+            | "silent"
+            | "output"
+            | "detailed_output"
+            | "parallel_mode"
+            | "enable_fail_fast"
+            | "always_async_commands"
+            | "use_xpath"
+            | "parallel_process_delay"
+            | "filter"
+            | "exclude"
+            | "skipgroup"
+            | "skiptags"
+            | "tag_filter"
+            | "test_runner"
+    )
+}
+
+fn nightwatch_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool {
+    let bytes = after_colon.as_bytes();
+    let Some(first) = bytes.first().copied() else {
+        return false;
+    };
+    match first {
+        b'{' => {
+            if !nightwatch_json_object_key_ok(key) {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[1..])
+        }
+        b'[' => {
+            if !nightwatch_json_array_key_ok(key) {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[1..])
+        }
+        b'"' => {
+            if !nightwatch_json_string_key_ok(key) {
+                return false;
+            }
+            let rest = &after_colon[1..];
+            let Some(end) = rest.find('"') else {
+                return false;
+            };
+            let value = &rest[..end];
+            if !nightwatch_json_string_ok(key, value) {
+                return false;
+            }
+            package_json_tail_ok(&rest[end + 1..])
+        }
+        b't' | b'f' => {
+            let rest = if let Some(rest) = after_colon.strip_prefix("true") {
+                rest
+            } else if let Some(rest) = after_colon.strip_prefix("false") {
+                rest
+            } else {
+                return false;
+            };
+            if !nightwatch_json_bool_key_ok(key) {
+                return false;
+            }
+            package_json_tail_ok(rest)
+        }
+        b'0'..=b'9' => {
+            if !nightwatch_json_number_key_ok(key) {
+                return false;
+            }
+            let digits = after_colon
+                .bytes()
+                .take_while(|b| b.is_ascii_digit())
+                .count();
+            if digits == 0 || digits > 9 {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[digits..])
+        }
+        _ => false,
+    }
+}
+
+fn nightwatch_json_object_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "globals"
+            | "webdriver"
+            | "selenium"
+            | "test_settings"
+            | "desiredCapabilities"
+            | "screenshots"
+            | "test_workers"
+            | "test_runner"
+    )
+}
+
+fn nightwatch_json_array_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "src_folders"
+            | "custom_commands_path"
+            | "custom_assertions_path"
+            | "page_objects_path"
+            | "exclude"
+    )
+}
+
+fn nightwatch_json_string_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "src_folders"
+            | "output_folder"
+            | "custom_commands_path"
+            | "custom_assertions_path"
+            | "page_objects_path"
+            | "globals_path"
+            | "launch_url"
+            | "filter"
+            | "exclude"
+            | "skipgroup"
+            | "skiptags"
+            | "tag_filter"
+            | "test_runner"
+    )
+}
+
+fn nightwatch_json_bool_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "test_workers"
+            | "skip_testcases_on_fail"
+            | "end_session_on_fail"
+            | "unit_tests_mode"
+            | "live_output"
+            | "disable_colors"
+            | "persist_globals"
+            | "start_session"
+            | "silent"
+            | "output"
+            | "detailed_output"
+            | "parallel_mode"
+            | "enable_fail_fast"
+            | "always_async_commands"
+            | "use_xpath"
+    )
+}
+
+fn nightwatch_json_number_key_ok(key: &str) -> bool {
+    matches!(key, "parallel_process_delay")
+}
+
+fn nightwatch_json_string_ok(key: &str, value: &str) -> bool {
+    if value.is_empty() || value.len() > 512 || value.contains('\n') {
+        return false;
+    }
+    if value.chars().all(|c| c.is_ascii_whitespace()) {
+        return false;
+    }
+    match key {
+        "test_runner" => matches!(value, "default" | "mocha" | "cucumber"),
+        "src_folders"
+        | "output_folder"
+        | "custom_commands_path"
+        | "custom_assertions_path"
+        | "page_objects_path"
+        | "globals_path"
+        | "launch_url"
+        | "filter"
+        | "exclude"
+        | "skipgroup"
+        | "skiptags"
+        | "tag_filter" => true,
         _ => false,
     }
 }
@@ -80964,8 +81217,8 @@ mod func_like_line_tests {
         is_mocha_json_decl, is_modprobe_conf_decl, is_mutants_toml_decl, is_mypy_ini_decl,
         is_mysql_cnf_decl, is_named_conf_decl, is_nest_cli_json_decl, is_netlify_toml_decl,
         is_networks_file_decl, is_neutralino_json_decl, is_nextest_toml_decl, is_nftables_decl,
-        is_nginx_conf_decl, is_nixpacks_toml_decl, is_nm_connection_decl, is_npmrc_decl,
-        is_nsswitch_conf_decl, is_nx_json_decl, is_openvpn_decl, is_os_release_decl,
+        is_nginx_conf_decl, is_nightwatch_json_decl, is_nixpacks_toml_decl, is_nm_connection_decl,
+        is_npmrc_decl, is_nsswitch_conf_decl, is_nx_json_decl, is_openvpn_decl, is_os_release_decl,
         is_oxlint_json_decl, is_package_json_decl, is_pacman_conf_decl, is_pam_conf_decl,
         is_parcel_json_decl, is_paru_conf_decl, is_passwd_group_file_decl, is_pdm_toml_decl,
         is_php_ini_decl, is_pip_conf_decl, is_pipfile_decl, is_pixi_toml_decl,
@@ -99432,6 +99685,238 @@ mod func_like_line_tests {
         assert!(line_is_func_like(r#""forbidDuplicateNames": true"#));
         assert!(line_is_func_like(r#""helpers": ["#));
         assert!(line_is_func_like(r#""env": {"#));
+        // Distinctive Nightwatch keys stay out of Jasmine.
+        assert!(!is_jasmine_json_decl(r#""src_folders": ["#));
+        assert!(is_nightwatch_json_decl(r#""src_folders": ["#));
+        assert!(!is_jasmine_json_decl(r#""page_objects_path": "pages""#));
+        assert!(is_nightwatch_json_decl(r#""page_objects_path": "pages""#));
+        assert!(!is_jasmine_json_decl(r#""skip_testcases_on_fail": true"#));
+        assert!(is_nightwatch_json_decl(r#""skip_testcases_on_fail": true"#));
+        assert!(!is_jasmine_json_decl(r#""end_session_on_fail": false"#));
+        assert!(is_nightwatch_json_decl(r#""end_session_on_fail": false"#));
+        assert!(!is_jasmine_json_decl(r#""test_settings": {"#));
+        assert!(is_nightwatch_json_decl(r#""test_settings": {"#));
+        assert!(!is_jasmine_json_decl(r#""desiredCapabilities": {"#));
+        assert!(is_nightwatch_json_decl(r#""desiredCapabilities": {"#));
+    }
+
+    #[test]
+    fn nightwatch_json_keys_count() {
+        assert!(is_nightwatch_json_decl(r#""src_folders": ["#));
+        assert!(is_nightwatch_json_decl(r#""src_folders": "tests""#));
+        assert!(is_nightwatch_json_decl(
+            r#""output_folder": "tests_output""#
+        ));
+        assert!(is_nightwatch_json_decl(r#""custom_commands_path": ["#));
+        assert!(is_nightwatch_json_decl(
+            r#""custom_commands_path": "commands""#
+        ));
+        assert!(is_nightwatch_json_decl(r#""custom_assertions_path": ["#));
+        assert!(is_nightwatch_json_decl(
+            r#""custom_assertions_path": "assertions""#
+        ));
+        assert!(is_nightwatch_json_decl(r#""page_objects_path": ["#));
+        assert!(is_nightwatch_json_decl(r#""page_objects_path": "pages""#));
+        assert!(is_nightwatch_json_decl(r#""globals_path": "./globals.js""#));
+        assert!(is_nightwatch_json_decl(r#""globals": {"#));
+        assert!(is_nightwatch_json_decl(
+            r#""launch_url": "http://localhost""#
+        ));
+        assert!(is_nightwatch_json_decl(r#""webdriver": {"#));
+        assert!(is_nightwatch_json_decl(r#""selenium": {"#));
+        assert!(is_nightwatch_json_decl(r#""test_settings": {"#));
+        assert!(is_nightwatch_json_decl(r#""desiredCapabilities": {"#));
+        assert!(is_nightwatch_json_decl(r#""screenshots": {"#));
+        assert!(is_nightwatch_json_decl(r#""test_workers": true"#));
+        assert!(is_nightwatch_json_decl(r#""test_workers": {"#));
+        assert!(is_nightwatch_json_decl(r#""skip_testcases_on_fail": true"#));
+        assert!(is_nightwatch_json_decl(r#""end_session_on_fail": false"#));
+        assert!(is_nightwatch_json_decl(r#""unit_tests_mode": true"#));
+        assert!(is_nightwatch_json_decl(r#""live_output": true"#));
+        assert!(is_nightwatch_json_decl(r#""disable_colors": false"#));
+        assert!(is_nightwatch_json_decl(r#""persist_globals": true"#));
+        assert!(is_nightwatch_json_decl(r#""start_session": true"#));
+        assert!(is_nightwatch_json_decl(r#""silent": true"#));
+        assert!(is_nightwatch_json_decl(r#""output": true"#));
+        assert!(is_nightwatch_json_decl(r#""detailed_output": true"#));
+        assert!(is_nightwatch_json_decl(r#""parallel_mode": true"#));
+        assert!(is_nightwatch_json_decl(r#""enable_fail_fast": true"#));
+        assert!(is_nightwatch_json_decl(r#""always_async_commands": true"#));
+        assert!(is_nightwatch_json_decl(r#""use_xpath": false"#));
+        assert!(is_nightwatch_json_decl(r#""parallel_process_delay": 10"#));
+        assert!(is_nightwatch_json_decl(r#""filter": ".*login.*""#));
+        assert!(is_nightwatch_json_decl(r#""exclude": ["#));
+        assert!(is_nightwatch_json_decl(r#""exclude": "tests/skip/**""#));
+        assert!(is_nightwatch_json_decl(r#""skipgroup": "legacy""#));
+        assert!(is_nightwatch_json_decl(r#""skiptags": "wip""#));
+        assert!(is_nightwatch_json_decl(r#""tag_filter": "smoke""#));
+        assert!(is_nightwatch_json_decl(r#""test_runner": "default""#));
+        assert!(is_nightwatch_json_decl(r#""test_runner": "mocha""#));
+        assert!(is_nightwatch_json_decl(r#""test_runner": "cucumber""#));
+        assert!(is_nightwatch_json_decl(r#""test_runner": {"#));
+        assert!(is_nightwatch_json_decl(
+            r#""skip_testcases_on_fail": true, // stop suite early"#
+        ));
+        // Incomplete / wrong shapes stay out.
+        assert!(!is_nightwatch_json_decl(r#""src_folders""#));
+        assert!(!is_nightwatch_json_decl(r#""src_folders":"#));
+        assert!(!is_nightwatch_json_decl(r#""src_folders: ["#));
+        assert!(!is_nightwatch_json_decl(r#""src_folders": {"#));
+        assert!(!is_nightwatch_json_decl(r#""skip_testcases_on_fail": ["#));
+        assert!(!is_nightwatch_json_decl(
+            r#""parallel_process_delay": true"#
+        ));
+        assert!(!is_nightwatch_json_decl(r#""test_settings": ["#));
+        assert!(!is_nightwatch_json_decl(r#""test_runner": "jest""#));
+        assert!(!is_nightwatch_json_decl(r#""test_runner": """#));
+        assert!(!is_nightwatch_json_decl(r#""output_folder": """#));
+        assert!(!is_nightwatch_json_decl(r#""webdriver": ["#));
+        // Generic / neighbouring stay out.
+        assert!(!is_nightwatch_json_decl(
+            r#""$schema": "https://json.schemastore.org/nightwatch""#
+        ));
+        assert!(!is_nightwatch_json_decl(r#""name": "e2e""#));
+        assert!(!is_nightwatch_json_decl(r#""version": "1.0.0""#));
+        assert!(!is_nightwatch_json_decl(r#""spec_dir": "spec""#));
+        assert!(is_jasmine_json_decl(r#""spec_dir": "spec""#));
+        assert!(!is_nightwatch_json_decl(r#""spec_files": ["#));
+        assert!(is_jasmine_json_decl(r#""spec_files": ["#));
+        assert!(!is_nightwatch_json_decl(r#""jsLoader": "import""#));
+        assert!(is_jasmine_json_decl(r#""jsLoader": "import""#));
+        assert!(!is_nightwatch_json_decl(
+            r#""stopSpecOnExpectationFailure": true"#
+        ));
+        assert!(is_jasmine_json_decl(
+            r#""stopSpecOnExpectationFailure": true"#
+        ));
+        assert!(!is_nightwatch_json_decl(r#""failFast": true"#));
+        assert!(is_ava_json_decl(r#""failFast": true"#));
+        assert!(!is_nightwatch_json_decl(
+            r#""failWithoutAssertions": false"#
+        ));
+        assert!(is_ava_json_decl(r#""failWithoutAssertions": false"#));
+        assert!(!is_nightwatch_json_decl(r#""utilizeParallelBuilds": true"#));
+        assert!(is_ava_json_decl(r#""utilizeParallelBuilds": true"#));
+        assert!(!is_nightwatch_json_decl(r#""ignoredByWatcher": ["#));
+        assert!(is_ava_json_decl(r#""ignoredByWatcher": ["#));
+        assert!(!is_nightwatch_json_decl(r#""allowUncaught": true"#));
+        assert!(is_mocha_json_decl(r#""allowUncaught": true"#));
+        assert!(!is_nightwatch_json_decl(r#""ui": "bdd""#));
+        assert!(is_mocha_json_decl(r#""ui": "bdd""#));
+        assert!(!is_nightwatch_json_decl(r#""watch-files": ["#));
+        assert!(is_mocha_json_decl(r#""watch-files": ["#));
+        assert!(!is_nightwatch_json_decl(r#""checkLeaks": true"#));
+        assert!(is_mocha_json_decl(r#""checkLeaks": true"#));
+        assert!(!is_nightwatch_json_decl(r#""testEnvironment": "node""#));
+        assert!(is_jest_json_decl(r#""testEnvironment": "node""#));
+        assert!(!is_nightwatch_json_decl(r#""setupFilesAfterEnv": ["#));
+        assert!(is_jest_json_decl(r#""setupFilesAfterEnv": ["#));
+        assert!(!is_nightwatch_json_decl(r#""coverageProvider": "v8""#));
+        assert!(is_jest_json_decl(r#""coverageProvider": "v8""#));
+        assert!(!is_nightwatch_json_decl(r#""testDir": "tests""#));
+        assert!(is_playwright_json_decl(r#""testDir": "tests""#));
+        assert!(!is_nightwatch_json_decl(r#""fullyParallel": true"#));
+        assert!(is_playwright_json_decl(r#""fullyParallel": true"#));
+        assert!(!is_nightwatch_json_decl(r#""webServer": {"#));
+        assert!(is_playwright_json_decl(r#""webServer": {"#));
+        assert!(!is_nightwatch_json_decl(r#""preserveOutput": "always""#));
+        assert!(is_playwright_json_decl(r#""preserveOutput": "always""#));
+        assert!(!is_nightwatch_json_decl(r#""pool": "threads""#));
+        assert!(is_vitest_json_decl(r#""pool": "threads""#));
+        assert!(!is_nightwatch_json_decl(r#""fileParallelism": true"#));
+        assert!(is_vitest_json_decl(r#""fileParallelism": true"#));
+        assert!(!is_nightwatch_json_decl(r#""hookTimeout": 10000"#));
+        assert!(is_vitest_json_decl(r#""hookTimeout": 10000"#));
+        assert!(!is_nightwatch_json_decl(
+            r#""baseUrl": "http://localhost:3000""#
+        ));
+        assert!(is_cypress_json_decl(
+            r#""baseUrl": "http://localhost:3000""#
+        ));
+        assert!(!is_nightwatch_json_decl(
+            r#""specPattern": "cypress/e2e/**/*.cy.ts""#
+        ));
+        assert!(is_cypress_json_decl(
+            r#""specPattern": "cypress/e2e/**/*.cy.ts""#
+        ));
+        assert!(!is_nightwatch_json_decl(r#""chromeWebSecurity": false"#));
+        assert!(is_cypress_json_decl(r#""chromeWebSecurity": false"#));
+        assert!(!is_nightwatch_json_decl(r#""e2e": {"#));
+        assert!(is_cypress_json_decl(r#""e2e": {"#));
+        assert!(!is_nightwatch_json_decl(r#""words": ["#));
+        assert!(is_cspell_json_decl(r#""words": ["#));
+        assert!(!is_nightwatch_json_decl(r#""categories": {"#));
+        assert!(is_oxlint_json_decl(r#""categories": {"#));
+        assert!(!is_nightwatch_json_decl(r#""entry": ["#));
+        assert!(is_knip_json_decl(r#""entry": ["#));
+        assert!(!is_nightwatch_json_decl(r#""nodeModulesDir": "auto""#));
+        assert!(is_deno_json_decl(r#""nodeModulesDir": "auto""#));
+        assert!(!is_nightwatch_json_decl(r#""packageRules": ["#));
+        assert!(is_renovate_json_decl(r#""packageRules": ["#));
+        assert!(!is_nightwatch_json_decl(r#""configurations": ["#));
+        assert!(is_vscode_launch_json_decl(r#""configurations": ["#));
+        assert!(!is_nightwatch_json_decl(r#""tasks": ["#));
+        assert!(is_vscode_tasks_json_decl(r#""tasks": ["#));
+        assert!(!is_nightwatch_json_decl(
+            r#""image": "mcr.microsoft.com/devcontainers/rust:1""#
+        ));
+        assert!(is_devcontainer_json_decl(
+            r#""image": "mcr.microsoft.com/devcontainers/rust:1""#
+        ));
+        assert!(!is_nightwatch_json_decl(r#""pipeline": {"#));
+        assert!(is_turbo_json_decl(r#""pipeline": {"#));
+        assert!(!is_nightwatch_json_decl(r#""namedInputs": {"#));
+        assert!(is_nx_json_decl(r#""namedInputs": {"#));
+        assert!(!is_nightwatch_json_decl(r#""printWidth": 80"#));
+        assert!(is_prettier_json_decl(r#""printWidth": 80"#));
+        assert!(!is_nightwatch_json_decl(r#""linter": {"#));
+        assert!(is_biome_json_decl(r#""linter": {"#));
+        assert!(!is_nightwatch_json_decl(
+            r#""parser": "@typescript-eslint/parser""#
+        ));
+        assert!(is_eslint_json_decl(
+            r#""parser": "@typescript-eslint/parser""#
+        ));
+        assert!(!is_nightwatch_json_decl(r#""scripts": {"#));
+        assert!(is_package_json_decl(r#""scripts": {"#));
+        assert!(!is_nightwatch_json_decl(r#""compilerOptions": {"#));
+        assert!(is_tsconfig_json_decl(r#""compilerOptions": {"#));
+        // Distinctive Nightwatch keys stay out of Jasmine / AVA / Mocha / Jest / Playwright / Vitest / Cypress.
+        assert!(!is_jasmine_json_decl(r#""src_folders": ["#));
+        assert!(!is_jasmine_json_decl(r#""page_objects_path": "pages""#));
+        assert!(!is_jasmine_json_decl(r#""skip_testcases_on_fail": true"#));
+        assert!(!is_jasmine_json_decl(r#""end_session_on_fail": false"#));
+        assert!(!is_jasmine_json_decl(r#""test_settings": {"#));
+        assert!(!is_jasmine_json_decl(r#""desiredCapabilities": {"#));
+        assert!(!is_ava_json_decl(r#""src_folders": ["#));
+        assert!(!is_ava_json_decl(r#""skip_testcases_on_fail": true"#));
+        assert!(!is_ava_json_decl(r#""desiredCapabilities": {"#));
+        assert!(!is_mocha_json_decl(r#""src_folders": ["#));
+        assert!(!is_mocha_json_decl(r#""skip_testcases_on_fail": true"#));
+        assert!(!is_mocha_json_decl(r#""desiredCapabilities": {"#));
+        assert!(!is_jest_json_decl(r#""src_folders": ["#));
+        assert!(!is_jest_json_decl(r#""skip_testcases_on_fail": true"#));
+        assert!(!is_jest_json_decl(r#""desiredCapabilities": {"#));
+        assert!(!is_playwright_json_decl(r#""src_folders": ["#));
+        assert!(!is_playwright_json_decl(
+            r#""skip_testcases_on_fail": true"#
+        ));
+        assert!(!is_vitest_json_decl(r#""src_folders": ["#));
+        assert!(!is_vitest_json_decl(r#""skip_testcases_on_fail": true"#));
+        assert!(!is_cypress_json_decl(r#""src_folders": ["#));
+        assert!(!is_cypress_json_decl(r#""skip_testcases_on_fail": true"#));
+        assert!(!is_cspell_json_decl(r#""src_folders": ["#));
+        assert!(!is_oxlint_json_decl(r#""src_folders": ["#));
+        assert!(!is_knip_json_decl(r#""src_folders": ["#));
+        // Shared / distinctive shapes list via Nightwatch scanner.
+        assert!(line_is_func_like(r#""src_folders": ["#));
+        assert!(line_is_func_like(r#""page_objects_path": "pages""#));
+        assert!(line_is_func_like(r#""skip_testcases_on_fail": true"#));
+        assert!(line_is_func_like(r#""end_session_on_fail": false"#));
+        assert!(line_is_func_like(r#""test_settings": {"#));
+        assert!(line_is_func_like(r#""desiredCapabilities": {"#));
+        assert!(line_is_func_like(r#""launch_url": "http://localhost""#));
+        assert!(line_is_func_like(r#""webdriver": {"#));
     }
 
     #[test]

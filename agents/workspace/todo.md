@@ -1,3 +1,5 @@
+009 keep: Function List Nightwatch nightwatch.json src_folders/page_objects_path/skip_testcases_on_fail/end_session_on_fail/test_settings/desiredCapabilities (v0.3.744)
+
 009 keep: Function List AVA ava.config.json failFast/failWithoutAssertions/utilizeParallelBuilds/ignoredByWatcher/snapshotDir/environmentVariables/nodeArguments (v0.3.742)
 
 009 keep: Function List Cypress cypress.json / cypress.config baseUrl/specPattern/chromeWebSecurity/e2e/component/viewportWidth/video/testIsolation (v0.3.740)

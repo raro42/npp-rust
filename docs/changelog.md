@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.744] — 2026-11-10
+
+View:
+
+- **Function List** lists Nightwatch `nightwatch.json` / `nightwatch.conf.json` JSON keys: `"src_folders": [` / `"…"`, `"output_folder": "…"`, `"custom_commands_path": [` / `"…"`, `"custom_assertions_path": [` / `"…"`, `"page_objects_path": [` / `"…"`, `"globals_path": "…"`, `"globals": {`, `"launch_url": "…"`, `"webdriver": {`, `"selenium": {`, `"test_settings": {`, `"desiredCapabilities": {`, `"screenshots": {`, `"test_workers": true` / `{`, `"skip_testcases_on_fail": true`, `"end_session_on_fail": true`, `"unit_tests_mode": true`, `"live_output": true`, `"disable_colors": true`, `"persist_globals": true`, `"start_session": true`, `"silent": true`, `"output": true`, `"detailed_output": true`, `"parallel_mode": true`, `"enable_fail_fast": true`, `"always_async_commands": true`, `"use_xpath": true`, `"parallel_process_delay": 10`, `"filter": "…"`, `"exclude": [` / `"…"`, `"skipgroup": "…"`, `"skiptags": "…"`, `"tag_filter": "…"`, `"test_runner": "default"` / `"mocha"` / `"cucumber"` / `{`. Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing `:` stay out. Generic `"$schema"` / `"name"` / `"version"` / Jasmine `"spec_dir"` / `"spec_files"` / `"jsLoader"` / `"stopSpecOnExpectationFailure"` / AVA `"failFast"` / `"failWithoutAssertions"` / `"utilizeParallelBuilds"` / `"ignoredByWatcher"` / Mocha `"allowUncaught"` / `"ui": "bdd"` / `"watch-files"` / `"checkLeaks"` / Jest `"testEnvironment"` / `"setupFilesAfterEnv"` / `"coverageProvider"` / Playwright `"testDir"` / `"fullyParallel"` / `"webServer"` / `"preserveOutput"` / Vitest `"pool"` / `"fileParallelism"` / `"hookTimeout"` / Cypress `"baseUrl": "http://…"` / `"specPattern"` / `"chromeWebSecurity"` / `"e2e"` / CSpell `"words"` / Oxlint `"categories"` / Knip `"entry"` / Deno `"nodeModulesDir"` / Renovate `"packageRules"` / launch `"configurations"` / tasks `"tasks": [` / Dev Container `"image"` / turbo `"pipeline"` / nx `"namedInputs"` / prettier `"printWidth"` / biome `"linter"` / eslint `"parser"` / package.json `"scripts"` / tsconfig `"compilerOptions"` stay out. Shared `"exclude": [` / `"globals": {` / `"output": true` / `"silent": true` also match neighbouring scanners when shapes overlap.
+
 ## [0.3.743] — 2026-11-10
 
 View:
