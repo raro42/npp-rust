@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.767] — 2026-11-11
+
+View:
+
+- **Function List** lists Compodoc `.compodocrc` / `.compodocrc.json` / `compodoc.json` JSON keys: `"tsconfig": "tsconfig.doc.json"`, `"output": "documentation"`, `"theme": "material"` / `"gitbook"` / …, `"extTheme": "…"`, `"language": "en-US"`, `"assetsFolder": "…"`, `"includes": "./additional-doc"` (string path; ESDoc uses `[`), `"includesName": "…"`, `"unitTestCoverage": "…"`, `"templates": "…"`, `"host": "…"`, `"customFavicon": "…"`, `"customLogo": "…"`, `"gaID": "…"`, `"gaSite": "auto"`, `"exportFormat": "html"` / `"json"`, `"publicApiOnly": "…"`, `"coverageTestThresholdFail": "true"` / `"false"`, `"coverageExclude": [` / `"…"`, `"navTabConfig": [`, `"toggleMenuItems": [`, `"port": 8080`, `"coverageTest": 70`, `"coverageMinimumPerFile": 50`, bools `"open"` / `"silent"` / `"serve"` / `"watch"` / `"hideGenerator"` / `"hideDarkModeToggle"` / `"coverageTestShowOnlyFailed"` / `"minimal"` / `"templatePlayground"` / `"disableSourceCode"` / `"disableDomTree"` / `"disableTemplateTab"` / `"disableStyleTab"` / `"disableGraph"` / `"disableCoverage"` / `"disablePrivate"` / `"disableProtected"` / `"disableInternal"` / `"disableLifeCycleHooks"` / `"disableConstructors"` / `"disableRoutesGraph"` / `"disableSearch"` / `"disableDependencies"` / `"disableProperties"` / `"disableFilePath"` / `"disableOverview"`. Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing `:` stay out. Generic `"$schema"` / `"name"` / `"version"` / `"files"` / `"include": [` / `"exclude": [` / esdoc `"source": "…"` / `"destination"` / `"includes": [` / `"undocumentIdentifier"` / jsdoc `"source": {` / `"recurseDepth"` / typedoc `"entryPoints"` / `"excludePrivate"` / api-extractor `"mainEntryPointFilePath"` / `"apiReport"` / prettier `"printWidth"` / package.json `"bin"` / karma `"basePath"` stay out. Compodoc `"hideGenerator": true` also matches typedoc when shapes overlap; `"tsconfig": "…"` / `"theme": "…"` / `"watch": true` are intentionally off the typedoc scanner so Compodoc owns those shapes here.
+
 ## [0.3.766] — 2026-11-11
 
 View:

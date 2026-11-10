@@ -1196,3 +1196,5 @@
 009 keep: Function List JSDoc conf.json/jsdoc.json recurseDepth/source/sourceType/opts/tags/templates/allowUnknownTags/cleverLinks/monospaceLinks/includePattern/access/pedantic (v0.3.765)
 
 009 keep: Function List ESDoc .esdoc.json/esdoc.json source/destination/includes/excludes/undocumentIdentifier/unexportIdentifier/builtinExternal/includeSource/outputAST/experimentalProposal (v0.3.766)
+
+009 keep: Function List Compodoc .compodocrc.json tsconfig/output/theme/includes(string)/disableLifeCycleHooks/hideDarkModeToggle/exportFormat/port/navTabConfig (v0.3.767)
