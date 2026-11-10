@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.763] — 2026-11-10
+
+View:
+
+- **Function List** lists API Extractor `api-extractor.json` JSON keys: `"mainEntryPointFilePath": "<projectFolder>/lib/index.d.ts"`, `"bundledPackages": [`, `"newlineKind": "lf"` / `"crlf"` / `"os"`, `"enumMemberOrder": "by-name"` / `"preserve"`, `"testMode": true`, `"apiReport": {`, `"docModel": {`, `"dtsRollup": {`, `"tsdocMetadata": {`, `"reportFileName": "…"`, `"reportFolder": "…"`, `"reportTempFolder": "…"`, `"reportVariants": [`, `"includeForgottenExports": true`, `"apiJsonFilePath": "…"`, `"projectFolderUrl": "…"`, `"untrimmedFilePath": "…"`, `"alphaTrimmedFilePath": "…"`, `"betaTrimmedFilePath": "…"`, `"publicTrimmedFilePath": "…"`, `"omitTrimmingComments": true`, `"tsdocMetadataFilePath": "…"`, `"overrideTsconfig": {`, `"compilerMessageReporting": {`, `"extractorMessageReporting": {`, `"tsdocMessageReporting": {`, `"addToApiReportFile": true`. Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing `:` stay out. Generic `"$schema"` / `"extends"` / `"projectFolder"` / `"compiler"` / `"messages"` / `"enabled"` / `"name"` / `"version"` / syncpack `"semverGroups"` / versionrc `"bumpFiles"` / release-please `"packages": {` / rush `"rushVersion"` / tsconfig `"compilerOptions"` / `"skipLibCheck"` / prettier `"printWidth"` / package.json `"bin"` stay out.
+
 ## [0.3.762] — 2026-11-10
 
 View:

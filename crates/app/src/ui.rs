@@ -32430,6 +32430,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_release_please_json_decl(s)
             || is_versionrc_json_decl(s)
             || is_syncpack_json_decl(s)
+            || is_api_extractor_json_decl(s)
             || is_gomod_decl(s)
             || is_gemfile_decl(s)
             || is_brewfile_decl(s)
@@ -32770,6 +32771,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_release_please_json_decl(s)
         || is_versionrc_json_decl(s)
         || is_syncpack_json_decl(s)
+        || is_api_extractor_json_decl(s)
         || is_gomod_decl(s)
         || is_gemfile_decl(s)
         || is_brewfile_decl(s)
@@ -54459,6 +54461,233 @@ fn syncpack_json_string_ok(key: &str, value: &str) -> bool {
         "sourceMode" => matches!(value, "replace" | "extend"),
         _ => false,
     }
+}
+
+/// API Extractor `api-extractor.json` JSON keys:
+/// `"mainEntryPointFilePath": "<projectFolder>/lib/index.d.ts"`,
+/// `"bundledPackages": [`, `"newlineKind": "lf"` / `"crlf"` / `"os"`,
+/// `"enumMemberOrder": "by-name"` / `"preserve"`, `"testMode": true`,
+/// `"apiReport": {`, `"docModel": {`, `"dtsRollup": {`,
+/// `"tsdocMetadata": {`, `"reportFileName": "…"`, `"reportFolder": "…"`,
+/// `"reportTempFolder": "…"`, `"reportVariants": [`,
+/// `"includeForgottenExports": true`, `"apiJsonFilePath": "…"`,
+/// `"projectFolderUrl": "…"`, `"untrimmedFilePath": "…"`,
+/// `"alphaTrimmedFilePath": "…"`, `"betaTrimmedFilePath": "…"`,
+/// `"publicTrimmedFilePath": "…"`, `"omitTrimmingComments": true`,
+/// `"tsdocMetadataFilePath": "…"`, `"overrideTsconfig": {`,
+/// `"compilerMessageReporting": {`, `"extractorMessageReporting": {`,
+/// `"tsdocMessageReporting": {`, `"addToApiReportFile": true`.
+/// Optional trailing `,` and `//` / `/*` comment. Incomplete quotes /
+/// missing `:` stay out. Generic `"$schema"` / `"extends"` /
+/// `"projectFolder"` / `"compiler"` / `"messages"` / `"enabled"` /
+/// `"name"` / `"version"` / syncpack `"semverGroups"` / versionrc
+/// `"bumpFiles"` / release-please `"packages": {` / rush `"rushVersion"` /
+/// tsconfig `"compilerOptions"` / `"skipLibCheck"` / prettier
+/// `"printWidth"` / package.json `"bin"` stay out.
+fn is_api_extractor_json_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    let Some(rest) = s.strip_prefix('"') else {
+        return false;
+    };
+    let Some(end) = rest.find('"') else {
+        return false;
+    };
+    let key = &rest[..end];
+    if !api_extractor_json_key_ok(key) {
+        return false;
+    }
+    let after_key = rest[end + 1..].trim_start();
+    let Some(after_colon) = after_key.strip_prefix(':') else {
+        return false;
+    };
+    let after_colon = after_colon.trim_start();
+    api_extractor_json_value_and_tail_ok(key, after_colon)
+}
+
+fn api_extractor_json_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "mainEntryPointFilePath"
+            | "bundledPackages"
+            | "newlineKind"
+            | "enumMemberOrder"
+            | "testMode"
+            | "apiReport"
+            | "docModel"
+            | "dtsRollup"
+            | "tsdocMetadata"
+            | "reportFileName"
+            | "reportFolder"
+            | "reportTempFolder"
+            | "reportVariants"
+            | "includeForgottenExports"
+            | "apiJsonFilePath"
+            | "projectFolderUrl"
+            | "untrimmedFilePath"
+            | "alphaTrimmedFilePath"
+            | "betaTrimmedFilePath"
+            | "publicTrimmedFilePath"
+            | "omitTrimmingComments"
+            | "tsdocMetadataFilePath"
+            | "overrideTsconfig"
+            | "compilerMessageReporting"
+            | "extractorMessageReporting"
+            | "tsdocMessageReporting"
+            | "addToApiReportFile"
+    )
+}
+
+fn api_extractor_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool {
+    let bytes = after_colon.as_bytes();
+    let Some(first) = bytes.first().copied() else {
+        return false;
+    };
+    match first {
+        b'{' => {
+            if !api_extractor_json_object_key_ok(key) {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[1..])
+        }
+        b'[' => {
+            if !api_extractor_json_array_key_ok(key) {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[1..])
+        }
+        b'"' => {
+            if !api_extractor_json_string_key_ok(key) {
+                return false;
+            }
+            let rest = &after_colon[1..];
+            let Some(end) = rest.find('"') else {
+                return false;
+            };
+            let value = &rest[..end];
+            if !api_extractor_json_string_ok(key, value) {
+                return false;
+            }
+            package_json_tail_ok(&rest[end + 1..])
+        }
+        b't' | b'f' => {
+            let rest = if let Some(rest) = after_colon.strip_prefix("true") {
+                rest
+            } else if let Some(rest) = after_colon.strip_prefix("false") {
+                rest
+            } else {
+                return false;
+            };
+            if !api_extractor_json_bool_key_ok(key) {
+                return false;
+            }
+            package_json_tail_ok(rest)
+        }
+        _ => false,
+    }
+}
+
+fn api_extractor_json_object_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "apiReport"
+            | "docModel"
+            | "dtsRollup"
+            | "tsdocMetadata"
+            | "overrideTsconfig"
+            | "compilerMessageReporting"
+            | "extractorMessageReporting"
+            | "tsdocMessageReporting"
+    )
+}
+
+fn api_extractor_json_array_key_ok(key: &str) -> bool {
+    matches!(key, "bundledPackages" | "reportVariants")
+}
+
+fn api_extractor_json_string_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "mainEntryPointFilePath"
+            | "newlineKind"
+            | "enumMemberOrder"
+            | "reportFileName"
+            | "reportFolder"
+            | "reportTempFolder"
+            | "apiJsonFilePath"
+            | "projectFolderUrl"
+            | "untrimmedFilePath"
+            | "alphaTrimmedFilePath"
+            | "betaTrimmedFilePath"
+            | "publicTrimmedFilePath"
+            | "tsdocMetadataFilePath"
+    )
+}
+
+fn api_extractor_json_bool_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "testMode" | "includeForgottenExports" | "omitTrimmingComments" | "addToApiReportFile"
+    )
+}
+
+fn api_extractor_json_string_ok(key: &str, value: &str) -> bool {
+    if value.contains('\n') {
+        return false;
+    }
+    match key {
+        "newlineKind" => matches!(value, "lf" | "crlf" | "os"),
+        "enumMemberOrder" => matches!(value, "by-name" | "preserve"),
+        "reportFileName" => {
+            !value.is_empty()
+                && value.len() <= 256
+                && !value.chars().all(|c| c.is_ascii_whitespace())
+                && value.bytes().all(|b| {
+                    b.is_ascii_alphanumeric() || matches!(b, b'.' | b'-' | b'_' | b'<' | b'>')
+                })
+        }
+        "mainEntryPointFilePath"
+        | "reportFolder"
+        | "reportTempFolder"
+        | "apiJsonFilePath"
+        | "untrimmedFilePath"
+        | "alphaTrimmedFilePath"
+        | "betaTrimmedFilePath"
+        | "publicTrimmedFilePath"
+        | "tsdocMetadataFilePath" => api_extractor_json_path_ok(value),
+        "projectFolderUrl" => api_extractor_json_url_ok(value),
+        _ => false,
+    }
+}
+
+fn api_extractor_json_path_ok(value: &str) -> bool {
+    if value.is_empty() || value.len() > 512 {
+        return false;
+    }
+    if value.chars().all(|c| c.is_ascii_whitespace()) {
+        return false;
+    }
+    value.bytes().all(|b| {
+        b.is_ascii_alphanumeric()
+            || matches!(
+                b,
+                b'.' | b'-' | b'_' | b'/' | b'\\' | b'<' | b'>' | b'@' | b'+' | b' '
+            )
+    })
+}
+
+fn api_extractor_json_url_ok(value: &str) -> bool {
+    if value.is_empty() || value.len() > 512 || value.contains('\n') {
+        return false;
+    }
+    if value.chars().all(|c| c.is_ascii_whitespace()) {
+        return false;
+    }
+    let lower = value.as_bytes();
+    let http = lower.starts_with(b"http://") || lower.starts_with(b"https://");
+    if !http {
+        return false;
+    }
+    value.bytes().all(|b| b.is_ascii() && !b.is_ascii_control())
 }
 
 /// go.mod / go.work directives: `module example.com/foo`, `go 1.22`,
@@ -85072,10 +85301,10 @@ fn is_compare_saved_snapshot(doc: &doc::Document) -> bool {
 mod func_like_line_tests {
     use super::{
         is_access_conf_decl, is_android_bp_decl, is_angular_json_decl, is_ant_msbuild_decl,
-        is_apache_httpd_decl, is_apt_sources_decl, is_audit_rules_decl, is_audit_toml_decl,
-        is_autoflake_ini_decl, is_autopep8_ini_decl, is_ava_json_decl, is_aws_config_decl,
-        is_babel_json_decl, is_bacon_toml_decl, is_bandit_ini_decl, is_binfmt_d_decl,
-        is_biome_json_decl, is_bitbake_decl, is_black_ini_decl, is_brewfile_decl,
+        is_apache_httpd_decl, is_api_extractor_json_decl, is_apt_sources_decl, is_audit_rules_decl,
+        is_audit_toml_decl, is_autoflake_ini_decl, is_autopep8_ini_decl, is_ava_json_decl,
+        is_aws_config_decl, is_babel_json_decl, is_bacon_toml_decl, is_bandit_ini_decl,
+        is_binfmt_d_decl, is_biome_json_decl, is_bitbake_decl, is_black_ini_decl, is_brewfile_decl,
         is_bumpversion_ini_decl, is_bunfig_toml_decl, is_c8_json_decl, is_cabal_decl,
         is_capacitor_json_decl, is_cargo_config_toml_decl, is_cargo_make_toml_decl,
         is_cargo_toml_decl, is_cbindgen_toml_decl, is_changesets_json_decl,
@@ -108298,6 +108527,272 @@ mod func_like_line_tests {
         assert!(line_is_func_like(r#""formatBugs": true"#));
         assert!(line_is_func_like(r#""maxConcurrentRequests": 12"#));
         assert!(line_is_func_like(r#""minimumReleaseAge": 1440"#));
+    }
+
+    #[test]
+    fn api_extractor_json_keys_smoke() {
+        assert!(is_api_extractor_json_decl(
+            r#""mainEntryPointFilePath": "<projectFolder>/lib/index.d.ts""#
+        ));
+        assert!(is_api_extractor_json_decl(r#""bundledPackages": ["#));
+        assert!(is_api_extractor_json_decl(r#""newlineKind": "lf""#));
+        assert!(is_api_extractor_json_decl(r#""newlineKind": "crlf""#));
+        assert!(is_api_extractor_json_decl(r#""newlineKind": "os""#));
+        assert!(is_api_extractor_json_decl(
+            r#""enumMemberOrder": "by-name""#
+        ));
+        assert!(is_api_extractor_json_decl(
+            r#""enumMemberOrder": "preserve""#
+        ));
+        assert!(is_api_extractor_json_decl(r#""testMode": true"#));
+        assert!(is_api_extractor_json_decl(r#""apiReport": {"#));
+        assert!(is_api_extractor_json_decl(r#""docModel": {"#));
+        assert!(is_api_extractor_json_decl(r#""dtsRollup": {"#));
+        assert!(is_api_extractor_json_decl(r#""tsdocMetadata": {"#));
+        assert!(is_api_extractor_json_decl(r#""reportFileName": "my-pkg""#));
+        assert!(is_api_extractor_json_decl(
+            r#""reportFolder": "<projectFolder>/etc/""#
+        ));
+        assert!(is_api_extractor_json_decl(
+            r#""reportTempFolder": "<projectFolder>/temp/""#
+        ));
+        assert!(is_api_extractor_json_decl(r#""reportVariants": ["#));
+        assert!(is_api_extractor_json_decl(
+            r#""includeForgottenExports": true"#
+        ));
+        assert!(is_api_extractor_json_decl(
+            r#""apiJsonFilePath": "<projectFolder>/temp/pkg.api.json""#
+        ));
+        assert!(is_api_extractor_json_decl(
+            r#""projectFolderUrl": "https://github.com/org/repo/tree/main/pkg""#
+        ));
+        assert!(is_api_extractor_json_decl(
+            r#""untrimmedFilePath": "<projectFolder>/dist/pkg.d.ts""#
+        ));
+        assert!(is_api_extractor_json_decl(
+            r#""alphaTrimmedFilePath": "<projectFolder>/dist/pkg-alpha.d.ts""#
+        ));
+        assert!(is_api_extractor_json_decl(
+            r#""betaTrimmedFilePath": "<projectFolder>/dist/pkg-beta.d.ts""#
+        ));
+        assert!(is_api_extractor_json_decl(
+            r#""publicTrimmedFilePath": "<projectFolder>/dist/pkg-public.d.ts""#
+        ));
+        assert!(is_api_extractor_json_decl(
+            r#""omitTrimmingComments": true"#
+        ));
+        assert!(is_api_extractor_json_decl(
+            r#""tsdocMetadataFilePath": "<projectFolder>/dist/tsdoc-metadata.json""#
+        ));
+        assert!(is_api_extractor_json_decl(r#""overrideTsconfig": {"#));
+        assert!(is_api_extractor_json_decl(
+            r#""compilerMessageReporting": {"#
+        ));
+        assert!(is_api_extractor_json_decl(
+            r#""extractorMessageReporting": {"#
+        ));
+        assert!(is_api_extractor_json_decl(r#""tsdocMessageReporting": {"#));
+        assert!(is_api_extractor_json_decl(r#""addToApiReportFile": true"#));
+        // Distinctive neighbours stay out of this scanner.
+        assert!(!is_syncpack_json_decl(
+            r#""mainEntryPointFilePath": "<projectFolder>/lib/index.d.ts""#
+        ));
+        assert!(!is_rush_json_decl(
+            r#""mainEntryPointFilePath": "<projectFolder>/lib/index.d.ts""#
+        ));
+        assert!(!is_versionrc_json_decl(
+            r#""mainEntryPointFilePath": "<projectFolder>/lib/index.d.ts""#
+        ));
+        assert!(!is_package_json_decl(
+            r#""mainEntryPointFilePath": "<projectFolder>/lib/index.d.ts""#
+        ));
+        assert!(!is_tsconfig_json_decl(r#""apiReport": {"#));
+    }
+
+    #[test]
+    fn api_extractor_json_keys_count() {
+        assert!(is_api_extractor_json_decl(
+            r#""mainEntryPointFilePath": "<projectFolder>/lib/index.d.ts""#
+        ));
+        assert!(is_api_extractor_json_decl(
+            r#""mainEntryPointFilePath": "<projectFolder>/lib/index.d.ts","#
+        ));
+        assert!(is_api_extractor_json_decl(
+            r#""mainEntryPointFilePath": "<projectFolder>/lib/index.d.ts" // entry"#
+        ));
+        assert!(!is_api_extractor_json_decl(
+            r#""mainEntryPointFilePath": true"#
+        ));
+        assert!(!is_api_extractor_json_decl(
+            r#""mainEntryPointFilePath": ["#
+        ));
+        assert!(!is_api_extractor_json_decl(
+            r#""mainEntryPointFilePath": {"#
+        ));
+        assert!(!is_api_extractor_json_decl(
+            r#""mainEntryPointFilePath": """#
+        ));
+        assert!(is_api_extractor_json_decl(r#""bundledPackages": ["#));
+        assert!(is_api_extractor_json_decl(r#""bundledPackages": [,"#));
+        assert!(is_api_extractor_json_decl(
+            r#""bundledPackages": [ // libs"#
+        ));
+        assert!(!is_api_extractor_json_decl(r#""bundledPackages": {"#));
+        assert!(!is_api_extractor_json_decl(
+            r#""bundledPackages": "library2""#
+        ));
+        assert!(!is_api_extractor_json_decl(r#""bundledPackages": true"#));
+        assert!(is_api_extractor_json_decl(r#""newlineKind": "lf""#));
+        assert!(is_api_extractor_json_decl(r#""newlineKind": "crlf","#));
+        assert!(is_api_extractor_json_decl(r#""newlineKind": "os""#));
+        assert!(!is_api_extractor_json_decl(r#""newlineKind": "CRLF""#));
+        assert!(!is_api_extractor_json_decl(r#""newlineKind": true"#));
+        assert!(!is_api_extractor_json_decl(r#""newlineKind": ["#));
+        assert!(is_api_extractor_json_decl(
+            r#""enumMemberOrder": "by-name""#
+        ));
+        assert!(is_api_extractor_json_decl(
+            r#""enumMemberOrder": "preserve","#
+        ));
+        assert!(!is_api_extractor_json_decl(r#""enumMemberOrder": "alpha""#));
+        assert!(!is_api_extractor_json_decl(r#""enumMemberOrder": true"#));
+        assert!(is_api_extractor_json_decl(r#""testMode": true"#));
+        assert!(is_api_extractor_json_decl(r#""testMode": false,"#));
+        assert!(!is_api_extractor_json_decl(r#""testMode": "true""#));
+        assert!(!is_api_extractor_json_decl(r#""testMode": 1"#));
+        assert!(is_api_extractor_json_decl(r#""apiReport": {"#));
+        assert!(is_api_extractor_json_decl(r#""apiReport": {,"#));
+        assert!(is_api_extractor_json_decl(r#""apiReport": { // report"#));
+        assert!(!is_api_extractor_json_decl(r#""apiReport": ["#));
+        assert!(!is_api_extractor_json_decl(r#""apiReport": true"#));
+        assert!(is_api_extractor_json_decl(r#""docModel": {"#));
+        assert!(!is_api_extractor_json_decl(r#""docModel": ["#));
+        assert!(is_api_extractor_json_decl(r#""dtsRollup": {"#));
+        assert!(!is_api_extractor_json_decl(r#""dtsRollup": ["#));
+        assert!(is_api_extractor_json_decl(r#""tsdocMetadata": {"#));
+        assert!(!is_api_extractor_json_decl(r#""tsdocMetadata": ["#));
+        assert!(is_api_extractor_json_decl(r#""reportFileName": "my-pkg""#));
+        assert!(is_api_extractor_json_decl(
+            r#""reportFileName": "<unscopedPackageName>","#
+        ));
+        assert!(!is_api_extractor_json_decl(r#""reportFileName": true"#));
+        assert!(!is_api_extractor_json_decl(r#""reportFileName": ["#));
+        assert!(!is_api_extractor_json_decl(r#""reportFileName": """#));
+        assert!(is_api_extractor_json_decl(
+            r#""reportFolder": "<projectFolder>/etc/""#
+        ));
+        assert!(!is_api_extractor_json_decl(r#""reportFolder": ["#));
+        assert!(is_api_extractor_json_decl(
+            r#""reportTempFolder": "<projectFolder>/temp/""#
+        ));
+        assert!(is_api_extractor_json_decl(r#""reportVariants": ["#));
+        assert!(!is_api_extractor_json_decl(r#""reportVariants": {"#));
+        assert!(is_api_extractor_json_decl(
+            r#""includeForgottenExports": true"#
+        ));
+        assert!(is_api_extractor_json_decl(
+            r#""includeForgottenExports": false,"#
+        ));
+        assert!(!is_api_extractor_json_decl(
+            r#""includeForgottenExports": "true""#
+        ));
+        assert!(is_api_extractor_json_decl(
+            r#""apiJsonFilePath": "<projectFolder>/temp/pkg.api.json""#
+        ));
+        assert!(!is_api_extractor_json_decl(r#""apiJsonFilePath": true"#));
+        assert!(is_api_extractor_json_decl(
+            r#""projectFolderUrl": "https://github.com/org/repo/tree/main/pkg""#
+        ));
+        assert!(is_api_extractor_json_decl(
+            r#""projectFolderUrl": "http://example.com/pkg""#
+        ));
+        assert!(!is_api_extractor_json_decl(
+            r#""projectFolderUrl": "ftp://example.com/pkg""#
+        ));
+        assert!(!is_api_extractor_json_decl(r#""projectFolderUrl": ["#));
+        assert!(is_api_extractor_json_decl(
+            r#""untrimmedFilePath": "<projectFolder>/dist/pkg.d.ts""#
+        ));
+        assert!(is_api_extractor_json_decl(
+            r#""alphaTrimmedFilePath": "<projectFolder>/dist/pkg-alpha.d.ts""#
+        ));
+        assert!(is_api_extractor_json_decl(
+            r#""betaTrimmedFilePath": "<projectFolder>/dist/pkg-beta.d.ts""#
+        ));
+        assert!(is_api_extractor_json_decl(
+            r#""publicTrimmedFilePath": "<projectFolder>/dist/pkg-public.d.ts""#
+        ));
+        assert!(is_api_extractor_json_decl(
+            r#""omitTrimmingComments": true"#
+        ));
+        assert!(!is_api_extractor_json_decl(r#""omitTrimmingComments": ["#));
+        assert!(is_api_extractor_json_decl(
+            r#""tsdocMetadataFilePath": "<projectFolder>/dist/tsdoc-metadata.json""#
+        ));
+        assert!(is_api_extractor_json_decl(r#""overrideTsconfig": {"#));
+        assert!(!is_api_extractor_json_decl(r#""overrideTsconfig": ["#));
+        assert!(is_api_extractor_json_decl(
+            r#""compilerMessageReporting": {"#
+        ));
+        assert!(is_api_extractor_json_decl(
+            r#""extractorMessageReporting": {"#
+        ));
+        assert!(is_api_extractor_json_decl(r#""tsdocMessageReporting": {"#));
+        assert!(is_api_extractor_json_decl(r#""addToApiReportFile": false"#));
+        assert!(!is_api_extractor_json_decl(
+            r#""addToApiReportFile": "true""#
+        ));
+        // Incomplete / wrong shapes stay out.
+        assert!(!is_api_extractor_json_decl(r#""mainEntryPointFilePath""#));
+        assert!(!is_api_extractor_json_decl(r#""mainEntryPointFilePath":"#));
+        assert!(!is_api_extractor_json_decl(r#""apiReport""#));
+        assert!(!is_api_extractor_json_decl(r#""dtsRollup""#));
+        // Generic / neighbouring stay out.
+        assert!(!is_api_extractor_json_decl(
+            r#""$schema": "https://developer.microsoft.com/json-schemas/api-extractor/v7/api-extractor.schema.json""#
+        ));
+        assert!(!is_api_extractor_json_decl(
+            r#""extends": "./api-extractor-base.json""#
+        ));
+        assert!(!is_api_extractor_json_decl(
+            r#""projectFolder": "<projectFolder>""#
+        ));
+        assert!(!is_api_extractor_json_decl(r#""compiler": {"#));
+        assert!(!is_api_extractor_json_decl(r#""messages": {"#));
+        assert!(!is_api_extractor_json_decl(r#""enabled": true"#));
+        assert!(!is_api_extractor_json_decl(r#""name": "api-extractor""#));
+        assert!(!is_api_extractor_json_decl(r#""version": "1.0.0""#));
+        assert!(!is_api_extractor_json_decl(r#""skipLibCheck": true"#));
+        assert!(!is_api_extractor_json_decl(r#""compilerOptions": {"#));
+        assert!(is_tsconfig_json_decl(r#""compilerOptions": {"#));
+        assert!(!is_api_extractor_json_decl(r#""semverGroups": ["#));
+        assert!(is_syncpack_json_decl(r#""semverGroups": ["#));
+        assert!(!is_api_extractor_json_decl(r#""bumpFiles": ["#));
+        assert!(is_versionrc_json_decl(r#""bumpFiles": ["#));
+        assert!(!is_api_extractor_json_decl(r#""packages": {"#));
+        assert!(is_release_please_json_decl(r#""packages": {"#));
+        assert!(!is_api_extractor_json_decl(r#""rushVersion": "5.147.1""#));
+        assert!(is_rush_json_decl(r#""rushVersion": "5.147.1""#));
+        assert!(!is_api_extractor_json_decl(r#""printWidth": 80"#));
+        assert!(is_prettier_json_decl(r#""printWidth": 80"#));
+        assert!(!is_api_extractor_json_decl(r#""bin": {"#));
+        assert!(is_package_json_decl(r#""bin": {"#));
+        // line_is_func_like wires the scanner.
+        assert!(line_is_func_like(
+            r#""mainEntryPointFilePath": "<projectFolder>/lib/index.d.ts""#
+        ));
+        assert!(line_is_func_like(r#""bundledPackages": ["#));
+        assert!(line_is_func_like(r#""newlineKind": "lf""#));
+        assert!(line_is_func_like(r#""enumMemberOrder": "preserve""#));
+        assert!(line_is_func_like(r#""apiReport": {"#));
+        assert!(line_is_func_like(r#""docModel": {"#));
+        assert!(line_is_func_like(r#""dtsRollup": {"#));
+        assert!(line_is_func_like(r#""tsdocMetadata": {"#));
+        assert!(line_is_func_like(r#""omitTrimmingComments": true"#));
+        assert!(line_is_func_like(
+            r#""projectFolderUrl": "https://github.com/org/repo""#
+        ));
+        assert!(line_is_func_like(r#""compilerMessageReporting": {"#));
     }
 
     #[test]
