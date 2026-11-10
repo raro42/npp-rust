@@ -1162,3 +1162,5 @@
 009 keep: Function List Jasmine jasmine.json (v0.3.743)
 
 009 keep: Function List CodeceptJS codecept.conf.json helpers/include/stepTimeout/fullPromiseBased/gherkin/noGlobals (v0.3.748)
+
+009 keep: Function List Detox .detoxrc.json apps/devices/selectedConfiguration/behavior/artifacts/reversePorts/skipLegacyWorkersSynchronization/testRunner (v0.3.749)
