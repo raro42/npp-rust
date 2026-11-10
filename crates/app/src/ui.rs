@@ -32417,6 +32417,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_wdio_json_decl(s)
             || is_codecept_json_decl(s)
             || is_detox_json_decl(s)
+            || is_stryker_json_decl(s)
             || is_gomod_decl(s)
             || is_gemfile_decl(s)
             || is_brewfile_decl(s)
@@ -32744,6 +32745,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_wdio_json_decl(s)
         || is_codecept_json_decl(s)
         || is_detox_json_decl(s)
+        || is_stryker_json_decl(s)
         || is_gomod_decl(s)
         || is_gemfile_decl(s)
         || is_brewfile_decl(s)
@@ -51618,7 +51620,8 @@ fn codecept_json_string_ok(key: &str, value: &str) -> bool {
 /// `"linter"` / eslint `"parser"` / package.json `"scripts"` / tsconfig
 /// `"compilerOptions"` stay out. VS Code launch `"configurations": [` stays on
 /// launch; Detox uses `"configurations": {`. Nightwatch `"test_runner"` stays
-/// on Nightwatch; Detox uses `"testRunner": {`.
+/// on Nightwatch; Detox uses `"testRunner": {`. Stryker `"testRunner": "jest"` /
+/// `"mutate"` / `"coverageAnalysis"` / `"timeoutMS"` stay on Stryker.
 fn is_detox_json_decl(s: &str) -> bool {
     let s = s.trim_start();
     let Some(rest) = s.strip_prefix('"') else {
@@ -51741,6 +51744,260 @@ fn detox_json_string_ok(key: &str, value: &str) -> bool {
         return false;
     }
     matches!(key, "selectedConfiguration")
+}
+
+/// StrykerJS `stryker.conf.json` / `.stryker.conf.json` / `stryker.config.json`
+/// JSON keys: `"mutate": [`, `"testRunner": "jest"` / `"mocha"` / `"karma"` /
+/// `"cucumber"` / `"command"` / `"vitest"` / `"jasmine"` / `"tap"`,
+/// `"coverageAnalysis": "perTest"` / `"all"` / `"off"`, `"timeoutMS": 60000`,
+/// `"timeoutFactor": 1.5`, `"dryRunTimeoutMinutes": 5`,
+/// `"maxConcurrentTestRunners": 4`, `"disableTypeChecks": true` / `"…"`,
+/// `"ignoreStatic": true`, `"inPlace": true`, `"incremental": true`,
+/// `"allowEmpty": true`, `"force": true`, `"cleanTempDir": true` / `"always"`,
+/// `"tempDirName": "…"`, `"incrementalFile": "…"`,
+/// `"fileLogLevel": "off"` / `"fatal"` / `"error"` / `"warn"` / `"info"` /
+/// `"debug"` / `"trace"`, `"ignorePatterns": [`, `"appendPlugins": [`,
+/// `"checkers": [`, `"testRunnerNodeArgs": [`, `"checkerNodeArgs": [`,
+/// `"htmlReporter": {`, `"clearTextReporter": {`, `"dashboard": {`,
+/// `"mochaOptions": {`, `"commandRunner": {`. Optional trailing `,` and `//` / `/*`
+/// comment. Incomplete quotes / missing `:` stay out. Generic `"$schema"` /
+/// `"name"` / `"version"` / Detox `"apps"` / `"devices"` /
+/// `"selectedConfiguration"` / `"behavior"` / `"artifacts"` / `"reversePorts"` /
+/// `"skipLegacyWorkersSynchronization"` / `"testRunner": {` /
+/// `"configurations": {` / Codecept `"helpers": {` / `"include": {` /
+/// `"stepTimeout"` / `"fullPromiseBased"` / `"gherkin"` / `"noGlobals"` /
+/// WDIO `"waitforTimeout"` / `"waitforInterval"` /
+/// `"connectionRetryTimeout"` / `"connectionRetryCount"` / `"maxInstances"` /
+/// `"mochaOpts"` / `"specFileRetries"` / `"automationProtocol"` /
+/// `"runner": "local"` / TestCafe `"selectorTimeout"` / `"assertionTimeout"` /
+/// `"quarantineMode"` / `"skipJsErrors"` / `"port1"` / `"port2"` /
+/// `"videoPath"` / `"disableNativeAutomation"` / Karma `"frameworks"` /
+/// `"preprocessors"` / `"autoWatch"` / `"singleRun"` / `"customLaunchers"` /
+/// `"browserNoActivityTimeout"` / `"captureTimeout"` / `"logLevel": "INFO"` /
+/// Nightwatch `"src_folders"` / `"page_objects_path"` /
+/// `"skip_testcases_on_fail"` / `"end_session_on_fail"` / `"test_settings"` /
+/// `"desiredCapabilities"` / Jasmine `"spec_dir"` / `"spec_files"` /
+/// `"jsLoader"` / `"stopSpecOnExpectationFailure"` / AVA `"failFast"` /
+/// `"failWithoutAssertions"` / `"utilizeParallelBuilds"` /
+/// `"ignoredByWatcher"` / Mocha `"allowUncaught"` / `"ui": "bdd"` /
+/// `"watch-files"` / `"checkLeaks"` / Jest `"testEnvironment"` /
+/// `"setupFilesAfterEnv"` / `"coverageProvider"` / Playwright `"testDir"` /
+/// `"fullyParallel"` / `"webServer"` / `"preserveOutput"` / Vitest `"pool"` /
+/// `"fileParallelism"` / `"hookTimeout"` / Cypress `"specPattern"` /
+/// `"chromeWebSecurity"` / `"e2e"` / CSpell `"words"` / Oxlint `"categories"` /
+/// Knip `"entry"` / Deno `"nodeModulesDir"` / Renovate `"packageRules"` /
+/// launch `"configurations": [` / tasks `"tasks": [` / Dev Container `"image"` /
+/// turbo `"pipeline"` / nx `"namedInputs"` / prettier `"printWidth"` / biome
+/// `"linter"` / eslint `"parser"` / package.json `"scripts"` / tsconfig
+/// `"compilerOptions"` / shared `"reporters": [` / `"concurrency": 1` /
+/// `"plugins": [` / `"logLevel": "info"` stay out. Detox `"testRunner": {`
+/// stays on Detox; Stryker uses `"testRunner": "jest"`.
+fn is_stryker_json_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    let Some(rest) = s.strip_prefix('"') else {
+        return false;
+    };
+    let Some(end) = rest.find('"') else {
+        return false;
+    };
+    let key = &rest[..end];
+    if !stryker_json_key_ok(key) {
+        return false;
+    }
+    let after_key = rest[end + 1..].trim_start();
+    let Some(after_colon) = after_key.strip_prefix(':') else {
+        return false;
+    };
+    let after_colon = after_colon.trim_start();
+    stryker_json_value_and_tail_ok(key, after_colon)
+}
+
+fn stryker_json_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "mutate"
+            | "testRunner"
+            | "coverageAnalysis"
+            | "timeoutMS"
+            | "timeoutFactor"
+            | "dryRunTimeoutMinutes"
+            | "maxConcurrentTestRunners"
+            | "disableTypeChecks"
+            | "ignoreStatic"
+            | "inPlace"
+            | "incremental"
+            | "allowEmpty"
+            | "force"
+            | "cleanTempDir"
+            | "tempDirName"
+            | "incrementalFile"
+            | "fileLogLevel"
+            | "ignorePatterns"
+            | "appendPlugins"
+            | "checkers"
+            | "testRunnerNodeArgs"
+            | "checkerNodeArgs"
+            | "htmlReporter"
+            | "clearTextReporter"
+            | "dashboard"
+            | "mochaOptions"
+            | "commandRunner"
+    )
+}
+
+fn stryker_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool {
+    let bytes = after_colon.as_bytes();
+    let Some(first) = bytes.first().copied() else {
+        return false;
+    };
+    match first {
+        b'{' => {
+            if !stryker_json_object_key_ok(key) {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[1..])
+        }
+        b'[' => {
+            if !stryker_json_array_key_ok(key) {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[1..])
+        }
+        b'"' => {
+            if !stryker_json_string_key_ok(key) {
+                return false;
+            }
+            let rest = &after_colon[1..];
+            let Some(end) = rest.find('"') else {
+                return false;
+            };
+            let value = &rest[..end];
+            if !stryker_json_string_ok(key, value) {
+                return false;
+            }
+            package_json_tail_ok(&rest[end + 1..])
+        }
+        b't' | b'f' => {
+            let rest = if let Some(rest) = after_colon.strip_prefix("true") {
+                rest
+            } else if let Some(rest) = after_colon.strip_prefix("false") {
+                rest
+            } else {
+                return false;
+            };
+            if !stryker_json_bool_key_ok(key) {
+                return false;
+            }
+            package_json_tail_ok(rest)
+        }
+        b'0'..=b'9' => {
+            if !stryker_json_number_key_ok(key) {
+                return false;
+            }
+            let Some(rest) = stryker_json_number_tail(after_colon) else {
+                return false;
+            };
+            package_json_tail_ok(rest)
+        }
+        _ => false,
+    }
+}
+
+fn stryker_json_object_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "htmlReporter" | "clearTextReporter" | "dashboard" | "mochaOptions" | "commandRunner"
+    )
+}
+
+fn stryker_json_array_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "mutate"
+            | "ignorePatterns"
+            | "appendPlugins"
+            | "checkers"
+            | "testRunnerNodeArgs"
+            | "checkerNodeArgs"
+    )
+}
+
+fn stryker_json_string_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "testRunner"
+            | "coverageAnalysis"
+            | "tempDirName"
+            | "incrementalFile"
+            | "fileLogLevel"
+            | "disableTypeChecks"
+            | "cleanTempDir"
+    )
+}
+
+fn stryker_json_bool_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "disableTypeChecks"
+            | "ignoreStatic"
+            | "inPlace"
+            | "incremental"
+            | "allowEmpty"
+            | "force"
+            | "cleanTempDir"
+    )
+}
+
+fn stryker_json_number_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "timeoutMS" | "timeoutFactor" | "dryRunTimeoutMinutes" | "maxConcurrentTestRunners"
+    )
+}
+
+fn stryker_json_number_tail(after_colon: &str) -> Option<&str> {
+    let bytes = after_colon.as_bytes();
+    let mut i = 0;
+    while i < bytes.len() && bytes[i].is_ascii_digit() {
+        i += 1;
+    }
+    if i == 0 || i > 12 {
+        return None;
+    }
+    if i < bytes.len() && bytes[i] == b'.' {
+        i += 1;
+        let frac_start = i;
+        while i < bytes.len() && bytes[i].is_ascii_digit() {
+            i += 1;
+        }
+        if i == frac_start || i > 16 {
+            return None;
+        }
+    }
+    Some(&after_colon[i..])
+}
+
+fn stryker_json_string_ok(key: &str, value: &str) -> bool {
+    if value.is_empty() || value.len() > 512 || value.contains('\n') {
+        return false;
+    }
+    if value.chars().all(|c| c.is_ascii_whitespace()) {
+        return false;
+    }
+    match key {
+        "testRunner" => matches!(
+            value,
+            "jest" | "mocha" | "karma" | "cucumber" | "command" | "vitest" | "jasmine" | "tap"
+        ),
+        "coverageAnalysis" => matches!(value, "perTest" | "all" | "off"),
+        "fileLogLevel" => matches!(
+            value,
+            "off" | "fatal" | "error" | "warn" | "info" | "debug" | "trace"
+        ),
+        "cleanTempDir" => value == "always",
+        "tempDirName" | "incrementalFile" | "disableTypeChecks" => true,
+        _ => false,
+    }
 }
 
 /// go.mod / go.work directives: `module example.com/foo`, `go 1.22`,
@@ -82400,16 +82657,16 @@ mod func_like_line_tests {
         is_samconfig_toml_decl, is_scons_decl, is_scriv_ini_decl, is_sddm_conf_decl,
         is_semantic_release_ini_decl, is_services_file_decl, is_setup_cfg_decl,
         is_setuptools_scm_ini_decl, is_sqlfluff_ini_decl, is_ssh_config_decl, is_sssd_conf_decl,
-        is_stylelint_json_decl, is_subuid_subgid_decl, is_sudoers_decl, is_supabase_toml_decl,
-        is_supervisord_conf_decl, is_swc_json_decl, is_sysctl_conf_decl, is_syslog_ng_decl,
-        is_systemd_networkd_decl, is_systemd_unit_decl, is_sysusers_d_decl, is_taplo_toml_decl,
-        is_tauri_json_decl, is_telegraf_toml_decl, is_testcafe_json_decl, is_tmpfiles_d_decl,
-        is_towncrier_ini_decl, is_tox_ini_decl, is_trunk_toml_decl, is_tsconfig_json_decl,
-        is_turbo_json_decl, is_ty_toml_decl, is_typos_toml_decl, is_udev_rule_decl,
-        is_unbound_nsd_conf_decl, is_uniffi_toml_decl, is_unimport_ini_decl, is_uv_toml_decl,
-        is_vconsole_conf_decl, is_vector_toml_decl, is_vercel_json_decl, is_versioneer_ini_decl,
-        is_vitest_json_decl, is_vscode_launch_json_decl, is_vscode_tasks_json_decl,
-        is_vulture_ini_decl, is_wails_json_decl, is_wdio_json_decl,
+        is_stryker_json_decl, is_stylelint_json_decl, is_subuid_subgid_decl, is_sudoers_decl,
+        is_supabase_toml_decl, is_supervisord_conf_decl, is_swc_json_decl, is_sysctl_conf_decl,
+        is_syslog_ng_decl, is_systemd_networkd_decl, is_systemd_unit_decl, is_sysusers_d_decl,
+        is_taplo_toml_decl, is_tauri_json_decl, is_telegraf_toml_decl, is_testcafe_json_decl,
+        is_tmpfiles_d_decl, is_towncrier_ini_decl, is_tox_ini_decl, is_trunk_toml_decl,
+        is_tsconfig_json_decl, is_turbo_json_decl, is_ty_toml_decl, is_typos_toml_decl,
+        is_udev_rule_decl, is_unbound_nsd_conf_decl, is_uniffi_toml_decl, is_unimport_ini_decl,
+        is_uv_toml_decl, is_vconsole_conf_decl, is_vector_toml_decl, is_vercel_json_decl,
+        is_versioneer_ini_decl, is_vitest_json_decl, is_vscode_launch_json_decl,
+        is_vscode_tasks_json_decl, is_vulture_ini_decl, is_wails_json_decl, is_wdio_json_decl,
         is_webextension_manifest_json_decl, is_wireguard_config_decl, is_wrangler_toml_decl,
         is_xmake_decl, is_xorg_conf_decl, is_yapf_ini_decl, is_yarnrc_yml_decl, is_yum_repo_decl,
         is_zest_releaser_ini_decl, line_is_func_like,
@@ -102332,6 +102589,7 @@ mod func_like_line_tests {
         assert!(!is_detox_json_decl(r#""configurations": ["#));
         assert!(is_detox_json_decl(r#""testRunner": {"#));
         assert!(!is_detox_json_decl(r#""testRunner": "jest""#));
+        assert!(is_stryker_json_decl(r#""testRunner": "jest""#));
         assert!(!is_detox_json_decl(r#""testRunner": ["#));
         assert!(is_detox_json_decl(r#""behavior": {"#));
         assert!(is_detox_json_decl(r#""logger": {"#));
@@ -102588,6 +102846,359 @@ mod func_like_line_tests {
         assert!(line_is_func_like(r#""session": {"#));
         assert!(line_is_func_like(r#""logger": {"#));
         assert!(line_is_func_like(r#""cli": {"#));
+    }
+
+    #[test]
+    fn stryker_json_keys_smoke() {
+        assert!(is_stryker_json_decl(r#""mutate": ["#));
+        assert!(is_stryker_json_decl(r#""testRunner": "jest""#));
+        assert!(is_stryker_json_decl(r#""coverageAnalysis": "perTest""#));
+        assert!(is_stryker_json_decl(r#""timeoutMS": 60000"#));
+        assert!(is_stryker_json_decl(r#""timeoutFactor": 1.5"#));
+        assert!(is_stryker_json_decl(r#""dryRunTimeoutMinutes": 5"#));
+        assert!(is_stryker_json_decl(r#""maxConcurrentTestRunners": 4"#));
+        assert!(is_stryker_json_decl(r#""disableTypeChecks": true"#));
+        assert!(is_stryker_json_decl(
+            r#""disableTypeChecks": "**/*.{ts,tsx}""#
+        ));
+        assert!(is_stryker_json_decl(r#""ignoreStatic": true"#));
+        assert!(is_stryker_json_decl(r#""inPlace": false"#));
+        assert!(is_stryker_json_decl(r#""incremental": true"#));
+        assert!(is_stryker_json_decl(r#""allowEmpty": true"#));
+        assert!(is_stryker_json_decl(r#""force": true"#));
+        assert!(is_stryker_json_decl(r#""cleanTempDir": true"#));
+        assert!(is_stryker_json_decl(r#""cleanTempDir": "always""#));
+        assert!(is_stryker_json_decl(r#""tempDirName": ".stryker-tmp""#));
+        assert!(is_stryker_json_decl(
+            r#""incrementalFile": ".stryker-tmp/incremental.json""#
+        ));
+        assert!(is_stryker_json_decl(r#""fileLogLevel": "off""#));
+        assert!(is_stryker_json_decl(r#""ignorePatterns": ["#));
+        assert!(is_stryker_json_decl(r#""appendPlugins": ["#));
+        assert!(is_stryker_json_decl(r#""checkers": ["#));
+        assert!(is_stryker_json_decl(r#""testRunnerNodeArgs": ["#));
+        assert!(is_stryker_json_decl(r#""checkerNodeArgs": ["#));
+        assert!(is_stryker_json_decl(r#""htmlReporter": {"#));
+        assert!(is_stryker_json_decl(r#""clearTextReporter": {"#));
+        assert!(is_stryker_json_decl(r#""dashboard": {"#));
+        assert!(is_stryker_json_decl(r#""mochaOptions": {"#));
+        assert!(is_stryker_json_decl(r#""commandRunner": {"#));
+        // Distinctive Stryker keys stay out of Detox / neighbours.
+        assert!(!is_detox_json_decl(r#""mutate": ["#));
+        assert!(!is_detox_json_decl(r#""testRunner": "jest""#));
+        assert!(is_detox_json_decl(r#""testRunner": {"#));
+        assert!(!is_stryker_json_decl(r#""testRunner": {"#));
+        assert!(!is_codecept_json_decl(r#""coverageAnalysis": "perTest""#));
+        assert!(!is_wdio_json_decl(r#""timeoutMS": 60000"#));
+        assert!(!is_jest_json_decl(r#""timeoutFactor": 1.5"#));
+        assert!(!is_karma_json_decl(r#""appendPlugins": ["#));
+        assert!(!is_playwright_json_decl(r#""ignoreStatic": true"#));
+        assert!(!is_vitest_json_decl(r#""dryRunTimeoutMinutes": 5"#));
+        assert!(!is_mocha_json_decl(r#""maxConcurrentTestRunners": 4"#));
+        assert!(!is_cypress_json_decl(r#""htmlReporter": {"#));
+        assert!(!is_nightwatch_json_decl(r#""cleanTempDir": "always""#));
+    }
+
+    #[test]
+    fn stryker_json_keys_count() {
+        assert!(is_stryker_json_decl(r#""mutate": ["#));
+        assert!(!is_stryker_json_decl(r#""mutate": {"#));
+        assert!(!is_stryker_json_decl(r#""mutate": "src/**/*.js""#));
+        assert!(is_stryker_json_decl(r#""testRunner": "jest""#));
+        assert!(is_stryker_json_decl(r#""testRunner": "mocha""#));
+        assert!(is_stryker_json_decl(r#""testRunner": "karma""#));
+        assert!(is_stryker_json_decl(r#""testRunner": "cucumber""#));
+        assert!(is_stryker_json_decl(r#""testRunner": "command""#));
+        assert!(is_stryker_json_decl(r#""testRunner": "vitest""#));
+        assert!(is_stryker_json_decl(r#""testRunner": "jasmine""#));
+        assert!(is_stryker_json_decl(r#""testRunner": "tap""#));
+        assert!(!is_stryker_json_decl(r#""testRunner": "pytest""#));
+        assert!(!is_stryker_json_decl(r#""testRunner": {"#));
+        assert!(!is_stryker_json_decl(r#""testRunner": ["#));
+        assert!(is_stryker_json_decl(r#""coverageAnalysis": "perTest""#));
+        assert!(is_stryker_json_decl(r#""coverageAnalysis": "all""#));
+        assert!(is_stryker_json_decl(r#""coverageAnalysis": "off""#));
+        assert!(!is_stryker_json_decl(r#""coverageAnalysis": "full""#));
+        assert!(!is_stryker_json_decl(r#""coverageAnalysis": {"#));
+        assert!(is_stryker_json_decl(r#""timeoutMS": 60000"#));
+        assert!(is_stryker_json_decl(r#""timeoutMS": 60000, // ms"#));
+        assert!(!is_stryker_json_decl(r#""timeoutMS": "60000""#));
+        assert!(!is_stryker_json_decl(r#""timeoutMS": {"#));
+        assert!(is_stryker_json_decl(r#""timeoutFactor": 1.5"#));
+        assert!(is_stryker_json_decl(r#""timeoutFactor": 2"#));
+        assert!(!is_stryker_json_decl(r#""timeoutFactor": 1."#));
+        assert!(!is_stryker_json_decl(r#""timeoutFactor": .5"#));
+        assert!(!is_stryker_json_decl(r#""timeoutFactor": "1.5""#));
+        assert!(is_stryker_json_decl(r#""dryRunTimeoutMinutes": 5"#));
+        assert!(is_stryker_json_decl(r#""maxConcurrentTestRunners": 4"#));
+        assert!(!is_stryker_json_decl(r#""maxConcurrentTestRunners": ["#));
+        assert!(is_stryker_json_decl(r#""disableTypeChecks": true"#));
+        assert!(is_stryker_json_decl(r#""disableTypeChecks": false"#));
+        assert!(is_stryker_json_decl(
+            r#""disableTypeChecks": "**/*.{ts,tsx}""#
+        ));
+        assert!(!is_stryker_json_decl(r#""disableTypeChecks": ["#));
+        assert!(is_stryker_json_decl(r#""ignoreStatic": true"#));
+        assert!(is_stryker_json_decl(r#""inPlace": false"#));
+        assert!(is_stryker_json_decl(r#""incremental": true"#));
+        assert!(is_stryker_json_decl(r#""allowEmpty": true"#));
+        assert!(is_stryker_json_decl(r#""force": false"#));
+        assert!(is_stryker_json_decl(r#""cleanTempDir": true"#));
+        assert!(is_stryker_json_decl(r#""cleanTempDir": "always""#));
+        assert!(!is_stryker_json_decl(r#""cleanTempDir": "never""#));
+        assert!(is_stryker_json_decl(r#""tempDirName": ".stryker-tmp""#));
+        assert!(!is_stryker_json_decl(r#""tempDirName": """#));
+        assert!(!is_stryker_json_decl(r#""tempDirName": {"#));
+        assert!(is_stryker_json_decl(
+            r#""incrementalFile": ".stryker-tmp/incremental.json""#
+        ));
+        assert!(is_stryker_json_decl(r#""fileLogLevel": "off""#));
+        assert!(is_stryker_json_decl(r#""fileLogLevel": "info""#));
+        assert!(is_stryker_json_decl(r#""fileLogLevel": "debug""#));
+        assert!(!is_stryker_json_decl(r#""fileLogLevel": "verbose""#));
+        assert!(is_stryker_json_decl(r#""ignorePatterns": ["#));
+        assert!(!is_stryker_json_decl(r#""ignorePatterns": {"#));
+        assert!(is_stryker_json_decl(r#""appendPlugins": ["#));
+        assert!(is_stryker_json_decl(r#""checkers": ["#));
+        assert!(is_stryker_json_decl(r#""testRunnerNodeArgs": ["#));
+        assert!(is_stryker_json_decl(r#""checkerNodeArgs": ["#));
+        assert!(is_stryker_json_decl(r#""htmlReporter": {"#));
+        assert!(!is_stryker_json_decl(r#""htmlReporter": ["#));
+        assert!(is_stryker_json_decl(r#""clearTextReporter": {"#));
+        assert!(is_stryker_json_decl(r#""dashboard": {"#));
+        assert!(is_stryker_json_decl(r#""mochaOptions": {"#));
+        assert!(is_stryker_json_decl(r#""commandRunner": {"#));
+        // Incomplete / wrong shapes stay out.
+        assert!(!is_stryker_json_decl(r#""mutate""#));
+        assert!(!is_stryker_json_decl(r#""mutate":"#));
+        assert!(!is_stryker_json_decl(r#""mutate: ["#));
+        assert!(!is_stryker_json_decl(r#""timeoutMS":"#));
+        assert!(!is_stryker_json_decl(r#""ignoreStatic": ["#));
+        // Generic / neighbouring stay out.
+        assert!(!is_stryker_json_decl(
+            r#""$schema": "https://json.schemastore.org/stryker""#
+        ));
+        assert!(!is_stryker_json_decl(r#""name": "mutation""#));
+        assert!(!is_stryker_json_decl(r#""version": "1.0.0""#));
+        assert!(!is_stryker_json_decl(r#""apps": {"#));
+        assert!(is_detox_json_decl(r#""apps": {"#));
+        assert!(!is_stryker_json_decl(r#""devices": {"#));
+        assert!(is_detox_json_decl(r#""devices": {"#));
+        assert!(!is_stryker_json_decl(
+            r#""selectedConfiguration": "ios.sim.debug""#
+        ));
+        assert!(is_detox_json_decl(
+            r#""selectedConfiguration": "ios.sim.debug""#
+        ));
+        assert!(!is_stryker_json_decl(r#""behavior": {"#));
+        assert!(is_detox_json_decl(r#""behavior": {"#));
+        assert!(!is_stryker_json_decl(r#""artifacts": {"#));
+        assert!(is_detox_json_decl(r#""artifacts": {"#));
+        assert!(!is_stryker_json_decl(r#""reversePorts": ["#));
+        assert!(is_detox_json_decl(r#""reversePorts": ["#));
+        assert!(!is_stryker_json_decl(
+            r#""skipLegacyWorkersSynchronization": true"#
+        ));
+        assert!(is_detox_json_decl(
+            r#""skipLegacyWorkersSynchronization": true"#
+        ));
+        assert!(!is_stryker_json_decl(r#""configurations": {"#));
+        assert!(is_detox_json_decl(r#""configurations": {"#));
+        assert!(!is_stryker_json_decl(r#""helpers": {"#));
+        assert!(is_codecept_json_decl(r#""helpers": {"#));
+        assert!(!is_stryker_json_decl(r#""include": {"#));
+        assert!(is_codecept_json_decl(r#""include": {"#));
+        assert!(!is_stryker_json_decl(r#""stepTimeout": 5000"#));
+        assert!(is_codecept_json_decl(r#""stepTimeout": 5000"#));
+        assert!(!is_stryker_json_decl(r#""fullPromiseBased": true"#));
+        assert!(is_codecept_json_decl(r#""fullPromiseBased": true"#));
+        assert!(!is_stryker_json_decl(r#""gherkin": {"#));
+        assert!(is_codecept_json_decl(r#""gherkin": {"#));
+        assert!(!is_stryker_json_decl(r#""noGlobals": true"#));
+        assert!(is_codecept_json_decl(r#""noGlobals": true"#));
+        assert!(!is_stryker_json_decl(r#""waitforTimeout": 10000"#));
+        assert!(is_wdio_json_decl(r#""waitforTimeout": 10000"#));
+        assert!(!is_stryker_json_decl(r#""waitforInterval": 500"#));
+        assert!(is_wdio_json_decl(r#""waitforInterval": 500"#));
+        assert!(!is_stryker_json_decl(r#""connectionRetryTimeout": 120000"#));
+        assert!(is_wdio_json_decl(r#""connectionRetryTimeout": 120000"#));
+        assert!(!is_stryker_json_decl(r#""connectionRetryCount": 3"#));
+        assert!(is_wdio_json_decl(r#""connectionRetryCount": 3"#));
+        assert!(!is_stryker_json_decl(r#""maxInstances": 5"#));
+        assert!(is_wdio_json_decl(r#""maxInstances": 5"#));
+        assert!(!is_stryker_json_decl(r#""mochaOpts": {"#));
+        assert!(is_wdio_json_decl(r#""mochaOpts": {"#));
+        assert!(!is_stryker_json_decl(r#""specFileRetries": 1"#));
+        assert!(is_wdio_json_decl(r#""specFileRetries": 1"#));
+        assert!(!is_stryker_json_decl(
+            r#""automationProtocol": "webdriver""#
+        ));
+        assert!(is_wdio_json_decl(r#""automationProtocol": "webdriver""#));
+        assert!(!is_stryker_json_decl(r#""runner": "local""#));
+        assert!(is_wdio_json_decl(r#""runner": "local""#));
+        assert!(!is_stryker_json_decl(r#""selectorTimeout": 10000"#));
+        assert!(is_testcafe_json_decl(r#""selectorTimeout": 10000"#));
+        assert!(!is_stryker_json_decl(r#""assertionTimeout": 3000"#));
+        assert!(is_testcafe_json_decl(r#""assertionTimeout": 3000"#));
+        assert!(!is_stryker_json_decl(r#""quarantineMode": true"#));
+        assert!(is_testcafe_json_decl(r#""quarantineMode": true"#));
+        assert!(!is_stryker_json_decl(r#""skipJsErrors": true"#));
+        assert!(is_testcafe_json_decl(r#""skipJsErrors": true"#));
+        assert!(!is_stryker_json_decl(r#""port1": 1337"#));
+        assert!(is_testcafe_json_decl(r#""port1": 1337"#));
+        assert!(!is_stryker_json_decl(r#""port2": 1338"#));
+        assert!(is_testcafe_json_decl(r#""port2": 1338"#));
+        assert!(!is_stryker_json_decl(r#""videoPath": "artifacts/videos""#));
+        assert!(is_testcafe_json_decl(r#""videoPath": "artifacts/videos""#));
+        assert!(!is_stryker_json_decl(r#""disableNativeAutomation": true"#));
+        assert!(is_testcafe_json_decl(r#""disableNativeAutomation": true"#));
+        assert!(!is_stryker_json_decl(r#""frameworks": ["#));
+        assert!(is_karma_json_decl(r#""frameworks": ["#));
+        assert!(!is_stryker_json_decl(r#""preprocessors": {"#));
+        assert!(is_karma_json_decl(r#""preprocessors": {"#));
+        assert!(!is_stryker_json_decl(r#""autoWatch": true"#));
+        assert!(is_karma_json_decl(r#""autoWatch": true"#));
+        assert!(!is_stryker_json_decl(r#""singleRun": true"#));
+        assert!(is_karma_json_decl(r#""singleRun": true"#));
+        assert!(!is_stryker_json_decl(r#""customLaunchers": {"#));
+        assert!(is_karma_json_decl(r#""customLaunchers": {"#));
+        assert!(!is_stryker_json_decl(
+            r#""browserNoActivityTimeout": 30000"#
+        ));
+        assert!(is_karma_json_decl(r#""browserNoActivityTimeout": 30000"#));
+        assert!(!is_stryker_json_decl(r#""captureTimeout": 60000"#));
+        assert!(is_karma_json_decl(r#""captureTimeout": 60000"#));
+        assert!(!is_stryker_json_decl(r#""logLevel": "INFO""#));
+        assert!(is_karma_json_decl(r#""logLevel": "INFO""#));
+        assert!(!is_stryker_json_decl(r#""src_folders": ["#));
+        assert!(is_nightwatch_json_decl(r#""src_folders": ["#));
+        assert!(!is_stryker_json_decl(r#""page_objects_path": ["#));
+        assert!(is_nightwatch_json_decl(r#""page_objects_path": ["#));
+        assert!(!is_stryker_json_decl(r#""skip_testcases_on_fail": true"#));
+        assert!(is_nightwatch_json_decl(r#""skip_testcases_on_fail": true"#));
+        assert!(!is_stryker_json_decl(r#""end_session_on_fail": true"#));
+        assert!(is_nightwatch_json_decl(r#""end_session_on_fail": true"#));
+        assert!(!is_stryker_json_decl(r#""test_settings": {"#));
+        assert!(is_nightwatch_json_decl(r#""test_settings": {"#));
+        assert!(!is_stryker_json_decl(r#""desiredCapabilities": {"#));
+        assert!(is_nightwatch_json_decl(r#""desiredCapabilities": {"#));
+        assert!(!is_stryker_json_decl(r#""spec_dir": "spec""#));
+        assert!(is_jasmine_json_decl(r#""spec_dir": "spec""#));
+        assert!(!is_stryker_json_decl(r#""spec_files": ["#));
+        assert!(is_jasmine_json_decl(r#""spec_files": ["#));
+        assert!(!is_stryker_json_decl(r#""jsLoader": "require""#));
+        assert!(is_jasmine_json_decl(r#""jsLoader": "require""#));
+        assert!(!is_stryker_json_decl(
+            r#""stopSpecOnExpectationFailure": true"#
+        ));
+        assert!(is_jasmine_json_decl(
+            r#""stopSpecOnExpectationFailure": true"#
+        ));
+        assert!(!is_stryker_json_decl(r#""failFast": true"#));
+        assert!(is_ava_json_decl(r#""failFast": true"#));
+        assert!(!is_stryker_json_decl(r#""failWithoutAssertions": true"#));
+        assert!(is_ava_json_decl(r#""failWithoutAssertions": true"#));
+        assert!(!is_stryker_json_decl(r#""utilizeParallelBuilds": true"#));
+        assert!(is_ava_json_decl(r#""utilizeParallelBuilds": true"#));
+        assert!(!is_stryker_json_decl(r#""ignoredByWatcher": ["#));
+        assert!(is_ava_json_decl(r#""ignoredByWatcher": ["#));
+        assert!(!is_stryker_json_decl(r#""allowUncaught": true"#));
+        assert!(is_mocha_json_decl(r#""allowUncaught": true"#));
+        assert!(!is_stryker_json_decl(r#""ui": "bdd""#));
+        assert!(is_mocha_json_decl(r#""ui": "bdd""#));
+        assert!(!is_stryker_json_decl(r#""watch-files": ["#));
+        assert!(is_mocha_json_decl(r#""watch-files": ["#));
+        assert!(!is_stryker_json_decl(r#""checkLeaks": true"#));
+        assert!(is_mocha_json_decl(r#""checkLeaks": true"#));
+        assert!(!is_stryker_json_decl(r#""testEnvironment": "node""#));
+        assert!(is_jest_json_decl(r#""testEnvironment": "node""#));
+        assert!(!is_stryker_json_decl(r#""setupFilesAfterEnv": ["#));
+        assert!(is_jest_json_decl(r#""setupFilesAfterEnv": ["#));
+        assert!(!is_stryker_json_decl(r#""coverageProvider": "v8""#));
+        assert!(is_jest_json_decl(r#""coverageProvider": "v8""#));
+        assert!(!is_stryker_json_decl(r#""testDir": "tests""#));
+        assert!(is_playwright_json_decl(r#""testDir": "tests""#));
+        assert!(!is_stryker_json_decl(r#""fullyParallel": true"#));
+        assert!(is_playwright_json_decl(r#""fullyParallel": true"#));
+        assert!(!is_stryker_json_decl(r#""webServer": {"#));
+        assert!(is_playwright_json_decl(r#""webServer": {"#));
+        assert!(!is_stryker_json_decl(r#""preserveOutput": "always""#));
+        assert!(is_playwright_json_decl(r#""preserveOutput": "always""#));
+        assert!(!is_stryker_json_decl(r#""pool": "threads""#));
+        assert!(is_vitest_json_decl(r#""pool": "threads""#));
+        assert!(!is_stryker_json_decl(r#""fileParallelism": true"#));
+        assert!(is_vitest_json_decl(r#""fileParallelism": true"#));
+        assert!(!is_stryker_json_decl(r#""hookTimeout": 10000"#));
+        assert!(is_vitest_json_decl(r#""hookTimeout": 10000"#));
+        assert!(!is_stryker_json_decl(
+            r#""specPattern": "cypress/e2e/**/*.cy.ts""#
+        ));
+        assert!(is_cypress_json_decl(
+            r#""specPattern": "cypress/e2e/**/*.cy.ts""#
+        ));
+        assert!(!is_stryker_json_decl(r#""chromeWebSecurity": false"#));
+        assert!(is_cypress_json_decl(r#""chromeWebSecurity": false"#));
+        assert!(!is_stryker_json_decl(r#""e2e": {"#));
+        assert!(is_cypress_json_decl(r#""e2e": {"#));
+        assert!(!is_stryker_json_decl(r#""words": ["#));
+        assert!(is_cspell_json_decl(r#""words": ["#));
+        assert!(!is_stryker_json_decl(r#""categories": {"#));
+        assert!(is_oxlint_json_decl(r#""categories": {"#));
+        assert!(!is_stryker_json_decl(r#""entry": ["#));
+        assert!(is_knip_json_decl(r#""entry": ["#));
+        assert!(!is_stryker_json_decl(r#""nodeModulesDir": "auto""#));
+        assert!(is_deno_json_decl(r#""nodeModulesDir": "auto""#));
+        assert!(!is_stryker_json_decl(r#""packageRules": ["#));
+        assert!(is_renovate_json_decl(r#""packageRules": ["#));
+        assert!(!is_stryker_json_decl(r#""configurations": ["#));
+        assert!(is_vscode_launch_json_decl(r#""configurations": ["#));
+        assert!(!is_stryker_json_decl(r#""tasks": ["#));
+        assert!(is_vscode_tasks_json_decl(r#""tasks": ["#));
+        assert!(!is_stryker_json_decl(
+            r#""image": "mcr.microsoft.com/devcontainers/rust""#
+        ));
+        assert!(is_devcontainer_json_decl(
+            r#""image": "mcr.microsoft.com/devcontainers/rust""#
+        ));
+        assert!(!is_stryker_json_decl(r#""pipeline": {"#));
+        assert!(is_turbo_json_decl(r#""pipeline": {"#));
+        assert!(!is_stryker_json_decl(r#""namedInputs": {"#));
+        assert!(is_nx_json_decl(r#""namedInputs": {"#));
+        assert!(!is_stryker_json_decl(r#""printWidth": 80"#));
+        assert!(is_prettier_json_decl(r#""printWidth": 80"#));
+        assert!(!is_stryker_json_decl(r#""linter": {"#));
+        assert!(is_biome_json_decl(r#""linter": {"#));
+        assert!(!is_stryker_json_decl(
+            r#""parser": "@typescript-eslint/parser""#
+        ));
+        assert!(is_eslint_json_decl(
+            r#""parser": "@typescript-eslint/parser""#
+        ));
+        assert!(!is_stryker_json_decl(r#""scripts": {"#));
+        assert!(is_package_json_decl(r#""scripts": {"#));
+        assert!(!is_stryker_json_decl(r#""compilerOptions": {"#));
+        assert!(is_tsconfig_json_decl(r#""compilerOptions": {"#));
+        // Shared shapes that stay out of Stryker on purpose.
+        assert!(!is_stryker_json_decl(r#""reporters": ["#));
+        assert!(!is_stryker_json_decl(r#""concurrency": 1"#));
+        assert!(!is_stryker_json_decl(r#""plugins": ["#));
+        assert!(!is_stryker_json_decl(r#""logLevel": "info""#));
+        // Shared / distinctive shapes list via Stryker scanner.
+        assert!(line_is_func_like(r#""mutate": ["#));
+        assert!(line_is_func_like(r#""testRunner": "jest""#));
+        assert!(line_is_func_like(r#""coverageAnalysis": "perTest""#));
+        assert!(line_is_func_like(r#""timeoutMS": 60000"#));
+        assert!(line_is_func_like(r#""timeoutFactor": 1.5"#));
+        assert!(line_is_func_like(r#""dryRunTimeoutMinutes": 5"#));
+        assert!(line_is_func_like(r#""maxConcurrentTestRunners": 4"#));
+        assert!(line_is_func_like(r#""disableTypeChecks": true"#));
+        assert!(line_is_func_like(r#""ignoreStatic": true"#));
+        assert!(line_is_func_like(r#""appendPlugins": ["#));
+        assert!(line_is_func_like(r#""htmlReporter": {"#));
+        assert!(line_is_func_like(r#""cleanTempDir": "always""#));
+        assert!(line_is_func_like(r#""tempDirName": ".stryker-tmp""#));
+        assert!(line_is_func_like(r#""fileLogLevel": "off""#));
+        assert!(line_is_func_like(r#""commandRunner": {"#));
     }
 
     #[test]
