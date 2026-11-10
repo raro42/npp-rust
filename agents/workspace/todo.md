@@ -1,3 +1,5 @@
+009 keep: Function List TestCafe .testcaferc.json selectorTimeout/assertionTimeout/quarantineMode/skipJsErrors/port1/port2/videoPath/disableNativeAutomation (v0.3.746)
+
 009 keep: Function List Karma karma.conf.json frameworks/preprocessors/browsers/autoWatch/singleRun/customLaunchers/browserNoActivityTimeout/captureTimeout/logLevel (v0.3.745)
 
 009 keep: Function List Nightwatch nightwatch.json src_folders/page_objects_path/skip_testcases_on_fail/end_session_on_fail/test_settings/desiredCapabilities (v0.3.744)

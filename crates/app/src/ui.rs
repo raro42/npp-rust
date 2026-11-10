@@ -32413,6 +32413,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_jasmine_json_decl(s)
             || is_nightwatch_json_decl(s)
             || is_karma_json_decl(s)
+            || is_testcafe_json_decl(s)
             || is_gomod_decl(s)
             || is_gemfile_decl(s)
             || is_brewfile_decl(s)
@@ -32736,6 +32737,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_jasmine_json_decl(s)
         || is_nightwatch_json_decl(s)
         || is_karma_json_decl(s)
+        || is_testcafe_json_decl(s)
         || is_gomod_decl(s)
         || is_gemfile_decl(s)
         || is_brewfile_decl(s)
@@ -50614,15 +50616,18 @@ fn nightwatch_json_string_ok(key: &str, value: &str) -> bool {
 /// `"setupFilesAfterEnv"` / `"coverageProvider"` / Playwright `"testDir"` /
 /// `"fullyParallel"` / `"webServer"` / `"preserveOutput"` / Vitest `"pool"` /
 /// `"fileParallelism"` / `"hookTimeout"` / Cypress `"baseUrl": "http://…"` /
-/// `"specPattern"` / `"chromeWebSecurity"` / `"e2e"` / CSpell `"words"` /
-/// Oxlint `"categories"` / Knip `"entry"` / Deno `"nodeModulesDir"` /
-/// Renovate `"packageRules"` / launch `"configurations"` / tasks
-/// `"tasks": [` / Dev Container `"image"` / turbo `"pipeline"` / nx
-/// `"namedInputs"` / prettier `"printWidth"` / biome `"linter"` / eslint
-/// `"parser"` / package.json `"scripts"` / tsconfig `"compilerOptions"`
-/// stay out. Shared `"files": [` / `"exclude": [` / `"port": 9876` /
-/// `"concurrency": 1` / `"reporters": [` / `"plugins": [` also match
-/// neighbouring scanners when shapes overlap.
+/// `"specPattern"` / `"chromeWebSecurity"` / `"e2e"` / TestCafe
+/// `"selectorTimeout"` / `"assertionTimeout"` / `"quarantineMode"` /
+/// `"skipJsErrors"` / `"port1"` / `"port2"` / `"videoPath"` /
+/// `"disableNativeAutomation"` / CSpell `"words"` / Oxlint `"categories"` /
+/// Knip `"entry"` / Deno `"nodeModulesDir"` / Renovate `"packageRules"` /
+/// launch `"configurations"` / tasks `"tasks": [` / Dev Container `"image"` /
+/// turbo `"pipeline"` / nx `"namedInputs"` / prettier `"printWidth"` /
+/// biome `"linter"` / eslint `"parser"` / package.json `"scripts"` /
+/// tsconfig `"compilerOptions"` stay out. Shared `"files": [` /
+/// `"exclude": [` / `"port": 9876` / `"concurrency": 1` / `"reporters": [` /
+/// `"plugins": [` / `"browsers": [` also match neighbouring scanners when
+/// shapes overlap.
 fn is_karma_json_decl(s: &str) -> bool {
     let s = s.trim_start();
     let Some(rest) = s.strip_prefix('"') else {
@@ -50854,6 +50859,269 @@ fn karma_json_string_ok(key: &str, value: &str) -> bool {
         | "formatError" | "transports" => true,
         _ => false,
     }
+}
+
+/// TestCafe `.testcaferc.json` / `.testcaferc` JSON keys:
+/// `"browsers": [` / `"…"`, `"src": [` / `"…"`, `"reporter": [` / `"…"` / `{`,
+/// `"concurrency": 1`, `"quarantineMode": true` / `{`,
+/// `"selectorTimeout": 10000`, `"assertionTimeout": 3000`,
+/// `"pageLoadTimeout": 30000`, `"ajaxRequestTimeout": 120000`,
+/// `"browserInitTimeout": 120000`, `"testExecutionTimeout": 0`,
+/// `"runExecutionTimeout": 0`, `"skipJsErrors": true`,
+/// `"skipUncaughtErrors": true`, `"stopOnFirstFail": true`,
+/// `"disablePageCaching": true`, `"disablePageReloads": true`,
+/// `"disableNativeAutomation": true`, `"developmentMode": true`,
+/// `"debugMode": true`, `"debugOnFail": true`, `"color": true`,
+/// `"disableMultipleWindows": true`, `"retryTestPages": true`,
+/// `"cache": true`, `"screenshots": {`, `"videoPath": "…"`,
+/// `"videoOptions": {`, `"videoEncodingOptions": {`, `"hostname": "…"`,
+/// `"port1": 1337`, `"port2": 1338`, `"proxy": "…"`, `"proxyBypass": [` /
+/// `"…"`, `"ssl": {`, `"compilerOptions": {`, `"filter": {`, `"hooks": {`,
+/// `"clientScripts": [`, `"tsConfigPath": "…"`, `"userVariables": {`.
+/// Optional trailing `,` and `//` / `/*` comment. Incomplete quotes /
+/// missing `:` stay out. Generic `"$schema"` / `"name"` / `"version"` /
+/// Karma `"frameworks"` / `"preprocessors"` / `"autoWatch"` / `"singleRun"` /
+/// `"customLaunchers"` / `"browserNoActivityTimeout"` / `"captureTimeout"` /
+/// `"logLevel": "INFO"` / Nightwatch `"src_folders"` /
+/// `"page_objects_path"` / `"skip_testcases_on_fail"` /
+/// `"end_session_on_fail"` / `"test_settings"` / `"desiredCapabilities"` /
+/// Jasmine `"spec_dir"` / `"spec_files"` / `"jsLoader"` /
+/// `"stopSpecOnExpectationFailure"` / AVA `"failFast"` /
+/// `"failWithoutAssertions"` / `"utilizeParallelBuilds"` /
+/// `"ignoredByWatcher"` / Mocha `"allowUncaught"` / `"ui": "bdd"` /
+/// `"watch-files"` / `"checkLeaks"` / Jest `"testEnvironment"` /
+/// `"setupFilesAfterEnv"` / `"coverageProvider"` / Playwright `"testDir"` /
+/// `"fullyParallel"` / `"webServer"` / `"preserveOutput"` / Vitest `"pool"` /
+/// `"fileParallelism"` / `"hookTimeout"` / Cypress `"baseUrl": "http://…"` /
+/// `"specPattern"` / `"chromeWebSecurity"` / `"e2e"` / CSpell `"words"` /
+/// Oxlint `"categories"` / Knip `"entry"` / Deno `"nodeModulesDir"` /
+/// Renovate `"packageRules"` / launch `"configurations"` / tasks
+/// `"tasks": [` / Dev Container `"image"` / turbo `"pipeline"` / nx
+/// `"namedInputs"` / prettier `"printWidth"` / biome `"linter"` / eslint
+/// `"parser"` / package.json `"scripts"` / tsconfig `"compilerOptions"`
+/// stay out. Shared `"browsers": [` / `"concurrency": 1` / `"hostname": "…"` /
+/// `"pageLoadTimeout": 30000` / `"screenshots": {` / `"reporter": "…"` also
+/// match neighbouring scanners when shapes overlap.
+fn is_testcafe_json_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    let Some(rest) = s.strip_prefix('"') else {
+        return false;
+    };
+    let Some(end) = rest.find('"') else {
+        return false;
+    };
+    let key = &rest[..end];
+    if !testcafe_json_key_ok(key) {
+        return false;
+    }
+    let after_key = rest[end + 1..].trim_start();
+    let Some(after_colon) = after_key.strip_prefix(':') else {
+        return false;
+    };
+    let after_colon = after_colon.trim_start();
+    testcafe_json_value_and_tail_ok(key, after_colon)
+}
+
+fn testcafe_json_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "browsers"
+            | "src"
+            | "reporter"
+            | "concurrency"
+            | "quarantineMode"
+            | "selectorTimeout"
+            | "assertionTimeout"
+            | "pageLoadTimeout"
+            | "ajaxRequestTimeout"
+            | "browserInitTimeout"
+            | "testExecutionTimeout"
+            | "runExecutionTimeout"
+            | "skipJsErrors"
+            | "skipUncaughtErrors"
+            | "stopOnFirstFail"
+            | "disablePageCaching"
+            | "disablePageReloads"
+            | "disableNativeAutomation"
+            | "developmentMode"
+            | "debugMode"
+            | "debugOnFail"
+            | "color"
+            | "disableMultipleWindows"
+            | "retryTestPages"
+            | "cache"
+            | "screenshots"
+            | "videoPath"
+            | "videoOptions"
+            | "videoEncodingOptions"
+            | "hostname"
+            | "port1"
+            | "port2"
+            | "proxy"
+            | "proxyBypass"
+            | "ssl"
+            | "compilerOptions"
+            | "filter"
+            | "hooks"
+            | "clientScripts"
+            | "tsConfigPath"
+            | "userVariables"
+    )
+}
+
+fn testcafe_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool {
+    let bytes = after_colon.as_bytes();
+    let Some(first) = bytes.first().copied() else {
+        return false;
+    };
+    match first {
+        b'{' => {
+            if !testcafe_json_object_key_ok(key) {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[1..])
+        }
+        b'[' => {
+            if !testcafe_json_array_key_ok(key) {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[1..])
+        }
+        b'"' => {
+            if !testcafe_json_string_key_ok(key) {
+                return false;
+            }
+            let rest = &after_colon[1..];
+            let Some(end) = rest.find('"') else {
+                return false;
+            };
+            let value = &rest[..end];
+            if !testcafe_json_string_ok(key, value) {
+                return false;
+            }
+            package_json_tail_ok(&rest[end + 1..])
+        }
+        b't' | b'f' => {
+            let rest = if let Some(rest) = after_colon.strip_prefix("true") {
+                rest
+            } else if let Some(rest) = after_colon.strip_prefix("false") {
+                rest
+            } else {
+                return false;
+            };
+            if !testcafe_json_bool_key_ok(key) {
+                return false;
+            }
+            package_json_tail_ok(rest)
+        }
+        b'0'..=b'9' => {
+            if !testcafe_json_number_key_ok(key) {
+                return false;
+            }
+            let digits = after_colon
+                .bytes()
+                .take_while(|b| b.is_ascii_digit())
+                .count();
+            if digits == 0 || digits > 9 {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[digits..])
+        }
+        _ => false,
+    }
+}
+
+fn testcafe_json_object_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "quarantineMode"
+            | "reporter"
+            | "screenshots"
+            | "videoOptions"
+            | "videoEncodingOptions"
+            | "ssl"
+            | "compilerOptions"
+            | "filter"
+            | "hooks"
+            | "userVariables"
+    )
+}
+
+fn testcafe_json_array_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "browsers" | "src" | "reporter" | "proxyBypass" | "clientScripts"
+    )
+}
+
+fn testcafe_json_string_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "browsers"
+            | "src"
+            | "reporter"
+            | "videoPath"
+            | "hostname"
+            | "proxy"
+            | "proxyBypass"
+            | "tsConfigPath"
+    )
+}
+
+fn testcafe_json_bool_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "quarantineMode"
+            | "skipJsErrors"
+            | "skipUncaughtErrors"
+            | "stopOnFirstFail"
+            | "disablePageCaching"
+            | "disablePageReloads"
+            | "disableNativeAutomation"
+            | "developmentMode"
+            | "debugMode"
+            | "debugOnFail"
+            | "color"
+            | "disableMultipleWindows"
+            | "retryTestPages"
+            | "cache"
+    )
+}
+
+fn testcafe_json_number_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "concurrency"
+            | "selectorTimeout"
+            | "assertionTimeout"
+            | "pageLoadTimeout"
+            | "ajaxRequestTimeout"
+            | "browserInitTimeout"
+            | "testExecutionTimeout"
+            | "runExecutionTimeout"
+            | "port1"
+            | "port2"
+    )
+}
+
+fn testcafe_json_string_ok(key: &str, value: &str) -> bool {
+    if value.is_empty() || value.len() > 512 || value.contains('\n') {
+        return false;
+    }
+    if value.chars().all(|c| c.is_ascii_whitespace()) {
+        return false;
+    }
+    matches!(
+        key,
+        "browsers"
+            | "src"
+            | "reporter"
+            | "videoPath"
+            | "hostname"
+            | "proxy"
+            | "proxyBypass"
+            | "tsConfigPath"
+    )
 }
 
 /// go.mod / go.work directives: `module example.com/foo`, `go 1.22`,
@@ -81516,15 +81784,16 @@ mod func_like_line_tests {
         is_stylelint_json_decl, is_subuid_subgid_decl, is_sudoers_decl, is_supabase_toml_decl,
         is_supervisord_conf_decl, is_swc_json_decl, is_sysctl_conf_decl, is_syslog_ng_decl,
         is_systemd_networkd_decl, is_systemd_unit_decl, is_sysusers_d_decl, is_taplo_toml_decl,
-        is_tauri_json_decl, is_telegraf_toml_decl, is_tmpfiles_d_decl, is_towncrier_ini_decl,
-        is_tox_ini_decl, is_trunk_toml_decl, is_tsconfig_json_decl, is_turbo_json_decl,
-        is_ty_toml_decl, is_typos_toml_decl, is_udev_rule_decl, is_unbound_nsd_conf_decl,
-        is_uniffi_toml_decl, is_unimport_ini_decl, is_uv_toml_decl, is_vconsole_conf_decl,
-        is_vector_toml_decl, is_vercel_json_decl, is_versioneer_ini_decl, is_vitest_json_decl,
-        is_vscode_launch_json_decl, is_vscode_tasks_json_decl, is_vulture_ini_decl,
-        is_wails_json_decl, is_webextension_manifest_json_decl, is_wireguard_config_decl,
-        is_wrangler_toml_decl, is_xmake_decl, is_xorg_conf_decl, is_yapf_ini_decl,
-        is_yarnrc_yml_decl, is_yum_repo_decl, is_zest_releaser_ini_decl, line_is_func_like,
+        is_tauri_json_decl, is_telegraf_toml_decl, is_testcafe_json_decl, is_tmpfiles_d_decl,
+        is_towncrier_ini_decl, is_tox_ini_decl, is_trunk_toml_decl, is_tsconfig_json_decl,
+        is_turbo_json_decl, is_ty_toml_decl, is_typos_toml_decl, is_udev_rule_decl,
+        is_unbound_nsd_conf_decl, is_uniffi_toml_decl, is_unimport_ini_decl, is_uv_toml_decl,
+        is_vconsole_conf_decl, is_vector_toml_decl, is_vercel_json_decl, is_versioneer_ini_decl,
+        is_vitest_json_decl, is_vscode_launch_json_decl, is_vscode_tasks_json_decl,
+        is_vulture_ini_decl, is_wails_json_decl, is_webextension_manifest_json_decl,
+        is_wireguard_config_decl, is_wrangler_toml_decl, is_xmake_decl, is_xorg_conf_decl,
+        is_yapf_ini_decl, is_yarnrc_yml_decl, is_yum_repo_decl, is_zest_releaser_ini_decl,
+        line_is_func_like,
     };
 
     #[test]
@@ -100372,6 +100641,22 @@ mod func_like_line_tests {
         assert!(is_cypress_json_decl(r#""chromeWebSecurity": false"#));
         assert!(!is_karma_json_decl(r#""e2e": {"#));
         assert!(is_cypress_json_decl(r#""e2e": {"#));
+        assert!(!is_karma_json_decl(r#""selectorTimeout": 10000"#));
+        assert!(is_testcafe_json_decl(r#""selectorTimeout": 10000"#));
+        assert!(!is_karma_json_decl(r#""assertionTimeout": 3000"#));
+        assert!(is_testcafe_json_decl(r#""assertionTimeout": 3000"#));
+        assert!(!is_karma_json_decl(r#""quarantineMode": true"#));
+        assert!(is_testcafe_json_decl(r#""quarantineMode": true"#));
+        assert!(!is_karma_json_decl(r#""skipJsErrors": true"#));
+        assert!(is_testcafe_json_decl(r#""skipJsErrors": true"#));
+        assert!(!is_karma_json_decl(r#""port1": 1337"#));
+        assert!(is_testcafe_json_decl(r#""port1": 1337"#));
+        assert!(!is_karma_json_decl(r#""port2": 1338"#));
+        assert!(is_testcafe_json_decl(r#""port2": 1338"#));
+        assert!(!is_karma_json_decl(r#""videoPath": "artifacts/videos""#));
+        assert!(is_testcafe_json_decl(r#""videoPath": "artifacts/videos""#));
+        assert!(!is_karma_json_decl(r#""disableNativeAutomation": true"#));
+        assert!(is_testcafe_json_decl(r#""disableNativeAutomation": true"#));
         assert!(!is_karma_json_decl(r#""words": ["#));
         assert!(is_cspell_json_decl(r#""words": ["#));
         assert!(!is_karma_json_decl(r#""categories": {"#));
@@ -100440,6 +100725,16 @@ mod func_like_line_tests {
         assert!(!is_vitest_json_decl(r#""autoWatch": true"#));
         assert!(!is_cypress_json_decl(r#""frameworks": ["#));
         assert!(!is_cypress_json_decl(r#""autoWatch": true"#));
+        assert!(!is_testcafe_json_decl(r#""frameworks": ["#));
+        assert!(!is_testcafe_json_decl(r#""preprocessors": {"#));
+        assert!(!is_testcafe_json_decl(r#""autoWatch": true"#));
+        assert!(!is_testcafe_json_decl(r#""singleRun": true"#));
+        assert!(!is_testcafe_json_decl(r#""customLaunchers": {"#));
+        assert!(!is_testcafe_json_decl(
+            r#""browserNoActivityTimeout": 30000"#
+        ));
+        assert!(!is_testcafe_json_decl(r#""captureTimeout": 60000"#));
+        assert!(!is_testcafe_json_decl(r#""logLevel": "INFO""#));
         assert!(!is_cspell_json_decl(r#""frameworks": ["#));
         assert!(!is_oxlint_json_decl(r#""frameworks": ["#));
         assert!(!is_knip_json_decl(r#""frameworks": ["#));
@@ -100453,6 +100748,267 @@ mod func_like_line_tests {
         assert!(line_is_func_like(r#""browserNoActivityTimeout": 30000"#));
         assert!(line_is_func_like(r#""captureTimeout": 60000"#));
         assert!(line_is_func_like(r#""logLevel": "INFO""#));
+    }
+
+    #[test]
+    fn testcafe_json_keys_smoke() {
+        assert!(is_testcafe_json_decl(r#""selectorTimeout": 10000"#));
+        assert!(is_testcafe_json_decl(r#""assertionTimeout": 3000"#));
+        assert!(is_testcafe_json_decl(r#""quarantineMode": true"#));
+        assert!(is_testcafe_json_decl(r#""skipJsErrors": true"#));
+        assert!(is_testcafe_json_decl(r#""port1": 1337"#));
+        assert!(is_testcafe_json_decl(r#""port2": 1338"#));
+        assert!(is_testcafe_json_decl(r#""videoPath": "artifacts/videos""#));
+        assert!(is_testcafe_json_decl(r#""disableNativeAutomation": true"#));
+        assert!(is_testcafe_json_decl(r#""src": ["#));
+        assert!(is_testcafe_json_decl(r#""stopOnFirstFail": true"#));
+        // Distinctive TestCafe keys stay out of Karma / Nightwatch / Cypress.
+        assert!(!is_karma_json_decl(r#""selectorTimeout": 10000"#));
+        assert!(!is_nightwatch_json_decl(r#""selectorTimeout": 10000"#));
+        assert!(!is_cypress_json_decl(r#""selectorTimeout": 10000"#));
+        assert!(!is_karma_json_decl(r#""port1": 1337"#));
+        assert!(!is_nightwatch_json_decl(r#""port1": 1337"#));
+        assert!(!is_cypress_json_decl(r#""port1": 1337"#));
+        assert!(!is_karma_json_decl(r#""quarantineMode": true"#));
+        assert!(!is_playwright_json_decl(r#""quarantineMode": true"#));
+        assert!(!is_vitest_json_decl(r#""quarantineMode": true"#));
+    }
+
+    #[test]
+    fn testcafe_json_keys_count() {
+        assert!(is_testcafe_json_decl(r#""browsers": ["#));
+        assert!(is_testcafe_json_decl(r#""browsers": "chrome""#));
+        assert!(is_testcafe_json_decl(r#""src": ["#));
+        assert!(is_testcafe_json_decl(r#""src": "tests/**/*.js""#));
+        assert!(!is_testcafe_json_decl(r#""src": """#));
+        assert!(is_testcafe_json_decl(r#""reporter": ["#));
+        assert!(is_testcafe_json_decl(r#""reporter": "spec""#));
+        assert!(is_testcafe_json_decl(r#""reporter": {"#));
+        assert!(is_testcafe_json_decl(r#""concurrency": 3"#));
+        assert!(is_testcafe_json_decl(r#""quarantineMode": true"#));
+        assert!(is_testcafe_json_decl(r#""quarantineMode": false"#));
+        assert!(is_testcafe_json_decl(r#""quarantineMode": {"#));
+        assert!(is_testcafe_json_decl(r#""selectorTimeout": 10000"#));
+        assert!(is_testcafe_json_decl(r#""assertionTimeout": 3000"#));
+        assert!(is_testcafe_json_decl(r#""pageLoadTimeout": 30000"#));
+        assert!(is_testcafe_json_decl(r#""ajaxRequestTimeout": 120000"#));
+        assert!(is_testcafe_json_decl(r#""browserInitTimeout": 120000"#));
+        assert!(is_testcafe_json_decl(r#""testExecutionTimeout": 0"#));
+        assert!(is_testcafe_json_decl(r#""runExecutionTimeout": 0"#));
+        assert!(is_testcafe_json_decl(r#""skipJsErrors": true"#));
+        assert!(is_testcafe_json_decl(r#""skipUncaughtErrors": true"#));
+        assert!(is_testcafe_json_decl(r#""stopOnFirstFail": true"#));
+        assert!(is_testcafe_json_decl(r#""disablePageCaching": true"#));
+        assert!(is_testcafe_json_decl(r#""disablePageReloads": false"#));
+        assert!(is_testcafe_json_decl(r#""disableNativeAutomation": true"#));
+        assert!(is_testcafe_json_decl(r#""developmentMode": true"#));
+        assert!(is_testcafe_json_decl(r#""debugMode": false"#));
+        assert!(is_testcafe_json_decl(r#""debugOnFail": true"#));
+        assert!(is_testcafe_json_decl(r#""color": true"#));
+        assert!(is_testcafe_json_decl(r#""disableMultipleWindows": true"#));
+        assert!(is_testcafe_json_decl(r#""retryTestPages": true"#));
+        assert!(is_testcafe_json_decl(r#""cache": true"#));
+        assert!(is_testcafe_json_decl(r#""screenshots": {"#));
+        assert!(is_testcafe_json_decl(r#""videoPath": "artifacts/videos""#));
+        assert!(is_testcafe_json_decl(r#""videoOptions": {"#));
+        assert!(is_testcafe_json_decl(r#""videoEncodingOptions": {"#));
+        assert!(is_testcafe_json_decl(r#""hostname": "localhost""#));
+        assert!(is_testcafe_json_decl(r#""port1": 1337"#));
+        assert!(is_testcafe_json_decl(r#""port2": 1338"#));
+        assert!(is_testcafe_json_decl(r#""proxy": "localhost:8080""#));
+        assert!(is_testcafe_json_decl(r#""proxyBypass": ["#));
+        assert!(is_testcafe_json_decl(r#""proxyBypass": "localhost""#));
+        assert!(is_testcafe_json_decl(r#""ssl": {"#));
+        assert!(is_testcafe_json_decl(r#""compilerOptions": {"#));
+        assert!(is_testcafe_json_decl(r#""filter": {"#));
+        assert!(is_testcafe_json_decl(r#""hooks": {"#));
+        assert!(is_testcafe_json_decl(r#""clientScripts": ["#));
+        assert!(is_testcafe_json_decl(r#""tsConfigPath": "tsconfig.json""#));
+        assert!(is_testcafe_json_decl(r#""userVariables": {"#));
+        assert!(is_testcafe_json_decl(
+            r#""selectorTimeout": 10000, // wait for elements"#
+        ));
+        // Incomplete / wrong shapes stay out.
+        assert!(!is_testcafe_json_decl(r#""selectorTimeout""#));
+        assert!(!is_testcafe_json_decl(r#""selectorTimeout":"#));
+        assert!(!is_testcafe_json_decl(r#""selectorTimeout: 10000"#));
+        assert!(!is_testcafe_json_decl(r#""selectorTimeout": {"#));
+        assert!(!is_testcafe_json_decl(r#""selectorTimeout": ["#));
+        assert!(!is_testcafe_json_decl(r#""skipJsErrors": ["#));
+        assert!(!is_testcafe_json_decl(r#""port1": true"#));
+        assert!(!is_testcafe_json_decl(r#""screenshots": ["#));
+        assert!(!is_testcafe_json_decl(r#""videoPath": """#));
+        assert!(!is_testcafe_json_decl(r#""src": {"#));
+        // Generic / neighbouring stay out.
+        assert!(!is_testcafe_json_decl(
+            r#""$schema": "https://json.schemastore.org/testcaferc""#
+        ));
+        assert!(!is_testcafe_json_decl(r#""name": "e2e""#));
+        assert!(!is_testcafe_json_decl(r#""version": "1.0.0""#));
+        assert!(!is_testcafe_json_decl(r#""frameworks": ["#));
+        assert!(is_karma_json_decl(r#""frameworks": ["#));
+        assert!(!is_testcafe_json_decl(r#""preprocessors": {"#));
+        assert!(is_karma_json_decl(r#""preprocessors": {"#));
+        assert!(!is_testcafe_json_decl(r#""autoWatch": true"#));
+        assert!(is_karma_json_decl(r#""autoWatch": true"#));
+        assert!(!is_testcafe_json_decl(r#""singleRun": true"#));
+        assert!(is_karma_json_decl(r#""singleRun": true"#));
+        assert!(!is_testcafe_json_decl(r#""customLaunchers": {"#));
+        assert!(is_karma_json_decl(r#""customLaunchers": {"#));
+        assert!(!is_testcafe_json_decl(
+            r#""browserNoActivityTimeout": 30000"#
+        ));
+        assert!(is_karma_json_decl(r#""browserNoActivityTimeout": 30000"#));
+        assert!(!is_testcafe_json_decl(r#""captureTimeout": 60000"#));
+        assert!(is_karma_json_decl(r#""captureTimeout": 60000"#));
+        assert!(!is_testcafe_json_decl(r#""logLevel": "INFO""#));
+        assert!(is_karma_json_decl(r#""logLevel": "INFO""#));
+        assert!(!is_testcafe_json_decl(r#""src_folders": ["#));
+        assert!(is_nightwatch_json_decl(r#""src_folders": ["#));
+        assert!(!is_testcafe_json_decl(r#""page_objects_path": "pages""#));
+        assert!(is_nightwatch_json_decl(r#""page_objects_path": "pages""#));
+        assert!(!is_testcafe_json_decl(r#""skip_testcases_on_fail": true"#));
+        assert!(is_nightwatch_json_decl(r#""skip_testcases_on_fail": true"#));
+        assert!(!is_testcafe_json_decl(r#""end_session_on_fail": false"#));
+        assert!(is_nightwatch_json_decl(r#""end_session_on_fail": false"#));
+        assert!(!is_testcafe_json_decl(r#""test_settings": {"#));
+        assert!(is_nightwatch_json_decl(r#""test_settings": {"#));
+        assert!(!is_testcafe_json_decl(r#""desiredCapabilities": {"#));
+        assert!(is_nightwatch_json_decl(r#""desiredCapabilities": {"#));
+        assert!(!is_testcafe_json_decl(r#""spec_dir": "spec""#));
+        assert!(is_jasmine_json_decl(r#""spec_dir": "spec""#));
+        assert!(!is_testcafe_json_decl(r#""spec_files": ["#));
+        assert!(is_jasmine_json_decl(r#""spec_files": ["#));
+        assert!(!is_testcafe_json_decl(r#""jsLoader": "import""#));
+        assert!(is_jasmine_json_decl(r#""jsLoader": "import""#));
+        assert!(!is_testcafe_json_decl(
+            r#""stopSpecOnExpectationFailure": true"#
+        ));
+        assert!(is_jasmine_json_decl(
+            r#""stopSpecOnExpectationFailure": true"#
+        ));
+        assert!(!is_testcafe_json_decl(r#""failFast": true"#));
+        assert!(is_ava_json_decl(r#""failFast": true"#));
+        assert!(!is_testcafe_json_decl(r#""failWithoutAssertions": false"#));
+        assert!(is_ava_json_decl(r#""failWithoutAssertions": false"#));
+        assert!(!is_testcafe_json_decl(r#""utilizeParallelBuilds": true"#));
+        assert!(is_ava_json_decl(r#""utilizeParallelBuilds": true"#));
+        assert!(!is_testcafe_json_decl(r#""ignoredByWatcher": ["#));
+        assert!(is_ava_json_decl(r#""ignoredByWatcher": ["#));
+        assert!(!is_testcafe_json_decl(r#""allowUncaught": true"#));
+        assert!(is_mocha_json_decl(r#""allowUncaught": true"#));
+        assert!(!is_testcafe_json_decl(r#""ui": "bdd""#));
+        assert!(is_mocha_json_decl(r#""ui": "bdd""#));
+        assert!(!is_testcafe_json_decl(r#""watch-files": ["#));
+        assert!(is_mocha_json_decl(r#""watch-files": ["#));
+        assert!(!is_testcafe_json_decl(r#""checkLeaks": true"#));
+        assert!(is_mocha_json_decl(r#""checkLeaks": true"#));
+        assert!(!is_testcafe_json_decl(r#""testEnvironment": "node""#));
+        assert!(is_jest_json_decl(r#""testEnvironment": "node""#));
+        assert!(!is_testcafe_json_decl(r#""setupFilesAfterEnv": ["#));
+        assert!(is_jest_json_decl(r#""setupFilesAfterEnv": ["#));
+        assert!(!is_testcafe_json_decl(r#""coverageProvider": "v8""#));
+        assert!(is_jest_json_decl(r#""coverageProvider": "v8""#));
+        assert!(!is_testcafe_json_decl(r#""testDir": "tests""#));
+        assert!(is_playwright_json_decl(r#""testDir": "tests""#));
+        assert!(!is_testcafe_json_decl(r#""fullyParallel": true"#));
+        assert!(is_playwright_json_decl(r#""fullyParallel": true"#));
+        assert!(!is_testcafe_json_decl(r#""webServer": {"#));
+        assert!(is_playwright_json_decl(r#""webServer": {"#));
+        assert!(!is_testcafe_json_decl(r#""preserveOutput": "always""#));
+        assert!(is_playwright_json_decl(r#""preserveOutput": "always""#));
+        assert!(!is_testcafe_json_decl(r#""pool": "threads""#));
+        assert!(is_vitest_json_decl(r#""pool": "threads""#));
+        assert!(!is_testcafe_json_decl(r#""fileParallelism": true"#));
+        assert!(is_vitest_json_decl(r#""fileParallelism": true"#));
+        assert!(!is_testcafe_json_decl(r#""hookTimeout": 10000"#));
+        assert!(is_vitest_json_decl(r#""hookTimeout": 10000"#));
+        assert!(!is_testcafe_json_decl(
+            r#""baseUrl": "http://localhost:3000""#
+        ));
+        assert!(is_cypress_json_decl(
+            r#""baseUrl": "http://localhost:3000""#
+        ));
+        assert!(!is_testcafe_json_decl(
+            r#""specPattern": "cypress/e2e/**/*.cy.ts""#
+        ));
+        assert!(is_cypress_json_decl(
+            r#""specPattern": "cypress/e2e/**/*.cy.ts""#
+        ));
+        assert!(!is_testcafe_json_decl(r#""chromeWebSecurity": false"#));
+        assert!(is_cypress_json_decl(r#""chromeWebSecurity": false"#));
+        assert!(!is_testcafe_json_decl(r#""e2e": {"#));
+        assert!(is_cypress_json_decl(r#""e2e": {"#));
+        assert!(!is_testcafe_json_decl(r#""words": ["#));
+        assert!(is_cspell_json_decl(r#""words": ["#));
+        assert!(!is_testcafe_json_decl(r#""categories": {"#));
+        assert!(is_oxlint_json_decl(r#""categories": {"#));
+        assert!(!is_testcafe_json_decl(r#""entry": ["#));
+        assert!(is_knip_json_decl(r#""entry": ["#));
+        assert!(!is_testcafe_json_decl(r#""nodeModulesDir": "auto""#));
+        assert!(is_deno_json_decl(r#""nodeModulesDir": "auto""#));
+        assert!(!is_testcafe_json_decl(r#""packageRules": ["#));
+        assert!(is_renovate_json_decl(r#""packageRules": ["#));
+        assert!(!is_testcafe_json_decl(r#""configurations": ["#));
+        assert!(is_vscode_launch_json_decl(r#""configurations": ["#));
+        assert!(!is_testcafe_json_decl(r#""tasks": ["#));
+        assert!(is_vscode_tasks_json_decl(r#""tasks": ["#));
+        assert!(!is_testcafe_json_decl(
+            r#""image": "mcr.microsoft.com/devcontainers/rust:1""#
+        ));
+        assert!(is_devcontainer_json_decl(
+            r#""image": "mcr.microsoft.com/devcontainers/rust:1""#
+        ));
+        assert!(!is_testcafe_json_decl(r#""pipeline": {"#));
+        assert!(is_turbo_json_decl(r#""pipeline": {"#));
+        assert!(!is_testcafe_json_decl(r#""namedInputs": {"#));
+        assert!(is_nx_json_decl(r#""namedInputs": {"#));
+        assert!(!is_testcafe_json_decl(r#""printWidth": 80"#));
+        assert!(is_prettier_json_decl(r#""printWidth": 80"#));
+        assert!(!is_testcafe_json_decl(r#""linter": {"#));
+        assert!(is_biome_json_decl(r#""linter": {"#));
+        assert!(!is_testcafe_json_decl(
+            r#""parser": "@typescript-eslint/parser""#
+        ));
+        assert!(is_eslint_json_decl(
+            r#""parser": "@typescript-eslint/parser""#
+        ));
+        assert!(!is_testcafe_json_decl(r#""scripts": {"#));
+        assert!(is_package_json_decl(r#""scripts": {"#));
+        // Shared `"compilerOptions": {` also matches tsconfig when shapes overlap.
+        assert!(is_testcafe_json_decl(r#""compilerOptions": {"#));
+        assert!(is_tsconfig_json_decl(r#""compilerOptions": {"#));
+        // Distinctive TestCafe keys stay out of neighbours.
+        assert!(!is_karma_json_decl(r#""selectorTimeout": 10000"#));
+        assert!(!is_karma_json_decl(r#""assertionTimeout": 3000"#));
+        assert!(!is_karma_json_decl(r#""quarantineMode": true"#));
+        assert!(!is_karma_json_decl(r#""skipJsErrors": true"#));
+        assert!(!is_karma_json_decl(r#""port1": 1337"#));
+        assert!(!is_karma_json_decl(r#""port2": 1338"#));
+        assert!(!is_karma_json_decl(r#""videoPath": "artifacts/videos""#));
+        assert!(!is_karma_json_decl(r#""disableNativeAutomation": true"#));
+        assert!(!is_nightwatch_json_decl(r#""selectorTimeout": 10000"#));
+        assert!(!is_jasmine_json_decl(r#""selectorTimeout": 10000"#));
+        assert!(!is_ava_json_decl(r#""selectorTimeout": 10000"#));
+        assert!(!is_mocha_json_decl(r#""selectorTimeout": 10000"#));
+        assert!(!is_jest_json_decl(r#""selectorTimeout": 10000"#));
+        assert!(!is_playwright_json_decl(r#""selectorTimeout": 10000"#));
+        assert!(!is_vitest_json_decl(r#""selectorTimeout": 10000"#));
+        assert!(!is_cypress_json_decl(r#""selectorTimeout": 10000"#));
+        assert!(!is_cspell_json_decl(r#""selectorTimeout": 10000"#));
+        assert!(!is_oxlint_json_decl(r#""selectorTimeout": 10000"#));
+        assert!(!is_knip_json_decl(r#""selectorTimeout": 10000"#));
+        // Shared / distinctive shapes list via TestCafe scanner.
+        assert!(line_is_func_like(r#""selectorTimeout": 10000"#));
+        assert!(line_is_func_like(r#""assertionTimeout": 3000"#));
+        assert!(line_is_func_like(r#""quarantineMode": true"#));
+        assert!(line_is_func_like(r#""skipJsErrors": true"#));
+        assert!(line_is_func_like(r#""port1": 1337"#));
+        assert!(line_is_func_like(r#""port2": 1338"#));
+        assert!(line_is_func_like(r#""videoPath": "artifacts/videos""#));
+        assert!(line_is_func_like(r#""disableNativeAutomation": true"#));
+        assert!(line_is_func_like(r#""src": ["#));
+        assert!(line_is_func_like(r#""stopOnFirstFail": true"#));
     }
 
     #[test]
