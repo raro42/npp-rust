@@ -1182,3 +1182,7 @@
 009 keep: Function List lint-staged .lintstagedrc.json chunkSize/maxArgLength/hidePartiallyStaged/hideUnstaged/diffFilter/globOptions/concurrent/relative/shell/stash/verbose/quiet/diff + glob tasks (v0.3.758)
 
 009 keep: Function List simple-git-hooks .simple-git-hooks.json pre-commit/pre-push/commit-msg/preserveUnused (v0.3.759)
+
+009 keep: Function List release-please-config.json packages/bootstrap-sha/release-type/bump-minor-pre-major/include-v-in-tag/changelog-path (v0.3.760)
+
+009 keep: Function List standard-version .versionrc.json bumpFiles/packageFiles/infile/preMajor/skip/gitTagFallback/tagPrefix/releaseCommitMessageFormat (v0.3.761)

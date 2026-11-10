@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.761] — 2026-11-10
+
+View:
+
+- **Function List** lists standard-version / commit-and-tag-version `.versionrc` / `.versionrc.json` JSON keys: `"bumpFiles": [`, `"packageFiles": [`, `"infile": "CHANGELOG.md"`, `"header": "…"`, `"types": [`, `"preMajor": true`, `"commitUrlFormat": "…"`, `"compareUrlFormat": "…"`, `"issueUrlFormat": "…"`, `"userUrlFormat": "…"`, `"releaseCommitMessageFormat": "…"`, `"issuePrefixes": [`, `"skip": {`, `"scripts": {`, `"gitTagFallback": true`, `"firstRelease": true`, `"noVerify": true`, `"commitAll": true`, `"silent": true`, `"tagPrefix": "v"`, `"releaseAs": "1.2.3"`, `"changelogHeaderPattern": "…"`, `"preset": "conventionalcommits"`, `"releaseCount": 0`, `"lernaPackage": "…"`. Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing `:` stay out. Generic `"$schema"` / `"name"` / `"version"` / `"sign"` / `"path"` / `"dryRun"` / release-please `"packages": {` / `"bootstrap-sha"` / `"release-type"` / `"include-v-in-tag"` / simple-git-hooks `"pre-commit"` / `"preserveUnused"` / lint-staged `"chunkSize"` / `"hidePartiallyStaged"` / semantic-release `"repositoryUrl"` / `"tagFormat"` / release-it `"requireCleanWorkingDir"` / `"hooks": {` / `"plugins": {` / commitlint `"parserPreset"` / `"defaultIgnores"` / prettier `"printWidth"` / package.json `"bin"` / tsconfig `"compilerOptions"` stay out. versionrc `"scripts": {` also matches package.json when shapes overlap; `"preset": "…"` / `"releaseAs": "…"` also match semantic-release / release-please when shapes overlap.
+
 ## [0.3.760] — 2026-11-10
 
 View:

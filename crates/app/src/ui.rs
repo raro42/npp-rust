@@ -32428,6 +32428,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_lint_staged_json_decl(s)
             || is_simple_git_hooks_json_decl(s)
             || is_release_please_json_decl(s)
+            || is_versionrc_json_decl(s)
             || is_gomod_decl(s)
             || is_gemfile_decl(s)
             || is_brewfile_decl(s)
@@ -32766,6 +32767,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_lint_staged_json_decl(s)
         || is_simple_git_hooks_json_decl(s)
         || is_release_please_json_decl(s)
+        || is_versionrc_json_decl(s)
         || is_gomod_decl(s)
         || is_gemfile_decl(s)
         || is_brewfile_decl(s)
@@ -54075,6 +54077,212 @@ fn release_please_json_string_ok(key: &str, value: &str) -> bool {
         | "date-format"
         | "version-file"
         | "snapshot-label" => value.bytes().all(|b| b.is_ascii() && !b.is_ascii_control()),
+        _ => false,
+    }
+}
+
+/// standard-version / commit-and-tag-version `.versionrc` / `.versionrc.json`
+/// JSON keys: `"bumpFiles": [`, `"packageFiles": [`, `"infile": "CHANGELOG.md"`,
+/// `"header": "…"`, `"types": [`, `"preMajor": true`,
+/// `"commitUrlFormat": "…"`, `"compareUrlFormat": "…"`,
+/// `"issueUrlFormat": "…"`, `"userUrlFormat": "…"`,
+/// `"releaseCommitMessageFormat": "…"`, `"issuePrefixes": [`,
+/// `"skip": {`, `"scripts": {`, `"gitTagFallback": true`,
+/// `"firstRelease": true`, `"noVerify": true`, `"commitAll": true`,
+/// `"silent": true`, `"tagPrefix": "v"`, `"releaseAs": "1.2.3"`,
+/// `"changelogHeaderPattern": "…"`, `"preset": "conventionalcommits"`,
+/// `"releaseCount": 0`, `"lernaPackage": "…"`.
+/// Optional trailing `,` and `//` / `/*` comment. Incomplete quotes /
+/// missing `:` stay out. Generic `"$schema"` / `"name"` / `"version"` /
+/// `"sign"` / `"path"` / `"dryRun"` / release-please `"packages": {` /
+/// `"bootstrap-sha"` / `"release-type"` / `"include-v-in-tag"` /
+/// simple-git-hooks `"pre-commit"` / `"preserveUnused"` / lint-staged
+/// `"chunkSize"` / `"hidePartiallyStaged"` / semantic-release
+/// `"repositoryUrl"` / `"tagFormat"` / release-it
+/// `"requireCleanWorkingDir"` / `"hooks": {` / `"plugins": {` /
+/// commitlint `"parserPreset"` / `"defaultIgnores"` / prettier
+/// `"printWidth"` / package.json `"bin"` / tsconfig `"compilerOptions"`
+/// stay out. versionrc `"scripts": {` also matches package.json when
+/// shapes overlap; `"preset": "…"` / `"releaseAs": "…"` also match
+/// semantic-release / release-please when shapes overlap.
+fn is_versionrc_json_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    let Some(rest) = s.strip_prefix('"') else {
+        return false;
+    };
+    let Some(end) = rest.find('"') else {
+        return false;
+    };
+    let key = &rest[..end];
+    if !versionrc_json_key_ok(key) {
+        return false;
+    }
+    let after_key = rest[end + 1..].trim_start();
+    let Some(after_colon) = after_key.strip_prefix(':') else {
+        return false;
+    };
+    let after_colon = after_colon.trim_start();
+    versionrc_json_value_and_tail_ok(key, after_colon)
+}
+
+fn versionrc_json_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "bumpFiles"
+            | "packageFiles"
+            | "infile"
+            | "header"
+            | "types"
+            | "preMajor"
+            | "commitUrlFormat"
+            | "compareUrlFormat"
+            | "issueUrlFormat"
+            | "userUrlFormat"
+            | "releaseCommitMessageFormat"
+            | "issuePrefixes"
+            | "skip"
+            | "scripts"
+            | "gitTagFallback"
+            | "firstRelease"
+            | "noVerify"
+            | "commitAll"
+            | "silent"
+            | "tagPrefix"
+            | "releaseAs"
+            | "changelogHeaderPattern"
+            | "preset"
+            | "releaseCount"
+            | "lernaPackage"
+    )
+}
+
+fn versionrc_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool {
+    let bytes = after_colon.as_bytes();
+    let Some(first) = bytes.first().copied() else {
+        return false;
+    };
+    match first {
+        b'{' => {
+            if !versionrc_json_object_key_ok(key) {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[1..])
+        }
+        b'[' => {
+            if !versionrc_json_array_key_ok(key) {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[1..])
+        }
+        b'"' => {
+            if !versionrc_json_string_key_ok(key) {
+                return false;
+            }
+            let rest = &after_colon[1..];
+            let Some(end) = rest.find('"') else {
+                return false;
+            };
+            let value = &rest[..end];
+            if !versionrc_json_string_ok(key, value) {
+                return false;
+            }
+            package_json_tail_ok(&rest[end + 1..])
+        }
+        b't' | b'f' => {
+            let rest = if let Some(rest) = after_colon.strip_prefix("true") {
+                rest
+            } else if let Some(rest) = after_colon.strip_prefix("false") {
+                rest
+            } else {
+                return false;
+            };
+            if !versionrc_json_bool_key_ok(key) {
+                return false;
+            }
+            package_json_tail_ok(rest)
+        }
+        b'0'..=b'9' => {
+            if !versionrc_json_number_key_ok(key) {
+                return false;
+            }
+            let digits = after_colon
+                .bytes()
+                .take_while(|b| b.is_ascii_digit())
+                .count();
+            if digits == 0 || digits > 6 {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[digits..])
+        }
+        _ => false,
+    }
+}
+
+fn versionrc_json_object_key_ok(key: &str) -> bool {
+    matches!(key, "skip" | "scripts")
+}
+
+fn versionrc_json_array_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "bumpFiles" | "packageFiles" | "types" | "issuePrefixes"
+    )
+}
+
+fn versionrc_json_string_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "infile"
+            | "header"
+            | "commitUrlFormat"
+            | "compareUrlFormat"
+            | "issueUrlFormat"
+            | "userUrlFormat"
+            | "releaseCommitMessageFormat"
+            | "tagPrefix"
+            | "releaseAs"
+            | "changelogHeaderPattern"
+            | "preset"
+            | "lernaPackage"
+    )
+}
+
+fn versionrc_json_bool_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "preMajor" | "gitTagFallback" | "firstRelease" | "noVerify" | "commitAll" | "silent"
+    )
+}
+
+fn versionrc_json_number_key_ok(key: &str) -> bool {
+    matches!(key, "releaseCount")
+}
+
+fn versionrc_json_string_ok(key: &str, value: &str) -> bool {
+    if value.is_empty() || value.len() > 512 || value.contains('\n') {
+        return false;
+    }
+    if value.chars().all(|c| c.is_ascii_whitespace()) {
+        return false;
+    }
+    match key {
+        "infile" | "tagPrefix" | "lernaPackage" | "preset" => value
+            .bytes()
+            .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'.' | b'-' | b'_' | b'/' | b'\\')),
+        "releaseAs" => {
+            !value.is_empty()
+                && value.len() <= 64
+                && value
+                    .bytes()
+                    .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'.' | b'-' | b'_' | b'+'))
+        }
+        "header"
+        | "commitUrlFormat"
+        | "compareUrlFormat"
+        | "issueUrlFormat"
+        | "userUrlFormat"
+        | "releaseCommitMessageFormat"
+        | "changelogHeaderPattern" => value.bytes().all(|b| b.is_ascii() && !b.is_ascii_control()),
         _ => false,
     }
 }
@@ -84747,11 +84955,12 @@ mod func_like_line_tests {
         is_tsconfig_json_decl, is_turbo_json_decl, is_ty_toml_decl, is_typos_toml_decl,
         is_udev_rule_decl, is_unbound_nsd_conf_decl, is_uniffi_toml_decl, is_unimport_ini_decl,
         is_uv_toml_decl, is_vconsole_conf_decl, is_vector_toml_decl, is_vercel_json_decl,
-        is_versioneer_ini_decl, is_vitest_json_decl, is_vscode_launch_json_decl,
-        is_vscode_tasks_json_decl, is_vulture_ini_decl, is_wails_json_decl, is_wdio_json_decl,
-        is_webextension_manifest_json_decl, is_wireguard_config_decl, is_wrangler_toml_decl,
-        is_xmake_decl, is_xorg_conf_decl, is_yapf_ini_decl, is_yarnrc_yml_decl, is_yum_repo_decl,
-        is_zest_releaser_ini_decl, line_is_func_like,
+        is_versioneer_ini_decl, is_versionrc_json_decl, is_vitest_json_decl,
+        is_vscode_launch_json_decl, is_vscode_tasks_json_decl, is_vulture_ini_decl,
+        is_wails_json_decl, is_wdio_json_decl, is_webextension_manifest_json_decl,
+        is_wireguard_config_decl, is_wrangler_toml_decl, is_xmake_decl, is_xorg_conf_decl,
+        is_yapf_ini_decl, is_yarnrc_yml_decl, is_yum_repo_decl, is_zest_releaser_ini_decl,
+        line_is_func_like,
     };
 
     #[test]
@@ -107583,6 +107792,172 @@ mod func_like_line_tests {
         assert!(line_is_func_like(r#""bootstrap-sha": "abc1234""#));
         assert!(line_is_func_like(r#""release-search-depth": 10"#));
         assert!(line_is_func_like(r#""plugins": ["#));
+    }
+
+    #[test]
+    fn versionrc_json_keys_smoke() {
+        assert!(is_versionrc_json_decl(r#""bumpFiles": ["#));
+        assert!(is_versionrc_json_decl(r#""packageFiles": ["#));
+        assert!(is_versionrc_json_decl(r#""infile": "CHANGELOG.md""#));
+        assert!(is_versionrc_json_decl(r##""header": "# Changelog""##));
+        assert!(is_versionrc_json_decl(r#""types": ["#));
+        assert!(is_versionrc_json_decl(r#""preMajor": true"#));
+        assert!(is_versionrc_json_decl(
+            r#""commitUrlFormat": "{{host}}/{{owner}}/{{repository}}/commit/{{hash}}""#
+        ));
+        assert!(is_versionrc_json_decl(
+            r#""compareUrlFormat": "{{host}}/{{owner}}/{{repository}}/compare/{{previousTag}}...{{currentTag}}""#
+        ));
+        assert!(is_versionrc_json_decl(
+            r#""issueUrlFormat": "{{host}}/{{owner}}/{{repository}}/issues/{{id}}""#
+        ));
+        assert!(is_versionrc_json_decl(
+            r#""userUrlFormat": "{{host}}/{{user}}""#
+        ));
+        assert!(is_versionrc_json_decl(
+            r#""releaseCommitMessageFormat": "chore(release): {{currentTag}}""#
+        ));
+        assert!(is_versionrc_json_decl(r#""issuePrefixes": ["#));
+        assert!(is_versionrc_json_decl(r#""skip": {"#));
+        assert!(is_versionrc_json_decl(r#""scripts": {"#));
+        assert!(is_versionrc_json_decl(r#""gitTagFallback": true"#));
+        assert!(is_versionrc_json_decl(r#""firstRelease": true"#));
+        assert!(is_versionrc_json_decl(r#""noVerify": true"#));
+        assert!(is_versionrc_json_decl(r#""commitAll": true"#));
+        assert!(is_versionrc_json_decl(r#""silent": true"#));
+        assert!(is_versionrc_json_decl(r#""tagPrefix": "v""#));
+        assert!(is_versionrc_json_decl(r#""releaseAs": "1.2.3""#));
+        assert!(is_versionrc_json_decl(
+            r#""changelogHeaderPattern": "^#+\\s*\\[?\\d+\\.\\d+\\.\\d+\\]?""#
+        ));
+        assert!(is_versionrc_json_decl(r#""preset": "conventionalcommits""#));
+        assert!(is_versionrc_json_decl(r#""releaseCount": 0"#));
+        assert!(is_versionrc_json_decl(r#""lernaPackage": "pkg-a""#));
+        // Distinctive neighbours stay out of this scanner.
+        assert!(!is_release_please_json_decl(r#""bumpFiles": ["#));
+        assert!(!is_simple_git_hooks_json_decl(r#""bumpFiles": ["#));
+        assert!(!is_lint_staged_json_decl(r#""bumpFiles": ["#));
+        assert!(!is_semantic_release_json_decl(r#""bumpFiles": ["#));
+        assert!(!is_release_it_json_decl(r#""bumpFiles": ["#));
+        assert!(!is_package_json_decl(r#""bumpFiles": ["#));
+    }
+
+    #[test]
+    fn versionrc_json_keys_count() {
+        assert!(is_versionrc_json_decl(r#""bumpFiles": ["#));
+        assert!(is_versionrc_json_decl(r#""bumpFiles": [,"#));
+        assert!(is_versionrc_json_decl(r#""bumpFiles": [ // files"#));
+        assert!(!is_versionrc_json_decl(r#""bumpFiles": {"#));
+        assert!(!is_versionrc_json_decl(r#""bumpFiles": "pkg.json""#));
+        assert!(!is_versionrc_json_decl(r#""bumpFiles": true"#));
+        assert!(is_versionrc_json_decl(r#""packageFiles": ["#));
+        assert!(!is_versionrc_json_decl(r#""packageFiles": {"#));
+        assert!(is_versionrc_json_decl(r#""infile": "CHANGELOG.md""#));
+        assert!(is_versionrc_json_decl(r#""infile": "CHANGELOG.md","#));
+        assert!(is_versionrc_json_decl(
+            r#""infile": "CHANGELOG.md" // path"#
+        ));
+        assert!(!is_versionrc_json_decl(r#""infile": true"#));
+        assert!(!is_versionrc_json_decl(r#""infile": ["#));
+        assert!(!is_versionrc_json_decl(r#""infile": {"#));
+        assert!(!is_versionrc_json_decl(r#""infile": 1"#));
+        assert!(is_versionrc_json_decl(r#""preMajor": true"#));
+        assert!(is_versionrc_json_decl(r#""preMajor": false,"#));
+        assert!(!is_versionrc_json_decl(r#""preMajor": "true""#));
+        assert!(!is_versionrc_json_decl(r#""preMajor": 1"#));
+        assert!(is_versionrc_json_decl(r#""skip": {"#));
+        assert!(!is_versionrc_json_decl(r#""skip": ["#));
+        assert!(!is_versionrc_json_decl(r#""skip": true"#));
+        assert!(is_versionrc_json_decl(r#""scripts": {"#));
+        assert!(is_package_json_decl(r#""scripts": {"#));
+        assert!(!is_versionrc_json_decl(r#""scripts": ["#));
+        assert!(is_versionrc_json_decl(r#""releaseCount": 0"#));
+        assert!(is_versionrc_json_decl(r#""releaseCount": 10,"#));
+        assert!(!is_versionrc_json_decl(r#""releaseCount": true"#));
+        assert!(!is_versionrc_json_decl(r#""releaseCount": "0""#));
+        assert!(is_versionrc_json_decl(r#""tagPrefix": "v""#));
+        assert!(!is_versionrc_json_decl(r#""tagPrefix": true"#));
+        assert!(!is_versionrc_json_decl(r#""tagPrefix": ["#));
+        assert!(is_versionrc_json_decl(r#""releaseAs": "1.2.3""#));
+        assert!(is_release_please_json_decl(r#""release-as": "1.2.3""#));
+        assert!(!is_versionrc_json_decl(r#""release-as": "1.2.3""#));
+        // Incomplete / wrong shapes stay out.
+        assert!(!is_versionrc_json_decl(r#""bumpFiles""#));
+        assert!(!is_versionrc_json_decl(r#""bumpFiles":"#));
+        assert!(!is_versionrc_json_decl(r#""infile""#));
+        assert!(!is_versionrc_json_decl(r#""preMajor""#));
+        // Generic / neighbouring stay out.
+        assert!(!is_versionrc_json_decl(
+            r#""$schema": "https://raw.githubusercontent.com/conventional-changelog/conventional-changelog-config-spec/master/versions/2.2.0/schema.json""#
+        ));
+        assert!(!is_versionrc_json_decl(r#""name": "versionrc""#));
+        assert!(!is_versionrc_json_decl(r#""version": "1.0.0""#));
+        assert!(!is_versionrc_json_decl(r#""sign": true"#));
+        assert!(!is_versionrc_json_decl(r#""path": ".""#));
+        assert!(!is_versionrc_json_decl(r#""dryRun": true"#));
+        assert!(!is_versionrc_json_decl(r#""packages": {"#));
+        assert!(is_release_please_json_decl(r#""packages": {"#));
+        assert!(!is_versionrc_json_decl(r#""bootstrap-sha": "abc1234""#));
+        assert!(is_release_please_json_decl(r#""bootstrap-sha": "abc1234""#));
+        assert!(!is_versionrc_json_decl(r#""release-type": "node""#));
+        assert!(is_release_please_json_decl(r#""release-type": "node""#));
+        assert!(!is_versionrc_json_decl(r#""include-v-in-tag": true"#));
+        assert!(is_release_please_json_decl(r#""include-v-in-tag": true"#));
+        assert!(!is_versionrc_json_decl(
+            r#""pre-commit": "npx lint-staged""#
+        ));
+        assert!(is_simple_git_hooks_json_decl(
+            r#""pre-commit": "npx lint-staged""#
+        ));
+        assert!(!is_versionrc_json_decl(r#""preserveUnused": true"#));
+        assert!(is_simple_git_hooks_json_decl(r#""preserveUnused": true"#));
+        assert!(!is_versionrc_json_decl(r#""chunkSize": 10"#));
+        assert!(is_lint_staged_json_decl(r#""chunkSize": 10"#));
+        assert!(!is_versionrc_json_decl(r#""hidePartiallyStaged": true"#));
+        assert!(is_lint_staged_json_decl(r#""hidePartiallyStaged": true"#));
+        assert!(!is_versionrc_json_decl(
+            r#""repositoryUrl": "https://github.com/owner/repo.git""#
+        ));
+        assert!(is_semantic_release_json_decl(
+            r#""repositoryUrl": "https://github.com/owner/repo.git""#
+        ));
+        assert!(!is_versionrc_json_decl(r#""tagFormat": "v${version}""#));
+        assert!(is_semantic_release_json_decl(
+            r#""tagFormat": "v${version}""#
+        ));
+        assert!(!is_versionrc_json_decl(r#""requireCleanWorkingDir": true"#));
+        assert!(is_release_it_json_decl(r#""requireCleanWorkingDir": true"#));
+        assert!(!is_versionrc_json_decl(r#""hooks": {"#));
+        assert!(is_release_it_json_decl(r#""hooks": {"#));
+        assert!(!is_versionrc_json_decl(r#""plugins": {"#));
+        assert!(is_release_it_json_decl(r#""plugins": {"#));
+        assert!(!is_versionrc_json_decl(
+            r#""parserPreset": "conventional-changelog-atom""#
+        ));
+        assert!(is_commitlint_json_decl(
+            r#""parserPreset": "conventional-changelog-atom""#
+        ));
+        assert!(!is_versionrc_json_decl(r#""defaultIgnores": true"#));
+        assert!(is_commitlint_json_decl(r#""defaultIgnores": true"#));
+        assert!(!is_versionrc_json_decl(r#""printWidth": 80"#));
+        assert!(is_prettier_json_decl(r#""printWidth": 80"#));
+        assert!(!is_versionrc_json_decl(r#""bin": {"#));
+        assert!(is_package_json_decl(r#""bin": {"#));
+        assert!(!is_versionrc_json_decl(r#""compilerOptions": {"#));
+        assert!(is_tsconfig_json_decl(r#""compilerOptions": {"#));
+        // line_is_func_like wires the scanner.
+        assert!(line_is_func_like(r#""bumpFiles": ["#));
+        assert!(line_is_func_like(r#""packageFiles": ["#));
+        assert!(line_is_func_like(r#""infile": "CHANGELOG.md""#));
+        assert!(line_is_func_like(r#""preMajor": true"#));
+        assert!(line_is_func_like(r#""skip": {"#));
+        assert!(line_is_func_like(r#""gitTagFallback": true"#));
+        assert!(line_is_func_like(r#""tagPrefix": "v""#));
+        assert!(line_is_func_like(
+            r#""releaseCommitMessageFormat": "chore(release): {{currentTag}}""#
+        ));
+        assert!(line_is_func_like(r#""releaseCount": 0"#));
+        assert!(line_is_func_like(r#""lernaPackage": "pkg-a""#));
     }
 
     #[test]
