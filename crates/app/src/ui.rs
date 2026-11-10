@@ -32414,6 +32414,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_nightwatch_json_decl(s)
             || is_karma_json_decl(s)
             || is_testcafe_json_decl(s)
+            || is_wdio_json_decl(s)
             || is_gomod_decl(s)
             || is_gemfile_decl(s)
             || is_brewfile_decl(s)
@@ -32738,6 +32739,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_nightwatch_json_decl(s)
         || is_karma_json_decl(s)
         || is_testcafe_json_decl(s)
+        || is_wdio_json_decl(s)
         || is_gomod_decl(s)
         || is_gemfile_decl(s)
         || is_brewfile_decl(s)
@@ -50619,15 +50621,18 @@ fn nightwatch_json_string_ok(key: &str, value: &str) -> bool {
 /// `"specPattern"` / `"chromeWebSecurity"` / `"e2e"` / TestCafe
 /// `"selectorTimeout"` / `"assertionTimeout"` / `"quarantineMode"` /
 /// `"skipJsErrors"` / `"port1"` / `"port2"` / `"videoPath"` /
-/// `"disableNativeAutomation"` / CSpell `"words"` / Oxlint `"categories"` /
-/// Knip `"entry"` / Deno `"nodeModulesDir"` / Renovate `"packageRules"` /
-/// launch `"configurations"` / tasks `"tasks": [` / Dev Container `"image"` /
-/// turbo `"pipeline"` / nx `"namedInputs"` / prettier `"printWidth"` /
-/// biome `"linter"` / eslint `"parser"` / package.json `"scripts"` /
-/// tsconfig `"compilerOptions"` stay out. Shared `"files": [` /
-/// `"exclude": [` / `"port": 9876` / `"concurrency": 1` / `"reporters": [` /
-/// `"plugins": [` / `"browsers": [` also match neighbouring scanners when
-/// shapes overlap.
+/// `"disableNativeAutomation"` / WebdriverIO `"waitforTimeout"` /
+/// `"waitforInterval"` / `"connectionRetryTimeout"` /
+/// `"connectionRetryCount"` / `"maxInstances"` / `"mochaOpts"` /
+/// `"specFileRetries"` / `"automationProtocol"` / `"runner": "local"` /
+/// CSpell `"words"` / Oxlint `"categories"` / Knip `"entry"` / Deno
+/// `"nodeModulesDir"` / Renovate `"packageRules"` / launch
+/// `"configurations"` / tasks `"tasks": [` / Dev Container `"image"` / turbo
+/// `"pipeline"` / nx `"namedInputs"` / prettier `"printWidth"` / biome
+/// `"linter"` / eslint `"parser"` / package.json `"scripts"` / tsconfig
+/// `"compilerOptions"` stay out. Shared `"files": [` / `"exclude": [` /
+/// `"port": 9876` / `"concurrency": 1` / `"reporters": [` / `"plugins": [` /
+/// `"browsers": [` also match neighbouring scanners when shapes overlap.
 fn is_karma_json_decl(s: &str) -> bool {
     let s = s.trim_start();
     let Some(rest) = s.strip_prefix('"') else {
@@ -50893,15 +50898,18 @@ fn karma_json_string_ok(key: &str, value: &str) -> bool {
 /// `"setupFilesAfterEnv"` / `"coverageProvider"` / Playwright `"testDir"` /
 /// `"fullyParallel"` / `"webServer"` / `"preserveOutput"` / Vitest `"pool"` /
 /// `"fileParallelism"` / `"hookTimeout"` / Cypress `"baseUrl": "http://…"` /
-/// `"specPattern"` / `"chromeWebSecurity"` / `"e2e"` / CSpell `"words"` /
-/// Oxlint `"categories"` / Knip `"entry"` / Deno `"nodeModulesDir"` /
-/// Renovate `"packageRules"` / launch `"configurations"` / tasks
-/// `"tasks": [` / Dev Container `"image"` / turbo `"pipeline"` / nx
-/// `"namedInputs"` / prettier `"printWidth"` / biome `"linter"` / eslint
-/// `"parser"` / package.json `"scripts"` / tsconfig `"compilerOptions"`
-/// stay out. Shared `"browsers": [` / `"concurrency": 1` / `"hostname": "…"` /
-/// `"pageLoadTimeout": 30000` / `"screenshots": {` / `"reporter": "…"` also
-/// match neighbouring scanners when shapes overlap.
+/// `"specPattern"` / `"chromeWebSecurity"` / `"e2e"` / WebdriverIO
+/// `"waitforTimeout"` / `"waitforInterval"` / `"connectionRetryTimeout"` /
+/// `"connectionRetryCount"` / `"maxInstances"` / `"mochaOpts"` /
+/// `"specFileRetries"` / `"automationProtocol"` / `"runner": "local"` /
+/// CSpell `"words"` / Oxlint `"categories"` / Knip `"entry"` / Deno
+/// `"nodeModulesDir"` / Renovate `"packageRules"` / launch
+/// `"configurations"` / tasks `"tasks": [` / Dev Container `"image"` / turbo
+/// `"pipeline"` / nx `"namedInputs"` / prettier `"printWidth"` / biome
+/// `"linter"` / eslint `"parser"` / package.json `"scripts"` / tsconfig
+/// `"compilerOptions"` stay out. Shared `"browsers": [` / `"concurrency": 1` /
+/// `"hostname": "…"` / `"pageLoadTimeout": 30000` / `"screenshots": {` /
+/// `"reporter": "…"` also match neighbouring scanners when shapes overlap.
 fn is_testcafe_json_decl(s: &str) -> bool {
     let s = s.trim_start();
     let Some(rest) = s.strip_prefix('"') else {
@@ -51122,6 +51130,259 @@ fn testcafe_json_string_ok(key: &str, value: &str) -> bool {
             | "proxyBypass"
             | "tsConfigPath"
     )
+}
+
+/// WebdriverIO `wdio.conf.json` / `wdio.conf` / `.wdio` JSON keys:
+/// `"runner": "local"` / `"browser"`, `"specs": [` / `"…"`, `"exclude": [` /
+/// `"…"`, `"maxInstances": 5`, `"capabilities": [` / `{`, `"logLevel": "info"` /
+/// `"trace"` / `"debug"` / `"warn"` / `"error"` / `"silent"`, `"bail": 0`,
+/// `"baseUrl": "…"`, `"waitforTimeout": 10000`, `"waitforInterval": 500`,
+/// `"connectionRetryTimeout": 120000`, `"connectionRetryCount": 3`,
+/// `"services": [` / `"…"`, `"framework": "mocha"` / `"jasmine"` /
+/// `"cucumber"`, `"reporters": [` / `"…"`, `"mochaOpts": {`,
+/// `"jasmineOpts": {`, `"cucumberOpts": {`, `"specFileRetries": 1`,
+/// `"specFileRetriesDelay": 0`, `"specFileRetriesDeferred": true`,
+/// `"autoCompileOpts": {`, `"outputDir": "…"`, `"hostname": "…"`,
+/// `"port": 4444`, `"path": "/wd/hub"`, `"protocol": "http"` / `"https"`,
+/// `"injectGlobals": true`, `"tsConfigPath": "…"`,
+/// `"automationProtocol": "webdriver"` / `"devtools"` / `"puppeteer"`,
+/// `"headless": true`, `"suites": {`, `"execArgv": [`, `"region": "…"`,
+/// `"updateJob": true`, `"user": "…"`, `"key": "…"`. Optional trailing `,`
+/// and `//` / `/*` comment. Incomplete quotes / missing `:` stay out.
+/// Generic `"$schema"` / `"name"` / `"version"` / TestCafe
+/// `"selectorTimeout"` / `"assertionTimeout"` / `"quarantineMode"` /
+/// `"skipJsErrors"` / `"port1"` / `"port2"` / `"videoPath"` /
+/// `"disableNativeAutomation"` / Karma `"frameworks"` / `"preprocessors"` /
+/// `"autoWatch"` / `"singleRun"` / `"customLaunchers"` /
+/// `"browserNoActivityTimeout"` / `"captureTimeout"` / `"logLevel": "INFO"` /
+/// Nightwatch `"src_folders"` / `"page_objects_path"` /
+/// `"skip_testcases_on_fail"` / `"end_session_on_fail"` / `"test_settings"` /
+/// `"desiredCapabilities"` / Jasmine `"spec_dir"` / `"spec_files"` /
+/// `"jsLoader"` / `"stopSpecOnExpectationFailure"` / AVA `"failFast"` /
+/// `"failWithoutAssertions"` / `"utilizeParallelBuilds"` /
+/// `"ignoredByWatcher"` / Mocha `"allowUncaught"` / `"ui": "bdd"` /
+/// `"watch-files"` / `"checkLeaks"` / Jest `"testEnvironment"` /
+/// `"setupFilesAfterEnv"` / `"coverageProvider"` / Playwright `"testDir"` /
+/// `"fullyParallel"` / `"webServer"` / `"preserveOutput"` / Vitest `"pool"` /
+/// `"fileParallelism"` / `"hookTimeout"` / Cypress `"baseUrl": "http://…"` /
+/// `"specPattern"` / `"chromeWebSecurity"` / `"e2e"` / CSpell `"words"` /
+/// Oxlint `"categories"` / Knip `"entry"` / Deno `"nodeModulesDir"` /
+/// Renovate `"packageRules"` / launch `"configurations"` / tasks
+/// `"tasks": [` / Dev Container `"image"` / turbo `"pipeline"` / nx
+/// `"namedInputs"` / prettier `"printWidth"` / biome `"linter"` / eslint
+/// `"parser"` / package.json `"scripts"` / tsconfig `"compilerOptions"`
+/// stay out. Shared `"exclude": [` / `"hostname": "…"` / `"port": 4444` /
+/// `"reporters": [` / `"baseUrl": "…"` / `"tsConfigPath": "…"` also match
+/// neighbouring scanners when shapes overlap.
+fn is_wdio_json_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    let Some(rest) = s.strip_prefix('"') else {
+        return false;
+    };
+    let Some(end) = rest.find('"') else {
+        return false;
+    };
+    let key = &rest[..end];
+    if !wdio_json_key_ok(key) {
+        return false;
+    }
+    let after_key = rest[end + 1..].trim_start();
+    let Some(after_colon) = after_key.strip_prefix(':') else {
+        return false;
+    };
+    let after_colon = after_colon.trim_start();
+    wdio_json_value_and_tail_ok(key, after_colon)
+}
+
+fn wdio_json_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "runner"
+            | "specs"
+            | "exclude"
+            | "maxInstances"
+            | "capabilities"
+            | "logLevel"
+            | "bail"
+            | "baseUrl"
+            | "waitforTimeout"
+            | "waitforInterval"
+            | "connectionRetryTimeout"
+            | "connectionRetryCount"
+            | "services"
+            | "framework"
+            | "reporters"
+            | "mochaOpts"
+            | "jasmineOpts"
+            | "cucumberOpts"
+            | "specFileRetries"
+            | "specFileRetriesDelay"
+            | "specFileRetriesDeferred"
+            | "autoCompileOpts"
+            | "outputDir"
+            | "hostname"
+            | "port"
+            | "path"
+            | "protocol"
+            | "injectGlobals"
+            | "tsConfigPath"
+            | "automationProtocol"
+            | "headless"
+            | "suites"
+            | "execArgv"
+            | "region"
+            | "updateJob"
+            | "user"
+            | "key"
+    )
+}
+
+fn wdio_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool {
+    let bytes = after_colon.as_bytes();
+    let Some(first) = bytes.first().copied() else {
+        return false;
+    };
+    match first {
+        b'{' => {
+            if !wdio_json_object_key_ok(key) {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[1..])
+        }
+        b'[' => {
+            if !wdio_json_array_key_ok(key) {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[1..])
+        }
+        b'"' => {
+            if !wdio_json_string_key_ok(key) {
+                return false;
+            }
+            let rest = &after_colon[1..];
+            let Some(end) = rest.find('"') else {
+                return false;
+            };
+            let value = &rest[..end];
+            if !wdio_json_string_ok(key, value) {
+                return false;
+            }
+            package_json_tail_ok(&rest[end + 1..])
+        }
+        b't' | b'f' => {
+            let rest = if let Some(rest) = after_colon.strip_prefix("true") {
+                rest
+            } else if let Some(rest) = after_colon.strip_prefix("false") {
+                rest
+            } else {
+                return false;
+            };
+            if !wdio_json_bool_key_ok(key) {
+                return false;
+            }
+            package_json_tail_ok(rest)
+        }
+        b'0'..=b'9' => {
+            if !wdio_json_number_key_ok(key) {
+                return false;
+            }
+            let digits = after_colon
+                .bytes()
+                .take_while(|b| b.is_ascii_digit())
+                .count();
+            if digits == 0 || digits > 9 {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[digits..])
+        }
+        _ => false,
+    }
+}
+
+fn wdio_json_object_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "capabilities"
+            | "mochaOpts"
+            | "jasmineOpts"
+            | "cucumberOpts"
+            | "autoCompileOpts"
+            | "suites"
+    )
+}
+
+fn wdio_json_array_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "specs" | "exclude" | "capabilities" | "services" | "reporters" | "execArgv"
+    )
+}
+
+fn wdio_json_string_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "runner"
+            | "specs"
+            | "exclude"
+            | "logLevel"
+            | "baseUrl"
+            | "services"
+            | "framework"
+            | "reporters"
+            | "outputDir"
+            | "hostname"
+            | "path"
+            | "protocol"
+            | "tsConfigPath"
+            | "automationProtocol"
+            | "region"
+            | "user"
+            | "key"
+    )
+}
+
+fn wdio_json_bool_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "specFileRetriesDeferred" | "injectGlobals" | "headless" | "updateJob"
+    )
+}
+
+fn wdio_json_number_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "maxInstances"
+            | "bail"
+            | "waitforTimeout"
+            | "waitforInterval"
+            | "connectionRetryTimeout"
+            | "connectionRetryCount"
+            | "specFileRetries"
+            | "specFileRetriesDelay"
+            | "port"
+    )
+}
+
+fn wdio_json_string_ok(key: &str, value: &str) -> bool {
+    if value.is_empty() || value.len() > 512 || value.contains('\n') {
+        return false;
+    }
+    if value.chars().all(|c| c.is_ascii_whitespace()) {
+        return false;
+    }
+    match key {
+        "runner" => matches!(value, "local" | "browser"),
+        "framework" => matches!(value, "mocha" | "jasmine" | "cucumber"),
+        "logLevel" => matches!(
+            value,
+            "trace" | "debug" | "info" | "warn" | "error" | "silent"
+        ),
+        "protocol" => matches!(value, "http" | "https"),
+        "automationProtocol" => matches!(value, "webdriver" | "devtools" | "puppeteer"),
+        "specs" | "exclude" | "baseUrl" | "services" | "reporters" | "outputDir" | "hostname"
+        | "path" | "tsConfigPath" | "region" | "user" | "key" => true,
+        _ => false,
+    }
 }
 
 /// go.mod / go.work directives: `module example.com/foo`, `go 1.22`,
@@ -81790,10 +82051,10 @@ mod func_like_line_tests {
         is_unbound_nsd_conf_decl, is_uniffi_toml_decl, is_unimport_ini_decl, is_uv_toml_decl,
         is_vconsole_conf_decl, is_vector_toml_decl, is_vercel_json_decl, is_versioneer_ini_decl,
         is_vitest_json_decl, is_vscode_launch_json_decl, is_vscode_tasks_json_decl,
-        is_vulture_ini_decl, is_wails_json_decl, is_webextension_manifest_json_decl,
-        is_wireguard_config_decl, is_wrangler_toml_decl, is_xmake_decl, is_xorg_conf_decl,
-        is_yapf_ini_decl, is_yarnrc_yml_decl, is_yum_repo_decl, is_zest_releaser_ini_decl,
-        line_is_func_like,
+        is_vulture_ini_decl, is_wails_json_decl, is_wdio_json_decl,
+        is_webextension_manifest_json_decl, is_wireguard_config_decl, is_wrangler_toml_decl,
+        is_xmake_decl, is_xorg_conf_decl, is_yapf_ini_decl, is_yarnrc_yml_decl, is_yum_repo_decl,
+        is_zest_releaser_ini_decl, line_is_func_like,
     };
 
     #[test]
@@ -100657,6 +100918,24 @@ mod func_like_line_tests {
         assert!(is_testcafe_json_decl(r#""videoPath": "artifacts/videos""#));
         assert!(!is_karma_json_decl(r#""disableNativeAutomation": true"#));
         assert!(is_testcafe_json_decl(r#""disableNativeAutomation": true"#));
+        assert!(!is_karma_json_decl(r#""waitforTimeout": 10000"#));
+        assert!(is_wdio_json_decl(r#""waitforTimeout": 10000"#));
+        assert!(!is_karma_json_decl(r#""waitforInterval": 500"#));
+        assert!(is_wdio_json_decl(r#""waitforInterval": 500"#));
+        assert!(!is_karma_json_decl(r#""connectionRetryTimeout": 120000"#));
+        assert!(is_wdio_json_decl(r#""connectionRetryTimeout": 120000"#));
+        assert!(!is_karma_json_decl(r#""connectionRetryCount": 3"#));
+        assert!(is_wdio_json_decl(r#""connectionRetryCount": 3"#));
+        assert!(!is_karma_json_decl(r#""maxInstances": 5"#));
+        assert!(is_wdio_json_decl(r#""maxInstances": 5"#));
+        assert!(!is_karma_json_decl(r#""mochaOpts": {"#));
+        assert!(is_wdio_json_decl(r#""mochaOpts": {"#));
+        assert!(!is_karma_json_decl(r#""specFileRetries": 1"#));
+        assert!(is_wdio_json_decl(r#""specFileRetries": 1"#));
+        assert!(!is_karma_json_decl(r#""automationProtocol": "webdriver""#));
+        assert!(is_wdio_json_decl(r#""automationProtocol": "webdriver""#));
+        assert!(!is_karma_json_decl(r#""runner": "local""#));
+        assert!(is_wdio_json_decl(r#""runner": "local""#));
         assert!(!is_karma_json_decl(r#""words": ["#));
         assert!(is_cspell_json_decl(r#""words": ["#));
         assert!(!is_karma_json_decl(r#""categories": {"#));
@@ -100735,6 +101014,14 @@ mod func_like_line_tests {
         ));
         assert!(!is_testcafe_json_decl(r#""captureTimeout": 60000"#));
         assert!(!is_testcafe_json_decl(r#""logLevel": "INFO""#));
+        assert!(!is_wdio_json_decl(r#""frameworks": ["#));
+        assert!(!is_wdio_json_decl(r#""preprocessors": {"#));
+        assert!(!is_wdio_json_decl(r#""autoWatch": true"#));
+        assert!(!is_wdio_json_decl(r#""singleRun": true"#));
+        assert!(!is_wdio_json_decl(r#""customLaunchers": {"#));
+        assert!(!is_wdio_json_decl(r#""browserNoActivityTimeout": 30000"#));
+        assert!(!is_wdio_json_decl(r#""captureTimeout": 60000"#));
+        assert!(!is_wdio_json_decl(r#""logLevel": "INFO""#));
         assert!(!is_cspell_json_decl(r#""frameworks": ["#));
         assert!(!is_oxlint_json_decl(r#""frameworks": ["#));
         assert!(!is_knip_json_decl(r#""frameworks": ["#));
@@ -100939,6 +101226,28 @@ mod func_like_line_tests {
         assert!(is_cypress_json_decl(r#""chromeWebSecurity": false"#));
         assert!(!is_testcafe_json_decl(r#""e2e": {"#));
         assert!(is_cypress_json_decl(r#""e2e": {"#));
+        assert!(!is_testcafe_json_decl(r#""waitforTimeout": 10000"#));
+        assert!(is_wdio_json_decl(r#""waitforTimeout": 10000"#));
+        assert!(!is_testcafe_json_decl(r#""waitforInterval": 500"#));
+        assert!(is_wdio_json_decl(r#""waitforInterval": 500"#));
+        assert!(!is_testcafe_json_decl(
+            r#""connectionRetryTimeout": 120000"#
+        ));
+        assert!(is_wdio_json_decl(r#""connectionRetryTimeout": 120000"#));
+        assert!(!is_testcafe_json_decl(r#""connectionRetryCount": 3"#));
+        assert!(is_wdio_json_decl(r#""connectionRetryCount": 3"#));
+        assert!(!is_testcafe_json_decl(r#""maxInstances": 5"#));
+        assert!(is_wdio_json_decl(r#""maxInstances": 5"#));
+        assert!(!is_testcafe_json_decl(r#""mochaOpts": {"#));
+        assert!(is_wdio_json_decl(r#""mochaOpts": {"#));
+        assert!(!is_testcafe_json_decl(r#""specFileRetries": 1"#));
+        assert!(is_wdio_json_decl(r#""specFileRetries": 1"#));
+        assert!(!is_testcafe_json_decl(
+            r#""automationProtocol": "webdriver""#
+        ));
+        assert!(is_wdio_json_decl(r#""automationProtocol": "webdriver""#));
+        assert!(!is_testcafe_json_decl(r#""runner": "local""#));
+        assert!(is_wdio_json_decl(r#""runner": "local""#));
         assert!(!is_testcafe_json_decl(r#""words": ["#));
         assert!(is_cspell_json_decl(r#""words": ["#));
         assert!(!is_testcafe_json_decl(r#""categories": {"#));
@@ -100995,6 +101304,7 @@ mod func_like_line_tests {
         assert!(!is_playwright_json_decl(r#""selectorTimeout": 10000"#));
         assert!(!is_vitest_json_decl(r#""selectorTimeout": 10000"#));
         assert!(!is_cypress_json_decl(r#""selectorTimeout": 10000"#));
+        assert!(!is_wdio_json_decl(r#""selectorTimeout": 10000"#));
         assert!(!is_cspell_json_decl(r#""selectorTimeout": 10000"#));
         assert!(!is_oxlint_json_decl(r#""selectorTimeout": 10000"#));
         assert!(!is_knip_json_decl(r#""selectorTimeout": 10000"#));
@@ -101009,6 +101319,294 @@ mod func_like_line_tests {
         assert!(line_is_func_like(r#""disableNativeAutomation": true"#));
         assert!(line_is_func_like(r#""src": ["#));
         assert!(line_is_func_like(r#""stopOnFirstFail": true"#));
+    }
+
+    #[test]
+    fn wdio_json_keys_smoke() {
+        assert!(is_wdio_json_decl(r#""waitforTimeout": 10000"#));
+        assert!(is_wdio_json_decl(r#""waitforInterval": 500"#));
+        assert!(is_wdio_json_decl(r#""connectionRetryTimeout": 120000"#));
+        assert!(is_wdio_json_decl(r#""connectionRetryCount": 3"#));
+        assert!(is_wdio_json_decl(r#""maxInstances": 5"#));
+        assert!(is_wdio_json_decl(r#""mochaOpts": {"#));
+        assert!(is_wdio_json_decl(r#""specFileRetries": 1"#));
+        assert!(is_wdio_json_decl(r#""automationProtocol": "webdriver""#));
+        assert!(is_wdio_json_decl(r#""runner": "local""#));
+        assert!(is_wdio_json_decl(r#""framework": "mocha""#));
+        // Distinctive WDIO keys stay out of TestCafe / Karma / Cypress.
+        assert!(!is_testcafe_json_decl(r#""waitforTimeout": 10000"#));
+        assert!(!is_karma_json_decl(r#""waitforTimeout": 10000"#));
+        assert!(!is_cypress_json_decl(r#""waitforTimeout": 10000"#));
+        assert!(!is_testcafe_json_decl(r#""connectionRetryCount": 3"#));
+        assert!(!is_karma_json_decl(r#""connectionRetryCount": 3"#));
+        assert!(!is_playwright_json_decl(r#""mochaOpts": {"#));
+        assert!(!is_vitest_json_decl(r#""automationProtocol": "webdriver""#));
+        assert!(!is_nightwatch_json_decl(r#""runner": "local""#));
+    }
+
+    #[test]
+    fn wdio_json_keys_count() {
+        assert!(is_wdio_json_decl(r#""runner": "local""#));
+        assert!(is_wdio_json_decl(r#""runner": "browser""#));
+        assert!(!is_wdio_json_decl(r#""runner": "remote""#));
+        assert!(is_wdio_json_decl(r#""specs": ["#));
+        assert!(is_wdio_json_decl(r#""specs": "./test/specs/**/*.js""#));
+        assert!(!is_wdio_json_decl(r#""specs": """#));
+        assert!(is_wdio_json_decl(r#""exclude": ["#));
+        assert!(is_wdio_json_decl(r#""exclude": "./test/specs/ignore.js""#));
+        assert!(is_wdio_json_decl(r#""maxInstances": 5"#));
+        assert!(is_wdio_json_decl(r#""capabilities": ["#));
+        assert!(is_wdio_json_decl(r#""capabilities": {"#));
+        assert!(is_wdio_json_decl(r#""logLevel": "info""#));
+        assert!(is_wdio_json_decl(r#""logLevel": "trace""#));
+        assert!(is_wdio_json_decl(r#""logLevel": "debug""#));
+        assert!(is_wdio_json_decl(r#""logLevel": "warn""#));
+        assert!(is_wdio_json_decl(r#""logLevel": "error""#));
+        assert!(is_wdio_json_decl(r#""logLevel": "silent""#));
+        assert!(!is_wdio_json_decl(r#""logLevel": "INFO""#));
+        assert!(is_wdio_json_decl(r#""bail": 0"#));
+        assert!(is_wdio_json_decl(r#""baseUrl": "http://localhost:3000""#));
+        assert!(is_wdio_json_decl(r#""baseUrl": "/app""#));
+        assert!(is_wdio_json_decl(r#""waitforTimeout": 10000"#));
+        assert!(is_wdio_json_decl(r#""waitforInterval": 500"#));
+        assert!(is_wdio_json_decl(r#""connectionRetryTimeout": 120000"#));
+        assert!(is_wdio_json_decl(r#""connectionRetryCount": 3"#));
+        assert!(is_wdio_json_decl(r#""services": ["#));
+        assert!(is_wdio_json_decl(r#""services": "chromedriver""#));
+        assert!(is_wdio_json_decl(r#""framework": "mocha""#));
+        assert!(is_wdio_json_decl(r#""framework": "jasmine""#));
+        assert!(is_wdio_json_decl(r#""framework": "cucumber""#));
+        assert!(!is_wdio_json_decl(r#""framework": "jest""#));
+        assert!(is_wdio_json_decl(r#""reporters": ["#));
+        assert!(is_wdio_json_decl(r#""reporters": "spec""#));
+        assert!(is_wdio_json_decl(r#""mochaOpts": {"#));
+        assert!(is_wdio_json_decl(r#""jasmineOpts": {"#));
+        assert!(is_wdio_json_decl(r#""cucumberOpts": {"#));
+        assert!(is_wdio_json_decl(r#""specFileRetries": 1"#));
+        assert!(is_wdio_json_decl(r#""specFileRetriesDelay": 0"#));
+        assert!(is_wdio_json_decl(r#""specFileRetriesDeferred": true"#));
+        assert!(is_wdio_json_decl(r#""autoCompileOpts": {"#));
+        assert!(is_wdio_json_decl(r#""outputDir": "./wdio-logs""#));
+        assert!(is_wdio_json_decl(r#""hostname": "localhost""#));
+        assert!(is_wdio_json_decl(r#""port": 4444"#));
+        assert!(is_wdio_json_decl(r#""path": "/wd/hub""#));
+        assert!(is_wdio_json_decl(r#""protocol": "http""#));
+        assert!(is_wdio_json_decl(r#""protocol": "https""#));
+        assert!(is_wdio_json_decl(r#""injectGlobals": true"#));
+        assert!(is_wdio_json_decl(r#""tsConfigPath": "./tsconfig.json""#));
+        assert!(is_wdio_json_decl(r#""automationProtocol": "webdriver""#));
+        assert!(is_wdio_json_decl(r#""automationProtocol": "devtools""#));
+        assert!(is_wdio_json_decl(r#""automationProtocol": "puppeteer""#));
+        assert!(!is_wdio_json_decl(r#""automationProtocol": "selenium""#));
+        assert!(is_wdio_json_decl(r#""headless": true"#));
+        assert!(is_wdio_json_decl(r#""suites": {"#));
+        assert!(is_wdio_json_decl(r#""execArgv": ["#));
+        assert!(is_wdio_json_decl(r#""region": "eu""#));
+        assert!(is_wdio_json_decl(r#""updateJob": false"#));
+        assert!(is_wdio_json_decl(r#""user": "sauce-user""#));
+        assert!(is_wdio_json_decl(r#""key": "sauce-key""#));
+        assert!(is_wdio_json_decl(
+            r#""waitforTimeout": 10000, // element wait"#
+        ));
+        // Incomplete / wrong shapes stay out.
+        assert!(!is_wdio_json_decl(r#""waitforTimeout""#));
+        assert!(!is_wdio_json_decl(r#""waitforTimeout":"#));
+        assert!(!is_wdio_json_decl(r#""waitforTimeout: 10000"#));
+        assert!(!is_wdio_json_decl(r#""waitforTimeout": {"#));
+        assert!(!is_wdio_json_decl(r#""waitforTimeout": ["#));
+        assert!(!is_wdio_json_decl(r#""injectGlobals": ["#));
+        assert!(!is_wdio_json_decl(r#""port": true"#));
+        assert!(!is_wdio_json_decl(r#""mochaOpts": ["#));
+        assert!(!is_wdio_json_decl(r#""specs": {"#));
+        assert!(!is_wdio_json_decl(r#""outputDir": """#));
+        // Generic / neighbouring stay out.
+        assert!(!is_wdio_json_decl(
+            r#""$schema": "https://json.schemastore.org/wdio""#
+        ));
+        assert!(!is_wdio_json_decl(r#""name": "e2e""#));
+        assert!(!is_wdio_json_decl(r#""version": "1.0.0""#));
+        assert!(!is_wdio_json_decl(r#""selectorTimeout": 10000"#));
+        assert!(is_testcafe_json_decl(r#""selectorTimeout": 10000"#));
+        assert!(!is_wdio_json_decl(r#""assertionTimeout": 3000"#));
+        assert!(is_testcafe_json_decl(r#""assertionTimeout": 3000"#));
+        assert!(!is_wdio_json_decl(r#""quarantineMode": true"#));
+        assert!(is_testcafe_json_decl(r#""quarantineMode": true"#));
+        assert!(!is_wdio_json_decl(r#""skipJsErrors": true"#));
+        assert!(is_testcafe_json_decl(r#""skipJsErrors": true"#));
+        assert!(!is_wdio_json_decl(r#""port1": 1337"#));
+        assert!(is_testcafe_json_decl(r#""port1": 1337"#));
+        assert!(!is_wdio_json_decl(r#""port2": 1338"#));
+        assert!(is_testcafe_json_decl(r#""port2": 1338"#));
+        assert!(!is_wdio_json_decl(r#""videoPath": "artifacts/videos""#));
+        assert!(is_testcafe_json_decl(r#""videoPath": "artifacts/videos""#));
+        assert!(!is_wdio_json_decl(r#""disableNativeAutomation": true"#));
+        assert!(is_testcafe_json_decl(r#""disableNativeAutomation": true"#));
+        assert!(!is_wdio_json_decl(r#""frameworks": ["#));
+        assert!(is_karma_json_decl(r#""frameworks": ["#));
+        assert!(!is_wdio_json_decl(r#""preprocessors": {"#));
+        assert!(is_karma_json_decl(r#""preprocessors": {"#));
+        assert!(!is_wdio_json_decl(r#""autoWatch": true"#));
+        assert!(is_karma_json_decl(r#""autoWatch": true"#));
+        assert!(!is_wdio_json_decl(r#""singleRun": true"#));
+        assert!(is_karma_json_decl(r#""singleRun": true"#));
+        assert!(!is_wdio_json_decl(r#""customLaunchers": {"#));
+        assert!(is_karma_json_decl(r#""customLaunchers": {"#));
+        assert!(!is_wdio_json_decl(r#""browserNoActivityTimeout": 30000"#));
+        assert!(is_karma_json_decl(r#""browserNoActivityTimeout": 30000"#));
+        assert!(!is_wdio_json_decl(r#""captureTimeout": 60000"#));
+        assert!(is_karma_json_decl(r#""captureTimeout": 60000"#));
+        assert!(!is_wdio_json_decl(r#""logLevel": "INFO""#));
+        assert!(is_karma_json_decl(r#""logLevel": "INFO""#));
+        assert!(!is_wdio_json_decl(r#""src_folders": ["#));
+        assert!(is_nightwatch_json_decl(r#""src_folders": ["#));
+        assert!(!is_wdio_json_decl(r#""page_objects_path": "pages""#));
+        assert!(is_nightwatch_json_decl(r#""page_objects_path": "pages""#));
+        assert!(!is_wdio_json_decl(r#""skip_testcases_on_fail": true"#));
+        assert!(is_nightwatch_json_decl(r#""skip_testcases_on_fail": true"#));
+        assert!(!is_wdio_json_decl(r#""end_session_on_fail": false"#));
+        assert!(is_nightwatch_json_decl(r#""end_session_on_fail": false"#));
+        assert!(!is_wdio_json_decl(r#""test_settings": {"#));
+        assert!(is_nightwatch_json_decl(r#""test_settings": {"#));
+        assert!(!is_wdio_json_decl(r#""desiredCapabilities": {"#));
+        assert!(is_nightwatch_json_decl(r#""desiredCapabilities": {"#));
+        assert!(!is_wdio_json_decl(r#""spec_dir": "spec""#));
+        assert!(is_jasmine_json_decl(r#""spec_dir": "spec""#));
+        assert!(!is_wdio_json_decl(r#""spec_files": ["#));
+        assert!(is_jasmine_json_decl(r#""spec_files": ["#));
+        assert!(!is_wdio_json_decl(r#""jsLoader": "import""#));
+        assert!(is_jasmine_json_decl(r#""jsLoader": "import""#));
+        assert!(!is_wdio_json_decl(
+            r#""stopSpecOnExpectationFailure": true"#
+        ));
+        assert!(is_jasmine_json_decl(
+            r#""stopSpecOnExpectationFailure": true"#
+        ));
+        assert!(!is_wdio_json_decl(r#""failFast": true"#));
+        assert!(is_ava_json_decl(r#""failFast": true"#));
+        assert!(!is_wdio_json_decl(r#""failWithoutAssertions": false"#));
+        assert!(is_ava_json_decl(r#""failWithoutAssertions": false"#));
+        assert!(!is_wdio_json_decl(r#""utilizeParallelBuilds": true"#));
+        assert!(is_ava_json_decl(r#""utilizeParallelBuilds": true"#));
+        assert!(!is_wdio_json_decl(r#""ignoredByWatcher": ["#));
+        assert!(is_ava_json_decl(r#""ignoredByWatcher": ["#));
+        assert!(!is_wdio_json_decl(r#""allowUncaught": true"#));
+        assert!(is_mocha_json_decl(r#""allowUncaught": true"#));
+        assert!(!is_wdio_json_decl(r#""ui": "bdd""#));
+        assert!(is_mocha_json_decl(r#""ui": "bdd""#));
+        assert!(!is_wdio_json_decl(r#""watch-files": ["#));
+        assert!(is_mocha_json_decl(r#""watch-files": ["#));
+        assert!(!is_wdio_json_decl(r#""checkLeaks": true"#));
+        assert!(is_mocha_json_decl(r#""checkLeaks": true"#));
+        assert!(!is_wdio_json_decl(r#""testEnvironment": "node""#));
+        assert!(is_jest_json_decl(r#""testEnvironment": "node""#));
+        assert!(!is_wdio_json_decl(r#""setupFilesAfterEnv": ["#));
+        assert!(is_jest_json_decl(r#""setupFilesAfterEnv": ["#));
+        assert!(!is_wdio_json_decl(r#""coverageProvider": "v8""#));
+        assert!(is_jest_json_decl(r#""coverageProvider": "v8""#));
+        assert!(!is_wdio_json_decl(r#""testDir": "tests""#));
+        assert!(is_playwright_json_decl(r#""testDir": "tests""#));
+        assert!(!is_wdio_json_decl(r#""fullyParallel": true"#));
+        assert!(is_playwright_json_decl(r#""fullyParallel": true"#));
+        assert!(!is_wdio_json_decl(r#""webServer": {"#));
+        assert!(is_playwright_json_decl(r#""webServer": {"#));
+        assert!(!is_wdio_json_decl(r#""preserveOutput": "always""#));
+        assert!(is_playwright_json_decl(r#""preserveOutput": "always""#));
+        assert!(!is_wdio_json_decl(r#""pool": "threads""#));
+        assert!(is_vitest_json_decl(r#""pool": "threads""#));
+        assert!(!is_wdio_json_decl(r#""fileParallelism": true"#));
+        assert!(is_vitest_json_decl(r#""fileParallelism": true"#));
+        assert!(!is_wdio_json_decl(r#""hookTimeout": 10000"#));
+        assert!(is_vitest_json_decl(r#""hookTimeout": 10000"#));
+        // Cypress baseUrl with http also matches WDIO (shared shape).
+        assert!(is_wdio_json_decl(r#""baseUrl": "http://localhost:3000""#));
+        assert!(is_cypress_json_decl(
+            r#""baseUrl": "http://localhost:3000""#
+        ));
+        assert!(!is_wdio_json_decl(
+            r#""specPattern": "cypress/e2e/**/*.cy.ts""#
+        ));
+        assert!(is_cypress_json_decl(
+            r#""specPattern": "cypress/e2e/**/*.cy.ts""#
+        ));
+        assert!(!is_wdio_json_decl(r#""chromeWebSecurity": false"#));
+        assert!(is_cypress_json_decl(r#""chromeWebSecurity": false"#));
+        assert!(!is_wdio_json_decl(r#""e2e": {"#));
+        assert!(is_cypress_json_decl(r#""e2e": {"#));
+        assert!(!is_wdio_json_decl(r#""words": ["#));
+        assert!(is_cspell_json_decl(r#""words": ["#));
+        assert!(!is_wdio_json_decl(r#""categories": {"#));
+        assert!(is_oxlint_json_decl(r#""categories": {"#));
+        assert!(!is_wdio_json_decl(r#""entry": ["#));
+        assert!(is_knip_json_decl(r#""entry": ["#));
+        assert!(!is_wdio_json_decl(r#""nodeModulesDir": "auto""#));
+        assert!(is_deno_json_decl(r#""nodeModulesDir": "auto""#));
+        assert!(!is_wdio_json_decl(r#""packageRules": ["#));
+        assert!(is_renovate_json_decl(r#""packageRules": ["#));
+        assert!(!is_wdio_json_decl(r#""configurations": ["#));
+        assert!(is_vscode_launch_json_decl(r#""configurations": ["#));
+        assert!(!is_wdio_json_decl(r#""tasks": ["#));
+        assert!(is_vscode_tasks_json_decl(r#""tasks": ["#));
+        assert!(!is_wdio_json_decl(
+            r#""image": "mcr.microsoft.com/devcontainers/rust:1""#
+        ));
+        assert!(is_devcontainer_json_decl(
+            r#""image": "mcr.microsoft.com/devcontainers/rust:1""#
+        ));
+        assert!(!is_wdio_json_decl(r#""pipeline": {"#));
+        assert!(is_turbo_json_decl(r#""pipeline": {"#));
+        assert!(!is_wdio_json_decl(r#""namedInputs": {"#));
+        assert!(is_nx_json_decl(r#""namedInputs": {"#));
+        assert!(!is_wdio_json_decl(r#""printWidth": 80"#));
+        assert!(is_prettier_json_decl(r#""printWidth": 80"#));
+        assert!(!is_wdio_json_decl(r#""linter": {"#));
+        assert!(is_biome_json_decl(r#""linter": {"#));
+        assert!(!is_wdio_json_decl(
+            r#""parser": "@typescript-eslint/parser""#
+        ));
+        assert!(is_eslint_json_decl(
+            r#""parser": "@typescript-eslint/parser""#
+        ));
+        assert!(!is_wdio_json_decl(r#""scripts": {"#));
+        assert!(is_package_json_decl(r#""scripts": {"#));
+        assert!(!is_wdio_json_decl(r#""compilerOptions": {"#));
+        assert!(is_tsconfig_json_decl(r#""compilerOptions": {"#));
+        // Distinctive WDIO keys stay out of neighbours.
+        assert!(!is_testcafe_json_decl(r#""waitforTimeout": 10000"#));
+        assert!(!is_testcafe_json_decl(r#""waitforInterval": 500"#));
+        assert!(!is_testcafe_json_decl(
+            r#""connectionRetryTimeout": 120000"#
+        ));
+        assert!(!is_testcafe_json_decl(r#""connectionRetryCount": 3"#));
+        assert!(!is_testcafe_json_decl(r#""maxInstances": 5"#));
+        assert!(!is_testcafe_json_decl(r#""mochaOpts": {"#));
+        assert!(!is_testcafe_json_decl(r#""specFileRetries": 1"#));
+        assert!(!is_testcafe_json_decl(
+            r#""automationProtocol": "webdriver""#
+        ));
+        assert!(!is_testcafe_json_decl(r#""runner": "local""#));
+        assert!(!is_karma_json_decl(r#""waitforTimeout": 10000"#));
+        assert!(!is_nightwatch_json_decl(r#""waitforTimeout": 10000"#));
+        assert!(!is_jasmine_json_decl(r#""waitforTimeout": 10000"#));
+        assert!(!is_ava_json_decl(r#""waitforTimeout": 10000"#));
+        assert!(!is_mocha_json_decl(r#""waitforTimeout": 10000"#));
+        assert!(!is_jest_json_decl(r#""waitforTimeout": 10000"#));
+        assert!(!is_playwright_json_decl(r#""waitforTimeout": 10000"#));
+        assert!(!is_vitest_json_decl(r#""waitforTimeout": 10000"#));
+        assert!(!is_cypress_json_decl(r#""waitforTimeout": 10000"#));
+        assert!(!is_cspell_json_decl(r#""waitforTimeout": 10000"#));
+        assert!(!is_oxlint_json_decl(r#""waitforTimeout": 10000"#));
+        assert!(!is_knip_json_decl(r#""waitforTimeout": 10000"#));
+        // Shared / distinctive shapes list via WDIO scanner.
+        assert!(line_is_func_like(r#""waitforTimeout": 10000"#));
+        assert!(line_is_func_like(r#""waitforInterval": 500"#));
+        assert!(line_is_func_like(r#""connectionRetryTimeout": 120000"#));
+        assert!(line_is_func_like(r#""connectionRetryCount": 3"#));
+        assert!(line_is_func_like(r#""maxInstances": 5"#));
+        assert!(line_is_func_like(r#""mochaOpts": {"#));
+        assert!(line_is_func_like(r#""specFileRetries": 1"#));
+        assert!(line_is_func_like(r#""automationProtocol": "webdriver""#));
+        assert!(line_is_func_like(r#""runner": "local""#));
+        assert!(line_is_func_like(r#""framework": "mocha""#));
     }
 
     #[test]

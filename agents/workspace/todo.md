@@ -1,3 +1,5 @@
+009 keep: Function List WebdriverIO wdio.conf.json waitforTimeout/connectionRetryCount/maxInstances/mochaOpts/specFileRetries/automationProtocol/runner (v0.3.747)
+
 009 keep: Function List TestCafe .testcaferc.json selectorTimeout/assertionTimeout/quarantineMode/skipJsErrors/port1/port2/videoPath/disableNativeAutomation (v0.3.746)
 
 009 keep: Function List Karma karma.conf.json frameworks/preprocessors/browsers/autoWatch/singleRun/customLaunchers/browserNoActivityTimeout/captureTimeout/logLevel (v0.3.745)
