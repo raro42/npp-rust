@@ -1160,3 +1160,5 @@
 009 keep: Function List Mocha .mocharc.json allowUncaught/ui/watch-files/node-option/checkLeaks (v0.3.741)
 
 009 keep: Function List Jasmine jasmine.json (v0.3.743)
+
+009 keep: Function List CodeceptJS codecept.conf.json helpers/include/stepTimeout/fullPromiseBased/gherkin/noGlobals (v0.3.748)

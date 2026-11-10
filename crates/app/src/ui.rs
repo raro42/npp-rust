@@ -32415,6 +32415,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_karma_json_decl(s)
             || is_testcafe_json_decl(s)
             || is_wdio_json_decl(s)
+            || is_codecept_json_decl(s)
             || is_gomod_decl(s)
             || is_gemfile_decl(s)
             || is_brewfile_decl(s)
@@ -32740,6 +32741,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_karma_json_decl(s)
         || is_testcafe_json_decl(s)
         || is_wdio_json_decl(s)
+        || is_codecept_json_decl(s)
         || is_gomod_decl(s)
         || is_gemfile_decl(s)
         || is_brewfile_decl(s)
@@ -51383,6 +51385,199 @@ fn wdio_json_string_ok(key: &str, value: &str) -> bool {
         | "path" | "tsConfigPath" | "region" | "user" | "key" => true,
         _ => false,
     }
+}
+
+/// CodeceptJS `codecept.conf.json` / `codecept.json` / `.codecept` JSON keys:
+/// `"tests": "…" / [`, `"output": "…"`, `"helpers": {`, `"include": {`,
+/// `"bootstrap": "…"`, `"teardown": "…"`, `"hooks": {`, `"gherkin": {`,
+/// `"plugins": {`, `"mocha": {`, `"multiple": {`, `"ai": {`,
+/// `"stepTimeout": 5000`, `"stepTimeoutOverride": [`, `"timeout": 10000`,
+/// `"retry": 2` / `{`, `"require": [` / `"…"`, `"grep": "…"`,
+/// `"translation": "…"`, `"verbose": true`, `"noGlobals": true`,
+/// `"fullPromiseBased": true`. Optional trailing `,` and `//` / `/*`
+/// comment. Incomplete quotes / missing `:` stay out. Generic `"$schema"` /
+/// `"name"` / `"version"` / WDIO `"waitforTimeout"` / `"waitforInterval"` /
+/// `"connectionRetryTimeout"` / `"connectionRetryCount"` / `"maxInstances"` /
+/// `"mochaOpts"` / `"specFileRetries"` / `"automationProtocol"` /
+/// `"runner": "local"` / TestCafe `"selectorTimeout"` / `"assertionTimeout"` /
+/// `"quarantineMode"` / `"skipJsErrors"` / `"port1"` / `"port2"` /
+/// `"videoPath"` / `"disableNativeAutomation"` / Karma `"frameworks"` /
+/// `"preprocessors"` / `"autoWatch"` / `"singleRun"` / `"customLaunchers"` /
+/// `"browserNoActivityTimeout"` / `"captureTimeout"` / `"logLevel": "INFO"` /
+/// Nightwatch `"src_folders"` / `"page_objects_path"` /
+/// `"skip_testcases_on_fail"` / `"end_session_on_fail"` / `"test_settings"` /
+/// `"desiredCapabilities"` / Jasmine `"spec_dir"` / `"spec_files"` /
+/// `"jsLoader"` / `"stopSpecOnExpectationFailure"` / `"helpers": [` /
+/// AVA `"failFast"` / `"failWithoutAssertions"` / `"utilizeParallelBuilds"` /
+/// `"ignoredByWatcher"` / Mocha `"allowUncaught"` / `"ui": "bdd"` /
+/// `"watch-files"` / `"checkLeaks"` / Jest `"testEnvironment"` /
+/// `"setupFilesAfterEnv"` / `"coverageProvider"` / Playwright `"testDir"` /
+/// `"fullyParallel"` / `"webServer"` / `"preserveOutput"` / Vitest `"pool"` /
+/// `"fileParallelism"` / `"hookTimeout"` / Cypress `"specPattern"` /
+/// `"chromeWebSecurity"` / `"e2e"` / CSpell `"words"` / Oxlint `"categories"` /
+/// Knip `"entry"` / Deno `"nodeModulesDir"` / Renovate `"packageRules"` /
+/// launch `"configurations"` / tasks `"tasks": [` / Dev Container `"image"` /
+/// turbo `"pipeline"` / nx `"namedInputs"` / prettier `"printWidth"` / biome
+/// `"linter"` / eslint `"parser"` / package.json `"scripts"` / tsconfig
+/// `"compilerOptions"` stay out. Shared `"timeout": 10000` / `"require": [` /
+/// `"verbose": true` / `"plugins": {` also match neighbouring scanners when
+/// shapes overlap. Jasmine `"helpers": [` stays on Jasmine; Codecept uses
+/// `"helpers": {`.
+fn is_codecept_json_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    let Some(rest) = s.strip_prefix('"') else {
+        return false;
+    };
+    let Some(end) = rest.find('"') else {
+        return false;
+    };
+    let key = &rest[..end];
+    if !codecept_json_key_ok(key) {
+        return false;
+    }
+    let after_key = rest[end + 1..].trim_start();
+    let Some(after_colon) = after_key.strip_prefix(':') else {
+        return false;
+    };
+    let after_colon = after_colon.trim_start();
+    codecept_json_value_and_tail_ok(key, after_colon)
+}
+
+fn codecept_json_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "tests"
+            | "output"
+            | "helpers"
+            | "include"
+            | "bootstrap"
+            | "teardown"
+            | "hooks"
+            | "gherkin"
+            | "plugins"
+            | "mocha"
+            | "multiple"
+            | "ai"
+            | "stepTimeout"
+            | "stepTimeoutOverride"
+            | "timeout"
+            | "retry"
+            | "require"
+            | "grep"
+            | "translation"
+            | "verbose"
+            | "noGlobals"
+            | "fullPromiseBased"
+    )
+}
+
+fn codecept_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool {
+    let bytes = after_colon.as_bytes();
+    let Some(first) = bytes.first().copied() else {
+        return false;
+    };
+    match first {
+        b'{' => {
+            if !codecept_json_object_key_ok(key) {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[1..])
+        }
+        b'[' => {
+            if !codecept_json_array_key_ok(key) {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[1..])
+        }
+        b'"' => {
+            if !codecept_json_string_key_ok(key) {
+                return false;
+            }
+            let rest = &after_colon[1..];
+            let Some(end) = rest.find('"') else {
+                return false;
+            };
+            let value = &rest[..end];
+            if !codecept_json_string_ok(key, value) {
+                return false;
+            }
+            package_json_tail_ok(&rest[end + 1..])
+        }
+        b't' | b'f' => {
+            let rest = if let Some(rest) = after_colon.strip_prefix("true") {
+                rest
+            } else if let Some(rest) = after_colon.strip_prefix("false") {
+                rest
+            } else {
+                return false;
+            };
+            if !codecept_json_bool_key_ok(key) {
+                return false;
+            }
+            package_json_tail_ok(rest)
+        }
+        b'0'..=b'9' => {
+            if !codecept_json_number_key_ok(key) {
+                return false;
+            }
+            let digits = after_colon
+                .bytes()
+                .take_while(|b| b.is_ascii_digit())
+                .count();
+            if digits == 0 || digits > 9 {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[digits..])
+        }
+        _ => false,
+    }
+}
+
+fn codecept_json_object_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "helpers"
+            | "include"
+            | "hooks"
+            | "gherkin"
+            | "plugins"
+            | "mocha"
+            | "multiple"
+            | "ai"
+            | "retry"
+    )
+}
+
+fn codecept_json_array_key_ok(key: &str) -> bool {
+    matches!(key, "tests" | "stepTimeoutOverride" | "require")
+}
+
+fn codecept_json_string_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "tests" | "output" | "bootstrap" | "teardown" | "require" | "grep" | "translation"
+    )
+}
+
+fn codecept_json_bool_key_ok(key: &str) -> bool {
+    matches!(key, "verbose" | "noGlobals" | "fullPromiseBased")
+}
+
+fn codecept_json_number_key_ok(key: &str) -> bool {
+    matches!(key, "stepTimeout" | "timeout" | "retry")
+}
+
+fn codecept_json_string_ok(key: &str, value: &str) -> bool {
+    if value.is_empty() || value.len() > 512 || value.contains('\n') {
+        return false;
+    }
+    if value.chars().all(|c| c.is_ascii_whitespace()) {
+        return false;
+    }
+    matches!(
+        key,
+        "tests" | "output" | "bootstrap" | "teardown" | "require" | "grep" | "translation"
+    )
 }
 
 /// go.mod / go.work directives: `module example.com/foo`, `go 1.22`,
@@ -82004,41 +82199,41 @@ mod func_like_line_tests {
         is_cargo_config_toml_decl, is_cargo_make_toml_decl, is_cargo_toml_decl,
         is_cbindgen_toml_decl, is_changesets_json_decl, is_check_manifest_ini_decl,
         is_check_wheel_contents_ini_decl, is_cibuildwheel_ini_decl, is_cliff_toml_decl,
-        is_clippy_toml_decl, is_codespell_ini_decl, is_commitizen_ini_decl, is_composer_json_decl,
-        is_coverage_ini_decl, is_cross_toml_decl, is_crypttab_decl, is_cspell_json_decl,
-        is_cypress_json_decl, is_darglint_ini_decl, is_default_grub_decl, is_deno_json_decl,
-        is_deny_toml_decl, is_desktop_entry_decl, is_devcontainer_json_decl, is_dhcpd_decl,
-        is_dioxus_toml_decl, is_dist_toml_decl, is_doc8_ini_decl, is_docformatter_ini_decl,
-        is_dovecot_decl, is_dprint_json_decl, is_dracut_conf_decl, is_eas_json_decl,
-        is_editorconfig_decl, is_electron_builder_json_decl, is_electron_forge_json_decl,
-        is_eslint_json_decl, is_ethers_file_decl, is_expo_json_decl, is_fail2ban_conf_decl,
-        is_firebase_json_decl, is_flake8_ini_decl, is_fluent_bit_decl, is_fly_toml_decl,
-        is_flynt_ini_decl, is_freeradius_decl, is_fstab_decl, is_gdm_conf_decl, is_gemfile_decl,
-        is_gitconfig_decl, is_gomod_decl, is_grafana_ini_decl, is_haproxy_decl, is_hatch_toml_decl,
-        is_hosts_access_decl, is_hosts_file_decl, is_hypothesis_ini_decl, is_importlinter_ini_decl,
-        is_interrogate_ini_decl, is_ionic_json_decl, is_ipsec_conf_decl, is_isort_ini_decl,
-        is_jasmine_json_decl, is_jest_json_decl, is_karma_json_decl, is_keepalived_decl,
-        is_knip_json_decl, is_krb5_conf_decl, is_lerna_json_decl, is_lightdm_conf_decl,
-        is_limits_conf_decl, is_locale_conf_decl, is_login_defs_decl, is_logrotate_decl,
-        is_machine_info_decl, is_makepkg_conf_decl, is_mdbook_toml_decl, is_mise_toml_decl,
-        is_mkinitcpio_conf_decl, is_mocha_json_decl, is_modprobe_conf_decl, is_mutants_toml_decl,
-        is_mypy_ini_decl, is_mysql_cnf_decl, is_named_conf_decl, is_nest_cli_json_decl,
-        is_netlify_toml_decl, is_networks_file_decl, is_neutralino_json_decl, is_nextest_toml_decl,
-        is_nftables_decl, is_nginx_conf_decl, is_nightwatch_json_decl, is_nixpacks_toml_decl,
-        is_nm_connection_decl, is_npmrc_decl, is_nsswitch_conf_decl, is_nx_json_decl,
-        is_openvpn_decl, is_os_release_decl, is_oxlint_json_decl, is_package_json_decl,
-        is_pacman_conf_decl, is_pam_conf_decl, is_parcel_json_decl, is_paru_conf_decl,
-        is_passwd_group_file_decl, is_pdm_toml_decl, is_php_ini_decl, is_pip_conf_decl,
-        is_pipfile_decl, is_pixi_toml_decl, is_playwright_json_decl, is_podfile_decl,
-        is_poetry_toml_decl, is_postcss_json_decl, is_premake_decl, is_prettier_json_decl,
-        is_protocols_file_decl, is_pycln_ini_decl, is_pycodestyle_ini_decl, is_pydoclint_ini_decl,
-        is_pydocstyle_ini_decl, is_pylama_ini_decl, is_pylint_ini_decl, is_pypirc_ini_decl,
-        is_pyproject_toml_decl, is_pyre_configuration_decl, is_pyright_toml_decl,
-        is_pyrightconfig_json_decl, is_pytest_ini_decl, is_pytype_ini_decl, is_pyupgrade_ini_decl,
-        is_radon_ini_decl, is_railway_toml_decl, is_rake_decl, is_refurb_toml_decl,
-        is_release_toml_decl, is_renovate_json_decl, is_resolv_conf_decl, is_rpc_file_decl,
-        is_rstcheck_ini_decl, is_rsyslog_decl, is_ruff_toml_decl, is_rush_json_decl,
-        is_rust_toolchain_toml_decl, is_rustfmt_toml_decl, is_samba_conf_decl,
+        is_clippy_toml_decl, is_codecept_json_decl, is_codespell_ini_decl, is_commitizen_ini_decl,
+        is_composer_json_decl, is_coverage_ini_decl, is_cross_toml_decl, is_crypttab_decl,
+        is_cspell_json_decl, is_cypress_json_decl, is_darglint_ini_decl, is_default_grub_decl,
+        is_deno_json_decl, is_deny_toml_decl, is_desktop_entry_decl, is_devcontainer_json_decl,
+        is_dhcpd_decl, is_dioxus_toml_decl, is_dist_toml_decl, is_doc8_ini_decl,
+        is_docformatter_ini_decl, is_dovecot_decl, is_dprint_json_decl, is_dracut_conf_decl,
+        is_eas_json_decl, is_editorconfig_decl, is_electron_builder_json_decl,
+        is_electron_forge_json_decl, is_eslint_json_decl, is_ethers_file_decl, is_expo_json_decl,
+        is_fail2ban_conf_decl, is_firebase_json_decl, is_flake8_ini_decl, is_fluent_bit_decl,
+        is_fly_toml_decl, is_flynt_ini_decl, is_freeradius_decl, is_fstab_decl, is_gdm_conf_decl,
+        is_gemfile_decl, is_gitconfig_decl, is_gomod_decl, is_grafana_ini_decl, is_haproxy_decl,
+        is_hatch_toml_decl, is_hosts_access_decl, is_hosts_file_decl, is_hypothesis_ini_decl,
+        is_importlinter_ini_decl, is_interrogate_ini_decl, is_ionic_json_decl, is_ipsec_conf_decl,
+        is_isort_ini_decl, is_jasmine_json_decl, is_jest_json_decl, is_karma_json_decl,
+        is_keepalived_decl, is_knip_json_decl, is_krb5_conf_decl, is_lerna_json_decl,
+        is_lightdm_conf_decl, is_limits_conf_decl, is_locale_conf_decl, is_login_defs_decl,
+        is_logrotate_decl, is_machine_info_decl, is_makepkg_conf_decl, is_mdbook_toml_decl,
+        is_mise_toml_decl, is_mkinitcpio_conf_decl, is_mocha_json_decl, is_modprobe_conf_decl,
+        is_mutants_toml_decl, is_mypy_ini_decl, is_mysql_cnf_decl, is_named_conf_decl,
+        is_nest_cli_json_decl, is_netlify_toml_decl, is_networks_file_decl,
+        is_neutralino_json_decl, is_nextest_toml_decl, is_nftables_decl, is_nginx_conf_decl,
+        is_nightwatch_json_decl, is_nixpacks_toml_decl, is_nm_connection_decl, is_npmrc_decl,
+        is_nsswitch_conf_decl, is_nx_json_decl, is_openvpn_decl, is_os_release_decl,
+        is_oxlint_json_decl, is_package_json_decl, is_pacman_conf_decl, is_pam_conf_decl,
+        is_parcel_json_decl, is_paru_conf_decl, is_passwd_group_file_decl, is_pdm_toml_decl,
+        is_php_ini_decl, is_pip_conf_decl, is_pipfile_decl, is_pixi_toml_decl,
+        is_playwright_json_decl, is_podfile_decl, is_poetry_toml_decl, is_postcss_json_decl,
+        is_premake_decl, is_prettier_json_decl, is_protocols_file_decl, is_pycln_ini_decl,
+        is_pycodestyle_ini_decl, is_pydoclint_ini_decl, is_pydocstyle_ini_decl, is_pylama_ini_decl,
+        is_pylint_ini_decl, is_pypirc_ini_decl, is_pyproject_toml_decl, is_pyre_configuration_decl,
+        is_pyright_toml_decl, is_pyrightconfig_json_decl, is_pytest_ini_decl, is_pytype_ini_decl,
+        is_pyupgrade_ini_decl, is_radon_ini_decl, is_railway_toml_decl, is_rake_decl,
+        is_refurb_toml_decl, is_release_toml_decl, is_renovate_json_decl, is_resolv_conf_decl,
+        is_rpc_file_decl, is_rstcheck_ini_decl, is_rsyslog_decl, is_ruff_toml_decl,
+        is_rush_json_decl, is_rust_toolchain_toml_decl, is_rustfmt_toml_decl, is_samba_conf_decl,
         is_samconfig_toml_decl, is_scons_decl, is_scriv_ini_decl, is_sddm_conf_decl,
         is_semantic_release_ini_decl, is_services_file_decl, is_setup_cfg_decl,
         is_setuptools_scm_ini_decl, is_sqlfluff_ini_decl, is_ssh_config_decl, is_sssd_conf_decl,
@@ -101607,6 +101802,299 @@ mod func_like_line_tests {
         assert!(line_is_func_like(r#""automationProtocol": "webdriver""#));
         assert!(line_is_func_like(r#""runner": "local""#));
         assert!(line_is_func_like(r#""framework": "mocha""#));
+        // Distinctive Codecept keys stay out of WDIO.
+        assert!(!is_wdio_json_decl(r#""helpers": {"#));
+        assert!(is_codecept_json_decl(r#""helpers": {"#));
+        assert!(!is_wdio_json_decl(r#""include": {"#));
+        assert!(is_codecept_json_decl(r#""include": {"#));
+        assert!(!is_wdio_json_decl(r#""stepTimeout": 5000"#));
+        assert!(is_codecept_json_decl(r#""stepTimeout": 5000"#));
+        assert!(!is_wdio_json_decl(r#""fullPromiseBased": true"#));
+        assert!(is_codecept_json_decl(r#""fullPromiseBased": true"#));
+        assert!(!is_wdio_json_decl(r#""gherkin": {"#));
+        assert!(is_codecept_json_decl(r#""gherkin": {"#));
+        assert!(!is_wdio_json_decl(r#""noGlobals": true"#));
+        assert!(is_codecept_json_decl(r#""noGlobals": true"#));
+    }
+
+    #[test]
+    fn codecept_json_keys_smoke() {
+        assert!(is_codecept_json_decl(r#""helpers": {"#));
+        assert!(is_codecept_json_decl(r#""include": {"#));
+        assert!(is_codecept_json_decl(r#""stepTimeout": 5000"#));
+        assert!(is_codecept_json_decl(r#""fullPromiseBased": true"#));
+        assert!(is_codecept_json_decl(r#""gherkin": {"#));
+        assert!(is_codecept_json_decl(r#""noGlobals": true"#));
+        assert!(is_codecept_json_decl(r#""bootstrap": "./bootstrap.js""#));
+        assert!(is_codecept_json_decl(r#""teardown": "./teardown.js""#));
+        assert!(is_codecept_json_decl(r#""tests": "./tests/**/*_test.js""#));
+        assert!(is_codecept_json_decl(r#""output": "./output""#));
+        // Distinctive Codecept keys stay out of WDIO / TestCafe / Karma.
+        assert!(!is_wdio_json_decl(r#""helpers": {"#));
+        assert!(!is_testcafe_json_decl(r#""helpers": {"#));
+        assert!(!is_karma_json_decl(r#""helpers": {"#));
+        assert!(!is_wdio_json_decl(r#""stepTimeout": 5000"#));
+        assert!(!is_testcafe_json_decl(r#""stepTimeout": 5000"#));
+        assert!(!is_karma_json_decl(r#""fullPromiseBased": true"#));
+        assert!(!is_playwright_json_decl(r#""gherkin": {"#));
+        assert!(!is_vitest_json_decl(r#""noGlobals": true"#));
+        assert!(!is_nightwatch_json_decl(r#""include": {"#));
+    }
+
+    #[test]
+    fn codecept_json_keys_count() {
+        assert!(is_codecept_json_decl(r#""tests": "./tests/**/*_test.js""#));
+        assert!(is_codecept_json_decl(r#""tests": ["#));
+        assert!(!is_codecept_json_decl(r#""tests": """#));
+        assert!(!is_codecept_json_decl(r#""tests": {"#));
+        assert!(is_codecept_json_decl(r#""output": "./output""#));
+        assert!(!is_codecept_json_decl(r#""output": true"#));
+        assert!(!is_codecept_json_decl(r#""output": """#));
+        assert!(is_codecept_json_decl(r#""helpers": {"#));
+        assert!(!is_codecept_json_decl(r#""helpers": ["#));
+        assert!(is_codecept_json_decl(r#""include": {"#));
+        assert!(!is_codecept_json_decl(r#""include": ["#));
+        assert!(is_codecept_json_decl(r#""bootstrap": "./bootstrap.js""#));
+        assert!(is_codecept_json_decl(r#""teardown": "./teardown.js""#));
+        assert!(!is_codecept_json_decl(r#""bootstrap": {"#));
+        assert!(is_codecept_json_decl(r#""hooks": {"#));
+        assert!(is_codecept_json_decl(r#""gherkin": {"#));
+        assert!(is_codecept_json_decl(r#""plugins": {"#));
+        assert!(!is_codecept_json_decl(r#""plugins": ["#));
+        assert!(is_codecept_json_decl(r#""mocha": {"#));
+        assert!(is_codecept_json_decl(r#""multiple": {"#));
+        assert!(is_codecept_json_decl(r#""ai": {"#));
+        assert!(is_codecept_json_decl(r#""stepTimeout": 5000"#));
+        assert!(is_codecept_json_decl(r#""stepTimeoutOverride": ["#));
+        assert!(!is_codecept_json_decl(r#""stepTimeout": {"#));
+        assert!(is_codecept_json_decl(r#""timeout": 10000"#));
+        assert!(is_codecept_json_decl(r#""retry": 2"#));
+        assert!(is_codecept_json_decl(r#""retry": {"#));
+        assert!(is_codecept_json_decl(r#""require": ["#));
+        assert!(is_codecept_json_decl(r#""require": "./hooks.js""#));
+        assert!(is_codecept_json_decl(r#""grep": "@slow""#));
+        assert!(is_codecept_json_decl(r#""translation": "ru-RU""#));
+        assert!(is_codecept_json_decl(r#""verbose": true"#));
+        assert!(is_codecept_json_decl(r#""verbose": false"#));
+        assert!(is_codecept_json_decl(r#""noGlobals": true"#));
+        assert!(is_codecept_json_decl(r#""fullPromiseBased": true"#));
+        assert!(is_codecept_json_decl(r#""stepTimeout": 5000, // per-step"#));
+        // Incomplete / wrong shapes stay out.
+        assert!(!is_codecept_json_decl(r#""helpers""#));
+        assert!(!is_codecept_json_decl(r#""helpers":"#));
+        assert!(!is_codecept_json_decl(r#""helpers: {"#));
+        assert!(!is_codecept_json_decl(r#""stepTimeout": true"#));
+        assert!(!is_codecept_json_decl(r#""fullPromiseBased": ["#));
+        assert!(!is_codecept_json_decl(r#""output": {"#));
+        // Generic / neighbouring stay out.
+        assert!(!is_codecept_json_decl(
+            r#""$schema": "https://json.schemastore.org/codeceptjs""#
+        ));
+        assert!(!is_codecept_json_decl(r#""name": "e2e""#));
+        assert!(!is_codecept_json_decl(r#""version": "1.0.0""#));
+        assert!(!is_codecept_json_decl(r#""waitforTimeout": 10000"#));
+        assert!(is_wdio_json_decl(r#""waitforTimeout": 10000"#));
+        assert!(!is_codecept_json_decl(r#""waitforInterval": 500"#));
+        assert!(is_wdio_json_decl(r#""waitforInterval": 500"#));
+        assert!(!is_codecept_json_decl(
+            r#""connectionRetryTimeout": 120000"#
+        ));
+        assert!(is_wdio_json_decl(r#""connectionRetryTimeout": 120000"#));
+        assert!(!is_codecept_json_decl(r#""connectionRetryCount": 3"#));
+        assert!(is_wdio_json_decl(r#""connectionRetryCount": 3"#));
+        assert!(!is_codecept_json_decl(r#""maxInstances": 5"#));
+        assert!(is_wdio_json_decl(r#""maxInstances": 5"#));
+        assert!(!is_codecept_json_decl(r#""mochaOpts": {"#));
+        assert!(is_wdio_json_decl(r#""mochaOpts": {"#));
+        assert!(!is_codecept_json_decl(r#""specFileRetries": 1"#));
+        assert!(is_wdio_json_decl(r#""specFileRetries": 1"#));
+        assert!(!is_codecept_json_decl(
+            r#""automationProtocol": "webdriver""#
+        ));
+        assert!(is_wdio_json_decl(r#""automationProtocol": "webdriver""#));
+        assert!(!is_codecept_json_decl(r#""runner": "local""#));
+        assert!(is_wdio_json_decl(r#""runner": "local""#));
+        assert!(!is_codecept_json_decl(r#""selectorTimeout": 10000"#));
+        assert!(is_testcafe_json_decl(r#""selectorTimeout": 10000"#));
+        assert!(!is_codecept_json_decl(r#""assertionTimeout": 3000"#));
+        assert!(is_testcafe_json_decl(r#""assertionTimeout": 3000"#));
+        assert!(!is_codecept_json_decl(r#""quarantineMode": true"#));
+        assert!(is_testcafe_json_decl(r#""quarantineMode": true"#));
+        assert!(!is_codecept_json_decl(r#""skipJsErrors": true"#));
+        assert!(is_testcafe_json_decl(r#""skipJsErrors": true"#));
+        assert!(!is_codecept_json_decl(r#""port1": 1337"#));
+        assert!(is_testcafe_json_decl(r#""port1": 1337"#));
+        assert!(!is_codecept_json_decl(r#""port2": 1338"#));
+        assert!(is_testcafe_json_decl(r#""port2": 1338"#));
+        assert!(!is_codecept_json_decl(r#""videoPath": "artifacts/videos""#));
+        assert!(is_testcafe_json_decl(r#""videoPath": "artifacts/videos""#));
+        assert!(!is_codecept_json_decl(r#""disableNativeAutomation": true"#));
+        assert!(is_testcafe_json_decl(r#""disableNativeAutomation": true"#));
+        assert!(!is_codecept_json_decl(r#""frameworks": ["#));
+        assert!(is_karma_json_decl(r#""frameworks": ["#));
+        assert!(!is_codecept_json_decl(r#""preprocessors": {"#));
+        assert!(is_karma_json_decl(r#""preprocessors": {"#));
+        assert!(!is_codecept_json_decl(r#""autoWatch": true"#));
+        assert!(is_karma_json_decl(r#""autoWatch": true"#));
+        assert!(!is_codecept_json_decl(r#""singleRun": true"#));
+        assert!(is_karma_json_decl(r#""singleRun": true"#));
+        assert!(!is_codecept_json_decl(r#""customLaunchers": {"#));
+        assert!(is_karma_json_decl(r#""customLaunchers": {"#));
+        assert!(!is_codecept_json_decl(
+            r#""browserNoActivityTimeout": 30000"#
+        ));
+        assert!(is_karma_json_decl(r#""browserNoActivityTimeout": 30000"#));
+        assert!(!is_codecept_json_decl(r#""captureTimeout": 60000"#));
+        assert!(is_karma_json_decl(r#""captureTimeout": 60000"#));
+        assert!(!is_codecept_json_decl(r#""logLevel": "INFO""#));
+        assert!(is_karma_json_decl(r#""logLevel": "INFO""#));
+        assert!(!is_codecept_json_decl(r#""src_folders": ["#));
+        assert!(is_nightwatch_json_decl(r#""src_folders": ["#));
+        assert!(!is_codecept_json_decl(r#""page_objects_path": "pages""#));
+        assert!(is_nightwatch_json_decl(r#""page_objects_path": "pages""#));
+        assert!(!is_codecept_json_decl(r#""skip_testcases_on_fail": true"#));
+        assert!(is_nightwatch_json_decl(r#""skip_testcases_on_fail": true"#));
+        assert!(!is_codecept_json_decl(r#""end_session_on_fail": false"#));
+        assert!(is_nightwatch_json_decl(r#""end_session_on_fail": false"#));
+        assert!(!is_codecept_json_decl(r#""test_settings": {"#));
+        assert!(is_nightwatch_json_decl(r#""test_settings": {"#));
+        assert!(!is_codecept_json_decl(r#""desiredCapabilities": {"#));
+        assert!(is_nightwatch_json_decl(r#""desiredCapabilities": {"#));
+        assert!(!is_codecept_json_decl(r#""spec_dir": "spec""#));
+        assert!(is_jasmine_json_decl(r#""spec_dir": "spec""#));
+        assert!(!is_codecept_json_decl(r#""spec_files": ["#));
+        assert!(is_jasmine_json_decl(r#""spec_files": ["#));
+        assert!(!is_codecept_json_decl(r#""jsLoader": "import""#));
+        assert!(is_jasmine_json_decl(r#""jsLoader": "import""#));
+        assert!(!is_codecept_json_decl(
+            r#""stopSpecOnExpectationFailure": true"#
+        ));
+        assert!(is_jasmine_json_decl(
+            r#""stopSpecOnExpectationFailure": true"#
+        ));
+        // Jasmine helpers array stays on Jasmine; Codecept wants object.
+        assert!(!is_codecept_json_decl(r#""helpers": ["#));
+        assert!(is_jasmine_json_decl(r#""helpers": ["#));
+        assert!(!is_codecept_json_decl(r#""failFast": true"#));
+        assert!(is_ava_json_decl(r#""failFast": true"#));
+        assert!(!is_codecept_json_decl(r#""failWithoutAssertions": false"#));
+        assert!(is_ava_json_decl(r#""failWithoutAssertions": false"#));
+        assert!(!is_codecept_json_decl(r#""utilizeParallelBuilds": true"#));
+        assert!(is_ava_json_decl(r#""utilizeParallelBuilds": true"#));
+        assert!(!is_codecept_json_decl(r#""ignoredByWatcher": ["#));
+        assert!(is_ava_json_decl(r#""ignoredByWatcher": ["#));
+        assert!(!is_codecept_json_decl(r#""allowUncaught": true"#));
+        assert!(is_mocha_json_decl(r#""allowUncaught": true"#));
+        assert!(!is_codecept_json_decl(r#""ui": "bdd""#));
+        assert!(is_mocha_json_decl(r#""ui": "bdd""#));
+        assert!(!is_codecept_json_decl(r#""watch-files": ["#));
+        assert!(is_mocha_json_decl(r#""watch-files": ["#));
+        assert!(!is_codecept_json_decl(r#""checkLeaks": true"#));
+        assert!(is_mocha_json_decl(r#""checkLeaks": true"#));
+        assert!(!is_codecept_json_decl(r#""testEnvironment": "node""#));
+        assert!(is_jest_json_decl(r#""testEnvironment": "node""#));
+        assert!(!is_codecept_json_decl(r#""setupFilesAfterEnv": ["#));
+        assert!(is_jest_json_decl(r#""setupFilesAfterEnv": ["#));
+        assert!(!is_codecept_json_decl(r#""coverageProvider": "v8""#));
+        assert!(is_jest_json_decl(r#""coverageProvider": "v8""#));
+        assert!(!is_codecept_json_decl(r#""testDir": "tests""#));
+        assert!(is_playwright_json_decl(r#""testDir": "tests""#));
+        assert!(!is_codecept_json_decl(r#""fullyParallel": true"#));
+        assert!(is_playwright_json_decl(r#""fullyParallel": true"#));
+        assert!(!is_codecept_json_decl(r#""webServer": {"#));
+        assert!(is_playwright_json_decl(r#""webServer": {"#));
+        assert!(!is_codecept_json_decl(r#""preserveOutput": "always""#));
+        assert!(is_playwright_json_decl(r#""preserveOutput": "always""#));
+        assert!(!is_codecept_json_decl(r#""pool": "threads""#));
+        assert!(is_vitest_json_decl(r#""pool": "threads""#));
+        assert!(!is_codecept_json_decl(r#""fileParallelism": true"#));
+        assert!(is_vitest_json_decl(r#""fileParallelism": true"#));
+        assert!(!is_codecept_json_decl(r#""hookTimeout": 10000"#));
+        assert!(is_vitest_json_decl(r#""hookTimeout": 10000"#));
+        assert!(!is_codecept_json_decl(
+            r#""specPattern": "cypress/e2e/**/*.cy.ts""#
+        ));
+        assert!(is_cypress_json_decl(
+            r#""specPattern": "cypress/e2e/**/*.cy.ts""#
+        ));
+        assert!(!is_codecept_json_decl(r#""chromeWebSecurity": false"#));
+        assert!(is_cypress_json_decl(r#""chromeWebSecurity": false"#));
+        assert!(!is_codecept_json_decl(r#""e2e": {"#));
+        assert!(is_cypress_json_decl(r#""e2e": {"#));
+        assert!(!is_codecept_json_decl(r#""words": ["#));
+        assert!(is_cspell_json_decl(r#""words": ["#));
+        assert!(!is_codecept_json_decl(r#""categories": {"#));
+        assert!(is_oxlint_json_decl(r#""categories": {"#));
+        assert!(!is_codecept_json_decl(r#""entry": ["#));
+        assert!(is_knip_json_decl(r#""entry": ["#));
+        assert!(!is_codecept_json_decl(r#""nodeModulesDir": "auto""#));
+        assert!(is_deno_json_decl(r#""nodeModulesDir": "auto""#));
+        assert!(!is_codecept_json_decl(r#""packageRules": ["#));
+        assert!(is_renovate_json_decl(r#""packageRules": ["#));
+        assert!(!is_codecept_json_decl(r#""configurations": ["#));
+        assert!(is_vscode_launch_json_decl(r#""configurations": ["#));
+        assert!(!is_codecept_json_decl(r#""tasks": ["#));
+        assert!(is_vscode_tasks_json_decl(r#""tasks": ["#));
+        assert!(!is_codecept_json_decl(
+            r#""image": "mcr.microsoft.com/devcontainers/rust:1""#
+        ));
+        assert!(is_devcontainer_json_decl(
+            r#""image": "mcr.microsoft.com/devcontainers/rust:1""#
+        ));
+        assert!(!is_codecept_json_decl(r#""pipeline": {"#));
+        assert!(is_turbo_json_decl(r#""pipeline": {"#));
+        assert!(!is_codecept_json_decl(r#""namedInputs": {"#));
+        assert!(is_nx_json_decl(r#""namedInputs": {"#));
+        assert!(!is_codecept_json_decl(r#""printWidth": 80"#));
+        assert!(is_prettier_json_decl(r#""printWidth": 80"#));
+        assert!(!is_codecept_json_decl(r#""linter": {"#));
+        assert!(is_biome_json_decl(r#""linter": {"#));
+        assert!(!is_codecept_json_decl(
+            r#""parser": "@typescript-eslint/parser""#
+        ));
+        assert!(is_eslint_json_decl(
+            r#""parser": "@typescript-eslint/parser""#
+        ));
+        assert!(!is_codecept_json_decl(r#""scripts": {"#));
+        assert!(is_package_json_decl(r#""scripts": {"#));
+        assert!(!is_codecept_json_decl(r#""compilerOptions": {"#));
+        assert!(is_tsconfig_json_decl(r#""compilerOptions": {"#));
+        // Distinctive Codecept keys stay out of neighbours.
+        assert!(!is_wdio_json_decl(r#""helpers": {"#));
+        assert!(!is_testcafe_json_decl(r#""helpers": {"#));
+        assert!(!is_karma_json_decl(r#""helpers": {"#));
+        assert!(!is_jasmine_json_decl(r#""helpers": {"#));
+        assert!(!is_wdio_json_decl(r#""include": {"#));
+        assert!(!is_wdio_json_decl(r#""stepTimeout": 5000"#));
+        assert!(!is_testcafe_json_decl(r#""stepTimeout": 5000"#));
+        assert!(!is_karma_json_decl(r#""stepTimeout": 5000"#));
+        assert!(!is_nightwatch_json_decl(r#""stepTimeout": 5000"#));
+        assert!(!is_jasmine_json_decl(r#""stepTimeout": 5000"#));
+        assert!(!is_ava_json_decl(r#""stepTimeout": 5000"#));
+        assert!(!is_mocha_json_decl(r#""stepTimeout": 5000"#));
+        assert!(!is_jest_json_decl(r#""stepTimeout": 5000"#));
+        assert!(!is_playwright_json_decl(r#""stepTimeout": 5000"#));
+        assert!(!is_vitest_json_decl(r#""stepTimeout": 5000"#));
+        assert!(!is_cypress_json_decl(r#""stepTimeout": 5000"#));
+        assert!(!is_cspell_json_decl(r#""stepTimeout": 5000"#));
+        assert!(!is_oxlint_json_decl(r#""stepTimeout": 5000"#));
+        assert!(!is_knip_json_decl(r#""stepTimeout": 5000"#));
+        assert!(!is_wdio_json_decl(r#""fullPromiseBased": true"#));
+        assert!(!is_testcafe_json_decl(r#""fullPromiseBased": true"#));
+        assert!(!is_karma_json_decl(r#""gherkin": {"#));
+        assert!(!is_wdio_json_decl(r#""gherkin": {"#));
+        assert!(!is_wdio_json_decl(r#""noGlobals": true"#));
+        // Shared / distinctive shapes list via Codecept scanner.
+        assert!(line_is_func_like(r#""helpers": {"#));
+        assert!(line_is_func_like(r#""include": {"#));
+        assert!(line_is_func_like(r#""stepTimeout": 5000"#));
+        assert!(line_is_func_like(r#""fullPromiseBased": true"#));
+        assert!(line_is_func_like(r#""gherkin": {"#));
+        assert!(line_is_func_like(r#""noGlobals": true"#));
+        assert!(line_is_func_like(r#""bootstrap": "./bootstrap.js""#));
+        assert!(line_is_func_like(r#""teardown": "./teardown.js""#));
+        assert!(line_is_func_like(r#""tests": "./tests/**/*_test.js""#));
+        assert!(line_is_func_like(r#""output": "./output""#));
     }
 
     #[test]
