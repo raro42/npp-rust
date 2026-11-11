@@ -1224,3 +1224,5 @@
 009 keep: Function List Postman Collection/Environment _postman_id/_postman_variable_scope/schema getpostman.com/protocolProfileBehavior (v0.3.778)
 
 009 keep: Function List Insomnia export __export_format/__export_source/_type/_id metaSortKey/settingFollowRedirects/settingStoreCookies (v0.3.779)
+
+009 keep: Function List Bruno bruno.json/export brunoConfig/clientCertificates/moduleWhitelist/additionalContextRoots/collectionVersion/bypassProxy/opencollection (v0.3.781)

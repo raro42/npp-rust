@@ -32448,6 +32448,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_postman_json_decl(s)
             || is_insomnia_json_decl(s)
             || is_thunder_client_json_decl(s)
+            || is_bruno_json_decl(s)
             || is_gomod_decl(s)
             || is_gemfile_decl(s)
             || is_brewfile_decl(s)
@@ -32806,6 +32807,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_postman_json_decl(s)
         || is_insomnia_json_decl(s)
         || is_thunder_client_json_decl(s)
+        || is_bruno_json_decl(s)
         || is_gomod_decl(s)
         || is_gemfile_decl(s)
         || is_brewfile_decl(s)
@@ -58610,6 +58612,134 @@ fn thunder_client_json_number_and_tail_ok(key: &str, after_colon: &str) -> bool 
         return false;
     }
     package_json_tail_ok(&after_colon[digits..])
+}
+
+/// Bruno `bruno.json` / collection-export JSON keys: `"brunoConfig": {`,
+/// `"clientCertificates": {`, `"moduleWhitelist": [`,
+/// `"additionalContextRoots": [`, `"collectionVersion": "…"`,
+/// `"bypassProxy": ""` / `"…"`, `"opencollection": true`. Optional
+/// trailing `,` and `//` / `/*` comment. Incomplete quotes / missing `:`
+/// stay out. Generic `"$schema"` / `"name"` / `"version"` / `"type"` /
+/// `"items": [` / `"environments": [` / `"ignore": [` / `"scripts": {` /
+/// `"presets": {` / `"proxy": {` / Thunder Client `"client"` /
+/// `"collectionName"` / Postman `"_postman_id"` / Insomnia
+/// `"__export_format"` / `"_type"` / ReDoc `"disableSearch"` / RapiDoc
+/// `"specUrl"` / swagger `"dom_id"` / scalar `"layout": "modern"` /
+/// Elements `"layout": "sidebar"` / mintlify `"topbarLinks"` / Compodoc
+/// `"theme": "material"` / redocly `"apis"` / spectral `"functionsDir"` /
+/// openapitools `"generator-cli"` / docfx `"metadata": [` / typedoc
+/// `"entryPoints"` / api-extractor `"mainEntryPointFilePath"` / prettier
+/// `"printWidth"` / package.json `"bin"` / karma `"basePath"` stay out.
+fn is_bruno_json_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    let Some(rest) = s.strip_prefix('"') else {
+        return false;
+    };
+    let Some(end) = rest.find('"') else {
+        return false;
+    };
+    let key = &rest[..end];
+    if !bruno_json_key_ok(key) {
+        return false;
+    }
+    let after_key = rest[end + 1..].trim_start();
+    let Some(after_colon) = after_key.strip_prefix(':') else {
+        return false;
+    };
+    let after_colon = after_colon.trim_start();
+    bruno_json_value_and_tail_ok(key, after_colon)
+}
+
+fn bruno_json_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "brunoConfig"
+            | "clientCertificates"
+            | "moduleWhitelist"
+            | "additionalContextRoots"
+            | "collectionVersion"
+            | "bypassProxy"
+            | "opencollection"
+    )
+}
+
+fn bruno_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool {
+    let bytes = after_colon.as_bytes();
+    let Some(first) = bytes.first().copied() else {
+        return false;
+    };
+    match first {
+        b'{' => {
+            if !matches!(key, "brunoConfig" | "clientCertificates") {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[1..])
+        }
+        b'[' => {
+            if !matches!(key, "moduleWhitelist" | "additionalContextRoots") {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[1..])
+        }
+        b'"' => {
+            if !matches!(key, "collectionVersion" | "bypassProxy") {
+                return false;
+            }
+            let rest = &after_colon[1..];
+            let Some(end) = rest.find('"') else {
+                return false;
+            };
+            let value = &rest[..end];
+            if !bruno_json_string_ok(key, value) {
+                return false;
+            }
+            package_json_tail_ok(&rest[end + 1..])
+        }
+        b't' => {
+            if key != "opencollection" {
+                return false;
+            }
+            if !after_colon.starts_with("true") {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[4..])
+        }
+        _ => false,
+    }
+}
+
+fn bruno_json_string_ok(key: &str, value: &str) -> bool {
+    if value.contains('\n') {
+        return false;
+    }
+    match key {
+        "bypassProxy" => bruno_json_bypass_proxy_ok(value),
+        "collectionVersion" => bruno_json_collection_version_ok(value),
+        _ => false,
+    }
+}
+
+fn bruno_json_bypass_proxy_ok(value: &str) -> bool {
+    if value.len() > 256 {
+        return false;
+    }
+    value.bytes().all(|b| {
+        b.is_ascii_alphanumeric()
+            || matches!(
+                b,
+                b' ' | b'.' | b'-' | b'_' | b'/' | b':' | b'*' | b',' | b';' | b'=' | b'?'
+            )
+    })
+}
+
+fn bruno_json_collection_version_ok(value: &str) -> bool {
+    if value.is_empty() || value.len() > 64 {
+        return false;
+    }
+    value
+        .bytes()
+        .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'.' | b'-' | b'_' | b'+'))
+        && value.bytes().any(|b| b.is_ascii_alphanumeric())
 }
 
 /// go.mod / go.work directives: `module example.com/foo`, `go 1.22`,
@@ -89227,8 +89357,8 @@ mod func_like_line_tests {
         is_audit_toml_decl, is_autoflake_ini_decl, is_autopep8_ini_decl, is_ava_json_decl,
         is_aws_config_decl, is_babel_json_decl, is_bacon_toml_decl, is_bandit_ini_decl,
         is_binfmt_d_decl, is_biome_json_decl, is_bitbake_decl, is_black_ini_decl, is_brewfile_decl,
-        is_bumpversion_ini_decl, is_bunfig_toml_decl, is_c8_json_decl, is_cabal_decl,
-        is_capacitor_json_decl, is_cargo_config_toml_decl, is_cargo_make_toml_decl,
+        is_bruno_json_decl, is_bumpversion_ini_decl, is_bunfig_toml_decl, is_c8_json_decl,
+        is_cabal_decl, is_capacitor_json_decl, is_cargo_config_toml_decl, is_cargo_make_toml_decl,
         is_cargo_toml_decl, is_cbindgen_toml_decl, is_changesets_json_decl,
         is_check_manifest_ini_decl, is_check_wheel_contents_ini_decl, is_cibuildwheel_ini_decl,
         is_cliff_toml_decl, is_clippy_toml_decl, is_codecept_json_decl, is_codespell_ini_decl,
@@ -116034,6 +116164,170 @@ mod func_like_line_tests {
         ));
         assert!(line_is_func_like(r#""containerId": """#));
         assert!(line_is_func_like(r#""sortNum": 10000"#));
+    }
+
+    #[test]
+    fn bruno_json_keys_smoke() {
+        assert!(is_bruno_json_decl(r#""brunoConfig": {"#));
+        assert!(is_bruno_json_decl(r#""clientCertificates": {"#));
+        assert!(is_bruno_json_decl(r#""moduleWhitelist": ["#));
+        assert!(is_bruno_json_decl(r#""additionalContextRoots": ["#));
+        assert!(is_bruno_json_decl(r#""collectionVersion": "1.0.0""#));
+        assert!(is_bruno_json_decl(r#""bypassProxy": """#));
+        assert!(is_bruno_json_decl(
+            r#""bypassProxy": "localhost,127.0.0.1""#
+        ));
+        assert!(is_bruno_json_decl(r#""opencollection": true"#));
+        // Distinctive neighbours stay out of this scanner.
+        assert!(!is_bruno_json_decl(r#""client": "Thunder Client""#));
+        assert!(is_thunder_client_json_decl(r#""client": "Thunder Client""#));
+        assert!(!is_bruno_json_decl(
+            r#""_postman_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890""#
+        ));
+        assert!(is_postman_json_decl(
+            r#""_postman_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890""#
+        ));
+        assert!(!is_bruno_json_decl(r#""__export_format": 4"#));
+        assert!(is_insomnia_json_decl(r#""__export_format": 4"#));
+        assert!(!is_bruno_json_decl(r#""disableSearch": true"#));
+        assert!(is_redoc_json_decl(r#""disableSearch": true"#));
+        assert!(!is_bruno_json_decl(r#""specUrl": "./openapi.yaml""#));
+        assert!(is_rapidoc_json_decl(r#""specUrl": "./openapi.yaml""#));
+        assert!(!is_bruno_json_decl(r##""dom_id": "#swagger-ui""##));
+        assert!(is_swagger_ui_json_decl(r##""dom_id": "#swagger-ui""##));
+        assert!(!is_bruno_json_decl(r#""layout": "modern""#));
+        assert!(is_scalar_json_decl(r#""layout": "modern""#));
+        assert!(!is_bruno_json_decl(r#""layout": "sidebar""#));
+        assert!(is_stoplight_elements_json_decl(r#""layout": "sidebar""#));
+        assert!(!is_bruno_json_decl(r#""topbarLinks": ["#));
+        assert!(is_mintlify_json_decl(r#""topbarLinks": ["#));
+        assert!(!is_bruno_json_decl(r#""apis": {"#));
+        assert!(is_redocly_json_decl(r#""apis": {"#));
+        assert!(!is_bruno_json_decl(r#""functionsDir": "./functions""#));
+        assert!(is_spectral_json_decl(r#""functionsDir": "./functions""#));
+        assert!(!is_bruno_json_decl(r#""printWidth": 80"#));
+        assert!(is_prettier_json_decl(r#""printWidth": 80"#));
+        assert!(!is_bruno_json_decl(r#""basePath": ".""#));
+        assert!(is_karma_json_decl(r#""basePath": ".""#));
+    }
+
+    #[test]
+    fn bruno_json_keys_count() {
+        assert!(is_bruno_json_decl(r#""brunoConfig": {"#));
+        assert!(is_bruno_json_decl(r#""brunoConfig": {,"#));
+        assert!(is_bruno_json_decl(r#""brunoConfig": { // bruno"#));
+        assert!(!is_bruno_json_decl(r#""brunoConfig": ["#));
+        assert!(!is_bruno_json_decl(r#""brunoConfig": true"#));
+        assert!(is_bruno_json_decl(r#""clientCertificates": {"#));
+        assert!(!is_bruno_json_decl(r#""clientCertificates": ["#));
+        assert!(is_bruno_json_decl(r#""moduleWhitelist": ["#));
+        assert!(is_bruno_json_decl(r#""moduleWhitelist": [ // scripts"#));
+        assert!(!is_bruno_json_decl(r#""moduleWhitelist": {"#));
+        assert!(is_bruno_json_decl(r#""additionalContextRoots": ["#));
+        assert!(!is_bruno_json_decl(r#""additionalContextRoots": {"#));
+        assert!(is_bruno_json_decl(r#""collectionVersion": "1.0.0""#));
+        assert!(is_bruno_json_decl(r#""collectionVersion": "1.0.0","#));
+        assert!(is_bruno_json_decl(r#""collectionVersion": "1.0.0" // ver"#));
+        assert!(!is_bruno_json_decl(r#""collectionVersion": """#));
+        assert!(!is_bruno_json_decl(r#""collectionVersion": true"#));
+        assert!(is_bruno_json_decl(r#""bypassProxy": """#));
+        assert!(is_bruno_json_decl(r#""bypassProxy": "localhost""#));
+        assert!(is_bruno_json_decl(r#""bypassProxy": "localhost,*.local""#));
+        assert!(!is_bruno_json_decl(r#""bypassProxy": true"#));
+        assert!(is_bruno_json_decl(r#""opencollection": true"#));
+        assert!(is_bruno_json_decl(r#""opencollection": true,"#));
+        assert!(!is_bruno_json_decl(r#""opencollection": false"#));
+        assert!(!is_bruno_json_decl(r#""opencollection": "true""#));
+        // Incomplete / wrong shapes stay out.
+        assert!(!is_bruno_json_decl(r#""brunoConfig""#));
+        assert!(!is_bruno_json_decl(r#""brunoConfig":"#));
+        assert!(!is_bruno_json_decl(r#""collectionVersion""#));
+        assert!(!is_bruno_json_decl(r#""opencollection""#));
+        // Generic / neighbouring stay out.
+        assert!(!is_bruno_json_decl(r#""$schema": "https://example.com""#));
+        assert!(!is_bruno_json_decl(r#""name": "Petstore""#));
+        assert!(!is_bruno_json_decl(r#""version": "1""#));
+        assert!(!is_bruno_json_decl(r#""type": "collection""#));
+        assert!(!is_bruno_json_decl(r#""items": ["#));
+        assert!(!is_bruno_json_decl(r#""environments": ["#));
+        assert!(!is_bruno_json_decl(r#""ignore": ["#));
+        assert!(!is_bruno_json_decl(r#""scripts": {"#));
+        assert!(!is_bruno_json_decl(r#""presets": {"#));
+        assert!(!is_bruno_json_decl(r#""proxy": {"#));
+        assert!(!is_bruno_json_decl(r#""client": "Thunder Client""#));
+        assert!(is_thunder_client_json_decl(r#""client": "Thunder Client""#));
+        assert!(!is_bruno_json_decl(r#""collectionName": "Petstore API""#));
+        assert!(is_thunder_client_json_decl(
+            r#""collectionName": "Petstore API""#
+        ));
+        assert!(!is_bruno_json_decl(
+            r#""_postman_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890""#
+        ));
+        assert!(is_postman_json_decl(
+            r#""_postman_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890""#
+        ));
+        assert!(!is_bruno_json_decl(r#""protocolProfileBehavior": {"#));
+        assert!(is_postman_json_decl(r#""protocolProfileBehavior": {"#));
+        assert!(!is_bruno_json_decl(r#""__export_format": 4"#));
+        assert!(is_insomnia_json_decl(r#""__export_format": 4"#));
+        assert!(!is_bruno_json_decl(r#""_type": "request""#));
+        assert!(is_insomnia_json_decl(r#""_type": "request""#));
+        assert!(!is_bruno_json_decl(r#""disableSearch": true"#));
+        assert!(is_redoc_json_decl(r#""disableSearch": true"#));
+        assert!(!is_bruno_json_decl(r#""specUrl": "./openapi.yaml""#));
+        assert!(is_rapidoc_json_decl(r#""specUrl": "./openapi.yaml""#));
+        assert!(!is_bruno_json_decl(r##""dom_id": "#swagger-ui""##));
+        assert!(is_swagger_ui_json_decl(r##""dom_id": "#swagger-ui""##));
+        assert!(!is_bruno_json_decl(r#""layout": "BaseLayout""#));
+        assert!(is_swagger_ui_json_decl(r#""layout": "BaseLayout""#));
+        assert!(!is_bruno_json_decl(r#""layout": "modern""#));
+        assert!(is_scalar_json_decl(r#""layout": "modern""#));
+        assert!(!is_bruno_json_decl(r#""layout": "sidebar""#));
+        assert!(is_stoplight_elements_json_decl(r#""layout": "sidebar""#));
+        assert!(!is_bruno_json_decl(r#""apiDescriptionUrl": "./o.yaml""#));
+        assert!(is_stoplight_elements_json_decl(
+            r#""apiDescriptionUrl": "./o.yaml""#
+        ));
+        assert!(!is_bruno_json_decl(
+            r#""proxyUrl": "https://proxy.scalar.com""#
+        ));
+        assert!(is_scalar_json_decl(
+            r#""proxyUrl": "https://proxy.scalar.com""#
+        ));
+        assert!(!is_bruno_json_decl(r#""topbarLinks": ["#));
+        assert!(is_mintlify_json_decl(r#""topbarLinks": ["#));
+        assert!(!is_bruno_json_decl(r#""apis": {"#));
+        assert!(is_redocly_json_decl(r#""apis": {"#));
+        assert!(!is_bruno_json_decl(r#""licenseKey": "public_key""#));
+        assert!(is_redocly_json_decl(r#""licenseKey": "public_key""#));
+        assert!(!is_bruno_json_decl(r#""functionsDir": "./functions""#));
+        assert!(is_spectral_json_decl(r#""functionsDir": "./functions""#));
+        assert!(!is_bruno_json_decl(r#""generator-cli": {"#));
+        assert!(is_openapitools_json_decl(r#""generator-cli": {"#));
+        assert!(!is_bruno_json_decl(r#""metadata": ["#));
+        assert!(is_docfx_json_decl(r#""metadata": ["#));
+        assert!(!is_bruno_json_decl(r#""entryPoints": ["#));
+        assert!(is_typedoc_json_decl(r#""entryPoints": ["#));
+        assert!(!is_bruno_json_decl(
+            r#""mainEntryPointFilePath": "<projectFolder>/lib/index.d.ts""#
+        ));
+        assert!(is_api_extractor_json_decl(
+            r#""mainEntryPointFilePath": "<projectFolder>/lib/index.d.ts""#
+        ));
+        assert!(!is_bruno_json_decl(r#""printWidth": 80"#));
+        assert!(is_prettier_json_decl(r#""printWidth": 80"#));
+        assert!(!is_bruno_json_decl(r#""bin": {"#));
+        assert!(is_package_json_decl(r#""bin": {"#));
+        assert!(!is_bruno_json_decl(r#""basePath": ".""#));
+        assert!(is_karma_json_decl(r#""basePath": ".""#));
+        // line_is_func_like wires the scanner.
+        assert!(line_is_func_like(r#""brunoConfig": {"#));
+        assert!(line_is_func_like(r#""clientCertificates": {"#));
+        assert!(line_is_func_like(r#""moduleWhitelist": ["#));
+        assert!(line_is_func_like(r#""additionalContextRoots": ["#));
+        assert!(line_is_func_like(r#""collectionVersion": "1.0.0""#));
+        assert!(line_is_func_like(r#""bypassProxy": """#));
+        assert!(line_is_func_like(r#""opencollection": true"#));
     }
 
     #[test]

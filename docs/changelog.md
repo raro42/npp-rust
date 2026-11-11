@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.781] — 2026-11-11
+
+View:
+
+- **Function List** lists Bruno `bruno.json` / collection-export JSON keys: `"brunoConfig": {`, `"clientCertificates": {`, `"moduleWhitelist": [`, `"additionalContextRoots": [`, `"collectionVersion": "…"`, `"bypassProxy": ""` / `"…"`, `"opencollection": true`. Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing `:` stay out. Generic `"$schema"` / `"name"` / `"version"` / `"type"` / `"items": [` / `"environments": [` / `"ignore": [` / `"scripts": {` / `"presets": {` / `"proxy": {` / Thunder Client `"client"` / `"collectionName"` / Postman `"_postman_id"` / `"protocolProfileBehavior"` / Insomnia `"__export_format"` / `"_type"` / ReDoc `"disableSearch"` / RapiDoc `"specUrl"` / swagger `"dom_id"` / scalar `"layout": "modern"` / Elements `"layout": "sidebar"` / mintlify `"topbarLinks"` / Compodoc `"theme": "material"` / redocly `"apis"` / spectral `"functionsDir"` / openapitools `"generator-cli"` / docfx `"metadata": [` / typedoc `"entryPoints"` / api-extractor `"mainEntryPointFilePath"` / prettier `"printWidth"` / package.json `"bin"` / karma `"basePath"` stay out. `"opencollection"` only matches `true`.
+
 ## [0.3.780] — 2026-11-11
 
 View:
