@@ -1244,3 +1244,5 @@
 009 keep: Function List WireMock scenarioName/requiredScenarioState/newScenarioState/postServeActions/fixedDelayMilliseconds/bodyFileName/base64Body/proxyBaseUrl/urlPathPattern/bodyPatterns/fault/jsonBody (v0.3.785)
 
 009 keep: Function List Mountebank imposters/recordRequests/allowInjection/defaultResponse/numberOfRequests/predicates/deepEquals/inject/decorate/shellTransform/behaviors/concatenateArrays (v0.3.786)
+
+009 keep: Function List AsyncAPI asyncapi/channels/operations/servers{}/defaultContentType (v0.3.791)

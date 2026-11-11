@@ -32458,6 +32458,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_mockserver_json_decl(s)
             || is_pact_json_decl(s)
             || is_openapi_json_decl(s)
+            || is_asyncapi_json_decl(s)
             || is_gomod_decl(s)
             || is_gemfile_decl(s)
             || is_brewfile_decl(s)
@@ -32826,6 +32827,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_mockserver_json_decl(s)
         || is_pact_json_decl(s)
         || is_openapi_json_decl(s)
+        || is_asyncapi_json_decl(s)
         || is_gomod_decl(s)
         || is_gemfile_decl(s)
         || is_brewfile_decl(s)
@@ -60053,6 +60055,117 @@ fn openapi_version_ok(value: &str) -> bool {
         return false;
     };
     if major != "3" {
+        return false;
+    }
+    let Some(minor) = parts.next() else {
+        return false;
+    };
+    let Some(patch) = parts.next() else {
+        return false;
+    };
+    if parts.next().is_some() {
+        return false;
+    }
+    !minor.is_empty()
+        && minor.bytes().all(|b| b.is_ascii_digit())
+        && !patch.is_empty()
+        && patch.bytes().all(|b| b.is_ascii_digit())
+}
+
+/// AsyncAPI 2 / 3 document JSON keys: `"asyncapi": "2.6.0"` /
+/// `"3.0.0"`, `"channels": {`, `"operations": {`, `"servers": {`
+/// (object map; OpenAPI uses `"servers": [`), `"defaultContentType":
+/// ""` / `"…"`. Optional trailing `,` and `//` / `/*` comment.
+/// Incomplete quotes / missing `:` stay out. Generic `"$schema"` /
+/// `"info": {` / `"id"` / `"tags": [` / `"components": {` /
+/// `"externalDocs": {` / OpenAPI `"openapi"` / `"swagger"` /
+/// `"paths": {` / `"servers": [` / `"webhooks": {` / Pact
+/// `"consumer"` / `"provider"` / `"interactions"` / MockServer
+/// `"httpRequest"` / Hoverfly `"hoverflyVersion"` / Mountebank
+/// `"imposters"` / WireMock `"scenarioName"` / Mockoon
+/// `"lastMigration"` / Hoppscotch `"preRequestScript"` / Yaak
+/// `"yaakVersion"` / Bruno `"brunoConfig"` / Thunder Client
+/// `"client"` / Postman `"_postman_id"` / Insomnia
+/// `"__export_format"` / ReDoc `"disableSearch"` / RapiDoc
+/// `"specUrl"` / swagger-ui `"dom_id"` / scalar `"layout": "modern"`
+/// / Elements `"layout": "sidebar"` / mintlify `"topbarLinks"` /
+/// Compodoc `"theme": "material"` / redocly `"apis"` / spectral
+/// `"functionsDir"` / openapitools `"generator-cli"` / Knip
+/// `"entry"` / prettier `"printWidth"` / package.json `"bin"` /
+/// karma `"basePath"` stay out. `"asyncapi"` only matches `2.N.N` /
+/// `3.N.N` version strings.
+fn is_asyncapi_json_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    let Some(rest) = s.strip_prefix('"') else {
+        return false;
+    };
+    let Some(end) = rest.find('"') else {
+        return false;
+    };
+    let key = &rest[..end];
+    if !asyncapi_json_key_ok(key) {
+        return false;
+    }
+    let after_key = rest[end + 1..].trim_start();
+    let Some(after_colon) = after_key.strip_prefix(':') else {
+        return false;
+    };
+    let after_colon = after_colon.trim_start();
+    asyncapi_json_value_and_tail_ok(key, after_colon)
+}
+
+fn asyncapi_json_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "asyncapi" | "channels" | "operations" | "servers" | "defaultContentType"
+    )
+}
+
+fn asyncapi_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool {
+    let bytes = after_colon.as_bytes();
+    let Some(first) = bytes.first().copied() else {
+        return false;
+    };
+    match first {
+        b'{' => {
+            if !matches!(key, "channels" | "operations" | "servers") {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[1..])
+        }
+        b'"' => {
+            if !matches!(key, "asyncapi" | "defaultContentType") {
+                return false;
+            }
+            let rest = &after_colon[1..];
+            let Some(end) = rest.find('"') else {
+                return false;
+            };
+            let value = &rest[..end];
+            if !asyncapi_json_string_ok(key, value) {
+                return false;
+            }
+            package_json_tail_ok(&rest[end + 1..])
+        }
+        _ => false,
+    }
+}
+
+fn asyncapi_json_string_ok(key: &str, value: &str) -> bool {
+    match key {
+        "asyncapi" => asyncapi_version_ok(value),
+        "defaultContentType" => !value.contains('\n') && value.len() <= 8192,
+        _ => false,
+    }
+}
+
+fn asyncapi_version_ok(value: &str) -> bool {
+    // AsyncAPI 2.x.y / 3.x.y only.
+    let mut parts = value.split('.');
+    let Some(major) = parts.next() else {
+        return false;
+    };
+    if major != "2" && major != "3" {
         return false;
     }
     let Some(minor) = parts.next() else {
@@ -90681,12 +90794,13 @@ fn is_compare_saved_snapshot(doc: &doc::Document) -> bool {
 mod func_like_line_tests {
     use super::{
         is_access_conf_decl, is_android_bp_decl, is_angular_json_decl, is_ant_msbuild_decl,
-        is_apache_httpd_decl, is_api_extractor_json_decl, is_apt_sources_decl, is_audit_rules_decl,
-        is_audit_toml_decl, is_autoflake_ini_decl, is_autopep8_ini_decl, is_ava_json_decl,
-        is_aws_config_decl, is_babel_json_decl, is_bacon_toml_decl, is_bandit_ini_decl,
-        is_binfmt_d_decl, is_biome_json_decl, is_bitbake_decl, is_black_ini_decl, is_brewfile_decl,
-        is_bruno_json_decl, is_bumpversion_ini_decl, is_bunfig_toml_decl, is_c8_json_decl,
-        is_cabal_decl, is_capacitor_json_decl, is_cargo_config_toml_decl, is_cargo_make_toml_decl,
+        is_apache_httpd_decl, is_api_extractor_json_decl, is_apt_sources_decl,
+        is_asyncapi_json_decl, is_audit_rules_decl, is_audit_toml_decl, is_autoflake_ini_decl,
+        is_autopep8_ini_decl, is_ava_json_decl, is_aws_config_decl, is_babel_json_decl,
+        is_bacon_toml_decl, is_bandit_ini_decl, is_binfmt_d_decl, is_biome_json_decl,
+        is_bitbake_decl, is_black_ini_decl, is_brewfile_decl, is_bruno_json_decl,
+        is_bumpversion_ini_decl, is_bunfig_toml_decl, is_c8_json_decl, is_cabal_decl,
+        is_capacitor_json_decl, is_cargo_config_toml_decl, is_cargo_make_toml_decl,
         is_cargo_toml_decl, is_cbindgen_toml_decl, is_changesets_json_decl,
         is_check_manifest_ini_decl, is_check_wheel_contents_ini_decl, is_cibuildwheel_ini_decl,
         is_cliff_toml_decl, is_clippy_toml_decl, is_codecept_json_decl, is_codespell_ini_decl,
@@ -119514,6 +119628,21 @@ mod func_like_line_tests {
         assert!(is_knip_json_decl(r#""paths": {"#));
         assert!(!is_openapi_json_decl(r#""paths": ["#));
         assert!(is_cucumber_json_decl(r#""paths": ["#));
+        // AsyncAPI object servers / version key stay on AsyncAPI.
+        assert!(!is_openapi_json_decl(r#""asyncapi": "2.6.0""#));
+        assert!(is_asyncapi_json_decl(r#""asyncapi": "2.6.0""#));
+        assert!(!is_openapi_json_decl(r#""channels": {"#));
+        assert!(is_asyncapi_json_decl(r#""channels": {"#));
+        assert!(!is_openapi_json_decl(r#""operations": {"#));
+        assert!(is_asyncapi_json_decl(r#""operations": {"#));
+        assert!(!is_openapi_json_decl(r#""servers": {"#));
+        assert!(is_asyncapi_json_decl(r#""servers": {"#));
+        assert!(!is_openapi_json_decl(
+            r#""defaultContentType": "application/json""#
+        ));
+        assert!(is_asyncapi_json_decl(
+            r#""defaultContentType": "application/json""#
+        ));
     }
 
     #[test]
@@ -119666,6 +119795,237 @@ mod func_like_line_tests {
         ));
         assert!(line_is_func_like(r#""securityDefinitions": {"#));
         assert!(line_is_func_like(r#""externalDocs": {"#));
+        // AsyncAPI distinctive keys stay out of OpenAPI; object servers too.
+        assert!(!is_openapi_json_decl(r#""asyncapi": "2.6.0""#));
+        assert!(is_asyncapi_json_decl(r#""asyncapi": "2.6.0""#));
+        assert!(!is_openapi_json_decl(r#""channels": {"#));
+        assert!(is_asyncapi_json_decl(r#""channels": {"#));
+        assert!(!is_openapi_json_decl(r#""operations": {"#));
+        assert!(is_asyncapi_json_decl(r#""operations": {"#));
+        assert!(!is_openapi_json_decl(r#""servers": {"#));
+        assert!(is_asyncapi_json_decl(r#""servers": {"#));
+        assert!(!is_openapi_json_decl(
+            r#""defaultContentType": "application/json""#
+        ));
+        assert!(is_asyncapi_json_decl(
+            r#""defaultContentType": "application/json""#
+        ));
+        assert!(line_is_func_like(r#""asyncapi": "2.6.0""#));
+        assert!(line_is_func_like(r#""channels": {"#));
+        assert!(line_is_func_like(r#""operations": {"#));
+        assert!(line_is_func_like(r#""servers": {"#));
+        assert!(line_is_func_like(
+            r#""defaultContentType": "application/json""#
+        ));
+    }
+
+    #[test]
+    fn asyncapi_json_keys_smoke() {
+        assert!(is_asyncapi_json_decl(r#""asyncapi": "2.0.0""#));
+        assert!(is_asyncapi_json_decl(r#""asyncapi": "2.6.0""#));
+        assert!(is_asyncapi_json_decl(r#""asyncapi": "3.0.0""#));
+        assert!(is_asyncapi_json_decl(r#""channels": {"#));
+        assert!(is_asyncapi_json_decl(r#""operations": {"#));
+        assert!(is_asyncapi_json_decl(r#""servers": {"#));
+        assert!(is_asyncapi_json_decl(
+            r#""defaultContentType": "application/json""#
+        ));
+        // Distinctive neighbours stay out of this scanner.
+        assert!(!is_asyncapi_json_decl(r#""openapi": "3.0.3""#));
+        assert!(is_openapi_json_decl(r#""openapi": "3.0.3""#));
+        assert!(!is_asyncapi_json_decl(r#""swagger": "2.0""#));
+        assert!(is_openapi_json_decl(r#""swagger": "2.0""#));
+        assert!(!is_asyncapi_json_decl(r#""paths": {"#));
+        assert!(is_openapi_json_decl(r#""paths": {"#));
+        assert!(!is_asyncapi_json_decl(r#""servers": ["#));
+        assert!(is_openapi_json_decl(r#""servers": ["#));
+        assert!(!is_asyncapi_json_decl(r#""webhooks": {"#));
+        assert!(is_openapi_json_decl(r#""webhooks": {"#));
+        assert!(!is_asyncapi_json_decl(r#""consumer": {"#));
+        assert!(is_pact_json_decl(r#""consumer": {"#));
+        assert!(!is_asyncapi_json_decl(r#""interactions": ["#));
+        assert!(is_pact_json_decl(r#""interactions": ["#));
+        assert!(!is_asyncapi_json_decl(r#""httpRequest": {"#));
+        assert!(is_mockserver_json_decl(r#""httpRequest": {"#));
+        assert!(!is_asyncapi_json_decl(r#""hoverflyVersion": "v1.2.0""#));
+        assert!(is_hoverfly_json_decl(r#""hoverflyVersion": "v1.2.0""#));
+        assert!(!is_asyncapi_json_decl(r#""imposters": ["#));
+        assert!(is_mountebank_json_decl(r#""imposters": ["#));
+        assert!(!is_asyncapi_json_decl(r#""scenarioName": "checkout""#));
+        assert!(is_wiremock_json_decl(r#""scenarioName": "checkout""#));
+        assert!(!is_asyncapi_json_decl(r#""lastMigration": 33"#));
+        assert!(is_mockoon_json_decl(r#""lastMigration": 33"#));
+        assert!(!is_asyncapi_json_decl(r#""preRequestScript": """#));
+        assert!(is_hoppscotch_json_decl(r#""preRequestScript": """#));
+        assert!(!is_asyncapi_json_decl(r#""yaakVersion": "2025.1.0""#));
+        assert!(is_yaak_json_decl(r#""yaakVersion": "2025.1.0""#));
+        assert!(!is_asyncapi_json_decl(r#""brunoConfig": {"#));
+        assert!(is_bruno_json_decl(r#""brunoConfig": {"#));
+        assert!(!is_asyncapi_json_decl(r#""client": "Thunder Client""#));
+        assert!(is_thunder_client_json_decl(r#""client": "Thunder Client""#));
+        assert!(!is_asyncapi_json_decl(
+            r#""_postman_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890""#
+        ));
+        assert!(is_postman_json_decl(
+            r#""_postman_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890""#
+        ));
+        assert!(!is_asyncapi_json_decl(r#""__export_format": 4"#));
+        assert!(is_insomnia_json_decl(r#""__export_format": 4"#));
+        assert!(!is_asyncapi_json_decl(r#""disableSearch": true"#));
+        assert!(is_redoc_json_decl(r#""disableSearch": true"#));
+        assert!(!is_asyncapi_json_decl(r#""specUrl": "./openapi.yaml""#));
+        assert!(is_rapidoc_json_decl(r#""specUrl": "./openapi.yaml""#));
+        assert!(!is_asyncapi_json_decl(r##""dom_id": "#swagger-ui""##));
+        assert!(is_swagger_ui_json_decl(r##""dom_id": "#swagger-ui""##));
+        assert!(!is_asyncapi_json_decl(r#""layout": "modern""#));
+        assert!(is_scalar_json_decl(r#""layout": "modern""#));
+        assert!(!is_asyncapi_json_decl(r#""layout": "sidebar""#));
+        assert!(is_stoplight_elements_json_decl(r#""layout": "sidebar""#));
+        assert!(!is_asyncapi_json_decl(r#""topbarLinks": ["#));
+        assert!(is_mintlify_json_decl(r#""topbarLinks": ["#));
+        assert!(!is_asyncapi_json_decl(r#""apis": {"#));
+        assert!(is_redocly_json_decl(r#""apis": {"#));
+        assert!(!is_asyncapi_json_decl(r#""functionsDir": "./functions""#));
+        assert!(is_spectral_json_decl(r#""functionsDir": "./functions""#));
+        assert!(!is_asyncapi_json_decl(r#""generator-cli": {"#));
+        assert!(is_openapitools_json_decl(r#""generator-cli": {"#));
+        assert!(!is_asyncapi_json_decl(r#""printWidth": 80"#));
+        assert!(is_prettier_json_decl(r#""printWidth": 80"#));
+        assert!(!is_asyncapi_json_decl(r#""basePath": ".""#));
+        assert!(is_karma_json_decl(r#""basePath": ".""#));
+    }
+
+    #[test]
+    fn asyncapi_json_keys_count() {
+        assert!(is_asyncapi_json_decl(r#""asyncapi": "2.0.0""#));
+        assert!(is_asyncapi_json_decl(r#""asyncapi": "2.6.0""#));
+        assert!(is_asyncapi_json_decl(r#""asyncapi": "3.0.0""#));
+        assert!(is_asyncapi_json_decl(r#""asyncapi": "3.0.1""#));
+        assert!(is_asyncapi_json_decl(r#""asyncapi": "2.6.0","#));
+        assert!(is_asyncapi_json_decl(r#""asyncapi": "2.6.0" // ver"#));
+        assert!(!is_asyncapi_json_decl(r#""asyncapi": "1.0.0""#));
+        assert!(!is_asyncapi_json_decl(r#""asyncapi": "2""#));
+        assert!(!is_asyncapi_json_decl(r#""asyncapi": "2.6""#));
+        assert!(!is_asyncapi_json_decl(r#""asyncapi": "2.6.0.1""#));
+        assert!(!is_asyncapi_json_decl(r#""asyncapi": {"#));
+        assert!(!is_asyncapi_json_decl(r#""asyncapi": true"#));
+        assert!(!is_asyncapi_json_decl(r#""asyncapi": ["#));
+        assert!(is_asyncapi_json_decl(r#""channels": {"#));
+        assert!(is_asyncapi_json_decl(r#""channels": {,"#));
+        assert!(is_asyncapi_json_decl(r#""channels": { // ch"#));
+        assert!(!is_asyncapi_json_decl(r#""channels": ["#));
+        assert!(!is_asyncapi_json_decl(r#""channels": true"#));
+        assert!(!is_asyncapi_json_decl(r#""channels": "user/signedup""#));
+        assert!(is_asyncapi_json_decl(r#""operations": {"#));
+        assert!(is_asyncapi_json_decl(r#""operations": {,"#));
+        assert!(is_asyncapi_json_decl(r#""operations": { // ops"#));
+        assert!(!is_asyncapi_json_decl(r#""operations": ["#));
+        assert!(!is_asyncapi_json_decl(r#""operations": true"#));
+        assert!(is_asyncapi_json_decl(r#""servers": {"#));
+        assert!(is_asyncapi_json_decl(r#""servers": {,"#));
+        assert!(is_asyncapi_json_decl(r#""servers": { // map"#));
+        assert!(!is_asyncapi_json_decl(r#""servers": ["#));
+        assert!(!is_asyncapi_json_decl(r#""servers": true"#));
+        assert!(is_asyncapi_json_decl(r#""defaultContentType": """#));
+        assert!(is_asyncapi_json_decl(
+            r#""defaultContentType": "application/json""#
+        ));
+        assert!(is_asyncapi_json_decl(
+            r#""defaultContentType": "application/json","#
+        ));
+        assert!(is_asyncapi_json_decl(
+            r#""defaultContentType": "application/json" // mime"#
+        ));
+        assert!(!is_asyncapi_json_decl(r#""defaultContentType": {"#));
+        assert!(!is_asyncapi_json_decl(r#""defaultContentType": true"#));
+        assert!(!is_asyncapi_json_decl(r#""defaultContentType": ["#));
+        // Incomplete / wrong shapes stay out.
+        assert!(!is_asyncapi_json_decl(r#""asyncapi""#));
+        assert!(!is_asyncapi_json_decl(r#""asyncapi":"#));
+        assert!(!is_asyncapi_json_decl(r#""channels""#));
+        assert!(!is_asyncapi_json_decl(r#""operations""#));
+        assert!(!is_asyncapi_json_decl(r#""servers""#));
+        assert!(!is_asyncapi_json_decl(r#""defaultContentType""#));
+        // Generic / neighbouring stay out.
+        assert!(!is_asyncapi_json_decl(
+            r#""$schema": "https://json-schema.org/draft/2020-12/schema""#
+        ));
+        assert!(!is_asyncapi_json_decl(r#""info": {"#));
+        assert!(!is_asyncapi_json_decl(
+            r#""id": "urn:com:example:server:v1""#
+        ));
+        assert!(!is_asyncapi_json_decl(r#""tags": ["#));
+        assert!(!is_asyncapi_json_decl(r#""components": {"#));
+        assert!(!is_asyncapi_json_decl(r#""externalDocs": {"#));
+        assert!(!is_asyncapi_json_decl(r#""openapi": "3.0.3""#));
+        assert!(is_openapi_json_decl(r#""openapi": "3.0.3""#));
+        assert!(!is_asyncapi_json_decl(r#""swagger": "2.0""#));
+        assert!(is_openapi_json_decl(r#""swagger": "2.0""#));
+        assert!(!is_asyncapi_json_decl(r#""paths": {"#));
+        assert!(is_openapi_json_decl(r#""paths": {"#));
+        assert!(!is_asyncapi_json_decl(r#""servers": ["#));
+        assert!(is_openapi_json_decl(r#""servers": ["#));
+        assert!(!is_asyncapi_json_decl(r#""webhooks": {"#));
+        assert!(is_openapi_json_decl(r#""webhooks": {"#));
+        assert!(!is_asyncapi_json_decl(r#""consumer": {"#));
+        assert!(is_pact_json_decl(r#""consumer": {"#));
+        assert!(!is_asyncapi_json_decl(r#""httpRequest": {"#));
+        assert!(is_mockserver_json_decl(r#""httpRequest": {"#));
+        assert!(!is_asyncapi_json_decl(r#""hoverflyVersion": "v1.2.0""#));
+        assert!(is_hoverfly_json_decl(r#""hoverflyVersion": "v1.2.0""#));
+        assert!(!is_asyncapi_json_decl(r#""imposters": ["#));
+        assert!(is_mountebank_json_decl(r#""imposters": ["#));
+        assert!(!is_asyncapi_json_decl(r#""scenarioName": "checkout""#));
+        assert!(is_wiremock_json_decl(r#""scenarioName": "checkout""#));
+        assert!(!is_asyncapi_json_decl(r#""lastMigration": 33"#));
+        assert!(is_mockoon_json_decl(r#""lastMigration": 33"#));
+        assert!(!is_asyncapi_json_decl(r#""preRequestScript": """#));
+        assert!(is_hoppscotch_json_decl(r#""preRequestScript": """#));
+        assert!(!is_asyncapi_json_decl(r#""yaakVersion": "2025.1.0""#));
+        assert!(is_yaak_json_decl(r#""yaakVersion": "2025.1.0""#));
+        assert!(!is_asyncapi_json_decl(r#""brunoConfig": {"#));
+        assert!(is_bruno_json_decl(r#""brunoConfig": {"#));
+        assert!(!is_asyncapi_json_decl(r#""client": "Thunder Client""#));
+        assert!(is_thunder_client_json_decl(r#""client": "Thunder Client""#));
+        assert!(!is_asyncapi_json_decl(
+            r#""_postman_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890""#
+        ));
+        assert!(is_postman_json_decl(
+            r#""_postman_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890""#
+        ));
+        assert!(!is_asyncapi_json_decl(r#""__export_format": 4"#));
+        assert!(is_insomnia_json_decl(r#""__export_format": 4"#));
+        assert!(!is_asyncapi_json_decl(r#""disableSearch": true"#));
+        assert!(is_redoc_json_decl(r#""disableSearch": true"#));
+        assert!(!is_asyncapi_json_decl(r#""specUrl": "./openapi.yaml""#));
+        assert!(is_rapidoc_json_decl(r#""specUrl": "./openapi.yaml""#));
+        assert!(!is_asyncapi_json_decl(r##""dom_id": "#swagger-ui""##));
+        assert!(is_swagger_ui_json_decl(r##""dom_id": "#swagger-ui""##));
+        assert!(!is_asyncapi_json_decl(r#""layout": "modern""#));
+        assert!(is_scalar_json_decl(r#""layout": "modern""#));
+        assert!(!is_asyncapi_json_decl(r#""layout": "sidebar""#));
+        assert!(is_stoplight_elements_json_decl(r#""layout": "sidebar""#));
+        assert!(!is_asyncapi_json_decl(r#""topbarLinks": ["#));
+        assert!(is_mintlify_json_decl(r#""topbarLinks": ["#));
+        assert!(!is_asyncapi_json_decl(r#""apis": {"#));
+        assert!(is_redocly_json_decl(r#""apis": {"#));
+        assert!(!is_asyncapi_json_decl(r#""functionsDir": "./functions""#));
+        assert!(is_spectral_json_decl(r#""functionsDir": "./functions""#));
+        assert!(!is_asyncapi_json_decl(r#""generator-cli": {"#));
+        assert!(is_openapitools_json_decl(r#""generator-cli": {"#));
+        assert!(!is_asyncapi_json_decl(r#""printWidth": 80"#));
+        assert!(is_prettier_json_decl(r#""printWidth": 80"#));
+        assert!(!is_asyncapi_json_decl(r#""basePath": ".""#));
+        assert!(is_karma_json_decl(r#""basePath": ".""#));
+        // line_is_func_like wires the scanner.
+        assert!(line_is_func_like(r#""asyncapi": "2.6.0""#));
+        assert!(line_is_func_like(r#""asyncapi": "3.0.0""#));
+        assert!(line_is_func_like(r#""channels": {"#));
+        assert!(line_is_func_like(r#""operations": {"#));
+        assert!(line_is_func_like(r#""servers": {"#));
+        assert!(line_is_func_like(
+            r#""defaultContentType": "application/json""#
+        ));
     }
 
     #[test]

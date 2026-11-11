@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.791] — 2026-11-11
+
+View:
+
+- **Function List** lists AsyncAPI 2 / 3 document JSON keys: `"asyncapi": "2.0.0"` / `"2.6.0"` / `"3.0.0"`, `"channels": {`, `"operations": {`, `"servers": {` (object map; OpenAPI uses `"servers": [`), `"defaultContentType": ""` / `"…"`. Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing `:` stay out. Generic `"$schema"` / `"info": {` / `"id"` / `"tags": [` / `"components": {` / `"externalDocs": {` / OpenAPI `"openapi"` / `"swagger"` / `"paths": {` / `"servers": [` / `"webhooks": {` / Pact `"consumer"` / `"provider"` / `"interactions"` / MockServer `"httpRequest"` / Hoverfly `"hoverflyVersion"` / Mountebank `"imposters"` / WireMock `"scenarioName"` / Mockoon `"lastMigration"` / Hoppscotch `"preRequestScript"` / Yaak `"yaakVersion"` / Bruno `"brunoConfig"` / Thunder Client `"client"` / Postman `"_postman_id"` / Insomnia `"__export_format"` / ReDoc `"disableSearch"` / RapiDoc `"specUrl"` / swagger-ui `"dom_id"` / scalar `"layout": "modern"` / Elements `"layout": "sidebar"` / mintlify `"topbarLinks"` / Compodoc `"theme": "material"` / redocly `"apis"` / spectral `"functionsDir"` / openapitools `"generator-cli"` / Knip `"entry"` / prettier `"printWidth"` / package.json `"bin"` / karma `"basePath"` stay out. `"asyncapi"` only matches `2.N.N` / `3.N.N` version strings.
+
 ## [0.3.790] — 2026-11-11
 
 View:
