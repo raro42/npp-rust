@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.771] — 2026-11-11
+
+View:
+
+- **Function List** lists Redocly `redocly.yaml` / `redocly.json` / `.redocly.yaml` JSON-shaped keys: `"apis": {`, `"decorators": {`, `"preprocessors": {`, `"resolve": {`, `"theme": {`, `"openapi": {`, `"licenseKey": "…"`, `"extends": "recommended"` / `"minimal"` / `"recommended-strict"` / path / URL, `"extends": [`. Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing `:` stay out. Generic `"$schema"` / `"name"` / `"version"` / `"rules": {` / `"plugins": [` / spectral `"functionsDir"` / `"extends": "spectral:oas"` / openapitools `"generator-cli"` / `"spaces"` / docfx `"metadata": [` / typedoc `"entryPoints"` / api-extractor `"mainEntryPointFilePath"` / eslint `"extends": "eslint:recommended"` / prettier `"printWidth"` / package.json `"bin"` / karma `"basePath"` / OpenAPI string `"openapi": "3.0.0"` / Compodoc string `"theme": "material"` stay out. Shared `"preprocessors": {` also matches karma when shapes overlap; shared `"extends": [` also matches spectral / eslint / stylelint / babel when shapes overlap.
+
 ## [0.3.770] — 2026-11-11
 
 View:

@@ -32438,6 +32438,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_docfx_json_decl(s)
             || is_openapitools_json_decl(s)
             || is_spectral_json_decl(s)
+            || is_redocly_json_decl(s)
             || is_gomod_decl(s)
             || is_gemfile_decl(s)
             || is_brewfile_decl(s)
@@ -32786,6 +32787,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_docfx_json_decl(s)
         || is_openapitools_json_decl(s)
         || is_spectral_json_decl(s)
+        || is_redocly_json_decl(s)
         || is_gomod_decl(s)
         || is_gemfile_decl(s)
         || is_brewfile_decl(s)
@@ -56312,6 +56314,172 @@ fn spectral_json_extends_ok(value: &str) -> bool {
             .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'.' | b'-' | b'_' | b'/' | b'@'));
     }
     false
+}
+
+/// Redocly `redocly.yaml` / `redocly.json` / `.redocly.yaml` JSON-shaped keys:
+/// `"apis": {`, `"decorators": {`, `"preprocessors": {`, `"resolve": {`,
+/// `"theme": {`, `"openapi": {`, `"licenseKey": "…"`, `"extends":
+/// "recommended"` / `"minimal"` / `"recommended-strict"` / path / URL,
+/// `"extends": [`. Optional trailing `,` and `//` / `/*` comment.
+/// Incomplete quotes / missing `:` stay out. Generic `"$schema"` /
+/// `"name"` / `"version"` / `"rules": {` / `"plugins": [` / spectral
+/// `"functionsDir"` / `"extends": "spectral:oas"` / openapitools
+/// `"generator-cli"` / `"spaces"` / docfx `"metadata": [` / typedoc
+/// `"entryPoints"` / api-extractor `"mainEntryPointFilePath"` / eslint
+/// `"extends": "eslint:recommended"` / prettier `"printWidth"` /
+/// package.json `"bin"` / karma `"basePath"` / OpenAPI string
+/// `"openapi": "3.0.0"` / Compodoc string `"theme": "material"` stay out.
+/// Shared `"preprocessors": {` also matches karma when shapes overlap;
+/// shared `"extends": [` also matches spectral / eslint / stylelint /
+/// babel when shapes overlap.
+fn is_redocly_json_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    let Some(rest) = s.strip_prefix('"') else {
+        return false;
+    };
+    let Some(end) = rest.find('"') else {
+        return false;
+    };
+    let key = &rest[..end];
+    if !redocly_json_key_ok(key) {
+        return false;
+    }
+    let after_key = rest[end + 1..].trim_start();
+    let Some(after_colon) = after_key.strip_prefix(':') else {
+        return false;
+    };
+    let after_colon = after_colon.trim_start();
+    redocly_json_value_and_tail_ok(key, after_colon)
+}
+
+fn redocly_json_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "apis"
+            | "decorators"
+            | "preprocessors"
+            | "resolve"
+            | "theme"
+            | "openapi"
+            | "licenseKey"
+            | "extends"
+    )
+}
+
+fn redocly_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool {
+    let bytes = after_colon.as_bytes();
+    let Some(first) = bytes.first().copied() else {
+        return false;
+    };
+    match first {
+        b'{' => {
+            if !matches!(
+                key,
+                "apis" | "decorators" | "preprocessors" | "resolve" | "theme" | "openapi"
+            ) {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[1..])
+        }
+        b'[' => {
+            if key != "extends" {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[1..])
+        }
+        b'"' => {
+            if !redocly_json_string_key_ok(key) {
+                return false;
+            }
+            let rest = &after_colon[1..];
+            let Some(end) = rest.find('"') else {
+                return false;
+            };
+            let value = &rest[..end];
+            if !redocly_json_string_ok(key, value) {
+                return false;
+            }
+            package_json_tail_ok(&rest[end + 1..])
+        }
+        _ => false,
+    }
+}
+
+fn redocly_json_string_key_ok(key: &str) -> bool {
+    matches!(key, "licenseKey" | "extends")
+}
+
+fn redocly_json_string_ok(key: &str, value: &str) -> bool {
+    if value.contains('\n') {
+        return false;
+    }
+    match key {
+        "licenseKey" => redocly_json_license_ok(value),
+        "extends" => redocly_json_extends_ok(value),
+        _ => false,
+    }
+}
+
+fn redocly_json_license_ok(value: &str) -> bool {
+    if value.is_empty() || value.len() > 256 {
+        return false;
+    }
+    if value.chars().all(|c| c.is_ascii_whitespace()) {
+        return false;
+    }
+    value
+        .bytes()
+        .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'-' | b'_' | b'.' | b'+' | b'/' | b'='))
+}
+
+fn redocly_json_extends_ok(value: &str) -> bool {
+    if value.is_empty() || value.len() > 512 {
+        return false;
+    }
+    if matches!(value, "recommended" | "minimal" | "recommended-strict") {
+        return true;
+    }
+    // Path / URL / plugin config refs (not spectral: / @stoplight / eslint:).
+    if value.starts_with("spectral:")
+        || value.starts_with("@stoplight/")
+        || value.starts_with("eslint:")
+    {
+        return false;
+    }
+    let ok_scheme = value.starts_with("https://")
+        || value.starts_with("http://")
+        || value.starts_with("./")
+        || value.starts_with("../")
+        || value.starts_with('/')
+        || value.starts_with('@');
+    if !ok_scheme {
+        return false;
+    }
+    value.bytes().all(|b| {
+        b.is_ascii_alphanumeric()
+            || matches!(
+                b,
+                b'.' | b'-'
+                    | b'_'
+                    | b'/'
+                    | b'\\'
+                    | b':'
+                    | b'?'
+                    | b'='
+                    | b'&'
+                    | b'%'
+                    | b'#'
+                    | b'@'
+                    | b'+'
+                    | b' '
+                    | b'~'
+                    | b'*'
+                    | b'('
+                    | b')'
+                    | b'['
+                    | b']'
+            )
+    })
 }
 
 /// go.mod / go.work directives: `module example.com/foo`, `go 1.22`,
@@ -86968,28 +87136,29 @@ mod func_like_line_tests {
         is_pypirc_ini_decl, is_pyproject_toml_decl, is_pyre_configuration_decl,
         is_pyright_toml_decl, is_pyrightconfig_json_decl, is_pytest_ini_decl, is_pytype_ini_decl,
         is_pyupgrade_ini_decl, is_radon_ini_decl, is_railway_toml_decl, is_rake_decl,
-        is_refurb_toml_decl, is_release_it_json_decl, is_release_please_json_decl,
-        is_release_toml_decl, is_renovate_json_decl, is_resolv_conf_decl, is_rpc_file_decl,
-        is_rstcheck_ini_decl, is_rsyslog_decl, is_ruff_toml_decl, is_rush_json_decl,
-        is_rust_toolchain_toml_decl, is_rustfmt_toml_decl, is_samba_conf_decl,
-        is_samconfig_toml_decl, is_scons_decl, is_scriv_ini_decl, is_sddm_conf_decl,
-        is_semantic_release_ini_decl, is_semantic_release_json_decl, is_services_file_decl,
-        is_setup_cfg_decl, is_setuptools_scm_ini_decl, is_simple_git_hooks_json_decl,
-        is_spectral_json_decl, is_sqlfluff_ini_decl, is_ssh_config_decl, is_sssd_conf_decl,
-        is_stryker_json_decl, is_stylelint_json_decl, is_subuid_subgid_decl, is_sudoers_decl,
-        is_supabase_toml_decl, is_supervisord_conf_decl, is_swc_json_decl, is_syncpack_json_decl,
-        is_sysctl_conf_decl, is_syslog_ng_decl, is_systemd_networkd_decl, is_systemd_unit_decl,
-        is_sysusers_d_decl, is_tap_json_decl, is_taplo_toml_decl, is_tauri_json_decl,
-        is_telegraf_toml_decl, is_testcafe_json_decl, is_tmpfiles_d_decl, is_towncrier_ini_decl,
-        is_tox_ini_decl, is_trunk_toml_decl, is_tsconfig_json_decl, is_turbo_json_decl,
-        is_ty_toml_decl, is_typedoc_json_decl, is_typos_toml_decl, is_udev_rule_decl,
-        is_unbound_nsd_conf_decl, is_uniffi_toml_decl, is_unimport_ini_decl, is_uv_toml_decl,
-        is_vconsole_conf_decl, is_vector_toml_decl, is_vercel_json_decl, is_versioneer_ini_decl,
-        is_versionrc_json_decl, is_vitest_json_decl, is_vscode_launch_json_decl,
-        is_vscode_tasks_json_decl, is_vulture_ini_decl, is_wails_json_decl, is_wdio_json_decl,
-        is_webextension_manifest_json_decl, is_wireguard_config_decl, is_wrangler_toml_decl,
-        is_xmake_decl, is_xorg_conf_decl, is_yapf_ini_decl, is_yarnrc_yml_decl, is_yum_repo_decl,
-        is_zest_releaser_ini_decl, line_is_func_like,
+        is_redocly_json_decl, is_refurb_toml_decl, is_release_it_json_decl,
+        is_release_please_json_decl, is_release_toml_decl, is_renovate_json_decl,
+        is_resolv_conf_decl, is_rpc_file_decl, is_rstcheck_ini_decl, is_rsyslog_decl,
+        is_ruff_toml_decl, is_rush_json_decl, is_rust_toolchain_toml_decl, is_rustfmt_toml_decl,
+        is_samba_conf_decl, is_samconfig_toml_decl, is_scons_decl, is_scriv_ini_decl,
+        is_sddm_conf_decl, is_semantic_release_ini_decl, is_semantic_release_json_decl,
+        is_services_file_decl, is_setup_cfg_decl, is_setuptools_scm_ini_decl,
+        is_simple_git_hooks_json_decl, is_spectral_json_decl, is_sqlfluff_ini_decl,
+        is_ssh_config_decl, is_sssd_conf_decl, is_stryker_json_decl, is_stylelint_json_decl,
+        is_subuid_subgid_decl, is_sudoers_decl, is_supabase_toml_decl, is_supervisord_conf_decl,
+        is_swc_json_decl, is_syncpack_json_decl, is_sysctl_conf_decl, is_syslog_ng_decl,
+        is_systemd_networkd_decl, is_systemd_unit_decl, is_sysusers_d_decl, is_tap_json_decl,
+        is_taplo_toml_decl, is_tauri_json_decl, is_telegraf_toml_decl, is_testcafe_json_decl,
+        is_tmpfiles_d_decl, is_towncrier_ini_decl, is_tox_ini_decl, is_trunk_toml_decl,
+        is_tsconfig_json_decl, is_turbo_json_decl, is_ty_toml_decl, is_typedoc_json_decl,
+        is_typos_toml_decl, is_udev_rule_decl, is_unbound_nsd_conf_decl, is_uniffi_toml_decl,
+        is_unimport_ini_decl, is_uv_toml_decl, is_vconsole_conf_decl, is_vector_toml_decl,
+        is_vercel_json_decl, is_versioneer_ini_decl, is_versionrc_json_decl, is_vitest_json_decl,
+        is_vscode_launch_json_decl, is_vscode_tasks_json_decl, is_vulture_ini_decl,
+        is_wails_json_decl, is_wdio_json_decl, is_webextension_manifest_json_decl,
+        is_wireguard_config_decl, is_wrangler_toml_decl, is_xmake_decl, is_xorg_conf_decl,
+        is_yapf_ini_decl, is_yarnrc_yml_decl, is_yum_repo_decl, is_zest_releaser_ini_decl,
+        line_is_func_like,
     };
 
     #[test]
@@ -111548,6 +111717,149 @@ mod func_like_line_tests {
             r#""documentationUrl": "https://example.com/rules""#
         ));
         assert!(line_is_func_like(r#""extends": "spectral:oas""#));
+        assert!(line_is_func_like(r#""extends": ["#));
+    }
+
+    #[test]
+    fn redocly_json_keys_smoke() {
+        assert!(is_redocly_json_decl(r#""apis": {"#));
+        assert!(is_redocly_json_decl(r#""decorators": {"#));
+        assert!(is_redocly_json_decl(r#""preprocessors": {"#));
+        assert!(is_redocly_json_decl(r#""resolve": {"#));
+        assert!(is_redocly_json_decl(r#""theme": {"#));
+        assert!(is_redocly_json_decl(r#""openapi": {"#));
+        assert!(is_redocly_json_decl(r#""licenseKey": "abc.DEF-123_+/=""#));
+        assert!(is_redocly_json_decl(r#""extends": "recommended""#));
+        assert!(is_redocly_json_decl(r#""extends": "minimal""#));
+        assert!(is_redocly_json_decl(r#""extends": "recommended-strict""#));
+        assert!(is_redocly_json_decl(r#""extends": "./custom.yaml""#));
+        assert!(is_redocly_json_decl(
+            r#""extends": "https://example.com/redocly.yaml""#
+        ));
+        assert!(is_redocly_json_decl(r#""extends": ["#));
+        // Distinctive neighbours stay out of this scanner.
+        assert!(!is_redocly_json_decl(r#""functionsDir": "./functions""#));
+        assert!(is_spectral_json_decl(r#""functionsDir": "./functions""#));
+        assert!(!is_redocly_json_decl(r#""generator-cli": {"#));
+        assert!(is_openapitools_json_decl(r#""generator-cli": {"#));
+        assert!(!is_redocly_json_decl(r#""extends": "spectral:oas""#));
+        assert!(is_spectral_json_decl(r#""extends": "spectral:oas""#));
+        assert!(!is_redocly_json_decl(r#""extends": "eslint:recommended""#));
+        assert!(is_eslint_json_decl(r#""extends": "eslint:recommended""#));
+        assert!(!is_redocly_json_decl(r#""theme": "material""#));
+        assert!(is_compodoc_json_decl(r#""theme": "material""#));
+        assert!(!is_redocly_json_decl(r#""openapi": "3.0.3""#));
+        assert!(!is_redocly_json_decl(r#""printWidth": 80"#));
+        assert!(is_prettier_json_decl(r#""printWidth": 80"#));
+    }
+
+    #[test]
+    fn redocly_json_keys_count() {
+        assert!(is_redocly_json_decl(r#""apis": {"#));
+        assert!(is_redocly_json_decl(r#""apis": {,"#));
+        assert!(is_redocly_json_decl(r#""apis": { // multi"#));
+        assert!(!is_redocly_json_decl(r#""apis": ["#));
+        assert!(!is_redocly_json_decl(r#""apis": true"#));
+        assert!(!is_redocly_json_decl(r#""apis": "core@v1""#));
+        assert!(is_redocly_json_decl(r#""decorators": {"#));
+        assert!(is_redocly_json_decl(r#""decorators": { // remove"#));
+        assert!(!is_redocly_json_decl(r#""decorators": ["#));
+        assert!(!is_redocly_json_decl(r#""decorators": true"#));
+        assert!(is_redocly_json_decl(r#""preprocessors": {"#));
+        assert!(is_redocly_json_decl(r#""preprocessors": {,"#));
+        assert!(!is_redocly_json_decl(r#""preprocessors": ["#));
+        assert!(!is_redocly_json_decl(r#""preprocessors": "on""#));
+        assert!(is_redocly_json_decl(r#""resolve": {"#));
+        assert!(is_redocly_json_decl(r#""resolve": { // http"#));
+        assert!(!is_redocly_json_decl(r#""resolve": ["#));
+        assert!(!is_redocly_json_decl(r#""resolve": true"#));
+        assert!(is_redocly_json_decl(r#""theme": {"#));
+        assert!(is_redocly_json_decl(r#""theme": {,"#));
+        assert!(!is_redocly_json_decl(r#""theme": "material""#));
+        assert!(!is_redocly_json_decl(r#""theme": ["#));
+        assert!(is_redocly_json_decl(r#""openapi": {"#));
+        assert!(is_redocly_json_decl(r#""openapi": { // docs"#));
+        assert!(!is_redocly_json_decl(r#""openapi": "3.1.0""#));
+        assert!(!is_redocly_json_decl(r#""openapi": ["#));
+        assert!(is_redocly_json_decl(r#""licenseKey": "public_abc123""#));
+        assert!(is_redocly_json_decl(r#""licenseKey": "a.b-c_d+/=","#));
+        assert!(!is_redocly_json_decl(r#""licenseKey": true"#));
+        assert!(!is_redocly_json_decl(r#""licenseKey": """#));
+        assert!(!is_redocly_json_decl(r#""licenseKey": {"#));
+        assert!(!is_redocly_json_decl(r#""licenseKey": "bad key""#));
+        assert!(is_redocly_json_decl(r#""extends": "recommended""#));
+        assert!(is_redocly_json_decl(r#""extends": "minimal""#));
+        assert!(is_redocly_json_decl(r#""extends": "recommended-strict""#));
+        assert!(is_redocly_json_decl(r#""extends": "./rules.yaml""#));
+        assert!(is_redocly_json_decl(
+            r#""extends": "../shared/redocly.yaml""#
+        ));
+        assert!(is_redocly_json_decl(
+            r#""extends": "https://example.com/base.yaml""#
+        ));
+        assert!(is_redocly_json_decl(r#""extends": "@org/plugin/config""#));
+        assert!(is_redocly_json_decl(r#""extends": ["#));
+        assert!(is_redocly_json_decl(r#""extends": [],"#));
+        assert!(is_redocly_json_decl(r#""extends": [ // bases"#));
+        assert!(!is_redocly_json_decl(r#""extends": "spectral:oas""#));
+        assert!(!is_redocly_json_decl(
+            r#""extends": "@stoplight/spectral-ruleset-complexity""#
+        ));
+        assert!(!is_redocly_json_decl(r#""extends": "eslint:recommended""#));
+        assert!(!is_redocly_json_decl(r#""extends": "recommended:"#));
+        assert!(!is_redocly_json_decl(r#""extends": true"#));
+        assert!(!is_redocly_json_decl(r#""extends": {"#));
+        // Incomplete / wrong shapes stay out.
+        assert!(!is_redocly_json_decl(r#""apis""#));
+        assert!(!is_redocly_json_decl(r#""apis":"#));
+        assert!(!is_redocly_json_decl(r#""decorators""#));
+        assert!(!is_redocly_json_decl(r#""licenseKey""#));
+        assert!(!is_redocly_json_decl(r#""extends""#));
+        // Generic / neighbouring stay out.
+        assert!(!is_redocly_json_decl(
+            r#""$schema": "https://raw.githubusercontent.com/redocly/redocly-cli/main/packages/core/src/config/config-schema.json""#
+        ));
+        assert!(!is_redocly_json_decl(r#""name": "My API""#));
+        assert!(!is_redocly_json_decl(r#""version": "1.0.0""#));
+        assert!(!is_redocly_json_decl(r#""rules": {"#));
+        assert!(!is_redocly_json_decl(r#""plugins": ["#));
+        assert!(!is_redocly_json_decl(r#""functionsDir": "./functions""#));
+        assert!(is_spectral_json_decl(r#""functionsDir": "./functions""#));
+        assert!(!is_redocly_json_decl(r#""generator-cli": {"#));
+        assert!(is_openapitools_json_decl(r#""generator-cli": {"#));
+        assert!(!is_redocly_json_decl(r#""spaces": 2"#));
+        assert!(is_openapitools_json_decl(r#""spaces": 2"#));
+        assert!(!is_redocly_json_decl(r#""metadata": ["#));
+        assert!(is_docfx_json_decl(r#""metadata": ["#));
+        assert!(!is_redocly_json_decl(r#""entryPoints": ["#));
+        assert!(is_typedoc_json_decl(r#""entryPoints": ["#));
+        assert!(!is_redocly_json_decl(
+            r#""mainEntryPointFilePath": "<projectFolder>/lib/index.d.ts""#
+        ));
+        assert!(is_api_extractor_json_decl(
+            r#""mainEntryPointFilePath": "<projectFolder>/lib/index.d.ts""#
+        ));
+        assert!(!is_redocly_json_decl(r#""printWidth": 80"#));
+        assert!(is_prettier_json_decl(r#""printWidth": 80"#));
+        assert!(!is_redocly_json_decl(r#""bin": {"#));
+        assert!(is_package_json_decl(r#""bin": {"#));
+        assert!(!is_redocly_json_decl(r#""basePath": ".""#));
+        assert!(is_karma_json_decl(r#""basePath": ".""#));
+        // Shared shapes: both scanners may match.
+        assert!(is_redocly_json_decl(r#""preprocessors": {"#));
+        assert!(is_karma_json_decl(r#""preprocessors": {"#));
+        assert!(is_redocly_json_decl(r#""extends": ["#));
+        assert!(is_spectral_json_decl(r#""extends": ["#));
+        assert!(is_eslint_json_decl(r#""extends": ["#));
+        // line_is_func_like wires the scanner.
+        assert!(line_is_func_like(r#""apis": {"#));
+        assert!(line_is_func_like(r#""decorators": {"#));
+        assert!(line_is_func_like(r#""preprocessors": {"#));
+        assert!(line_is_func_like(r#""resolve": {"#));
+        assert!(line_is_func_like(r#""theme": {"#));
+        assert!(line_is_func_like(r#""openapi": {"#));
+        assert!(line_is_func_like(r#""licenseKey": "public_key""#));
+        assert!(line_is_func_like(r#""extends": "recommended""#));
         assert!(line_is_func_like(r#""extends": ["#));
     }
 
