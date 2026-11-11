@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.777] — 2026-11-11
+
+View:
+
+- **Function List** lists ReDoc standalone options JSON keys (distinct from Redocly CLI): `"disableSearch": true`, `"minCharacterLengthToInitSearch": 3`, `"expandDefaultServerVariables": true`, `"expandResponses": "200,201"` / `"all"` / `"2XX"`, `"maxDisplayedEnumValues": 10`, `"hideDownloadButton": true`, `"downloadFileName": "…"`, `"downloadDefinitionUrl": "…"`, `"hideHostname": true`, `"hideLoading": true`, `"jsonSampleExpandLevel": 2` / `"all"`, `"hideSingleRequestSampleTab": true`, `"hideRequestPayloadSample": true`, `"expandSingleSchemaField": true`, `"schemaExpansionLevel": 2` / `"all"`, `"showObjectSchemaExamples": true`, `"showExtensions": true` / `[`, `"hideSchemaPattern": true`, `"generatedPayloadSamplesMaxItems": 10`, `"hideSchemaTitles": true`, `"simpleOneOfTypeLabel": true`, `"sortEnumValuesAlphabetically": true`, `"sortOperationsAlphabetically": true`, `"sortPropsAlphabetically": true`, `"sortTagsAlphabetically": true`, `"menuToggle": true`, `"nativeScrollbars": true`, `"onlyRequiredInSamples": true`, `"pathInMiddlePanel": true`, `"requiredPropsFirst": true`, `"scrollYOffset": 60` / `"#navbar"`, `"showWebhookVerb": true`, `"payloadSampleIdx": 0`, `"nonce": "…"`, `"sideNavStyle": "summary-only"` / `"path-only"` / `"id-only"`, `"untrustedSpec": true`, `"theme": {`. Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing `:` stay out. Generic `"$schema"` / `"name"` / `"version"` / `"url"` / swagger `"dom_id"` / `"layout": "BaseLayout"` / Elements `"layout": "sidebar"` / `"apiDescriptionUrl"` / scalar `"proxyUrl"` / `"layout": "modern"` / RapiDoc `"specUrl"` / `"renderStyle"` / `"theme": "light"` / mintlify `"topbarLinks"` / `"theme": "mint"` / Compodoc `"theme": "material"` / redocly `"apis"` / `"licenseKey"` / spectral `"functionsDir"` / openapitools `"generator-cli"` / docfx `"metadata": [` / typedoc `"entryPoints"` / api-extractor `"mainEntryPointFilePath"` / prettier `"printWidth"` / package.json `"bin"` / karma `"basePath"` stay out. Shared `"hideDownloadButton": true` also matches Scalar when shapes overlap. ReDoc `"theme": {` stays here; string theme enums stay on RapiDoc / Mintlify / Compodoc / Scalar.
+
 ## [0.3.776] — 2026-11-11
 
 View:

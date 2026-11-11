@@ -1216,3 +1216,5 @@
 009 keep: Function List Mintlify mint.json/docs.json topbarLinks/anchors/navigation/tabs/topbarCtaButton/footerSocials/modeToggle/colors/logo/favicon/theme mint|palm|… (v0.3.772)
 
 009 keep: Function List RapiDoc specUrl/renderStyle/schemaStyle/theme light|dark/showMethodInNavBar/allowTry/primaryColor (v0.3.776)
+
+009 keep: Function List ReDoc disableSearch/sideNavStyle/expandResponses/theme{/pathInMiddlePanel/nativeScrollbars/untrustedSpec (v0.3.777)

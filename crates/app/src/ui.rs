@@ -32444,6 +32444,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_stoplight_elements_json_decl(s)
             || is_swagger_ui_json_decl(s)
             || is_rapidoc_json_decl(s)
+            || is_redoc_json_decl(s)
             || is_gomod_decl(s)
             || is_gemfile_decl(s)
             || is_brewfile_decl(s)
@@ -32798,6 +32799,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_stoplight_elements_json_decl(s)
         || is_swagger_ui_json_decl(s)
         || is_rapidoc_json_decl(s)
+        || is_redoc_json_decl(s)
         || is_gomod_decl(s)
         || is_gemfile_decl(s)
         || is_brewfile_decl(s)
@@ -57747,6 +57749,321 @@ fn rapidoc_json_color_ok(value: &str) -> bool {
         .bytes()
         .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'-' | b' '))
         && value.bytes().any(|b| b.is_ascii_alphabetic())
+}
+
+/// ReDoc standalone options object JSON keys (camelCase; distinct from
+/// Redocly CLI `redocly.yaml`): `"disableSearch": true`,
+/// `"minCharacterLengthToInitSearch": 3`, `"expandDefaultServerVariables": true`,
+/// `"expandResponses": "200,201"` / `"all"`, `"maxDisplayedEnumValues": 10`,
+/// `"hideDownloadButton": true`, `"downloadFileName": "…"`,
+/// `"downloadDefinitionUrl": "…"`, `"hideHostname": true`, `"hideLoading": true`,
+/// `"jsonSampleExpandLevel": 2` / `"all"`, `"hideSingleRequestSampleTab": true`,
+/// `"hideRequestPayloadSample": true`, `"expandSingleSchemaField": true`,
+/// `"schemaExpansionLevel": 2` / `"all"`, `"showObjectSchemaExamples": true`,
+/// `"showExtensions": true` / `[`, `"hideSchemaPattern": true`,
+/// `"generatedPayloadSamplesMaxItems": 10`, `"hideSchemaTitles": true`,
+/// `"simpleOneOfTypeLabel": true`, `"sortEnumValuesAlphabetically": true`,
+/// `"sortOperationsAlphabetically": true`, `"sortPropsAlphabetically": true`,
+/// `"sortTagsAlphabetically": true`, `"menuToggle": true`,
+/// `"nativeScrollbars": true`, `"onlyRequiredInSamples": true`,
+/// `"pathInMiddlePanel": true`, `"requiredPropsFirst": true`,
+/// `"scrollYOffset": 60` / `"#navbar"`, `"showWebhookVerb": true`,
+/// `"payloadSampleIdx": 0`, `"nonce": "…"`, `"sideNavStyle": "summary-only"` /
+/// `"path-only"` / `"id-only"`, `"untrustedSpec": true`, `"theme": {`.
+/// Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing
+/// `:` stay out. Generic `"$schema"` / `"name"` / `"version"` / `"url"` /
+/// swagger `"dom_id"` / `"layout": "BaseLayout"` / Elements
+/// `"layout": "sidebar"` / `"apiDescriptionUrl"` / scalar `"proxyUrl"` /
+/// `"layout": "modern"` / RapiDoc `"specUrl"` / `"renderStyle"` / `"theme":
+/// "light"` / mintlify `"topbarLinks"` / `"theme": "mint"` / Compodoc
+/// `"theme": "material"` / redocly `"apis"` / `"licenseKey"` / spectral
+/// `"functionsDir"` / openapitools `"generator-cli"` / docfx `"metadata": [` /
+/// typedoc `"entryPoints"` / api-extractor `"mainEntryPointFilePath"` /
+/// prettier `"printWidth"` / package.json `"bin"` / karma `"basePath"` stay
+/// out. Shared `"hideDownloadButton": true` also matches Scalar when shapes
+/// overlap. ReDoc `"theme": {` stays here; string theme enums stay on
+/// RapiDoc / Mintlify / Compodoc / Scalar.
+fn is_redoc_json_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    let Some(rest) = s.strip_prefix('"') else {
+        return false;
+    };
+    let Some(end) = rest.find('"') else {
+        return false;
+    };
+    let key = &rest[..end];
+    if !redoc_json_key_ok(key) {
+        return false;
+    }
+    let after_key = rest[end + 1..].trim_start();
+    let Some(after_colon) = after_key.strip_prefix(':') else {
+        return false;
+    };
+    let after_colon = after_colon.trim_start();
+    redoc_json_value_and_tail_ok(key, after_colon)
+}
+
+fn redoc_json_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "disableSearch"
+            | "minCharacterLengthToInitSearch"
+            | "expandDefaultServerVariables"
+            | "expandResponses"
+            | "maxDisplayedEnumValues"
+            | "hideDownloadButton"
+            | "downloadFileName"
+            | "downloadDefinitionUrl"
+            | "hideHostname"
+            | "hideLoading"
+            | "jsonSampleExpandLevel"
+            | "hideSingleRequestSampleTab"
+            | "hideRequestPayloadSample"
+            | "expandSingleSchemaField"
+            | "schemaExpansionLevel"
+            | "showObjectSchemaExamples"
+            | "showExtensions"
+            | "hideSchemaPattern"
+            | "generatedPayloadSamplesMaxItems"
+            | "hideSchemaTitles"
+            | "simpleOneOfTypeLabel"
+            | "sortEnumValuesAlphabetically"
+            | "sortOperationsAlphabetically"
+            | "sortPropsAlphabetically"
+            | "sortTagsAlphabetically"
+            | "menuToggle"
+            | "nativeScrollbars"
+            | "onlyRequiredInSamples"
+            | "pathInMiddlePanel"
+            | "requiredPropsFirst"
+            | "scrollYOffset"
+            | "showWebhookVerb"
+            | "payloadSampleIdx"
+            | "nonce"
+            | "sideNavStyle"
+            | "untrustedSpec"
+            | "theme"
+    )
+}
+
+fn redoc_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool {
+    let bytes = after_colon.as_bytes();
+    let Some(first) = bytes.first().copied() else {
+        return false;
+    };
+    match first {
+        b'{' => {
+            if key != "theme" {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[1..])
+        }
+        b'[' => {
+            if key != "showExtensions" {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[1..])
+        }
+        b'"' => {
+            if !redoc_json_string_key_ok(key) {
+                return false;
+            }
+            let rest = &after_colon[1..];
+            let Some(end) = rest.find('"') else {
+                return false;
+            };
+            let value = &rest[..end];
+            if !redoc_json_string_ok(key, value) {
+                return false;
+            }
+            package_json_tail_ok(&rest[end + 1..])
+        }
+        b't' | b'f' => {
+            let rest = if let Some(rest) = after_colon.strip_prefix("true") {
+                rest
+            } else if let Some(rest) = after_colon.strip_prefix("false") {
+                rest
+            } else {
+                return false;
+            };
+            if !redoc_json_bool_key_ok(key) {
+                return false;
+            }
+            package_json_tail_ok(rest)
+        }
+        b'0'..=b'9' => redoc_json_number_and_tail_ok(key, after_colon),
+        _ => false,
+    }
+}
+
+fn redoc_json_string_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "expandResponses"
+            | "downloadFileName"
+            | "downloadDefinitionUrl"
+            | "jsonSampleExpandLevel"
+            | "schemaExpansionLevel"
+            | "scrollYOffset"
+            | "nonce"
+            | "sideNavStyle"
+    )
+}
+
+fn redoc_json_bool_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "disableSearch"
+            | "expandDefaultServerVariables"
+            | "hideDownloadButton"
+            | "hideHostname"
+            | "hideLoading"
+            | "hideSingleRequestSampleTab"
+            | "hideRequestPayloadSample"
+            | "expandSingleSchemaField"
+            | "showObjectSchemaExamples"
+            | "showExtensions"
+            | "hideSchemaPattern"
+            | "hideSchemaTitles"
+            | "simpleOneOfTypeLabel"
+            | "sortEnumValuesAlphabetically"
+            | "sortOperationsAlphabetically"
+            | "sortPropsAlphabetically"
+            | "sortTagsAlphabetically"
+            | "menuToggle"
+            | "nativeScrollbars"
+            | "onlyRequiredInSamples"
+            | "pathInMiddlePanel"
+            | "requiredPropsFirst"
+            | "showWebhookVerb"
+            | "untrustedSpec"
+    )
+}
+
+fn redoc_json_string_ok(key: &str, value: &str) -> bool {
+    if value.contains('\n') {
+        return false;
+    }
+    match key {
+        "sideNavStyle" => matches!(value, "summary-only" | "path-only" | "id-only"),
+        "expandResponses" => redoc_json_expand_responses_ok(value),
+        "jsonSampleExpandLevel" | "schemaExpansionLevel" => {
+            value == "all" || redoc_json_digits_ok(value, 1, 2)
+        }
+        "downloadDefinitionUrl" => mintlify_json_path_ok(value),
+        "downloadFileName" | "nonce" => redoc_json_token_ok(value),
+        "scrollYOffset" => redoc_json_scroll_offset_string_ok(value),
+        _ => false,
+    }
+}
+
+fn redoc_json_expand_responses_ok(value: &str) -> bool {
+    if value == "all" {
+        return true;
+    }
+    if value.is_empty() || value.len() > 64 {
+        return false;
+    }
+    // Comma-separated HTTP status codes: 200 / 200,201 / 2XX
+    let mut parts = value.split(',');
+    let mut any = false;
+    for part in parts.by_ref() {
+        let part = part.trim();
+        if part.is_empty() || part.len() > 3 {
+            return false;
+        }
+        let bytes = part.as_bytes();
+        if !bytes[0].is_ascii_digit() {
+            return false;
+        }
+        if !bytes
+            .iter()
+            .all(|b| b.is_ascii_digit() || *b == b'X' || *b == b'x')
+        {
+            return false;
+        }
+        any = true;
+    }
+    any
+}
+
+fn redoc_json_digits_ok(value: &str, min_digits: usize, max_digits: usize) -> bool {
+    if value.is_empty() {
+        return false;
+    }
+    let digits = value.bytes().take_while(|b| b.is_ascii_digit()).count();
+    if digits != value.len() || digits < min_digits || digits > max_digits {
+        return false;
+    }
+    if digits > 1 && value.as_bytes()[0] == b'0' {
+        return false;
+    }
+    true
+}
+
+fn redoc_json_token_ok(value: &str) -> bool {
+    if value.is_empty() || value.len() > 128 {
+        return false;
+    }
+    value.bytes().all(|b| {
+        b.is_ascii_alphanumeric()
+            || matches!(
+                b,
+                b' ' | b'.'
+                    | b'-'
+                    | b'_'
+                    | b'/'
+                    | b':'
+                    | b'*'
+                    | b'?'
+                    | b'+'
+                    | b'#'
+                    | b'='
+                    | b'&'
+                    | b'%'
+            )
+    })
+}
+
+fn redoc_json_scroll_offset_string_ok(value: &str) -> bool {
+    if value.is_empty() || value.len() > 64 {
+        return false;
+    }
+    // CSS selector / id: #navbar / .header / [data-offset]
+    if value.starts_with('#') || value.starts_with('.') || value.starts_with('[') {
+        return value.bytes().all(|b| {
+            b.is_ascii_alphanumeric()
+                || matches!(
+                    b,
+                    b'#' | b'.' | b'-' | b'_' | b'[' | b']' | b'=' | b'"' | b'\'' | b' '
+                )
+        });
+    }
+    redoc_json_digits_ok(value, 1, 4)
+}
+
+fn redoc_json_number_and_tail_ok(key: &str, after_colon: &str) -> bool {
+    let max_digits = match key {
+        "minCharacterLengthToInitSearch"
+        | "maxDisplayedEnumValues"
+        | "jsonSampleExpandLevel"
+        | "schemaExpansionLevel"
+        | "generatedPayloadSamplesMaxItems"
+        | "payloadSampleIdx"
+        | "scrollYOffset" => 4,
+        _ => return false,
+    };
+    let digits = after_colon
+        .bytes()
+        .take_while(|b| b.is_ascii_digit())
+        .count();
+    if digits == 0 || digits > max_digits {
+        return false;
+    }
+    if digits > 1 && after_colon.as_bytes()[0] == b'0' {
+        return false;
+    }
+    package_json_tail_ok(&after_colon[digits..])
 }
 
 /// go.mod / go.work directives: `module example.com/foo`, `go 1.22`,
@@ -88403,12 +88720,12 @@ mod func_like_line_tests {
         is_pylint_ini_decl, is_pypirc_ini_decl, is_pyproject_toml_decl, is_pyre_configuration_decl,
         is_pyright_toml_decl, is_pyrightconfig_json_decl, is_pytest_ini_decl, is_pytype_ini_decl,
         is_pyupgrade_ini_decl, is_radon_ini_decl, is_railway_toml_decl, is_rake_decl,
-        is_rapidoc_json_decl, is_redocly_json_decl, is_refurb_toml_decl, is_release_it_json_decl,
-        is_release_please_json_decl, is_release_toml_decl, is_renovate_json_decl,
-        is_resolv_conf_decl, is_rpc_file_decl, is_rstcheck_ini_decl, is_rsyslog_decl,
-        is_ruff_toml_decl, is_rush_json_decl, is_rust_toolchain_toml_decl, is_rustfmt_toml_decl,
-        is_samba_conf_decl, is_samconfig_toml_decl, is_scalar_json_decl, is_scons_decl,
-        is_scriv_ini_decl, is_sddm_conf_decl, is_semantic_release_ini_decl,
+        is_rapidoc_json_decl, is_redoc_json_decl, is_redocly_json_decl, is_refurb_toml_decl,
+        is_release_it_json_decl, is_release_please_json_decl, is_release_toml_decl,
+        is_renovate_json_decl, is_resolv_conf_decl, is_rpc_file_decl, is_rstcheck_ini_decl,
+        is_rsyslog_decl, is_ruff_toml_decl, is_rush_json_decl, is_rust_toolchain_toml_decl,
+        is_rustfmt_toml_decl, is_samba_conf_decl, is_samconfig_toml_decl, is_scalar_json_decl,
+        is_scons_decl, is_scriv_ini_decl, is_sddm_conf_decl, is_semantic_release_ini_decl,
         is_semantic_release_json_decl, is_services_file_decl, is_setup_cfg_decl,
         is_setuptools_scm_ini_decl, is_simple_git_hooks_json_decl, is_spectral_json_decl,
         is_sqlfluff_ini_decl, is_ssh_config_decl, is_sssd_conf_decl,
@@ -114285,6 +114602,229 @@ mod func_like_line_tests {
         assert!(line_is_func_like(r#""responseAreaHeight": "400px""#));
         assert!(line_is_func_like(r#""sortEndpointsBy": "method""#));
         assert!(line_is_func_like(r#""matchType": "includes""#));
+    }
+
+    #[test]
+    fn redoc_json_keys_smoke() {
+        assert!(is_redoc_json_decl(r#""disableSearch": true"#));
+        assert!(is_redoc_json_decl(r#""minCharacterLengthToInitSearch": 3"#));
+        assert!(is_redoc_json_decl(
+            r#""expandDefaultServerVariables": true"#
+        ));
+        assert!(is_redoc_json_decl(r#""expandResponses": "200,201""#));
+        assert!(is_redoc_json_decl(r#""expandResponses": "all""#));
+        assert!(is_redoc_json_decl(r#""maxDisplayedEnumValues": 10"#));
+        assert!(is_redoc_json_decl(r#""hideDownloadButton": true"#));
+        assert!(is_redoc_json_decl(r#""downloadFileName": "openapi.json""#));
+        assert!(is_redoc_json_decl(
+            r#""downloadDefinitionUrl": "./openapi.yaml""#
+        ));
+        assert!(is_redoc_json_decl(r#""hideHostname": true"#));
+        assert!(is_redoc_json_decl(r#""hideLoading": false"#));
+        assert!(is_redoc_json_decl(r#""jsonSampleExpandLevel": 2"#));
+        assert!(is_redoc_json_decl(r#""jsonSampleExpandLevel": "all""#));
+        assert!(is_redoc_json_decl(r#""hideSingleRequestSampleTab": true"#));
+        assert!(is_redoc_json_decl(r#""hideRequestPayloadSample": true"#));
+        assert!(is_redoc_json_decl(r#""expandSingleSchemaField": true"#));
+        assert!(is_redoc_json_decl(r#""schemaExpansionLevel": 3"#));
+        assert!(is_redoc_json_decl(r#""schemaExpansionLevel": "all""#));
+        assert!(is_redoc_json_decl(r#""showObjectSchemaExamples": true"#));
+        assert!(is_redoc_json_decl(r#""showExtensions": true"#));
+        assert!(is_redoc_json_decl(r#""showExtensions": ["#));
+        assert!(is_redoc_json_decl(r#""hideSchemaPattern": true"#));
+        assert!(is_redoc_json_decl(
+            r#""generatedPayloadSamplesMaxItems": 10"#
+        ));
+        assert!(is_redoc_json_decl(r#""hideSchemaTitles": true"#));
+        assert!(is_redoc_json_decl(r#""simpleOneOfTypeLabel": true"#));
+        assert!(is_redoc_json_decl(
+            r#""sortEnumValuesAlphabetically": true"#
+        ));
+        assert!(is_redoc_json_decl(
+            r#""sortOperationsAlphabetically": true"#
+        ));
+        assert!(is_redoc_json_decl(r#""sortPropsAlphabetically": true"#));
+        assert!(is_redoc_json_decl(r#""sortTagsAlphabetically": false"#));
+        assert!(is_redoc_json_decl(r#""menuToggle": true"#));
+        assert!(is_redoc_json_decl(r#""nativeScrollbars": true"#));
+        assert!(is_redoc_json_decl(r#""onlyRequiredInSamples": true"#));
+        assert!(is_redoc_json_decl(r#""pathInMiddlePanel": true"#));
+        assert!(is_redoc_json_decl(r#""requiredPropsFirst": true"#));
+        assert!(is_redoc_json_decl(r#""scrollYOffset": 60"#));
+        assert!(is_redoc_json_decl(r##""scrollYOffset": "#navbar""##));
+        assert!(is_redoc_json_decl(r#""showWebhookVerb": true"#));
+        assert!(is_redoc_json_decl(r#""payloadSampleIdx": 0"#));
+        assert!(is_redoc_json_decl(r#""nonce": "csp-nonce""#));
+        assert!(is_redoc_json_decl(r#""sideNavStyle": "summary-only""#));
+        assert!(is_redoc_json_decl(r#""sideNavStyle": "path-only""#));
+        assert!(is_redoc_json_decl(r#""sideNavStyle": "id-only""#));
+        assert!(is_redoc_json_decl(r#""untrustedSpec": true"#));
+        assert!(is_redoc_json_decl(r#""theme": {"#));
+        // Distinctive neighbours stay out of this scanner.
+        assert!(!is_redoc_json_decl(r#""specUrl": "./openapi.yaml""#));
+        assert!(is_rapidoc_json_decl(r#""specUrl": "./openapi.yaml""#));
+        assert!(!is_redoc_json_decl(r#""renderStyle": "focused""#));
+        assert!(is_rapidoc_json_decl(r#""renderStyle": "focused""#));
+        assert!(!is_redoc_json_decl(r#""theme": "light""#));
+        assert!(is_rapidoc_json_decl(r#""theme": "light""#));
+        assert!(!is_redoc_json_decl(r##""dom_id": "#swagger-ui""##));
+        assert!(is_swagger_ui_json_decl(r##""dom_id": "#swagger-ui""##));
+        assert!(!is_redoc_json_decl(r#""layout": "BaseLayout""#));
+        assert!(is_swagger_ui_json_decl(r#""layout": "BaseLayout""#));
+        assert!(!is_redoc_json_decl(r#""layout": "modern""#));
+        assert!(is_scalar_json_decl(r#""layout": "modern""#));
+        assert!(!is_redoc_json_decl(r#""layout": "sidebar""#));
+        assert!(is_stoplight_elements_json_decl(r#""layout": "sidebar""#));
+        assert!(!is_redoc_json_decl(
+            r#""proxyUrl": "https://proxy.scalar.com""#
+        ));
+        assert!(is_scalar_json_decl(
+            r#""proxyUrl": "https://proxy.scalar.com""#
+        ));
+        assert!(!is_redoc_json_decl(r#""topbarLinks": ["#));
+        assert!(is_mintlify_json_decl(r#""topbarLinks": ["#));
+        assert!(!is_redoc_json_decl(r#""apis": {"#));
+        assert!(is_redocly_json_decl(r#""apis": {"#));
+        assert!(!is_redoc_json_decl(r#""functionsDir": "./functions""#));
+        assert!(is_spectral_json_decl(r#""functionsDir": "./functions""#));
+        assert!(!is_redoc_json_decl(r#""basePath": ".""#));
+        assert!(is_karma_json_decl(r#""basePath": ".""#));
+        assert!(!is_redoc_json_decl(r#""printWidth": 80"#));
+        assert!(is_prettier_json_decl(r#""printWidth": 80"#));
+    }
+
+    #[test]
+    fn redoc_json_keys_count() {
+        assert!(is_redoc_json_decl(r#""disableSearch": true"#));
+        assert!(is_redoc_json_decl(r#""disableSearch": false,"#));
+        assert!(is_redoc_json_decl(r#""disableSearch": true // search"#));
+        assert!(!is_redoc_json_decl(r#""disableSearch": "true""#));
+        assert!(!is_redoc_json_decl(r#""disableSearch": {"#));
+        assert!(is_redoc_json_decl(r#""minCharacterLengthToInitSearch": 3"#));
+        assert!(is_redoc_json_decl(
+            r#""minCharacterLengthToInitSearch": 12,"#
+        ));
+        assert!(!is_redoc_json_decl(
+            r#""minCharacterLengthToInitSearch": true"#
+        ));
+        assert!(!is_redoc_json_decl(
+            r#""minCharacterLengthToInitSearch": "3""#
+        ));
+        assert!(is_redoc_json_decl(r#""expandResponses": "200""#));
+        assert!(is_redoc_json_decl(r#""expandResponses": "2XX""#));
+        assert!(is_redoc_json_decl(r#""expandResponses": "all","#));
+        assert!(!is_redoc_json_decl(r#""expandResponses": true"#));
+        assert!(!is_redoc_json_decl(r#""expandResponses": "ok""#));
+        assert!(is_redoc_json_decl(r#""jsonSampleExpandLevel": 0"#));
+        assert!(is_redoc_json_decl(r#""jsonSampleExpandLevel": "all""#));
+        assert!(!is_redoc_json_decl(r#""jsonSampleExpandLevel": "full""#));
+        assert!(is_redoc_json_decl(r#""schemaExpansionLevel": "all""#));
+        assert!(!is_redoc_json_decl(r#""schemaExpansionLevel": true"#));
+        assert!(is_redoc_json_decl(r#""sideNavStyle": "summary-only""#));
+        assert!(is_redoc_json_decl(r#""sideNavStyle": "path-only""#));
+        assert!(is_redoc_json_decl(r#""sideNavStyle": "id-only""#));
+        assert!(!is_redoc_json_decl(r#""sideNavStyle": "summary""#));
+        assert!(!is_redoc_json_decl(r#""sideNavStyle": true"#));
+        assert!(is_redoc_json_decl(r##""scrollYOffset": "#navbar""##));
+        assert!(is_redoc_json_decl(r#""scrollYOffset": ".header""#));
+        assert!(is_redoc_json_decl(r#""scrollYOffset": 120"#));
+        assert!(!is_redoc_json_decl(r#""scrollYOffset": true"#));
+        assert!(is_redoc_json_decl(r#""showExtensions": true"#));
+        assert!(is_redoc_json_decl(r#""showExtensions": ["#));
+        assert!(!is_redoc_json_decl(r#""showExtensions": "x-""#));
+        assert!(is_redoc_json_decl(r#""theme": {"#));
+        assert!(is_redoc_json_decl(r#""theme": { // theme"#));
+        assert!(!is_redoc_json_decl(r#""theme": "light""#));
+        assert!(is_rapidoc_json_decl(r#""theme": "light""#));
+        assert!(!is_redoc_json_decl(r#""theme": "mint""#));
+        assert!(is_mintlify_json_decl(r#""theme": "mint""#));
+        assert!(!is_redoc_json_decl(r#""theme": "material""#));
+        assert!(is_compodoc_json_decl(r#""theme": "material""#));
+        assert!(!is_redoc_json_decl(r#""theme": "default""#));
+        assert!(is_scalar_json_decl(r#""theme": "default""#));
+        assert!(is_redoc_json_decl(r#""payloadSampleIdx": 0"#));
+        assert!(is_redoc_json_decl(r#""payloadSampleIdx": 2,"#));
+        assert!(!is_redoc_json_decl(r#""payloadSampleIdx": true"#));
+        assert!(is_redoc_json_decl(
+            r#""downloadDefinitionUrl": "https://example.com/o.yaml""#
+        ));
+        assert!(!is_redoc_json_decl(r#""downloadDefinitionUrl": true"#));
+        // Incomplete / wrong shapes stay out.
+        assert!(!is_redoc_json_decl(r#""disableSearch""#));
+        assert!(!is_redoc_json_decl(r#""disableSearch":"#));
+        assert!(!is_redoc_json_decl(r#""sideNavStyle""#));
+        assert!(!is_redoc_json_decl(r#""theme""#));
+        // Generic / neighbouring stay out.
+        assert!(!is_redoc_json_decl(
+            r#""$schema": "https://example.com/redoc.schema.json""#
+        ));
+        assert!(!is_redoc_json_decl(r#""name": "Petstore""#));
+        assert!(!is_redoc_json_decl(r#""version": "1.0.0""#));
+        assert!(!is_redoc_json_decl(
+            r#""url": "https://petstore.swagger.io/v2/swagger.json""#
+        ));
+        assert!(!is_redoc_json_decl(r#""specUrl": "./openapi.yaml""#));
+        assert!(is_rapidoc_json_decl(r#""specUrl": "./openapi.yaml""#));
+        assert!(!is_redoc_json_decl(r#""renderStyle": "focused""#));
+        assert!(is_rapidoc_json_decl(r#""renderStyle": "focused""#));
+        assert!(!is_redoc_json_decl(r##""dom_id": "#swagger-ui""##));
+        assert!(is_swagger_ui_json_decl(r##""dom_id": "#swagger-ui""##));
+        assert!(!is_redoc_json_decl(r#""layout": "BaseLayout""#));
+        assert!(is_swagger_ui_json_decl(r#""layout": "BaseLayout""#));
+        assert!(!is_redoc_json_decl(r#""layout": "modern""#));
+        assert!(is_scalar_json_decl(r#""layout": "modern""#));
+        assert!(!is_redoc_json_decl(r#""layout": "sidebar""#));
+        assert!(is_stoplight_elements_json_decl(r#""layout": "sidebar""#));
+        assert!(!is_redoc_json_decl(r#""apiDescriptionUrl": "./o.yaml""#));
+        assert!(is_stoplight_elements_json_decl(
+            r#""apiDescriptionUrl": "./o.yaml""#
+        ));
+        assert!(!is_redoc_json_decl(
+            r#""proxyUrl": "https://proxy.scalar.com""#
+        ));
+        assert!(is_scalar_json_decl(
+            r#""proxyUrl": "https://proxy.scalar.com""#
+        ));
+        assert!(!is_redoc_json_decl(r#""topbarLinks": ["#));
+        assert!(is_mintlify_json_decl(r#""topbarLinks": ["#));
+        assert!(!is_redoc_json_decl(r#""apis": {"#));
+        assert!(is_redocly_json_decl(r#""apis": {"#));
+        assert!(!is_redoc_json_decl(r#""licenseKey": "public_key""#));
+        assert!(is_redocly_json_decl(r#""licenseKey": "public_key""#));
+        assert!(!is_redoc_json_decl(r#""functionsDir": "./functions""#));
+        assert!(is_spectral_json_decl(r#""functionsDir": "./functions""#));
+        assert!(!is_redoc_json_decl(r#""generator-cli": {"#));
+        assert!(is_openapitools_json_decl(r#""generator-cli": {"#));
+        assert!(!is_redoc_json_decl(r#""metadata": ["#));
+        assert!(is_docfx_json_decl(r#""metadata": ["#));
+        assert!(!is_redoc_json_decl(r#""entryPoints": ["#));
+        assert!(is_typedoc_json_decl(r#""entryPoints": ["#));
+        assert!(!is_redoc_json_decl(
+            r#""mainEntryPointFilePath": "<projectFolder>/lib/index.d.ts""#
+        ));
+        assert!(is_api_extractor_json_decl(
+            r#""mainEntryPointFilePath": "<projectFolder>/lib/index.d.ts""#
+        ));
+        assert!(!is_redoc_json_decl(r#""printWidth": 80"#));
+        assert!(is_prettier_json_decl(r#""printWidth": 80"#));
+        assert!(!is_redoc_json_decl(r#""bin": {"#));
+        assert!(is_package_json_decl(r#""bin": {"#));
+        assert!(!is_redoc_json_decl(r#""basePath": ".""#));
+        assert!(is_karma_json_decl(r#""basePath": ".""#));
+        // Shared hideDownloadButton also matches Scalar.
+        assert!(is_redoc_json_decl(r#""hideDownloadButton": true"#));
+        assert!(is_scalar_json_decl(r#""hideDownloadButton": true"#));
+        // line_is_func_like wires the scanner.
+        assert!(line_is_func_like(r#""disableSearch": true"#));
+        assert!(line_is_func_like(r#""sideNavStyle": "summary-only""#));
+        assert!(line_is_func_like(r#""expandResponses": "all""#));
+        assert!(line_is_func_like(r#""theme": {"#));
+        assert!(line_is_func_like(r#""pathInMiddlePanel": true"#));
+        assert!(line_is_func_like(r#""jsonSampleExpandLevel": "all""#));
+        assert!(line_is_func_like(r##""scrollYOffset": "#navbar""##));
+        assert!(line_is_func_like(r#""sortOperationsAlphabetically": true"#));
+        assert!(line_is_func_like(r#""nativeScrollbars": true"#));
+        assert!(line_is_func_like(r#""untrustedSpec": false"#));
     }
 
     #[test]
