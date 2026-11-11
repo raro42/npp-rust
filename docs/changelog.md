@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.788] — 2026-11-11
+
+View:
+
+- **Function List** lists MockServer expectation / verification JSON keys: `"httpRequest": {`, `"httpResponse": {`, `"httpResponseTemplate": {`, `"httpResponseClassCallback": {`, `"httpResponseObjectCallback": {`, `"httpForward": {`, `"httpForwardTemplate": {`, `"httpForwardClassCallback": {`, `"httpForwardObjectCallback": {`, `"httpOverrideForwardedRequest": {`, `"httpError": {`, `"times": {`, `"timeToLive": {`, `"socketAddress": {`, `"dropConnection": true` / `false`, `"responseBytes": ""` / `"…"`, `"remainingTimes": 0` / `1`. Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing `:` stay out. Generic `"$schema"` / `"request": {` / `"response": {` / `"method"` / `"path"` / `"headers": {` / `"body"` / `"statusCode"` / `"priority"` / `"unlimited"` / `"pathParameters": {` / `"queryStringParameters": {` / Yaak `"httpRequests": [` / Hoverfly `"hoverflyVersion"` / `"schemaVersion"` / `"fixedDelay"` / `"bodyFile"` / Mountebank `"imposters"` / `"predicates"` / `"deepEquals"` / WireMock `"scenarioName"` / `"requiredScenarioState"` / `"fault"` / `"postServeActions"` / `"bodyFileName"` / `"fixedDelayMilliseconds"` / Mockoon `"lastMigration"` / `"endpointPrefix"` / `"bodyType"` / Hoppscotch `"preRequestScript"` / `"authType"` / Yaak `"yaakVersion"` / Bruno `"brunoConfig"` / Thunder Client `"client"` / `"collectionName"` / Postman `"_postman_id"` / Insomnia `"__export_format"` / `"_type"` / ReDoc `"disableSearch"` / RapiDoc `"specUrl"` / swagger `"dom_id"` / scalar `"layout": "modern"` / Elements `"layout": "sidebar"` / mintlify `"topbarLinks"` / Compodoc `"theme": "material"` / redocly `"apis"` / spectral `"functionsDir"` / openapitools `"generator-cli"` / docfx `"metadata": [` / typedoc `"entryPoints"` / api-extractor `"mainEntryPointFilePath"` / prettier `"printWidth"` / package.json `"bin"` / karma `"basePath"` stay out.
+
 ## [0.3.787] — 2026-11-11
 
 View:
