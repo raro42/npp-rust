@@ -32450,6 +32450,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_thunder_client_json_decl(s)
             || is_bruno_json_decl(s)
             || is_yaak_json_decl(s)
+            || is_hoppscotch_json_decl(s)
             || is_gomod_decl(s)
             || is_gemfile_decl(s)
             || is_brewfile_decl(s)
@@ -32810,6 +32811,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_thunder_client_json_decl(s)
         || is_bruno_json_decl(s)
         || is_yaak_json_decl(s)
+        || is_hoppscotch_json_decl(s)
         || is_gomod_decl(s)
         || is_gemfile_decl(s)
         || is_brewfile_decl(s)
@@ -58841,6 +58843,163 @@ fn yaak_json_schema_and_tail_ok(key: &str, after_colon: &str) -> bool {
         return false;
     }
     package_json_tail_ok(&after_colon[digits..])
+}
+
+/// Hoppscotch collection / request / history JSON keys:
+/// `"preRequestScript": ""` / `"…"`, `"testScript": ""` / `"…"`,
+/// `"requestVariables": [`, `"_ref_id": "req_…"`, `"authType": "inherit"` /
+/// `"oauth-2"` / `"api-key"` / `"aws-signature"` / `"hawk"` /
+/// `"akamai-eg"` / `"jwt"` / `"none"` / `"basic"` / `"bearer"` /
+/// `"digest"`, `"authActive": true` / `false`, `"responseMeta": {`.
+/// Optional trailing `,` and `//` / `/*` comment. Incomplete quotes /
+/// missing `:` stay out. Generic `"$schema"` / `"name"` / `"version"` /
+/// `"endpoint"` / `"method"` / `"folders": [` / `"requests": [` /
+/// `"environments": [` / Yaak `"yaakVersion"` / Bruno `"brunoConfig"` /
+/// Thunder Client `"client"` / `"collectionName"` / Postman
+/// `"_postman_id"` / Insomnia `"__export_format"` / `"_type"` / ReDoc
+/// `"disableSearch"` / RapiDoc `"specUrl"` / swagger `"dom_id"` / scalar
+/// `"layout": "modern"` / Elements `"layout": "sidebar"` / mintlify
+/// `"topbarLinks"` / Compodoc `"theme": "material"` / redocly `"apis"` /
+/// spectral `"functionsDir"` / openapitools `"generator-cli"` / docfx
+/// `"metadata": [` / typedoc `"entryPoints"` / api-extractor
+/// `"mainEntryPointFilePath"` / prettier `"printWidth"` / package.json
+/// `"bin"` / karma `"basePath"` stay out. `"_ref_id"` only matches
+/// Hoppscotch `prefix_timestamp_uuid` refs. `"authType"` only matches
+/// Hoppscotch auth enums.
+fn is_hoppscotch_json_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    let Some(rest) = s.strip_prefix('"') else {
+        return false;
+    };
+    let Some(end) = rest.find('"') else {
+        return false;
+    };
+    let key = &rest[..end];
+    if !hoppscotch_json_key_ok(key) {
+        return false;
+    }
+    let after_key = rest[end + 1..].trim_start();
+    let Some(after_colon) = after_key.strip_prefix(':') else {
+        return false;
+    };
+    let after_colon = after_colon.trim_start();
+    hoppscotch_json_value_and_tail_ok(key, after_colon)
+}
+
+fn hoppscotch_json_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "preRequestScript"
+            | "testScript"
+            | "requestVariables"
+            | "_ref_id"
+            | "authType"
+            | "authActive"
+            | "responseMeta"
+    )
+}
+
+fn hoppscotch_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool {
+    let bytes = after_colon.as_bytes();
+    let Some(first) = bytes.first().copied() else {
+        return false;
+    };
+    match first {
+        b'[' => {
+            if key != "requestVariables" {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[1..])
+        }
+        b'{' => {
+            if key != "responseMeta" {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[1..])
+        }
+        b'"' => {
+            if !matches!(
+                key,
+                "preRequestScript" | "testScript" | "_ref_id" | "authType"
+            ) {
+                return false;
+            }
+            let rest = &after_colon[1..];
+            let Some(end) = rest.find('"') else {
+                return false;
+            };
+            let value = &rest[..end];
+            if !hoppscotch_json_string_ok(key, value) {
+                return false;
+            }
+            package_json_tail_ok(&rest[end + 1..])
+        }
+        b't' | b'f' => {
+            if key != "authActive" {
+                return false;
+            }
+            let rest = if let Some(rest) = after_colon.strip_prefix("true") {
+                rest
+            } else if let Some(rest) = after_colon.strip_prefix("false") {
+                rest
+            } else {
+                return false;
+            };
+            package_json_tail_ok(rest)
+        }
+        _ => false,
+    }
+}
+
+fn hoppscotch_json_string_ok(key: &str, value: &str) -> bool {
+    if value.contains('\n') {
+        return false;
+    }
+    match key {
+        "preRequestScript" | "testScript" => hoppscotch_json_script_ok(value),
+        "_ref_id" => hoppscotch_json_ref_id_ok(value),
+        "authType" => hoppscotch_json_auth_type_ok(value),
+        _ => false,
+    }
+}
+
+fn hoppscotch_json_script_ok(value: &str) -> bool {
+    // Empty scripts are the Hoppscotch default; long one-liners stay line-local.
+    value.len() <= 8192
+}
+
+fn hoppscotch_json_ref_id_ok(value: &str) -> bool {
+    // generateUniqueRefId("req") -> "req_<base36>_<uuid>"
+    if value.is_empty() || value.len() > 128 {
+        return false;
+    }
+    let prefixes = ["req_", "coll_", "env_", "folder_"];
+    let Some(prefix) = prefixes.iter().find(|p| value.starts_with(*p)) else {
+        return false;
+    };
+    let rest = &value[prefix.len()..];
+    if rest.is_empty() || !rest.contains('_') {
+        return false;
+    }
+    rest.bytes()
+        .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'-' | b'_'))
+}
+
+fn hoppscotch_json_auth_type_ok(value: &str) -> bool {
+    matches!(
+        value,
+        "none"
+            | "inherit"
+            | "basic"
+            | "bearer"
+            | "oauth-2"
+            | "api-key"
+            | "digest"
+            | "aws-signature"
+            | "hawk"
+            | "akamai-eg"
+            | "jwt"
+    )
 }
 
 /// go.mod / go.work directives: `module example.com/foo`, `go 1.22`,
@@ -89475,27 +89634,27 @@ mod func_like_line_tests {
         is_fail2ban_conf_decl, is_firebase_json_decl, is_flake8_ini_decl, is_fluent_bit_decl,
         is_fly_toml_decl, is_flynt_ini_decl, is_freeradius_decl, is_fstab_decl, is_gdm_conf_decl,
         is_gemfile_decl, is_gitconfig_decl, is_gomod_decl, is_grafana_ini_decl, is_haproxy_decl,
-        is_hatch_toml_decl, is_hosts_access_decl, is_hosts_file_decl, is_hypothesis_ini_decl,
-        is_importlinter_ini_decl, is_insomnia_json_decl, is_interrogate_ini_decl,
-        is_ionic_json_decl, is_ipsec_conf_decl, is_isort_ini_decl, is_jasmine_json_decl,
-        is_jest_json_decl, is_jsdoc_json_decl, is_karma_json_decl, is_keepalived_decl,
-        is_knip_json_decl, is_krb5_conf_decl, is_lerna_json_decl, is_lightdm_conf_decl,
-        is_limits_conf_decl, is_lint_staged_json_decl, is_locale_conf_decl, is_login_defs_decl,
-        is_logrotate_decl, is_machine_info_decl, is_makepkg_conf_decl, is_mdbook_toml_decl,
-        is_mintlify_json_decl, is_mise_toml_decl, is_mkinitcpio_conf_decl, is_mocha_json_decl,
-        is_modprobe_conf_decl, is_mutants_toml_decl, is_mypy_ini_decl, is_mysql_cnf_decl,
-        is_named_conf_decl, is_nest_cli_json_decl, is_netlify_toml_decl, is_networks_file_decl,
-        is_neutralino_json_decl, is_nextest_toml_decl, is_nftables_decl, is_nginx_conf_decl,
-        is_nightwatch_json_decl, is_nixpacks_toml_decl, is_nm_connection_decl, is_npmrc_decl,
-        is_nsswitch_conf_decl, is_nx_json_decl, is_nyc_json_decl, is_openapitools_json_decl,
-        is_openvpn_decl, is_os_release_decl, is_oxlint_json_decl, is_package_json_decl,
-        is_pacman_conf_decl, is_pam_conf_decl, is_parcel_json_decl, is_paru_conf_decl,
-        is_passwd_group_file_decl, is_pdm_toml_decl, is_php_ini_decl, is_pip_conf_decl,
-        is_pipfile_decl, is_pixi_toml_decl, is_playwright_json_decl, is_podfile_decl,
-        is_poetry_toml_decl, is_postcss_json_decl, is_postman_json_decl, is_premake_decl,
-        is_prettier_json_decl, is_protocols_file_decl, is_pycln_ini_decl, is_pycodestyle_ini_decl,
-        is_pydoclint_ini_decl, is_pydocstyle_ini_decl, is_pylama_ini_decl, is_pylint_ini_decl,
-        is_pypirc_ini_decl, is_pyproject_toml_decl, is_pyre_configuration_decl,
+        is_hatch_toml_decl, is_hoppscotch_json_decl, is_hosts_access_decl, is_hosts_file_decl,
+        is_hypothesis_ini_decl, is_importlinter_ini_decl, is_insomnia_json_decl,
+        is_interrogate_ini_decl, is_ionic_json_decl, is_ipsec_conf_decl, is_isort_ini_decl,
+        is_jasmine_json_decl, is_jest_json_decl, is_jsdoc_json_decl, is_karma_json_decl,
+        is_keepalived_decl, is_knip_json_decl, is_krb5_conf_decl, is_lerna_json_decl,
+        is_lightdm_conf_decl, is_limits_conf_decl, is_lint_staged_json_decl, is_locale_conf_decl,
+        is_login_defs_decl, is_logrotate_decl, is_machine_info_decl, is_makepkg_conf_decl,
+        is_mdbook_toml_decl, is_mintlify_json_decl, is_mise_toml_decl, is_mkinitcpio_conf_decl,
+        is_mocha_json_decl, is_modprobe_conf_decl, is_mutants_toml_decl, is_mypy_ini_decl,
+        is_mysql_cnf_decl, is_named_conf_decl, is_nest_cli_json_decl, is_netlify_toml_decl,
+        is_networks_file_decl, is_neutralino_json_decl, is_nextest_toml_decl, is_nftables_decl,
+        is_nginx_conf_decl, is_nightwatch_json_decl, is_nixpacks_toml_decl, is_nm_connection_decl,
+        is_npmrc_decl, is_nsswitch_conf_decl, is_nx_json_decl, is_nyc_json_decl,
+        is_openapitools_json_decl, is_openvpn_decl, is_os_release_decl, is_oxlint_json_decl,
+        is_package_json_decl, is_pacman_conf_decl, is_pam_conf_decl, is_parcel_json_decl,
+        is_paru_conf_decl, is_passwd_group_file_decl, is_pdm_toml_decl, is_php_ini_decl,
+        is_pip_conf_decl, is_pipfile_decl, is_pixi_toml_decl, is_playwright_json_decl,
+        is_podfile_decl, is_poetry_toml_decl, is_postcss_json_decl, is_postman_json_decl,
+        is_premake_decl, is_prettier_json_decl, is_protocols_file_decl, is_pycln_ini_decl,
+        is_pycodestyle_ini_decl, is_pydoclint_ini_decl, is_pydocstyle_ini_decl, is_pylama_ini_decl,
+        is_pylint_ini_decl, is_pypirc_ini_decl, is_pyproject_toml_decl, is_pyre_configuration_decl,
         is_pyright_toml_decl, is_pyrightconfig_json_decl, is_pytest_ini_decl, is_pytype_ini_decl,
         is_pyupgrade_ini_decl, is_radon_ini_decl, is_railway_toml_decl, is_rake_decl,
         is_rapidoc_json_decl, is_redoc_json_decl, is_redocly_json_decl, is_refurb_toml_decl,
@@ -116564,6 +116723,204 @@ mod func_like_line_tests {
         assert!(line_is_func_like(r#""httpRequests": ["#));
         assert!(line_is_func_like(r#""grpcRequests": ["#));
         assert!(line_is_func_like(r#""websocketRequests": ["#));
+    }
+
+    #[test]
+    fn hoppscotch_json_keys_smoke() {
+        assert!(is_hoppscotch_json_decl(r#""preRequestScript": """#));
+        assert!(is_hoppscotch_json_decl(
+            r#""testScript": "pw.test('ok', () => {})""#
+        ));
+        assert!(is_hoppscotch_json_decl(r#""requestVariables": ["#));
+        assert!(is_hoppscotch_json_decl(
+            r#""_ref_id": "req_lxk3_a1b2c3d4-e5f6-7890-abcd-ef1234567890""#
+        ));
+        assert!(is_hoppscotch_json_decl(r#""authType": "inherit""#));
+        assert!(is_hoppscotch_json_decl(r#""authType": "oauth-2""#));
+        assert!(is_hoppscotch_json_decl(r#""authActive": true"#));
+        assert!(is_hoppscotch_json_decl(r#""responseMeta": {"#));
+        // Distinctive neighbours stay out of this scanner.
+        assert!(!is_hoppscotch_json_decl(r#""yaakVersion": "2025.1.0""#));
+        assert!(is_yaak_json_decl(r#""yaakVersion": "2025.1.0""#));
+        assert!(!is_hoppscotch_json_decl(r#""brunoConfig": {"#));
+        assert!(is_bruno_json_decl(r#""brunoConfig": {"#));
+        assert!(!is_hoppscotch_json_decl(r#""client": "Thunder Client""#));
+        assert!(is_thunder_client_json_decl(r#""client": "Thunder Client""#));
+        assert!(!is_hoppscotch_json_decl(
+            r#""_postman_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890""#
+        ));
+        assert!(is_postman_json_decl(
+            r#""_postman_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890""#
+        ));
+        assert!(!is_hoppscotch_json_decl(r#""__export_format": 4"#));
+        assert!(is_insomnia_json_decl(r#""__export_format": 4"#));
+        assert!(!is_hoppscotch_json_decl(r#""disableSearch": true"#));
+        assert!(is_redoc_json_decl(r#""disableSearch": true"#));
+        assert!(!is_hoppscotch_json_decl(r#""specUrl": "./openapi.yaml""#));
+        assert!(is_rapidoc_json_decl(r#""specUrl": "./openapi.yaml""#));
+        assert!(!is_hoppscotch_json_decl(r##""dom_id": "#swagger-ui""##));
+        assert!(is_swagger_ui_json_decl(r##""dom_id": "#swagger-ui""##));
+        assert!(!is_hoppscotch_json_decl(r#""layout": "modern""#));
+        assert!(is_scalar_json_decl(r#""layout": "modern""#));
+        assert!(!is_hoppscotch_json_decl(r#""layout": "sidebar""#));
+        assert!(is_stoplight_elements_json_decl(r#""layout": "sidebar""#));
+        assert!(!is_hoppscotch_json_decl(r#""topbarLinks": ["#));
+        assert!(is_mintlify_json_decl(r#""topbarLinks": ["#));
+        assert!(!is_hoppscotch_json_decl(r#""apis": {"#));
+        assert!(is_redocly_json_decl(r#""apis": {"#));
+        assert!(!is_hoppscotch_json_decl(r#""functionsDir": "./functions""#));
+        assert!(is_spectral_json_decl(r#""functionsDir": "./functions""#));
+        assert!(!is_hoppscotch_json_decl(r#""printWidth": 80"#));
+        assert!(is_prettier_json_decl(r#""printWidth": 80"#));
+        assert!(!is_hoppscotch_json_decl(r#""basePath": ".""#));
+        assert!(is_karma_json_decl(r#""basePath": ".""#));
+    }
+
+    #[test]
+    fn hoppscotch_json_keys_count() {
+        assert!(is_hoppscotch_json_decl(r#""preRequestScript": """#));
+        assert!(is_hoppscotch_json_decl(r#""preRequestScript": "","#));
+        assert!(is_hoppscotch_json_decl(
+            r#""preRequestScript": "" // script"#
+        ));
+        assert!(is_hoppscotch_json_decl(
+            r#""preRequestScript": "pw.env.set('x', '1')""#
+        ));
+        assert!(!is_hoppscotch_json_decl(r#""preRequestScript": true"#));
+        assert!(!is_hoppscotch_json_decl(r#""preRequestScript": ["#));
+        assert!(is_hoppscotch_json_decl(r#""testScript": """#));
+        assert!(is_hoppscotch_json_decl(
+            r#""testScript": "pw.expect(1).toBe(1)""#
+        ));
+        assert!(!is_hoppscotch_json_decl(r#""testScript": {"#));
+        assert!(is_hoppscotch_json_decl(r#""requestVariables": ["#));
+        assert!(is_hoppscotch_json_decl(r#""requestVariables": [,"#));
+        assert!(is_hoppscotch_json_decl(r#""requestVariables": [ // vars"#));
+        assert!(!is_hoppscotch_json_decl(r#""requestVariables": {"#));
+        assert!(!is_hoppscotch_json_decl(r#""requestVariables": true"#));
+        assert!(is_hoppscotch_json_decl(
+            r#""_ref_id": "req_lxk3_a1b2c3d4-e5f6-7890-abcd-ef1234567890""#
+        ));
+        assert!(is_hoppscotch_json_decl(
+            r#""_ref_id": "coll_abc_11111111-2222-3333-4444-555555555555""#
+        ));
+        assert!(is_hoppscotch_json_decl(
+            r#""_ref_id": "env_zz_aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee""#
+        ));
+        assert!(is_hoppscotch_json_decl(
+            r#""_ref_id": "folder_1_aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee""#
+        ));
+        assert!(!is_hoppscotch_json_decl(r#""_ref_id": "req_only""#));
+        assert!(!is_hoppscotch_json_decl(r#""_ref_id": "request_abc_def""#));
+        assert!(!is_hoppscotch_json_decl(r#""_ref_id": """#));
+        assert!(!is_hoppscotch_json_decl(r#""_ref_id": true"#));
+        assert!(is_hoppscotch_json_decl(r#""authType": "none""#));
+        assert!(is_hoppscotch_json_decl(r#""authType": "inherit""#));
+        assert!(is_hoppscotch_json_decl(r#""authType": "basic""#));
+        assert!(is_hoppscotch_json_decl(r#""authType": "bearer""#));
+        assert!(is_hoppscotch_json_decl(r#""authType": "oauth-2""#));
+        assert!(is_hoppscotch_json_decl(r#""authType": "api-key""#));
+        assert!(is_hoppscotch_json_decl(r#""authType": "digest""#));
+        assert!(is_hoppscotch_json_decl(r#""authType": "aws-signature""#));
+        assert!(is_hoppscotch_json_decl(r#""authType": "hawk""#));
+        assert!(is_hoppscotch_json_decl(r#""authType": "akamai-eg""#));
+        assert!(is_hoppscotch_json_decl(r#""authType": "jwt""#));
+        assert!(is_hoppscotch_json_decl(r#""authType": "oauth-2","#));
+        assert!(is_hoppscotch_json_decl(r#""authType": "inherit" // auth"#));
+        assert!(!is_hoppscotch_json_decl(r#""authType": "oauth2""#));
+        assert!(!is_hoppscotch_json_decl(r#""authType": "OAuth2""#));
+        assert!(!is_hoppscotch_json_decl(r#""authType": true"#));
+        assert!(is_hoppscotch_json_decl(r#""authActive": true"#));
+        assert!(is_hoppscotch_json_decl(r#""authActive": false"#));
+        assert!(is_hoppscotch_json_decl(r#""authActive": true,"#));
+        assert!(is_hoppscotch_json_decl(r#""authActive": false // off"#));
+        assert!(!is_hoppscotch_json_decl(r#""authActive": "true""#));
+        assert!(!is_hoppscotch_json_decl(r#""authActive": 1"#));
+        assert!(is_hoppscotch_json_decl(r#""responseMeta": {"#));
+        assert!(is_hoppscotch_json_decl(r#""responseMeta": {,"#));
+        assert!(is_hoppscotch_json_decl(r#""responseMeta": { // meta"#));
+        assert!(!is_hoppscotch_json_decl(r#""responseMeta": ["#));
+        assert!(!is_hoppscotch_json_decl(r#""responseMeta": true"#));
+        // Incomplete / wrong shapes stay out.
+        assert!(!is_hoppscotch_json_decl(r#""preRequestScript""#));
+        assert!(!is_hoppscotch_json_decl(r#""preRequestScript":"#));
+        assert!(!is_hoppscotch_json_decl(r#""authType""#));
+        assert!(!is_hoppscotch_json_decl(r#""requestVariables""#));
+        // Generic / neighbouring stay out.
+        assert!(!is_hoppscotch_json_decl(
+            r#""$schema": "https://example.com""#
+        ));
+        assert!(!is_hoppscotch_json_decl(r#""name": "Petstore""#));
+        assert!(!is_hoppscotch_json_decl(r#""version": "1""#));
+        assert!(!is_hoppscotch_json_decl(
+            r#""endpoint": "https://echo.hoppscotch.io""#
+        ));
+        assert!(!is_hoppscotch_json_decl(r#""method": "GET""#));
+        assert!(!is_hoppscotch_json_decl(r#""folders": ["#));
+        assert!(!is_hoppscotch_json_decl(r#""requests": ["#));
+        assert!(!is_hoppscotch_json_decl(r#""environments": ["#));
+        assert!(!is_hoppscotch_json_decl(r#""yaakVersion": "2025.1.0""#));
+        assert!(is_yaak_json_decl(r#""yaakVersion": "2025.1.0""#));
+        assert!(!is_hoppscotch_json_decl(r#""brunoConfig": {"#));
+        assert!(is_bruno_json_decl(r#""brunoConfig": {"#));
+        assert!(!is_hoppscotch_json_decl(r#""client": "Thunder Client""#));
+        assert!(is_thunder_client_json_decl(r#""client": "Thunder Client""#));
+        assert!(!is_hoppscotch_json_decl(
+            r#""collectionName": "Petstore API""#
+        ));
+        assert!(is_thunder_client_json_decl(
+            r#""collectionName": "Petstore API""#
+        ));
+        assert!(!is_hoppscotch_json_decl(
+            r#""_postman_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890""#
+        ));
+        assert!(is_postman_json_decl(
+            r#""_postman_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890""#
+        ));
+        assert!(!is_hoppscotch_json_decl(r#""protocolProfileBehavior": {"#));
+        assert!(is_postman_json_decl(r#""protocolProfileBehavior": {"#));
+        assert!(!is_hoppscotch_json_decl(r#""__export_format": 4"#));
+        assert!(is_insomnia_json_decl(r#""__export_format": 4"#));
+        assert!(!is_hoppscotch_json_decl(r#""_type": "request""#));
+        assert!(is_insomnia_json_decl(r#""_type": "request""#));
+        assert!(!is_hoppscotch_json_decl(r#""disableSearch": true"#));
+        assert!(is_redoc_json_decl(r#""disableSearch": true"#));
+        assert!(!is_hoppscotch_json_decl(r#""specUrl": "./openapi.yaml""#));
+        assert!(is_rapidoc_json_decl(r#""specUrl": "./openapi.yaml""#));
+        assert!(!is_hoppscotch_json_decl(r##""dom_id": "#swagger-ui""##));
+        assert!(is_swagger_ui_json_decl(r##""dom_id": "#swagger-ui""##));
+        assert!(!is_hoppscotch_json_decl(r#""layout": "BaseLayout""#));
+        assert!(is_swagger_ui_json_decl(r#""layout": "BaseLayout""#));
+        assert!(!is_hoppscotch_json_decl(r#""layout": "modern""#));
+        assert!(is_scalar_json_decl(r#""layout": "modern""#));
+        assert!(!is_hoppscotch_json_decl(r#""layout": "sidebar""#));
+        assert!(is_stoplight_elements_json_decl(r#""layout": "sidebar""#));
+        assert!(!is_hoppscotch_json_decl(
+            r#""apiDescriptionUrl": "./o.yaml""#
+        ));
+        assert!(is_stoplight_elements_json_decl(
+            r#""apiDescriptionUrl": "./o.yaml""#
+        ));
+        assert!(!is_hoppscotch_json_decl(r#""topbarLinks": ["#));
+        assert!(is_mintlify_json_decl(r#""topbarLinks": ["#));
+        assert!(!is_hoppscotch_json_decl(r#""apis": {"#));
+        assert!(is_redocly_json_decl(r#""apis": {"#));
+        assert!(!is_hoppscotch_json_decl(r#""functionsDir": "./functions""#));
+        assert!(is_spectral_json_decl(r#""functionsDir": "./functions""#));
+        assert!(!is_hoppscotch_json_decl(r#""printWidth": 80"#));
+        assert!(is_prettier_json_decl(r#""printWidth": 80"#));
+        assert!(!is_hoppscotch_json_decl(r#""basePath": ".""#));
+        assert!(is_karma_json_decl(r#""basePath": ".""#));
+        // line_is_func_like wires the scanner.
+        assert!(line_is_func_like(r#""preRequestScript": """#));
+        assert!(line_is_func_like(r#""testScript": """#));
+        assert!(line_is_func_like(r#""requestVariables": ["#));
+        assert!(line_is_func_like(
+            r#""_ref_id": "req_lxk3_a1b2c3d4-e5f6-7890-abcd-ef1234567890""#
+        ));
+        assert!(line_is_func_like(r#""authType": "oauth-2""#));
+        assert!(line_is_func_like(r#""authActive": true"#));
+        assert!(line_is_func_like(r#""responseMeta": {"#));
     }
 
     #[test]

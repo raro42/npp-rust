@@ -1228,3 +1228,5 @@
 009 keep: Function List Bruno bruno.json/export brunoConfig/clientCertificates/moduleWhitelist/additionalContextRoots/collectionVersion/bypassProxy/opencollection (v0.3.781)
 
 009 keep: Function List Yaak yaakVersion/yaakSchema/httpRequests/grpcRequests/websocketRequests (v0.3.782)
+
+009 keep: Function List Hoppscotch preRequestScript/testScript/requestVariables/_ref_id/authType/authActive/responseMeta (v0.3.783)

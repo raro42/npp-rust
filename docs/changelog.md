@@ -1,5 +1,12 @@
 ## [Unreleased]
 
+## [0.3.783] — 2026-11-11
+
+View:
+
+- **Function List** lists Hoppscotch collection / request / history JSON keys: `"preRequestScript": ""` / `"…"`, `"testScript": ""` / `"…"`, `"requestVariables": [`, `"_ref_id": "req_…"`, `"authType": "inherit"` / `"oauth-2"` / `"api-key"` / `"aws-signature"` / `"hawk"` / `"akamai-eg"` / `"jwt"` / `"none"` / `"basic"` / `"bearer"` / `"digest"`, `"authActive": true` / `false`, `"responseMeta": {`. Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing `:` stay out. Generic `"$schema"` / `"name"` / `"version"` / `"endpoint"` / `"method"` / `"folders": [` / `"requests": [` / `"environments": [` / Yaak `"yaakVersion"` / Bruno `"brunoConfig"` / Thunder Client `"client"` / `"collectionName"` / Postman `"_postman_id"` / `"protocolProfileBehavior"` / Insomnia `"__export_format"` / `"_type"` / ReDoc `"disableSearch"` / RapiDoc `"specUrl"` / swagger `"dom_id"` / scalar `"layout": "modern"` / Elements `"layout": "sidebar"` / mintlify `"topbarLinks"` / Compodoc `"theme": "material"` / redocly `"apis"` / spectral `"functionsDir"` / openapitools `"generator-cli"` / docfx `"metadata": [` / typedoc `"entryPoints"` / api-extractor `"mainEntryPointFilePath"` / prettier `"printWidth"` / package.json `"bin"` / karma `"basePath"` stay out. `"_ref_id"` only matches Hoppscotch `prefix_timestamp_uuid` refs. `"authType"` only matches Hoppscotch auth enums.
+
+
 ## [0.3.782] — 2026-11-11
 
 View:
