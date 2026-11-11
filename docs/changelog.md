@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.786] — 2026-11-11
+
+View:
+
+- **Function List** lists Mountebank imposters / stub / predicate JSON keys: `"imposters": [`, `"recordRequests": true` / `false`, `"allowInjection": true` / `false`, `"defaultResponse": {`, `"numberOfRequests": 0` / `3`, `"predicates": [`, `"deepEquals": {`, `"inject": ""` / `"…"`, `"decorate": ""` / `"…"`, `"shellTransform": ""` / `"…"`, `"behaviors": [`, `"concatenateArrays": true` / `false`. Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing `:` stay out. Generic `"$schema"` / `"name"` / `"port"` / `"protocol"` / `"stubs": [` / `"responses": [` / `"is": {` / `"proxy": {` / `"equals": {` / `"matches": {` / `"contains": {` / `"_links": {` / WireMock `"scenarioName"` / `"requiredScenarioState"` / `"fault"` / Mockoon `"lastMigration"` / `"endpointPrefix"` / `"bodyType"` / Hoppscotch `"preRequestScript"` / `"authType"` / Yaak `"yaakVersion"` / Bruno `"brunoConfig"` / Thunder Client `"client"` / `"collectionName"` / Postman `"_postman_id"` / Insomnia `"__export_format"` / `"_type"` / ReDoc `"disableSearch"` / RapiDoc `"specUrl"` / swagger `"dom_id"` / scalar `"layout": "modern"` / Elements `"layout": "sidebar"` / mintlify `"topbarLinks"` / Compodoc `"theme": "material"` / redocly `"apis"` / spectral `"functionsDir"` / openapitools `"generator-cli"` / docfx `"metadata": [` / typedoc `"entryPoints"` / api-extractor `"mainEntryPointFilePath"` / prettier `"printWidth"` / package.json `"bin"` / karma `"basePath"` stay out.
+
 ## [0.3.785] — 2026-11-11
 
 View:
