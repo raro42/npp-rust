@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.779] — 2026-11-11
+
+View:
+
+- **Function List** lists Insomnia export / resource JSON keys: `"__export_format": 4`, `"__export_date": "…"`, `"__export_source": "insomnia.desktop.app:v…"`, `"_type": "export"` / `"workspace"` / `"request"` / `"request_group"` / `"environment"` / `"cookie_jar"` / `"api_spec"` / `"unit_test"` / `"unit_test_suite"` / `"proto_file"` / `"proto_directory"` / `"grpc_request"` / `"web_socket_request"` / `"socket_io_request"`, `"_id": "req_…"` / `"wrk_…"` / `"fld_…"` / `"env_…"` / `"jar_…"` / `"spc_…"` / `"uts_…"` / `"ut_…"` / `"pf_…"` / `"pd_…"` / `"grpc_req_…"` / `"ws-req_…"` / `"socket_…"`, `"metaSortKey": -1` / `100`, `"settingFollowRedirects": "global"` / `"on"` / `"off"`, bools `"settingStoreCookies"` / `"settingSendCookies"` / `"settingDisableRenderRequestBody"` / `"settingEncodeUrl"` / `"settingRebuildPath"`. Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing `:` stay out. Generic `"$schema"` / `"name"` / `"version"` / `"url"` / `"method"` / `"parentId"` / `"resources": [` / Postman `"_postman_id"` / `"protocolProfileBehavior"` / ReDoc `"disableSearch"` / RapiDoc `"specUrl"` / swagger `"dom_id"` / scalar `"layout": "modern"` / Elements `"layout": "sidebar"` / mintlify `"topbarLinks"` / Compodoc `"theme": "material"` / redocly `"apis"` / spectral `"functionsDir"` / openapitools `"generator-cli"` / docfx `"metadata": [` / typedoc `"entryPoints"` / api-extractor `"mainEntryPointFilePath"` / prettier `"printWidth"` / package.json `"bin"` / karma `"basePath"` stay out. `"__export_source"` only matches when the value mentions insomnia. `"_id"` only matches Insomnia id prefixes. `"_type"` only matches the Insomnia resource/export enums.
+
 ## [0.3.778] — 2026-11-11
 
 View:

@@ -1220,3 +1220,5 @@
 009 keep: Function List ReDoc disableSearch/sideNavStyle/expandResponses/theme{/pathInMiddlePanel/nativeScrollbars/untrustedSpec (v0.3.777)
 
 009 keep: Function List Postman Collection/Environment _postman_id/_postman_variable_scope/schema getpostman.com/protocolProfileBehavior (v0.3.778)
+
+009 keep: Function List Insomnia export __export_format/__export_source/_type/_id metaSortKey/settingFollowRedirects/settingStoreCookies (v0.3.779)

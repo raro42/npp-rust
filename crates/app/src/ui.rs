@@ -32446,6 +32446,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_rapidoc_json_decl(s)
             || is_redoc_json_decl(s)
             || is_postman_json_decl(s)
+            || is_insomnia_json_decl(s)
             || is_gomod_decl(s)
             || is_gemfile_decl(s)
             || is_brewfile_decl(s)
@@ -32802,6 +32803,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_rapidoc_json_decl(s)
         || is_redoc_json_decl(s)
         || is_postman_json_decl(s)
+        || is_insomnia_json_decl(s)
         || is_gomod_decl(s)
         || is_gemfile_decl(s)
         || is_brewfile_decl(s)
@@ -58238,6 +58240,239 @@ fn postman_json_exported_at_ok(value: &str) -> bool {
         .bytes()
         .all(|b| b.is_ascii_digit() || matches!(b, b'-' | b':' | b'T' | b'Z' | b'.' | b'+'))
         && value.contains('T')
+}
+
+/// Insomnia export / resource JSON keys (v3/v4 export + resource docs):
+/// `"__export_format": 4`, `"__export_date": "…"`, `"__export_source":
+/// "insomnia.desktop.app:v…"`, `"_type": "export"` / `"workspace"` /
+/// `"request"` / `"request_group"` / `"environment"` / `"cookie_jar"` /
+/// `"api_spec"` / `"unit_test"` / `"unit_test_suite"` / `"proto_file"` /
+/// `"proto_directory"` / `"grpc_request"` / `"web_socket_request"` /
+/// `"socket_io_request"`, `"_id": "req_…"` / `"wrk_…"` / `"fld_…"` /
+/// `"env_…"` / `"jar_…"` / `"spc_…"` / `"uts_…"` / `"ut_…"` / `"pf_…"` /
+/// `"pd_…"` / `"grpc_req_…"` / `"ws-req_…"` / `"socket_…"` ,
+/// `"metaSortKey": -1` / `100`, `"settingFollowRedirects": "global"` /
+/// `"on"` / `"off"`, bools `"settingStoreCookies"` / `"settingSendCookies"` /
+/// `"settingDisableRenderRequestBody"` / `"settingEncodeUrl"` /
+/// `"settingRebuildPath"`. Optional trailing `,` and `//` / `/*` comment.
+/// Incomplete quotes / missing `:` stay out. Generic `"$schema"` / `"name"` /
+/// `"version"` / `"url"` / `"method"` / `"parentId"` / `"resources": [` /
+/// Postman `"_postman_id"` / `"protocolProfileBehavior"` / ReDoc
+/// `"disableSearch"` / RapiDoc `"specUrl"` / swagger `"dom_id"` / scalar
+/// `"layout": "modern"` / Elements `"layout": "sidebar"` / mintlify
+/// `"topbarLinks"` / Compodoc `"theme": "material"` / redocly `"apis"` /
+/// spectral `"functionsDir"` / openapitools `"generator-cli"` / docfx
+/// `"metadata": [` / typedoc `"entryPoints"` / api-extractor
+/// `"mainEntryPointFilePath"` / prettier `"printWidth"` / package.json
+/// `"bin"` / karma `"basePath"` stay out. `"__export_source"` only matches
+/// when the value mentions insomnia. `"_id"` only matches Insomnia id
+/// prefixes. `"_type"` only matches the Insomnia resource/export enums.
+fn is_insomnia_json_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    let Some(rest) = s.strip_prefix('"') else {
+        return false;
+    };
+    let Some(end) = rest.find('"') else {
+        return false;
+    };
+    let key = &rest[..end];
+    if !insomnia_json_key_ok(key) {
+        return false;
+    }
+    let after_key = rest[end + 1..].trim_start();
+    let Some(after_colon) = after_key.strip_prefix(':') else {
+        return false;
+    };
+    let after_colon = after_colon.trim_start();
+    insomnia_json_value_and_tail_ok(key, after_colon)
+}
+
+fn insomnia_json_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "__export_format"
+            | "__export_date"
+            | "__export_source"
+            | "_type"
+            | "_id"
+            | "metaSortKey"
+            | "settingFollowRedirects"
+            | "settingStoreCookies"
+            | "settingSendCookies"
+            | "settingDisableRenderRequestBody"
+            | "settingEncodeUrl"
+            | "settingRebuildPath"
+    )
+}
+
+fn insomnia_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool {
+    let bytes = after_colon.as_bytes();
+    let Some(first) = bytes.first().copied() else {
+        return false;
+    };
+    match first {
+        b'"' => {
+            if !insomnia_json_string_key_ok(key) {
+                return false;
+            }
+            let rest = &after_colon[1..];
+            let Some(end) = rest.find('"') else {
+                return false;
+            };
+            let value = &rest[..end];
+            if !insomnia_json_string_ok(key, value) {
+                return false;
+            }
+            package_json_tail_ok(&rest[end + 1..])
+        }
+        b't' | b'f' => {
+            let rest = if let Some(rest) = after_colon.strip_prefix("true") {
+                rest
+            } else if let Some(rest) = after_colon.strip_prefix("false") {
+                rest
+            } else {
+                return false;
+            };
+            if !insomnia_json_bool_key_ok(key) {
+                return false;
+            }
+            package_json_tail_ok(rest)
+        }
+        b'-' | b'0'..=b'9' => insomnia_json_number_and_tail_ok(key, after_colon),
+        _ => false,
+    }
+}
+
+fn insomnia_json_string_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "__export_date" | "__export_source" | "_type" | "_id" | "settingFollowRedirects"
+    )
+}
+
+fn insomnia_json_bool_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "settingStoreCookies"
+            | "settingSendCookies"
+            | "settingDisableRenderRequestBody"
+            | "settingEncodeUrl"
+            | "settingRebuildPath"
+    )
+}
+
+fn insomnia_json_string_ok(key: &str, value: &str) -> bool {
+    if value.contains('\n') {
+        return false;
+    }
+    match key {
+        "_type" => insomnia_json_type_ok(value),
+        "_id" => insomnia_json_id_ok(value),
+        "settingFollowRedirects" => matches!(value, "global" | "on" | "off"),
+        "__export_source" => insomnia_json_export_source_ok(value),
+        "__export_date" => postman_json_exported_at_ok(value),
+        _ => false,
+    }
+}
+
+fn insomnia_json_type_ok(value: &str) -> bool {
+    matches!(
+        value,
+        "export"
+            | "workspace"
+            | "request"
+            | "request_group"
+            | "environment"
+            | "cookie_jar"
+            | "api_spec"
+            | "unit_test"
+            | "unit_test_suite"
+            | "proto_file"
+            | "proto_directory"
+            | "grpc_request"
+            | "web_socket_request"
+            | "socket_io_request"
+    )
+}
+
+fn insomnia_json_id_ok(value: &str) -> bool {
+    if value.is_empty() || value.len() > 128 {
+        return false;
+    }
+    let prefixes = [
+        "req_",
+        "wrk_",
+        "fld_",
+        "env_",
+        "jar_",
+        "spc_",
+        "uts_",
+        "ut_",
+        "pf_",
+        "pd_",
+        "grpc_req_",
+        "ws-req_",
+        "socket_",
+    ];
+    let Some(prefix) = prefixes.iter().find(|p| value.starts_with(*p)) else {
+        return false;
+    };
+    let rest = &value[prefix.len()..];
+    if rest.is_empty() {
+        return false;
+    }
+    rest.bytes()
+        .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'-' | b'_'))
+}
+
+fn insomnia_json_export_source_ok(value: &str) -> bool {
+    if value.is_empty() || value.len() > 128 {
+        return false;
+    }
+    let lower = value.to_ascii_lowercase();
+    if !lower.contains("insomnia") {
+        return false;
+    }
+    value.bytes().all(|b| {
+        b.is_ascii_alphanumeric()
+            || matches!(
+                b,
+                b' ' | b'.' | b'-' | b'_' | b'/' | b':' | b'(' | b')' | b'+'
+            )
+    })
+}
+
+fn insomnia_json_number_and_tail_ok(key: &str, after_colon: &str) -> bool {
+    let (signed, max_digits) = match key {
+        "__export_format" => (false, 2),
+        "metaSortKey" => (true, 12),
+        _ => return false,
+    };
+    let mut rest = after_colon;
+    if signed {
+        if let Some(r) = rest.strip_prefix('-') {
+            rest = r;
+        }
+    } else if rest.starts_with('-') {
+        return false;
+    }
+    let digits = rest.bytes().take_while(|b| b.is_ascii_digit()).count();
+    if digits == 0 || digits > max_digits {
+        return false;
+    }
+    if digits > 1 && rest.as_bytes()[0] == b'0' {
+        return false;
+    }
+    // `__export_format` is historically 3 or 4; allow small positive ints.
+    if key == "__export_format" {
+        let Ok(n) = rest[..digits].parse::<u8>() else {
+            return false;
+        };
+        if !(1..=20).contains(&n) {
+            return false;
+        }
+    }
+    package_json_tail_ok(&rest[digits..])
 }
 
 /// go.mod / go.work directives: `module example.com/foo`, `go 1.22`,
@@ -88873,34 +89108,34 @@ mod func_like_line_tests {
         is_fly_toml_decl, is_flynt_ini_decl, is_freeradius_decl, is_fstab_decl, is_gdm_conf_decl,
         is_gemfile_decl, is_gitconfig_decl, is_gomod_decl, is_grafana_ini_decl, is_haproxy_decl,
         is_hatch_toml_decl, is_hosts_access_decl, is_hosts_file_decl, is_hypothesis_ini_decl,
-        is_importlinter_ini_decl, is_interrogate_ini_decl, is_ionic_json_decl, is_ipsec_conf_decl,
-        is_isort_ini_decl, is_jasmine_json_decl, is_jest_json_decl, is_jsdoc_json_decl,
-        is_karma_json_decl, is_keepalived_decl, is_knip_json_decl, is_krb5_conf_decl,
-        is_lerna_json_decl, is_lightdm_conf_decl, is_limits_conf_decl, is_lint_staged_json_decl,
-        is_locale_conf_decl, is_login_defs_decl, is_logrotate_decl, is_machine_info_decl,
-        is_makepkg_conf_decl, is_mdbook_toml_decl, is_mintlify_json_decl, is_mise_toml_decl,
-        is_mkinitcpio_conf_decl, is_mocha_json_decl, is_modprobe_conf_decl, is_mutants_toml_decl,
-        is_mypy_ini_decl, is_mysql_cnf_decl, is_named_conf_decl, is_nest_cli_json_decl,
-        is_netlify_toml_decl, is_networks_file_decl, is_neutralino_json_decl, is_nextest_toml_decl,
-        is_nftables_decl, is_nginx_conf_decl, is_nightwatch_json_decl, is_nixpacks_toml_decl,
-        is_nm_connection_decl, is_npmrc_decl, is_nsswitch_conf_decl, is_nx_json_decl,
-        is_nyc_json_decl, is_openapitools_json_decl, is_openvpn_decl, is_os_release_decl,
-        is_oxlint_json_decl, is_package_json_decl, is_pacman_conf_decl, is_pam_conf_decl,
-        is_parcel_json_decl, is_paru_conf_decl, is_passwd_group_file_decl, is_pdm_toml_decl,
-        is_php_ini_decl, is_pip_conf_decl, is_pipfile_decl, is_pixi_toml_decl,
-        is_playwright_json_decl, is_podfile_decl, is_poetry_toml_decl, is_postcss_json_decl,
-        is_postman_json_decl, is_premake_decl, is_prettier_json_decl, is_protocols_file_decl,
-        is_pycln_ini_decl, is_pycodestyle_ini_decl, is_pydoclint_ini_decl, is_pydocstyle_ini_decl,
-        is_pylama_ini_decl, is_pylint_ini_decl, is_pypirc_ini_decl, is_pyproject_toml_decl,
-        is_pyre_configuration_decl, is_pyright_toml_decl, is_pyrightconfig_json_decl,
-        is_pytest_ini_decl, is_pytype_ini_decl, is_pyupgrade_ini_decl, is_radon_ini_decl,
-        is_railway_toml_decl, is_rake_decl, is_rapidoc_json_decl, is_redoc_json_decl,
-        is_redocly_json_decl, is_refurb_toml_decl, is_release_it_json_decl,
-        is_release_please_json_decl, is_release_toml_decl, is_renovate_json_decl,
-        is_resolv_conf_decl, is_rpc_file_decl, is_rstcheck_ini_decl, is_rsyslog_decl,
-        is_ruff_toml_decl, is_rush_json_decl, is_rust_toolchain_toml_decl, is_rustfmt_toml_decl,
-        is_samba_conf_decl, is_samconfig_toml_decl, is_scalar_json_decl, is_scons_decl,
-        is_scriv_ini_decl, is_sddm_conf_decl, is_semantic_release_ini_decl,
+        is_importlinter_ini_decl, is_insomnia_json_decl, is_interrogate_ini_decl,
+        is_ionic_json_decl, is_ipsec_conf_decl, is_isort_ini_decl, is_jasmine_json_decl,
+        is_jest_json_decl, is_jsdoc_json_decl, is_karma_json_decl, is_keepalived_decl,
+        is_knip_json_decl, is_krb5_conf_decl, is_lerna_json_decl, is_lightdm_conf_decl,
+        is_limits_conf_decl, is_lint_staged_json_decl, is_locale_conf_decl, is_login_defs_decl,
+        is_logrotate_decl, is_machine_info_decl, is_makepkg_conf_decl, is_mdbook_toml_decl,
+        is_mintlify_json_decl, is_mise_toml_decl, is_mkinitcpio_conf_decl, is_mocha_json_decl,
+        is_modprobe_conf_decl, is_mutants_toml_decl, is_mypy_ini_decl, is_mysql_cnf_decl,
+        is_named_conf_decl, is_nest_cli_json_decl, is_netlify_toml_decl, is_networks_file_decl,
+        is_neutralino_json_decl, is_nextest_toml_decl, is_nftables_decl, is_nginx_conf_decl,
+        is_nightwatch_json_decl, is_nixpacks_toml_decl, is_nm_connection_decl, is_npmrc_decl,
+        is_nsswitch_conf_decl, is_nx_json_decl, is_nyc_json_decl, is_openapitools_json_decl,
+        is_openvpn_decl, is_os_release_decl, is_oxlint_json_decl, is_package_json_decl,
+        is_pacman_conf_decl, is_pam_conf_decl, is_parcel_json_decl, is_paru_conf_decl,
+        is_passwd_group_file_decl, is_pdm_toml_decl, is_php_ini_decl, is_pip_conf_decl,
+        is_pipfile_decl, is_pixi_toml_decl, is_playwright_json_decl, is_podfile_decl,
+        is_poetry_toml_decl, is_postcss_json_decl, is_postman_json_decl, is_premake_decl,
+        is_prettier_json_decl, is_protocols_file_decl, is_pycln_ini_decl, is_pycodestyle_ini_decl,
+        is_pydoclint_ini_decl, is_pydocstyle_ini_decl, is_pylama_ini_decl, is_pylint_ini_decl,
+        is_pypirc_ini_decl, is_pyproject_toml_decl, is_pyre_configuration_decl,
+        is_pyright_toml_decl, is_pyrightconfig_json_decl, is_pytest_ini_decl, is_pytype_ini_decl,
+        is_pyupgrade_ini_decl, is_radon_ini_decl, is_railway_toml_decl, is_rake_decl,
+        is_rapidoc_json_decl, is_redoc_json_decl, is_redocly_json_decl, is_refurb_toml_decl,
+        is_release_it_json_decl, is_release_please_json_decl, is_release_toml_decl,
+        is_renovate_json_decl, is_resolv_conf_decl, is_rpc_file_decl, is_rstcheck_ini_decl,
+        is_rsyslog_decl, is_ruff_toml_decl, is_rush_json_decl, is_rust_toolchain_toml_decl,
+        is_rustfmt_toml_decl, is_samba_conf_decl, is_samconfig_toml_decl, is_scalar_json_decl,
+        is_scons_decl, is_scriv_ini_decl, is_sddm_conf_decl, is_semantic_release_ini_decl,
         is_semantic_release_json_decl, is_services_file_decl, is_setup_cfg_decl,
         is_setuptools_scm_ini_decl, is_simple_git_hooks_json_decl, is_spectral_json_decl,
         is_sqlfluff_ini_decl, is_ssh_config_decl, is_sssd_conf_decl,
@@ -115233,6 +115468,226 @@ mod func_like_line_tests {
         assert!(line_is_func_like(
             r#""_postman_exported_at": "2024-01-15T12:34:56.000Z""#
         ));
+    }
+
+    #[test]
+    fn insomnia_json_keys_smoke() {
+        assert!(is_insomnia_json_decl(r#""__export_format": 4"#));
+        assert!(is_insomnia_json_decl(
+            r#""__export_date": "2024-01-15T12:34:56.000Z""#
+        ));
+        assert!(is_insomnia_json_decl(
+            r#""__export_source": "insomnia.desktop.app:v2024.1.0""#
+        ));
+        assert!(is_insomnia_json_decl(r#""_type": "export""#));
+        assert!(is_insomnia_json_decl(r#""_type": "workspace""#));
+        assert!(is_insomnia_json_decl(r#""_type": "request""#));
+        assert!(is_insomnia_json_decl(r#""_type": "request_group""#));
+        assert!(is_insomnia_json_decl(r#""_type": "environment""#));
+        assert!(is_insomnia_json_decl(r#""_type": "cookie_jar""#));
+        assert!(is_insomnia_json_decl(r#""_type": "api_spec""#));
+        assert!(is_insomnia_json_decl(r#""_type": "unit_test""#));
+        assert!(is_insomnia_json_decl(r#""_type": "unit_test_suite""#));
+        assert!(is_insomnia_json_decl(r#""_type": "proto_file""#));
+        assert!(is_insomnia_json_decl(r#""_type": "proto_directory""#));
+        assert!(is_insomnia_json_decl(r#""_type": "grpc_request""#));
+        assert!(is_insomnia_json_decl(r#""_type": "web_socket_request""#));
+        assert!(is_insomnia_json_decl(r#""_type": "socket_io_request""#));
+        assert!(is_insomnia_json_decl(
+            r#""_id": "req_a1b2c3d4e5f67890abcdef12""#
+        ));
+        assert!(is_insomnia_json_decl(r#""_id": "wrk_workspace1""#));
+        assert!(is_insomnia_json_decl(r#""_id": "fld_folder1""#));
+        assert!(is_insomnia_json_decl(r#""_id": "env_base""#));
+        assert!(is_insomnia_json_decl(r#""_id": "jar_cookies""#));
+        assert!(is_insomnia_json_decl(r#""_id": "spc_openapi""#));
+        assert!(is_insomnia_json_decl(r#""metaSortKey": -100"#));
+        assert!(is_insomnia_json_decl(r#""metaSortKey": 42"#));
+        assert!(is_insomnia_json_decl(
+            r#""settingFollowRedirects": "global""#
+        ));
+        assert!(is_insomnia_json_decl(r#""settingStoreCookies": true"#));
+        assert!(is_insomnia_json_decl(r#""settingSendCookies": false"#));
+        assert!(is_insomnia_json_decl(
+            r#""settingDisableRenderRequestBody": true"#
+        ));
+        assert!(is_insomnia_json_decl(r#""settingEncodeUrl": true"#));
+        assert!(is_insomnia_json_decl(r#""settingRebuildPath": false"#));
+        // Distinctive neighbours stay out of this scanner.
+        assert!(!is_insomnia_json_decl(
+            r#""_postman_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890""#
+        ));
+        assert!(is_postman_json_decl(
+            r#""_postman_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890""#
+        ));
+        assert!(!is_insomnia_json_decl(r#""disableSearch": true"#));
+        assert!(is_redoc_json_decl(r#""disableSearch": true"#));
+        assert!(!is_insomnia_json_decl(r#""specUrl": "./openapi.yaml""#));
+        assert!(is_rapidoc_json_decl(r#""specUrl": "./openapi.yaml""#));
+        assert!(!is_insomnia_json_decl(r##""dom_id": "#swagger-ui""##));
+        assert!(is_swagger_ui_json_decl(r##""dom_id": "#swagger-ui""##));
+        assert!(!is_insomnia_json_decl(r#""layout": "modern""#));
+        assert!(is_scalar_json_decl(r#""layout": "modern""#));
+        assert!(!is_insomnia_json_decl(r#""layout": "sidebar""#));
+        assert!(is_stoplight_elements_json_decl(r#""layout": "sidebar""#));
+        assert!(!is_insomnia_json_decl(r#""topbarLinks": ["#));
+        assert!(is_mintlify_json_decl(r#""topbarLinks": ["#));
+        assert!(!is_insomnia_json_decl(r#""apis": {"#));
+        assert!(is_redocly_json_decl(r#""apis": {"#));
+        assert!(!is_insomnia_json_decl(r#""functionsDir": "./functions""#));
+        assert!(is_spectral_json_decl(r#""functionsDir": "./functions""#));
+        assert!(!is_insomnia_json_decl(r#""printWidth": 80"#));
+        assert!(is_prettier_json_decl(r#""printWidth": 80"#));
+        assert!(!is_insomnia_json_decl(r#""basePath": ".""#));
+        assert!(is_karma_json_decl(r#""basePath": ".""#));
+    }
+
+    #[test]
+    fn insomnia_json_keys_count() {
+        assert!(is_insomnia_json_decl(r#""__export_format": 4"#));
+        assert!(is_insomnia_json_decl(r#""__export_format": 4,"#));
+        assert!(is_insomnia_json_decl(r#""__export_format": 4 // fmt"#));
+        assert!(is_insomnia_json_decl(r#""__export_format": 3"#));
+        assert!(!is_insomnia_json_decl(r#""__export_format": 0"#));
+        assert!(!is_insomnia_json_decl(r#""__export_format": 21"#));
+        assert!(!is_insomnia_json_decl(r#""__export_format": -1"#));
+        assert!(!is_insomnia_json_decl(r#""__export_format": true"#));
+        assert!(!is_insomnia_json_decl(r#""__export_format": "4""#));
+        assert!(is_insomnia_json_decl(
+            r#""__export_date": "2024-01-15T12:34:56.000Z""#
+        ));
+        assert!(is_insomnia_json_decl(
+            r#""__export_date": "2024-01-15T12:34:56+00:00","#
+        ));
+        assert!(!is_insomnia_json_decl(r#""__export_date": "2024-01-15""#));
+        assert!(!is_insomnia_json_decl(r#""__export_date": true"#));
+        assert!(is_insomnia_json_decl(
+            r#""__export_source": "insomnia.desktop.app:v2024.1.0""#
+        ));
+        assert!(is_insomnia_json_decl(
+            r#""__export_source": "Insomnia Core 8.0.0""#
+        ));
+        assert!(!is_insomnia_json_decl(
+            r#""__export_source": "Postman/10.24.0""#
+        ));
+        assert!(!is_insomnia_json_decl(r#""__export_source": true"#));
+        assert!(is_insomnia_json_decl(r#""_type": "export""#));
+        assert!(is_insomnia_json_decl(r#""_type": "request_group","#));
+        assert!(!is_insomnia_json_decl(r#""_type": "collection""#));
+        assert!(!is_insomnia_json_decl(r#""_type": true"#));
+        assert!(is_insomnia_json_decl(
+            r#""_id": "req_a1b2c3d4e5f67890abcdef12""#
+        ));
+        assert!(is_insomnia_json_decl(r#""_id": "grpc_req_abc123""#));
+        assert!(is_insomnia_json_decl(r#""_id": "ws-req_abc123""#));
+        assert!(!is_insomnia_json_decl(r#""_id": "req_""#));
+        assert!(!is_insomnia_json_decl(r#""_id": "abc123""#));
+        assert!(!is_insomnia_json_decl(
+            r#""_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890""#
+        ));
+        assert!(!is_insomnia_json_decl(r#""_id": true"#));
+        assert!(is_insomnia_json_decl(r#""metaSortKey": -1"#));
+        assert!(is_insomnia_json_decl(r#""metaSortKey": 100,"#));
+        assert!(!is_insomnia_json_decl(r#""metaSortKey": true"#));
+        assert!(!is_insomnia_json_decl(r#""metaSortKey": "1""#));
+        assert!(is_insomnia_json_decl(
+            r#""settingFollowRedirects": "global""#
+        ));
+        assert!(is_insomnia_json_decl(r#""settingFollowRedirects": "on""#));
+        assert!(is_insomnia_json_decl(r#""settingFollowRedirects": "off""#));
+        assert!(!is_insomnia_json_decl(
+            r#""settingFollowRedirects": "always""#
+        ));
+        assert!(!is_insomnia_json_decl(r#""settingFollowRedirects": true"#));
+        assert!(is_insomnia_json_decl(r#""settingStoreCookies": true"#));
+        assert!(is_insomnia_json_decl(r#""settingSendCookies": false,"#));
+        assert!(!is_insomnia_json_decl(r#""settingStoreCookies": 1"#));
+        assert!(!is_insomnia_json_decl(r#""settingEncodeUrl": "true""#));
+        // Incomplete / wrong shapes stay out.
+        assert!(!is_insomnia_json_decl(r#""__export_format""#));
+        assert!(!is_insomnia_json_decl(r#""__export_format":"#));
+        assert!(!is_insomnia_json_decl(r#""_type""#));
+        assert!(!is_insomnia_json_decl(r#""_id""#));
+        // Generic / neighbouring stay out.
+        assert!(!is_insomnia_json_decl(
+            r#""$schema": "https://example.com""#
+        ));
+        assert!(!is_insomnia_json_decl(r#""name": "Petstore""#));
+        assert!(!is_insomnia_json_decl(r#""version": "1.0.0""#));
+        assert!(!is_insomnia_json_decl(
+            r#""url": "https://api.example.com""#
+        ));
+        assert!(!is_insomnia_json_decl(r#""method": "GET""#));
+        assert!(!is_insomnia_json_decl(r#""parentId": "fld_folder1""#));
+        assert!(!is_insomnia_json_decl(r#""resources": ["#));
+        assert!(!is_insomnia_json_decl(
+            r#""_postman_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890""#
+        ));
+        assert!(is_postman_json_decl(
+            r#""_postman_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890""#
+        ));
+        assert!(!is_insomnia_json_decl(r#""protocolProfileBehavior": {"#));
+        assert!(is_postman_json_decl(r#""protocolProfileBehavior": {"#));
+        assert!(!is_insomnia_json_decl(r#""disableSearch": true"#));
+        assert!(is_redoc_json_decl(r#""disableSearch": true"#));
+        assert!(!is_insomnia_json_decl(r#""specUrl": "./openapi.yaml""#));
+        assert!(is_rapidoc_json_decl(r#""specUrl": "./openapi.yaml""#));
+        assert!(!is_insomnia_json_decl(r##""dom_id": "#swagger-ui""##));
+        assert!(is_swagger_ui_json_decl(r##""dom_id": "#swagger-ui""##));
+        assert!(!is_insomnia_json_decl(r#""layout": "BaseLayout""#));
+        assert!(is_swagger_ui_json_decl(r#""layout": "BaseLayout""#));
+        assert!(!is_insomnia_json_decl(r#""layout": "modern""#));
+        assert!(is_scalar_json_decl(r#""layout": "modern""#));
+        assert!(!is_insomnia_json_decl(r#""layout": "sidebar""#));
+        assert!(is_stoplight_elements_json_decl(r#""layout": "sidebar""#));
+        assert!(!is_insomnia_json_decl(r#""apiDescriptionUrl": "./o.yaml""#));
+        assert!(is_stoplight_elements_json_decl(
+            r#""apiDescriptionUrl": "./o.yaml""#
+        ));
+        assert!(!is_insomnia_json_decl(
+            r#""proxyUrl": "https://proxy.scalar.com""#
+        ));
+        assert!(is_scalar_json_decl(
+            r#""proxyUrl": "https://proxy.scalar.com""#
+        ));
+        assert!(!is_insomnia_json_decl(r#""topbarLinks": ["#));
+        assert!(is_mintlify_json_decl(r#""topbarLinks": ["#));
+        assert!(!is_insomnia_json_decl(r#""apis": {"#));
+        assert!(is_redocly_json_decl(r#""apis": {"#));
+        assert!(!is_insomnia_json_decl(r#""licenseKey": "public_key""#));
+        assert!(is_redocly_json_decl(r#""licenseKey": "public_key""#));
+        assert!(!is_insomnia_json_decl(r#""functionsDir": "./functions""#));
+        assert!(is_spectral_json_decl(r#""functionsDir": "./functions""#));
+        assert!(!is_insomnia_json_decl(r#""generator-cli": {"#));
+        assert!(is_openapitools_json_decl(r#""generator-cli": {"#));
+        assert!(!is_insomnia_json_decl(r#""metadata": ["#));
+        assert!(is_docfx_json_decl(r#""metadata": ["#));
+        assert!(!is_insomnia_json_decl(r#""entryPoints": ["#));
+        assert!(is_typedoc_json_decl(r#""entryPoints": ["#));
+        assert!(!is_insomnia_json_decl(
+            r#""mainEntryPointFilePath": "<projectFolder>/lib/index.d.ts""#
+        ));
+        assert!(is_api_extractor_json_decl(
+            r#""mainEntryPointFilePath": "<projectFolder>/lib/index.d.ts""#
+        ));
+        assert!(!is_insomnia_json_decl(r#""printWidth": 80"#));
+        assert!(is_prettier_json_decl(r#""printWidth": 80"#));
+        assert!(!is_insomnia_json_decl(r#""bin": {"#));
+        assert!(is_package_json_decl(r#""bin": {"#));
+        assert!(!is_insomnia_json_decl(r#""basePath": ".""#));
+        assert!(is_karma_json_decl(r#""basePath": ".""#));
+        // line_is_func_like wires the scanner.
+        assert!(line_is_func_like(r#""__export_format": 4"#));
+        assert!(line_is_func_like(
+            r#""__export_source": "insomnia.desktop.app:v2024.1.0""#
+        ));
+        assert!(line_is_func_like(r#""_type": "request_group""#));
+        assert!(line_is_func_like(
+            r#""_id": "req_a1b2c3d4e5f67890abcdef12""#
+        ));
+        assert!(line_is_func_like(r#""metaSortKey": -100"#));
+        assert!(line_is_func_like(r#""settingFollowRedirects": "global""#));
+        assert!(line_is_func_like(r#""settingStoreCookies": true"#));
     }
 
     #[test]
