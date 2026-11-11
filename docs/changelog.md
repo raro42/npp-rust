@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.775] — 2026-11-11
+
+View:
+
+- **Function List** lists Swagger UI `swagger-config.json` / `swagger-config.yaml` JSON-shaped keys: `"configUrl": "…"`, `"dom_id": "#swagger-ui"`, `"urls": [`, `"spec": {`, `"syntaxHighlight": {` / `true`, `"supportedSubmitMethods": [`, `"layout": "BaseLayout"` / `"StandaloneLayout"`, `"defaultModelRendering": "example"` / `"model"`, `"docExpansion": "list"` / `"full"` / `"none"`, `"operationsSorter": "alpha"` / `"method"`, `"tagsSorter": "alpha"`, `"validatorUrl": "…"` / `"none"` / `"null"` / `"localhost"` / `"127.0.0.1"`, `"oauth2RedirectUrl": "…"`, `"filter": "pet"` / `true`, bools `"deepLinking"` / `"displayOperationId"` / `"displayRequestDuration"` / `"showExtensions"` / `"showCommonExtensions"` / `"tryItOutEnabled"` / `"withCredentials"` / `"persistAuthorization"` / `"queryConfigEnabled"` / `"requestSnippetsEnabled"`, numbers `"defaultModelsExpandDepth": -1` / `"defaultModelExpandDepth": 1` / `"maxDisplayedTags": 10`. Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing `:` stay out. Generic `"$schema"` / `"name"` / `"version"` / `"url"` / `"plugins": [` / `"presets": [` / karma `"basePath"` / scalar `"proxyUrl"` / `"layout": "modern"` / Elements `"layout": "sidebar"` / mintlify `"topbarLinks"` / Compodoc `"theme": "material"` / redocly `"apis"` / spectral `"functionsDir"` / openapitools `"generator-cli"` / docfx `"metadata": [` / typedoc `"entryPoints"` / api-extractor `"mainEntryPointFilePath"` / prettier `"printWidth"` / package.json `"bin"` stay out. Swagger `"layout": "BaseLayout"` / `"StandaloneLayout"` stays here; Scalar `"layout": "modern"` / `"classic"` and Elements `"layout": "sidebar"` / `"stacked"` / `"responsive"` stay on their scanners.
+
 ## [0.3.774] — 2026-11-11
 
 View:

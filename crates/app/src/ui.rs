@@ -32442,6 +32442,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_mintlify_json_decl(s)
             || is_scalar_json_decl(s)
             || is_stoplight_elements_json_decl(s)
+            || is_swagger_ui_json_decl(s)
             || is_gomod_decl(s)
             || is_gemfile_decl(s)
             || is_brewfile_decl(s)
@@ -32794,6 +32795,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_mintlify_json_decl(s)
         || is_scalar_json_decl(s)
         || is_stoplight_elements_json_decl(s)
+        || is_swagger_ui_json_decl(s)
         || is_gomod_decl(s)
         || is_gemfile_decl(s)
         || is_brewfile_decl(s)
@@ -57196,6 +57198,243 @@ fn stoplight_elements_json_document_ok(value: &str) -> bool {
                     | b'$'
             )
     })
+}
+
+/// Swagger UI `swagger-config.json` / `swagger-config.yaml` JSON-shaped keys:
+/// `"configUrl": "…"`, `"dom_id": "#swagger-ui"`, `"urls": [`, `"spec": {`,
+/// `"syntaxHighlight": {` / `true`, `"supportedSubmitMethods": [`,
+/// `"layout": "BaseLayout"` / `"StandaloneLayout"`,
+/// `"defaultModelRendering": "example"` / `"model"`,
+/// `"docExpansion": "list"` / `"full"` / `"none"`,
+/// `"operationsSorter": "alpha"` / `"method"`, `"tagsSorter": "alpha"`,
+/// `"validatorUrl": "…"`, `"oauth2RedirectUrl": "…"`, `"filter": "pet"` /
+/// `true`, bools `"deepLinking"` / `"displayOperationId"` /
+/// `"displayRequestDuration"` / `"showExtensions"` /
+/// `"showCommonExtensions"` / `"tryItOutEnabled"` / `"withCredentials"` /
+/// `"persistAuthorization"` / `"queryConfigEnabled"` /
+/// `"requestSnippetsEnabled"`, numbers `"defaultModelsExpandDepth": -1` /
+/// `"defaultModelExpandDepth": 1` / `"maxDisplayedTags": 10`. Optional
+/// trailing `,` and `//` / `/*` comment. Incomplete quotes / missing `:`
+/// stay out. Generic `"$schema"` / `"name"` / `"version"` / `"url"` /
+/// `"plugins": [` / `"presets": [` / karma `"basePath"` / scalar
+/// `"proxyUrl"` / `"layout": "modern"` / Elements `"layout": "sidebar"` /
+/// mintlify `"topbarLinks"` / Compodoc `"theme": "material"` / redocly
+/// `"apis"` / spectral `"functionsDir"` / openapitools `"generator-cli"` /
+/// docfx `"metadata": [` / typedoc `"entryPoints"` / api-extractor
+/// `"mainEntryPointFilePath"` / prettier `"printWidth"` / package.json
+/// `"bin"` stay out. Shared `"filter": true` / string filter forms are
+/// Swagger-UI-shaped only when the key is exact `"filter"`.
+fn is_swagger_ui_json_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    let Some(rest) = s.strip_prefix('"') else {
+        return false;
+    };
+    let Some(end) = rest.find('"') else {
+        return false;
+    };
+    let key = &rest[..end];
+    if !swagger_ui_json_key_ok(key) {
+        return false;
+    }
+    let after_key = rest[end + 1..].trim_start();
+    let Some(after_colon) = after_key.strip_prefix(':') else {
+        return false;
+    };
+    let after_colon = after_colon.trim_start();
+    swagger_ui_json_value_and_tail_ok(key, after_colon)
+}
+
+fn swagger_ui_json_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "configUrl"
+            | "dom_id"
+            | "urls"
+            | "spec"
+            | "syntaxHighlight"
+            | "supportedSubmitMethods"
+            | "layout"
+            | "defaultModelRendering"
+            | "docExpansion"
+            | "operationsSorter"
+            | "tagsSorter"
+            | "validatorUrl"
+            | "oauth2RedirectUrl"
+            | "filter"
+            | "deepLinking"
+            | "displayOperationId"
+            | "displayRequestDuration"
+            | "showExtensions"
+            | "showCommonExtensions"
+            | "tryItOutEnabled"
+            | "withCredentials"
+            | "persistAuthorization"
+            | "queryConfigEnabled"
+            | "requestSnippetsEnabled"
+            | "defaultModelsExpandDepth"
+            | "defaultModelExpandDepth"
+            | "maxDisplayedTags"
+    )
+}
+
+fn swagger_ui_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool {
+    let bytes = after_colon.as_bytes();
+    let Some(first) = bytes.first().copied() else {
+        return false;
+    };
+    match first {
+        b'{' => {
+            if !matches!(key, "spec" | "syntaxHighlight") {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[1..])
+        }
+        b'[' => {
+            if !matches!(key, "urls" | "supportedSubmitMethods") {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[1..])
+        }
+        b'"' => {
+            if !swagger_ui_json_string_key_ok(key) {
+                return false;
+            }
+            let rest = &after_colon[1..];
+            let Some(end) = rest.find('"') else {
+                return false;
+            };
+            let value = &rest[..end];
+            if !swagger_ui_json_string_ok(key, value) {
+                return false;
+            }
+            package_json_tail_ok(&rest[end + 1..])
+        }
+        b't' | b'f' => {
+            let rest = if let Some(rest) = after_colon.strip_prefix("true") {
+                rest
+            } else if let Some(rest) = after_colon.strip_prefix("false") {
+                rest
+            } else {
+                return false;
+            };
+            if !swagger_ui_json_bool_key_ok(key) {
+                return false;
+            }
+            package_json_tail_ok(rest)
+        }
+        b'-' | b'0'..=b'9' => swagger_ui_json_number_and_tail_ok(key, after_colon),
+        _ => false,
+    }
+}
+
+fn swagger_ui_json_string_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "configUrl"
+            | "dom_id"
+            | "layout"
+            | "defaultModelRendering"
+            | "docExpansion"
+            | "operationsSorter"
+            | "tagsSorter"
+            | "validatorUrl"
+            | "oauth2RedirectUrl"
+            | "filter"
+    )
+}
+
+fn swagger_ui_json_bool_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "deepLinking"
+            | "displayOperationId"
+            | "displayRequestDuration"
+            | "showExtensions"
+            | "showCommonExtensions"
+            | "tryItOutEnabled"
+            | "withCredentials"
+            | "persistAuthorization"
+            | "queryConfigEnabled"
+            | "requestSnippetsEnabled"
+            | "filter"
+            | "syntaxHighlight"
+    )
+}
+
+fn swagger_ui_json_string_ok(key: &str, value: &str) -> bool {
+    if value.contains('\n') {
+        return false;
+    }
+    match key {
+        "layout" => matches!(value, "BaseLayout" | "StandaloneLayout"),
+        "defaultModelRendering" => matches!(value, "example" | "model"),
+        "docExpansion" => matches!(value, "list" | "full" | "none"),
+        "operationsSorter" => matches!(value, "alpha" | "method"),
+        "tagsSorter" => value == "alpha",
+        "dom_id" => swagger_ui_json_dom_id_ok(value),
+        "validatorUrl" => swagger_ui_json_validator_url_ok(value),
+        "configUrl" | "oauth2RedirectUrl" => mintlify_json_path_ok(value),
+        "filter" => swagger_ui_json_filter_string_ok(value),
+        _ => false,
+    }
+}
+
+fn swagger_ui_json_dom_id_ok(value: &str) -> bool {
+    let Some(rest) = value.strip_prefix('#') else {
+        return false;
+    };
+    if rest.is_empty() || rest.len() > 128 {
+        return false;
+    }
+    let bytes = rest.as_bytes();
+    if !(bytes[0].is_ascii_alphabetic() || bytes[0] == b'_') {
+        return false;
+    }
+    bytes[1..]
+        .iter()
+        .all(|b| b.is_ascii_alphanumeric() || matches!(*b, b'-' | b'_'))
+}
+
+fn swagger_ui_json_validator_url_ok(value: &str) -> bool {
+    matches!(value, "none" | "null" | "localhost" | "127.0.0.1") || mintlify_json_path_ok(value)
+}
+
+fn swagger_ui_json_filter_string_ok(value: &str) -> bool {
+    if value.is_empty() || value.len() > 128 {
+        return false;
+    }
+    value.bytes().all(|b| {
+        b.is_ascii_alphanumeric()
+            || matches!(b, b' ' | b'.' | b'-' | b'_' | b'/' | b'*' | b'?' | b'+')
+    })
+}
+
+fn swagger_ui_json_number_and_tail_ok(key: &str, after_colon: &str) -> bool {
+    let allow_neg = matches!(key, "defaultModelsExpandDepth" | "defaultModelExpandDepth");
+    if !(allow_neg || key == "maxDisplayedTags") {
+        return false;
+    }
+
+    let (signed, rest) = if let Some(rest) = after_colon.strip_prefix('-') {
+        if !allow_neg {
+            return false;
+        }
+        (true, rest)
+    } else {
+        (false, after_colon)
+    };
+    let digits = rest.bytes().take_while(|b| b.is_ascii_digit()).count();
+    if digits == 0 || digits > 2 {
+        return false;
+    }
+    if digits == 2 && rest.as_bytes()[0] == b'0' {
+        return false;
+    }
+    // Swagger uses -1 to hide models; keep negatives to a single digit.
+    if signed && digits != 1 {
+        return false;
+    }
+    package_json_tail_ok(&rest[digits..])
 }
 
 /// go.mod / go.work directives: `module example.com/foo`, `go 1.22`,
@@ -87863,19 +88102,19 @@ mod func_like_line_tests {
         is_sqlfluff_ini_decl, is_ssh_config_decl, is_sssd_conf_decl,
         is_stoplight_elements_json_decl, is_stryker_json_decl, is_stylelint_json_decl,
         is_subuid_subgid_decl, is_sudoers_decl, is_supabase_toml_decl, is_supervisord_conf_decl,
-        is_swc_json_decl, is_syncpack_json_decl, is_sysctl_conf_decl, is_syslog_ng_decl,
-        is_systemd_networkd_decl, is_systemd_unit_decl, is_sysusers_d_decl, is_tap_json_decl,
-        is_taplo_toml_decl, is_tauri_json_decl, is_telegraf_toml_decl, is_testcafe_json_decl,
-        is_tmpfiles_d_decl, is_towncrier_ini_decl, is_tox_ini_decl, is_trunk_toml_decl,
-        is_tsconfig_json_decl, is_turbo_json_decl, is_ty_toml_decl, is_typedoc_json_decl,
-        is_typos_toml_decl, is_udev_rule_decl, is_unbound_nsd_conf_decl, is_uniffi_toml_decl,
-        is_unimport_ini_decl, is_uv_toml_decl, is_vconsole_conf_decl, is_vector_toml_decl,
-        is_vercel_json_decl, is_versioneer_ini_decl, is_versionrc_json_decl, is_vitest_json_decl,
-        is_vscode_launch_json_decl, is_vscode_tasks_json_decl, is_vulture_ini_decl,
-        is_wails_json_decl, is_wdio_json_decl, is_webextension_manifest_json_decl,
-        is_wireguard_config_decl, is_wrangler_toml_decl, is_xmake_decl, is_xorg_conf_decl,
-        is_yapf_ini_decl, is_yarnrc_yml_decl, is_yum_repo_decl, is_zest_releaser_ini_decl,
-        line_is_func_like,
+        is_swagger_ui_json_decl, is_swc_json_decl, is_syncpack_json_decl, is_sysctl_conf_decl,
+        is_syslog_ng_decl, is_systemd_networkd_decl, is_systemd_unit_decl, is_sysusers_d_decl,
+        is_tap_json_decl, is_taplo_toml_decl, is_tauri_json_decl, is_telegraf_toml_decl,
+        is_testcafe_json_decl, is_tmpfiles_d_decl, is_towncrier_ini_decl, is_tox_ini_decl,
+        is_trunk_toml_decl, is_tsconfig_json_decl, is_turbo_json_decl, is_ty_toml_decl,
+        is_typedoc_json_decl, is_typos_toml_decl, is_udev_rule_decl, is_unbound_nsd_conf_decl,
+        is_uniffi_toml_decl, is_unimport_ini_decl, is_uv_toml_decl, is_vconsole_conf_decl,
+        is_vector_toml_decl, is_vercel_json_decl, is_versioneer_ini_decl, is_versionrc_json_decl,
+        is_vitest_json_decl, is_vscode_launch_json_decl, is_vscode_tasks_json_decl,
+        is_vulture_ini_decl, is_wails_json_decl, is_wdio_json_decl,
+        is_webextension_manifest_json_decl, is_wireguard_config_decl, is_wrangler_toml_decl,
+        is_xmake_decl, is_xorg_conf_decl, is_yapf_ini_decl, is_yarnrc_yml_decl, is_yum_repo_decl,
+        is_zest_releaser_ini_decl, line_is_func_like,
     };
 
     #[test]
@@ -113229,6 +113468,280 @@ mod func_like_line_tests {
         assert!(line_is_func_like(r#""logo": "./logo.svg""#));
         assert!(line_is_func_like(
             r#""tryItCorsProxy": "https://proxy.example.com""#
+        ));
+    }
+
+    #[test]
+    fn swagger_ui_json_keys_smoke() {
+        assert!(is_swagger_ui_json_decl(
+            r#""configUrl": "./swagger-config.json""#
+        ));
+        assert!(is_swagger_ui_json_decl(r##""dom_id": "#swagger-ui""##));
+        assert!(is_swagger_ui_json_decl(r#""urls": ["#));
+        assert!(is_swagger_ui_json_decl(r#""spec": {"#));
+        assert!(is_swagger_ui_json_decl(r#""syntaxHighlight": {"#));
+        assert!(is_swagger_ui_json_decl(r#""syntaxHighlight": true"#));
+        assert!(is_swagger_ui_json_decl(r#""supportedSubmitMethods": ["#));
+        assert!(is_swagger_ui_json_decl(r#""layout": "BaseLayout""#));
+        assert!(is_swagger_ui_json_decl(r#""layout": "StandaloneLayout""#));
+        assert!(is_swagger_ui_json_decl(
+            r#""defaultModelRendering": "example""#
+        ));
+        assert!(is_swagger_ui_json_decl(
+            r#""defaultModelRendering": "model""#
+        ));
+        assert!(is_swagger_ui_json_decl(r#""docExpansion": "list""#));
+        assert!(is_swagger_ui_json_decl(r#""docExpansion": "full""#));
+        assert!(is_swagger_ui_json_decl(r#""docExpansion": "none""#));
+        assert!(is_swagger_ui_json_decl(r#""operationsSorter": "alpha""#));
+        assert!(is_swagger_ui_json_decl(r#""operationsSorter": "method""#));
+        assert!(is_swagger_ui_json_decl(r#""tagsSorter": "alpha""#));
+        assert!(is_swagger_ui_json_decl(
+            r#""validatorUrl": "https://validator.swagger.io/validator""#
+        ));
+        assert!(is_swagger_ui_json_decl(r#""validatorUrl": "none""#));
+        assert!(is_swagger_ui_json_decl(
+            r#""oauth2RedirectUrl": "./oauth2-redirect.html""#
+        ));
+        assert!(is_swagger_ui_json_decl(r#""filter": "pet""#));
+        assert!(is_swagger_ui_json_decl(r#""filter": true"#));
+        assert!(is_swagger_ui_json_decl(r#""deepLinking": true"#));
+        assert!(is_swagger_ui_json_decl(r#""displayOperationId": false"#));
+        assert!(is_swagger_ui_json_decl(r#""displayRequestDuration": true"#));
+        assert!(is_swagger_ui_json_decl(r#""showExtensions": true"#));
+        assert!(is_swagger_ui_json_decl(r#""showCommonExtensions": true"#));
+        assert!(is_swagger_ui_json_decl(r#""tryItOutEnabled": true"#));
+        assert!(is_swagger_ui_json_decl(r#""withCredentials": false"#));
+        assert!(is_swagger_ui_json_decl(r#""persistAuthorization": true"#));
+        assert!(is_swagger_ui_json_decl(r#""queryConfigEnabled": true"#));
+        assert!(is_swagger_ui_json_decl(r#""requestSnippetsEnabled": true"#));
+        assert!(is_swagger_ui_json_decl(r#""defaultModelsExpandDepth": -1"#));
+        assert!(is_swagger_ui_json_decl(r#""defaultModelExpandDepth": 1"#));
+        assert!(is_swagger_ui_json_decl(r#""maxDisplayedTags": 10"#));
+        // Distinctive neighbours stay out of this scanner.
+        assert!(!is_swagger_ui_json_decl(
+            r#""proxyUrl": "https://proxy.scalar.com""#
+        ));
+        assert!(is_scalar_json_decl(
+            r#""proxyUrl": "https://proxy.scalar.com""#
+        ));
+        assert!(!is_swagger_ui_json_decl(r#""layout": "modern""#));
+        assert!(is_scalar_json_decl(r#""layout": "modern""#));
+        assert!(!is_swagger_ui_json_decl(r#""layout": "sidebar""#));
+        assert!(is_stoplight_elements_json_decl(r#""layout": "sidebar""#));
+        assert!(!is_swagger_ui_json_decl(r#""topbarLinks": ["#));
+        assert!(is_mintlify_json_decl(r#""topbarLinks": ["#));
+        assert!(!is_swagger_ui_json_decl(r#""apis": {"#));
+        assert!(is_redocly_json_decl(r#""apis": {"#));
+        assert!(!is_swagger_ui_json_decl(r#""functionsDir": "./functions""#));
+        assert!(is_spectral_json_decl(r#""functionsDir": "./functions""#));
+        assert!(!is_swagger_ui_json_decl(r#""basePath": ".""#));
+        assert!(is_karma_json_decl(r#""basePath": ".""#));
+        assert!(!is_swagger_ui_json_decl(r#""printWidth": 80"#));
+        assert!(is_prettier_json_decl(r#""printWidth": 80"#));
+    }
+
+    #[test]
+    fn swagger_ui_json_keys_count() {
+        assert!(is_swagger_ui_json_decl(
+            r#""configUrl": "https://example.com/swagger-config.json""#
+        ));
+        assert!(is_swagger_ui_json_decl(
+            r#""configUrl": "./swagger-config.json","#
+        ));
+        assert!(is_swagger_ui_json_decl(
+            r#""configUrl": "./swagger-config.json" // cfg"#
+        ));
+        assert!(!is_swagger_ui_json_decl(r#""configUrl": {"#));
+        assert!(!is_swagger_ui_json_decl(r#""configUrl": true"#));
+        assert!(is_swagger_ui_json_decl(r##""dom_id": "#swagger-ui""##));
+        assert!(is_swagger_ui_json_decl(r##""dom_id": "#swagger-ui","##));
+        assert!(is_swagger_ui_json_decl(
+            r##""dom_id": "#swagger-ui" // mount"##
+        ));
+        assert!(!is_swagger_ui_json_decl(r#""dom_id": "swagger-ui""#));
+        assert!(!is_swagger_ui_json_decl(r#""dom_id": {"#));
+        assert!(!is_swagger_ui_json_decl(r#""dom_id": true"#));
+        assert!(is_swagger_ui_json_decl(r#""urls": ["#));
+        assert!(is_swagger_ui_json_decl(r#""urls": [ // multi"#));
+        assert!(!is_swagger_ui_json_decl(r#""urls": {"#));
+        assert!(!is_swagger_ui_json_decl(r#""urls": true"#));
+        assert!(is_swagger_ui_json_decl(r#""spec": {"#));
+        assert!(is_swagger_ui_json_decl(r#""spec": { // inline"#));
+        assert!(!is_swagger_ui_json_decl(r#""spec": ["#));
+        assert!(!is_swagger_ui_json_decl(r#""spec": true"#));
+        assert!(is_swagger_ui_json_decl(r#""syntaxHighlight": {"#));
+        assert!(is_swagger_ui_json_decl(r#""syntaxHighlight": true"#));
+        assert!(is_swagger_ui_json_decl(r#""syntaxHighlight": false,"#));
+        assert!(!is_swagger_ui_json_decl(r#""syntaxHighlight": ["#));
+        assert!(!is_swagger_ui_json_decl(r#""syntaxHighlight": "agate""#));
+        assert!(is_swagger_ui_json_decl(r#""supportedSubmitMethods": ["#));
+        assert!(!is_swagger_ui_json_decl(r#""supportedSubmitMethods": {"#));
+        assert!(is_swagger_ui_json_decl(r#""layout": "BaseLayout""#));
+        assert!(is_swagger_ui_json_decl(r#""layout": "StandaloneLayout","#));
+        assert!(is_swagger_ui_json_decl(
+            r#""layout": "BaseLayout" // layout"#
+        ));
+        assert!(!is_swagger_ui_json_decl(r#""layout": "modern""#));
+        assert!(is_scalar_json_decl(r#""layout": "modern""#));
+        assert!(!is_swagger_ui_json_decl(r#""layout": "sidebar""#));
+        assert!(is_stoplight_elements_json_decl(r#""layout": "sidebar""#));
+        assert!(!is_swagger_ui_json_decl(r#""layout": {"#));
+        assert!(!is_swagger_ui_json_decl(r#""layout": true"#));
+        assert!(is_swagger_ui_json_decl(
+            r#""defaultModelRendering": "example""#
+        ));
+        assert!(is_swagger_ui_json_decl(
+            r#""defaultModelRendering": "model""#
+        ));
+        assert!(!is_swagger_ui_json_decl(
+            r#""defaultModelRendering": "schema""#
+        ));
+        assert!(is_swagger_ui_json_decl(r#""docExpansion": "list""#));
+        assert!(is_swagger_ui_json_decl(r#""docExpansion": "full""#));
+        assert!(is_swagger_ui_json_decl(r#""docExpansion": "none""#));
+        assert!(!is_swagger_ui_json_decl(r#""docExpansion": "tags""#));
+        assert!(is_swagger_ui_json_decl(r#""operationsSorter": "alpha""#));
+        assert!(is_swagger_ui_json_decl(r#""operationsSorter": "method""#));
+        assert!(!is_swagger_ui_json_decl(r#""operationsSorter": "path""#));
+        assert!(is_swagger_ui_json_decl(r#""tagsSorter": "alpha""#));
+        assert!(!is_swagger_ui_json_decl(r#""tagsSorter": "method""#));
+        assert!(is_swagger_ui_json_decl(
+            r#""validatorUrl": "https://validator.swagger.io/validator""#
+        ));
+        assert!(is_swagger_ui_json_decl(r#""validatorUrl": "none""#));
+        assert!(is_swagger_ui_json_decl(r#""validatorUrl": "null""#));
+        assert!(is_swagger_ui_json_decl(r#""validatorUrl": "localhost""#));
+        assert!(is_swagger_ui_json_decl(r#""validatorUrl": "127.0.0.1""#));
+        assert!(!is_swagger_ui_json_decl(r#""validatorUrl": true"#));
+        assert!(is_swagger_ui_json_decl(
+            r#""oauth2RedirectUrl": "/oauth2-redirect.html""#
+        ));
+        assert!(!is_swagger_ui_json_decl(r#""oauth2RedirectUrl": {"#));
+        assert!(is_swagger_ui_json_decl(r#""filter": "pet""#));
+        assert!(is_swagger_ui_json_decl(r##""filter": "pet*""##));
+        assert!(is_swagger_ui_json_decl(r#""filter": true"#));
+        assert!(is_swagger_ui_json_decl(r#""filter": false,"#));
+        assert!(!is_swagger_ui_json_decl(r#""filter": {"#));
+        assert!(!is_swagger_ui_json_decl(r#""filter": ["#));
+        assert!(is_swagger_ui_json_decl(r#""deepLinking": true"#));
+        assert!(is_swagger_ui_json_decl(r#""deepLinking": false,"#));
+        assert!(is_swagger_ui_json_decl(r#""deepLinking": true // deep"#));
+        assert!(!is_swagger_ui_json_decl(r#""deepLinking": "true""#));
+        assert!(!is_swagger_ui_json_decl(r#""deepLinking": {"#));
+        assert!(is_swagger_ui_json_decl(r#""displayOperationId": true"#));
+        assert!(is_swagger_ui_json_decl(
+            r#""displayRequestDuration": false"#
+        ));
+        assert!(is_swagger_ui_json_decl(r#""showExtensions": true"#));
+        assert!(is_swagger_ui_json_decl(r#""showCommonExtensions": false"#));
+        assert!(is_swagger_ui_json_decl(r#""tryItOutEnabled": true"#));
+        assert!(is_swagger_ui_json_decl(r#""withCredentials": true"#));
+        assert!(is_swagger_ui_json_decl(r#""persistAuthorization": false"#));
+        assert!(is_swagger_ui_json_decl(r#""queryConfigEnabled": true"#));
+        assert!(is_swagger_ui_json_decl(
+            r#""requestSnippetsEnabled": false"#
+        ));
+        assert!(is_swagger_ui_json_decl(r#""defaultModelsExpandDepth": -1"#));
+        assert!(is_swagger_ui_json_decl(r#""defaultModelsExpandDepth": 1"#));
+        assert!(is_swagger_ui_json_decl(
+            r#""defaultModelsExpandDepth": 12,"#
+        ));
+        assert!(is_swagger_ui_json_decl(
+            r#""defaultModelsExpandDepth": 0 // hide"#
+        ));
+        assert!(!is_swagger_ui_json_decl(
+            r#""defaultModelsExpandDepth": 012"#
+        ));
+        assert!(!is_swagger_ui_json_decl(
+            r#""defaultModelsExpandDepth": -12"#
+        ));
+        assert!(!is_swagger_ui_json_decl(
+            r#""defaultModelsExpandDepth": "1""#
+        ));
+        assert!(!is_swagger_ui_json_decl(
+            r#""defaultModelsExpandDepth": true"#
+        ));
+        assert!(is_swagger_ui_json_decl(r#""defaultModelExpandDepth": 2"#));
+        assert!(is_swagger_ui_json_decl(r#""defaultModelExpandDepth": -1"#));
+        assert!(is_swagger_ui_json_decl(r#""maxDisplayedTags": 0"#));
+        assert!(is_swagger_ui_json_decl(r#""maxDisplayedTags": 10"#));
+        assert!(!is_swagger_ui_json_decl(r#""maxDisplayedTags": -1"#));
+        assert!(!is_swagger_ui_json_decl(r#""maxDisplayedTags": "10""#));
+        // Incomplete / wrong shapes stay out.
+        assert!(!is_swagger_ui_json_decl(r#""dom_id""#));
+        assert!(!is_swagger_ui_json_decl(r#""dom_id":"#));
+        assert!(!is_swagger_ui_json_decl(r#""deepLinking""#));
+        assert!(!is_swagger_ui_json_decl(r#""layout""#));
+        // Generic / neighbouring stay out.
+        assert!(!is_swagger_ui_json_decl(
+            r#""$schema": "https://example.com/swagger-config.schema.json""#
+        ));
+        assert!(!is_swagger_ui_json_decl(r#""name": "Petstore""#));
+        assert!(!is_swagger_ui_json_decl(r#""version": "1.0.0""#));
+        assert!(!is_swagger_ui_json_decl(
+            r#""url": "https://petstore.swagger.io/v2/swagger.json""#
+        ));
+        assert!(!is_swagger_ui_json_decl(r#""plugins": ["#));
+        assert!(!is_swagger_ui_json_decl(r#""presets": ["#));
+        assert!(!is_swagger_ui_json_decl(
+            r#""proxyUrl": "https://proxy.scalar.com""#
+        ));
+        assert!(is_scalar_json_decl(
+            r#""proxyUrl": "https://proxy.scalar.com""#
+        ));
+        assert!(!is_swagger_ui_json_decl(r#""layout": "modern""#));
+        assert!(is_scalar_json_decl(r#""layout": "modern""#));
+        assert!(!is_swagger_ui_json_decl(r#""layout": "sidebar""#));
+        assert!(is_stoplight_elements_json_decl(r#""layout": "sidebar""#));
+        assert!(!is_swagger_ui_json_decl(
+            r#""apiDescriptionUrl": "./o.yaml""#
+        ));
+        assert!(is_stoplight_elements_json_decl(
+            r#""apiDescriptionUrl": "./o.yaml""#
+        ));
+        assert!(!is_swagger_ui_json_decl(r#""topbarLinks": ["#));
+        assert!(is_mintlify_json_decl(r#""topbarLinks": ["#));
+        assert!(!is_swagger_ui_json_decl(r#""theme": "mint""#));
+        assert!(is_mintlify_json_decl(r#""theme": "mint""#));
+        assert!(!is_swagger_ui_json_decl(r#""theme": "material""#));
+        assert!(is_compodoc_json_decl(r#""theme": "material""#));
+        assert!(!is_swagger_ui_json_decl(r#""apis": {"#));
+        assert!(is_redocly_json_decl(r#""apis": {"#));
+        assert!(!is_swagger_ui_json_decl(r#""licenseKey": "public_key""#));
+        assert!(is_redocly_json_decl(r#""licenseKey": "public_key""#));
+        assert!(!is_swagger_ui_json_decl(r#""functionsDir": "./functions""#));
+        assert!(is_spectral_json_decl(r#""functionsDir": "./functions""#));
+        assert!(!is_swagger_ui_json_decl(r#""generator-cli": {"#));
+        assert!(is_openapitools_json_decl(r#""generator-cli": {"#));
+        assert!(!is_swagger_ui_json_decl(r#""metadata": ["#));
+        assert!(is_docfx_json_decl(r#""metadata": ["#));
+        assert!(!is_swagger_ui_json_decl(r#""entryPoints": ["#));
+        assert!(is_typedoc_json_decl(r#""entryPoints": ["#));
+        assert!(!is_swagger_ui_json_decl(
+            r#""mainEntryPointFilePath": "<projectFolder>/lib/index.d.ts""#
+        ));
+        assert!(is_api_extractor_json_decl(
+            r#""mainEntryPointFilePath": "<projectFolder>/lib/index.d.ts""#
+        ));
+        assert!(!is_swagger_ui_json_decl(r#""printWidth": 80"#));
+        assert!(is_prettier_json_decl(r#""printWidth": 80"#));
+        assert!(!is_swagger_ui_json_decl(r#""bin": {"#));
+        assert!(is_package_json_decl(r#""bin": {"#));
+        assert!(!is_swagger_ui_json_decl(r#""basePath": ".""#));
+        assert!(is_karma_json_decl(r#""basePath": ".""#));
+        // line_is_func_like wires the scanner.
+        assert!(line_is_func_like(r##""dom_id": "#swagger-ui""##));
+        assert!(line_is_func_like(r#""urls": ["#));
+        assert!(line_is_func_like(r#""layout": "BaseLayout""#));
+        assert!(line_is_func_like(r#""docExpansion": "list""#));
+        assert!(line_is_func_like(r#""deepLinking": true"#));
+        assert!(line_is_func_like(r#""defaultModelsExpandDepth": -1"#));
+        assert!(line_is_func_like(r#""validatorUrl": "none""#));
+        assert!(line_is_func_like(r#""filter": "pet""#));
+        assert!(line_is_func_like(r#""supportedSubmitMethods": ["#));
+        assert!(line_is_func_like(
+            r#""oauth2RedirectUrl": "./oauth2-redirect.html""#
         ));
     }
 

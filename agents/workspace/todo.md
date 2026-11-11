@@ -1,3 +1,5 @@
+009 keep: Function List Swagger UI swagger-config dom_id/urls/spec/layout BaseLayout|StandaloneLayout/docExpansion/deepLinking/validatorUrl/defaultModelsExpandDepth (v0.3.775)
+
 009 keep: Function List Stoplight Elements apiDescriptionUrl/apiDescriptionDocument/layout sidebar|stacked|responsive/router/hideTryIt/tryItCredentialsPolicy/maxRefDepth (v0.3.774)
 
 009 keep: Function List Scalar scalar.config.json proxyUrl/baseServerURL/searchHotKey/forceDarkModeState/layout/theme/hiddenClients/guides/defaultHttpClient/pathRouting/subdomain/customDomain (v0.3.773)
