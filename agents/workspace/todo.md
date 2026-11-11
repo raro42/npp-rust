@@ -1198,3 +1198,5 @@
 009 keep: Function List ESDoc .esdoc.json/esdoc.json source/destination/includes/excludes/undocumentIdentifier/unexportIdentifier/builtinExternal/includeSource/outputAST/experimentalProposal (v0.3.766)
 
 009 keep: Function List Compodoc .compodocrc.json tsconfig/output/theme/includes(string)/disableLifeCycleHooks/hideDarkModeToggle/exportFormat/port/navTabConfig (v0.3.767)
+
+009 keep: Function List DocFX docfx.json metadata/overwrite/xref/globalMetadata/markdownEngineName/keepFileLink/… (v0.3.768)

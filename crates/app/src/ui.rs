@@ -32435,6 +32435,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_jsdoc_json_decl(s)
             || is_esdoc_json_decl(s)
             || is_compodoc_json_decl(s)
+            || is_docfx_json_decl(s)
             || is_gomod_decl(s)
             || is_gemfile_decl(s)
             || is_brewfile_decl(s)
@@ -32780,6 +32781,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_jsdoc_json_decl(s)
         || is_esdoc_json_decl(s)
         || is_compodoc_json_decl(s)
+        || is_docfx_json_decl(s)
         || is_gomod_decl(s)
         || is_gemfile_decl(s)
         || is_brewfile_decl(s)
@@ -55690,6 +55692,227 @@ fn compodoc_json_string_ok(key: &str, value: &str) -> bool {
 }
 
 fn compodoc_json_path_ok(value: &str) -> bool {
+    if value.is_empty() || value.len() > 512 {
+        return false;
+    }
+    if value.chars().all(|c| c.is_ascii_whitespace()) {
+        return false;
+    }
+    value.bytes().all(|b| {
+        b.is_ascii_alphanumeric()
+            || matches!(
+                b,
+                b'.' | b'-'
+                    | b'_'
+                    | b'/'
+                    | b'\\'
+                    | b':'
+                    | b'?'
+                    | b'='
+                    | b'&'
+                    | b'%'
+                    | b'#'
+                    | b'{'
+                    | b'}'
+                    | b'@'
+                    | b'+'
+                    | b' '
+                    | b'~'
+                    | b'*'
+                    | b'('
+                    | b')'
+                    | b'['
+                    | b']'
+            )
+    })
+}
+
+/// DocFX `docfx.json` JSON keys:
+/// `"metadata": [`, `"overwrite": [`, `"xref": [`, `"xrefService": [`,
+/// `"globalMetadataFiles": [`, `"fileMetadataFiles": [`,
+/// `"postProcessors": [`, `"globalMetadata": {`, `"fileMetadata": {`,
+/// `"markdownEngineProperties": {`, `"sitemap": {`,
+/// `"markdownEngineName": "markdig"` / `"dfm"`,
+/// `"rawModelOutputFolder": "…"`, `"viewModelOutputFolder": "…"`,
+/// bools `"noLangKeyword"` / `"keepFileLink"` / `"cleanupCacheHistory"` /
+/// `"disableGitFeatures"` / `"exportRawModel"` / `"exportViewModel"` /
+/// `"forcePostProcess"`, numbers `"lruSize"` / `"maxParallelism"`.
+/// Optional trailing `,` and `//` / `/*` comment. Incomplete quotes /
+/// missing `:` stay out. Generic `"$schema"` / `"name"` / `"version"` /
+/// `"files"` / `"include": [` / `"exclude": [` / `"build": {` /
+/// `"content": [` / `"resource": [` / `"template": [` / `"dest": "…"` /
+/// `"output": "…"` / playwright `"metadata": {` / compodoc `"output"` /
+/// typedoc `"entryPoints"` / api-extractor `"mainEntryPointFilePath"` /
+/// prettier `"printWidth"` / package.json `"bin"` / karma `"basePath"`
+/// stay out. DocFX `"metadata": [` is array-only so playwright object
+/// `"metadata": {` stays on playwright.
+fn is_docfx_json_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    let Some(rest) = s.strip_prefix('"') else {
+        return false;
+    };
+    let Some(end) = rest.find('"') else {
+        return false;
+    };
+    let key = &rest[..end];
+    if !docfx_json_key_ok(key) {
+        return false;
+    }
+    let after_key = rest[end + 1..].trim_start();
+    let Some(after_colon) = after_key.strip_prefix(':') else {
+        return false;
+    };
+    let after_colon = after_colon.trim_start();
+    docfx_json_value_and_tail_ok(key, after_colon)
+}
+
+fn docfx_json_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "metadata"
+            | "overwrite"
+            | "xref"
+            | "xrefService"
+            | "globalMetadata"
+            | "fileMetadata"
+            | "globalMetadataFiles"
+            | "fileMetadataFiles"
+            | "postProcessors"
+            | "markdownEngineName"
+            | "markdownEngineProperties"
+            | "noLangKeyword"
+            | "keepFileLink"
+            | "cleanupCacheHistory"
+            | "disableGitFeatures"
+            | "exportRawModel"
+            | "exportViewModel"
+            | "rawModelOutputFolder"
+            | "viewModelOutputFolder"
+            | "sitemap"
+            | "lruSize"
+            | "maxParallelism"
+            | "forcePostProcess"
+    )
+}
+
+fn docfx_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool {
+    let bytes = after_colon.as_bytes();
+    let Some(first) = bytes.first().copied() else {
+        return false;
+    };
+    match first {
+        b'{' => {
+            if !docfx_json_object_key_ok(key) {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[1..])
+        }
+        b'[' => {
+            if !docfx_json_array_key_ok(key) {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[1..])
+        }
+        b'"' => {
+            if !docfx_json_string_key_ok(key) {
+                return false;
+            }
+            let rest = &after_colon[1..];
+            let Some(end) = rest.find('"') else {
+                return false;
+            };
+            let value = &rest[..end];
+            if !docfx_json_string_ok(key, value) {
+                return false;
+            }
+            package_json_tail_ok(&rest[end + 1..])
+        }
+        b't' | b'f' => {
+            let rest = if let Some(rest) = after_colon.strip_prefix("true") {
+                rest
+            } else if let Some(rest) = after_colon.strip_prefix("false") {
+                rest
+            } else {
+                return false;
+            };
+            if !docfx_json_bool_key_ok(key) {
+                return false;
+            }
+            package_json_tail_ok(rest)
+        }
+        b'0'..=b'9' => {
+            if !docfx_json_number_key_ok(key) {
+                return false;
+            }
+            let digits = after_colon
+                .bytes()
+                .take_while(|b| b.is_ascii_digit())
+                .count();
+            if digits == 0 || digits > 6 {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[digits..])
+        }
+        _ => false,
+    }
+}
+
+fn docfx_json_object_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "globalMetadata" | "fileMetadata" | "markdownEngineProperties" | "sitemap"
+    )
+}
+
+fn docfx_json_array_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "metadata"
+            | "overwrite"
+            | "xref"
+            | "xrefService"
+            | "globalMetadataFiles"
+            | "fileMetadataFiles"
+            | "postProcessors"
+    )
+}
+
+fn docfx_json_string_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "markdownEngineName" | "rawModelOutputFolder" | "viewModelOutputFolder"
+    )
+}
+
+fn docfx_json_bool_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "noLangKeyword"
+            | "keepFileLink"
+            | "cleanupCacheHistory"
+            | "disableGitFeatures"
+            | "exportRawModel"
+            | "exportViewModel"
+            | "forcePostProcess"
+    )
+}
+
+fn docfx_json_number_key_ok(key: &str) -> bool {
+    matches!(key, "lruSize" | "maxParallelism")
+}
+
+fn docfx_json_string_ok(key: &str, value: &str) -> bool {
+    if value.contains('\n') {
+        return false;
+    }
+    match key {
+        "markdownEngineName" => matches!(value, "markdig" | "dfm"),
+        "rawModelOutputFolder" | "viewModelOutputFolder" => docfx_json_path_ok(value),
+        _ => false,
+    }
+}
+
+fn docfx_json_path_ok(value: &str) -> bool {
     if value.is_empty() || value.len() > 512 {
         return false;
     }
@@ -86350,25 +86573,25 @@ mod func_like_line_tests {
         is_cspell_json_decl, is_cucumber_json_decl, is_cypress_json_decl, is_darglint_ini_decl,
         is_default_grub_decl, is_deno_json_decl, is_deny_toml_decl, is_desktop_entry_decl,
         is_detox_json_decl, is_devcontainer_json_decl, is_dhcpd_decl, is_dioxus_toml_decl,
-        is_dist_toml_decl, is_doc8_ini_decl, is_docformatter_ini_decl, is_dovecot_decl,
-        is_dprint_json_decl, is_dracut_conf_decl, is_eas_json_decl, is_editorconfig_decl,
-        is_electron_builder_json_decl, is_electron_forge_json_decl, is_esdoc_json_decl,
-        is_eslint_json_decl, is_ethers_file_decl, is_expo_json_decl, is_fail2ban_conf_decl,
-        is_firebase_json_decl, is_flake8_ini_decl, is_fluent_bit_decl, is_fly_toml_decl,
-        is_flynt_ini_decl, is_freeradius_decl, is_fstab_decl, is_gdm_conf_decl, is_gemfile_decl,
-        is_gitconfig_decl, is_gomod_decl, is_grafana_ini_decl, is_haproxy_decl, is_hatch_toml_decl,
-        is_hosts_access_decl, is_hosts_file_decl, is_hypothesis_ini_decl, is_importlinter_ini_decl,
-        is_interrogate_ini_decl, is_ionic_json_decl, is_ipsec_conf_decl, is_isort_ini_decl,
-        is_jasmine_json_decl, is_jest_json_decl, is_jsdoc_json_decl, is_karma_json_decl,
-        is_keepalived_decl, is_knip_json_decl, is_krb5_conf_decl, is_lerna_json_decl,
-        is_lightdm_conf_decl, is_limits_conf_decl, is_lint_staged_json_decl, is_locale_conf_decl,
-        is_login_defs_decl, is_logrotate_decl, is_machine_info_decl, is_makepkg_conf_decl,
-        is_mdbook_toml_decl, is_mise_toml_decl, is_mkinitcpio_conf_decl, is_mocha_json_decl,
-        is_modprobe_conf_decl, is_mutants_toml_decl, is_mypy_ini_decl, is_mysql_cnf_decl,
-        is_named_conf_decl, is_nest_cli_json_decl, is_netlify_toml_decl, is_networks_file_decl,
-        is_neutralino_json_decl, is_nextest_toml_decl, is_nftables_decl, is_nginx_conf_decl,
-        is_nightwatch_json_decl, is_nixpacks_toml_decl, is_nm_connection_decl, is_npmrc_decl,
-        is_nsswitch_conf_decl, is_nx_json_decl, is_nyc_json_decl, is_openvpn_decl,
+        is_dist_toml_decl, is_doc8_ini_decl, is_docformatter_ini_decl, is_docfx_json_decl,
+        is_dovecot_decl, is_dprint_json_decl, is_dracut_conf_decl, is_eas_json_decl,
+        is_editorconfig_decl, is_electron_builder_json_decl, is_electron_forge_json_decl,
+        is_esdoc_json_decl, is_eslint_json_decl, is_ethers_file_decl, is_expo_json_decl,
+        is_fail2ban_conf_decl, is_firebase_json_decl, is_flake8_ini_decl, is_fluent_bit_decl,
+        is_fly_toml_decl, is_flynt_ini_decl, is_freeradius_decl, is_fstab_decl, is_gdm_conf_decl,
+        is_gemfile_decl, is_gitconfig_decl, is_gomod_decl, is_grafana_ini_decl, is_haproxy_decl,
+        is_hatch_toml_decl, is_hosts_access_decl, is_hosts_file_decl, is_hypothesis_ini_decl,
+        is_importlinter_ini_decl, is_interrogate_ini_decl, is_ionic_json_decl, is_ipsec_conf_decl,
+        is_isort_ini_decl, is_jasmine_json_decl, is_jest_json_decl, is_jsdoc_json_decl,
+        is_karma_json_decl, is_keepalived_decl, is_knip_json_decl, is_krb5_conf_decl,
+        is_lerna_json_decl, is_lightdm_conf_decl, is_limits_conf_decl, is_lint_staged_json_decl,
+        is_locale_conf_decl, is_login_defs_decl, is_logrotate_decl, is_machine_info_decl,
+        is_makepkg_conf_decl, is_mdbook_toml_decl, is_mise_toml_decl, is_mkinitcpio_conf_decl,
+        is_mocha_json_decl, is_modprobe_conf_decl, is_mutants_toml_decl, is_mypy_ini_decl,
+        is_mysql_cnf_decl, is_named_conf_decl, is_nest_cli_json_decl, is_netlify_toml_decl,
+        is_networks_file_decl, is_neutralino_json_decl, is_nextest_toml_decl, is_nftables_decl,
+        is_nginx_conf_decl, is_nightwatch_json_decl, is_nixpacks_toml_decl, is_nm_connection_decl,
+        is_npmrc_decl, is_nsswitch_conf_decl, is_nx_json_decl, is_nyc_json_decl, is_openvpn_decl,
         is_os_release_decl, is_oxlint_json_decl, is_package_json_decl, is_pacman_conf_decl,
         is_pam_conf_decl, is_parcel_json_decl, is_paru_conf_decl, is_passwd_group_file_decl,
         is_pdm_toml_decl, is_php_ini_decl, is_pip_conf_decl, is_pipfile_decl, is_pixi_toml_decl,
@@ -110532,6 +110755,153 @@ mod func_like_line_tests {
         assert!(line_is_func_like(r#""exportFormat": "json""#));
         assert!(line_is_func_like(r#""port": 8080"#));
         assert!(line_is_func_like(r#""navTabConfig": ["#));
+    }
+
+    #[test]
+    fn docfx_json_keys_smoke() {
+        assert!(is_docfx_json_decl(r#""metadata": ["#));
+        assert!(is_docfx_json_decl(r#""overwrite": ["#));
+        assert!(is_docfx_json_decl(r#""xref": ["#));
+        assert!(is_docfx_json_decl(r#""xrefService": ["#));
+        assert!(is_docfx_json_decl(r#""globalMetadataFiles": ["#));
+        assert!(is_docfx_json_decl(r#""fileMetadataFiles": ["#));
+        assert!(is_docfx_json_decl(r#""postProcessors": ["#));
+        assert!(is_docfx_json_decl(r#""globalMetadata": {"#));
+        assert!(is_docfx_json_decl(r#""fileMetadata": {"#));
+        assert!(is_docfx_json_decl(r#""markdownEngineProperties": {"#));
+        assert!(is_docfx_json_decl(r#""sitemap": {"#));
+        assert!(is_docfx_json_decl(r#""markdownEngineName": "markdig""#));
+        assert!(is_docfx_json_decl(r#""markdownEngineName": "dfm""#));
+        assert!(is_docfx_json_decl(r#""rawModelOutputFolder": "obj/raw""#));
+        assert!(is_docfx_json_decl(r#""viewModelOutputFolder": "obj/view""#));
+        assert!(is_docfx_json_decl(r#""noLangKeyword": true"#));
+        assert!(is_docfx_json_decl(r#""keepFileLink": false"#));
+        assert!(is_docfx_json_decl(r#""cleanupCacheHistory": true"#));
+        assert!(is_docfx_json_decl(r#""disableGitFeatures": false"#));
+        assert!(is_docfx_json_decl(r#""exportRawModel": true"#));
+        assert!(is_docfx_json_decl(r#""exportViewModel": false"#));
+        assert!(is_docfx_json_decl(r#""forcePostProcess": true"#));
+        assert!(is_docfx_json_decl(r#""lruSize": 2048"#));
+        assert!(is_docfx_json_decl(r#""maxParallelism": 4"#));
+        // Distinctive neighbours stay out of this scanner.
+        assert!(!is_docfx_json_decl(r#""metadata": {"#));
+        assert!(is_playwright_json_decl(r#""metadata": {"#));
+        assert!(!is_docfx_json_decl(r#""output": "documentation""#));
+        assert!(is_compodoc_json_decl(r#""output": "documentation""#));
+        assert!(!is_docfx_json_decl(r#""entryPoints": ["#));
+        assert!(is_typedoc_json_decl(r#""entryPoints": ["#));
+        assert!(!is_docfx_json_decl(
+            r#""mainEntryPointFilePath": "<projectFolder>/lib/index.d.ts""#
+        ));
+        assert!(is_api_extractor_json_decl(
+            r#""mainEntryPointFilePath": "<projectFolder>/lib/index.d.ts""#
+        ));
+    }
+
+    #[test]
+    fn docfx_json_keys_count() {
+        assert!(is_docfx_json_decl(r#""metadata": ["#));
+        assert!(is_docfx_json_decl(r#""metadata": [,"#));
+        assert!(is_docfx_json_decl(r#""metadata": [ // api"#));
+        assert!(!is_docfx_json_decl(r#""metadata": {"#));
+        assert!(!is_docfx_json_decl(r#""metadata": true"#));
+        assert!(!is_docfx_json_decl(r#""metadata": "api""#));
+        assert!(is_docfx_json_decl(r#""overwrite": ["#));
+        assert!(!is_docfx_json_decl(r#""overwrite": {"#));
+        assert!(is_docfx_json_decl(r#""xref": ["#));
+        assert!(is_docfx_json_decl(r#""xrefService": ["#));
+        assert!(!is_docfx_json_decl(r#""xrefService": {"#));
+        assert!(is_docfx_json_decl(r#""globalMetadata": {"#));
+        assert!(is_docfx_json_decl(r#""globalMetadata": {,"#));
+        assert!(is_docfx_json_decl(r#""globalMetadata": { // meta"#));
+        assert!(!is_docfx_json_decl(r#""globalMetadata": ["#));
+        assert!(!is_docfx_json_decl(r#""globalMetadata": true"#));
+        assert!(is_docfx_json_decl(r#""fileMetadata": {"#));
+        assert!(is_docfx_json_decl(r#""markdownEngineProperties": {"#));
+        assert!(is_docfx_json_decl(r#""sitemap": {"#));
+        assert!(!is_docfx_json_decl(r#""sitemap": ["#));
+        assert!(is_docfx_json_decl(r#""globalMetadataFiles": ["#));
+        assert!(is_docfx_json_decl(r#""fileMetadataFiles": ["#));
+        assert!(is_docfx_json_decl(r#""postProcessors": ["#));
+        assert!(!is_docfx_json_decl(r#""postProcessors": {"#));
+        assert!(is_docfx_json_decl(r#""markdownEngineName": "markdig""#));
+        assert!(is_docfx_json_decl(r#""markdownEngineName": "dfm","#));
+        assert!(is_docfx_json_decl(
+            r#""markdownEngineName": "markdig" // engine"#
+        ));
+        assert!(!is_docfx_json_decl(r#""markdownEngineName": "pandoc""#));
+        assert!(!is_docfx_json_decl(r#""markdownEngineName": true"#));
+        assert!(!is_docfx_json_decl(r#""markdownEngineName": ["#));
+        assert!(is_docfx_json_decl(r#""rawModelOutputFolder": "obj/raw""#));
+        assert!(is_docfx_json_decl(r#""viewModelOutputFolder": "obj/view""#));
+        assert!(!is_docfx_json_decl(r#""rawModelOutputFolder": true"#));
+        assert!(!is_docfx_json_decl(r#""rawModelOutputFolder": """#));
+        assert!(!is_docfx_json_decl(r#""rawModelOutputFolder": {"#));
+        assert!(is_docfx_json_decl(r#""noLangKeyword": true"#));
+        assert!(is_docfx_json_decl(r#""keepFileLink": false,"#));
+        assert!(is_docfx_json_decl(r#""cleanupCacheHistory": true"#));
+        assert!(is_docfx_json_decl(r#""disableGitFeatures": false"#));
+        assert!(is_docfx_json_decl(r#""exportRawModel": true"#));
+        assert!(is_docfx_json_decl(r#""exportViewModel": false"#));
+        assert!(is_docfx_json_decl(r#""forcePostProcess": true"#));
+        assert!(!is_docfx_json_decl(r#""keepFileLink": "true""#));
+        assert!(!is_docfx_json_decl(r#""keepFileLink": 1"#));
+        assert!(is_docfx_json_decl(r#""lruSize": 2048"#));
+        assert!(is_docfx_json_decl(r#""lruSize": 0"#));
+        assert!(is_docfx_json_decl(r#""maxParallelism": 4,"#));
+        assert!(!is_docfx_json_decl(r#""lruSize": true"#));
+        assert!(!is_docfx_json_decl(r#""lruSize": "2048""#));
+        assert!(!is_docfx_json_decl(r#""maxParallelism": {"#));
+        // Incomplete / wrong shapes stay out.
+        assert!(!is_docfx_json_decl(r#""metadata""#));
+        assert!(!is_docfx_json_decl(r#""metadata":"#));
+        assert!(!is_docfx_json_decl(r#""keepFileLink""#));
+        assert!(!is_docfx_json_decl(r#""markdownEngineName""#));
+        // Generic / neighbouring stay out.
+        assert!(!is_docfx_json_decl(
+            r#""$schema": "https://raw.githubusercontent.com/dotnet/docfx/main/schemas/docfx.schema.json""#
+        ));
+        assert!(!is_docfx_json_decl(r#""name": "My Project""#));
+        assert!(!is_docfx_json_decl(r#""version": "1.0.0""#));
+        assert!(!is_docfx_json_decl(r#""files": ["#));
+        assert!(!is_docfx_json_decl(r#""include": ["#));
+        assert!(!is_docfx_json_decl(r#""exclude": ["#));
+        assert!(!is_docfx_json_decl(r#""build": {"#));
+        assert!(!is_docfx_json_decl(r#""content": ["#));
+        assert!(!is_docfx_json_decl(r#""resource": ["#));
+        assert!(!is_docfx_json_decl(r#""template": ["#));
+        assert!(!is_docfx_json_decl(r#""dest": "_site""#));
+        assert!(!is_docfx_json_decl(r#""output": "_site""#));
+        assert!(is_compodoc_json_decl(r#""output": "documentation""#));
+        assert!(!is_docfx_json_decl(r#""metadata": {"#));
+        assert!(is_playwright_json_decl(r#""metadata": {"#));
+        assert!(!is_docfx_json_decl(r#""entryPoints": ["#));
+        assert!(is_typedoc_json_decl(r#""entryPoints": ["#));
+        assert!(!is_docfx_json_decl(r#""excludePrivate": true"#));
+        assert!(is_typedoc_json_decl(r#""excludePrivate": true"#));
+        assert!(!is_docfx_json_decl(
+            r#""mainEntryPointFilePath": "<projectFolder>/lib/index.d.ts""#
+        ));
+        assert!(is_api_extractor_json_decl(
+            r#""mainEntryPointFilePath": "<projectFolder>/lib/index.d.ts""#
+        ));
+        assert!(!is_docfx_json_decl(r#""apiReport": {"#));
+        assert!(is_api_extractor_json_decl(r#""apiReport": {"#));
+        assert!(!is_docfx_json_decl(r#""printWidth": 80"#));
+        assert!(is_prettier_json_decl(r#""printWidth": 80"#));
+        assert!(!is_docfx_json_decl(r#""bin": {"#));
+        assert!(is_package_json_decl(r#""bin": {"#));
+        assert!(!is_docfx_json_decl(r#""basePath": ".""#));
+        assert!(is_karma_json_decl(r#""basePath": ".""#));
+        // line_is_func_like wires the scanner.
+        assert!(line_is_func_like(r#""metadata": ["#));
+        assert!(line_is_func_like(r#""globalMetadata": {"#));
+        assert!(line_is_func_like(r#""markdownEngineName": "markdig""#));
+        assert!(line_is_func_like(r#""keepFileLink": false"#));
+        assert!(line_is_func_like(r#""disableGitFeatures": true"#));
+        assert!(line_is_func_like(r#""rawModelOutputFolder": "obj/raw""#));
+        assert!(line_is_func_like(r#""lruSize": 2048"#));
+        assert!(line_is_func_like(r#""postProcessors": ["#));
     }
 
     #[test]

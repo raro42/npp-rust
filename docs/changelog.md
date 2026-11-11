@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.768] — 2026-11-11
+
+View:
+
+- **Function List** lists DocFX `docfx.json` JSON keys: `"metadata": [`, `"overwrite": [`, `"xref": [`, `"xrefService": [`, `"globalMetadataFiles": [`, `"fileMetadataFiles": [`, `"postProcessors": [`, `"globalMetadata": {`, `"fileMetadata": {`, `"markdownEngineProperties": {`, `"sitemap": {`, `"markdownEngineName": "markdig"` / `"dfm"`, `"rawModelOutputFolder": "…"`, `"viewModelOutputFolder": "…"`, bools `"noLangKeyword"` / `"keepFileLink"` / `"cleanupCacheHistory"` / `"disableGitFeatures"` / `"exportRawModel"` / `"exportViewModel"` / `"forcePostProcess"`, numbers `"lruSize"` / `"maxParallelism"`. Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing `:` stay out. Generic `"$schema"` / `"name"` / `"version"` / `"files"` / `"include": [` / `"exclude": [` / `"build": {` / `"content": [` / `"resource": [` / `"template": [` / `"dest": "…"` / `"output": "…"` / playwright `"metadata": {` / compodoc `"output"` / typedoc `"entryPoints"` / api-extractor `"mainEntryPointFilePath"` / prettier `"printWidth"` / package.json `"bin"` / karma `"basePath"` stay out. DocFX `"metadata": [` is array-only so playwright object `"metadata": {` stays on playwright.
+
 ## [0.3.767] — 2026-11-11
 
 View:
