@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.769] — 2026-11-11
+
+View:
+
+- **Function List** lists OpenAPI Generator CLI `openapitools.json` JSON keys: `"generator-cli": {`, `"spaces": 2`, `"storageDir": "…"`, `"useDocker": true` / `false`, `"dockerImageName": "…"`, `"generatorName": "typescript-fetch"` / `"java"` / …, `"inputSpec": "…"` / `https://…`, `"glob": "**/openapi.{json,yaml}"`. Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing `:` stay out. Generic `"$schema"` / `"name"` / `"version"` / `"output": "…"` / `"generators": {` / `"disabled": true` / `"additionalProperties": {` / `"config": "…"` / docfx `"metadata": [` / compodoc `"output"` / typedoc `"entryPoints"` / api-extractor `"mainEntryPointFilePath"` / nx `"pluginsConfig"` / prettier `"printWidth"` / package.json `"bin"` / karma `"basePath"` stay out.
+
 ## [0.3.768] — 2026-11-11
 
 View:

@@ -32436,6 +32436,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_esdoc_json_decl(s)
             || is_compodoc_json_decl(s)
             || is_docfx_json_decl(s)
+            || is_openapitools_json_decl(s)
             || is_gomod_decl(s)
             || is_gemfile_decl(s)
             || is_brewfile_decl(s)
@@ -32782,6 +32783,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_esdoc_json_decl(s)
         || is_compodoc_json_decl(s)
         || is_docfx_json_decl(s)
+        || is_openapitools_json_decl(s)
         || is_gomod_decl(s)
         || is_gemfile_decl(s)
         || is_brewfile_decl(s)
@@ -55946,6 +55948,195 @@ fn docfx_json_path_ok(value: &str) -> bool {
                     | b']'
             )
     })
+}
+
+/// OpenAPI Generator CLI `openapitools.json` JSON keys:
+/// `"generator-cli": {`, `"spaces": 2`, `"storageDir": "…"`,
+/// `"useDocker": true` / `false`, `"dockerImageName": "…"`,
+/// `"generatorName": "typescript-fetch"` / `"java"` / …,
+/// `"inputSpec": "…"` / `https://…`, `"glob": "**/openapi.{json,yaml}"`.
+/// Optional trailing `,` and `//` / `/*` comment. Incomplete quotes /
+/// missing `:` stay out. Generic `"$schema"` / `"name"` / `"version"` /
+/// `"output": "…"` / `"generators": {` / `"disabled": true` /
+/// `"additionalProperties": {` / `"config": "…"` / docfx `"metadata": [` /
+/// compodoc `"output"` / typedoc `"entryPoints"` /
+/// api-extractor `"mainEntryPointFilePath"` / nx `"pluginsConfig"` /
+/// prettier `"printWidth"` / package.json `"bin"` / karma `"basePath"`
+/// stay out. Nested generator keys are listed when they appear on their
+/// own line inside `"generator-cli"` / `"generators"`.
+fn is_openapitools_json_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    let Some(rest) = s.strip_prefix('"') else {
+        return false;
+    };
+    let Some(end) = rest.find('"') else {
+        return false;
+    };
+    let key = &rest[..end];
+    if !openapitools_json_key_ok(key) {
+        return false;
+    }
+    let after_key = rest[end + 1..].trim_start();
+    let Some(after_colon) = after_key.strip_prefix(':') else {
+        return false;
+    };
+    let after_colon = after_colon.trim_start();
+    openapitools_json_value_and_tail_ok(key, after_colon)
+}
+
+fn openapitools_json_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "generator-cli"
+            | "spaces"
+            | "storageDir"
+            | "useDocker"
+            | "dockerImageName"
+            | "generatorName"
+            | "inputSpec"
+            | "glob"
+    )
+}
+
+fn openapitools_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool {
+    let bytes = after_colon.as_bytes();
+    let Some(first) = bytes.first().copied() else {
+        return false;
+    };
+    match first {
+        b'{' => {
+            if key != "generator-cli" {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[1..])
+        }
+        b'"' => {
+            if !openapitools_json_string_key_ok(key) {
+                return false;
+            }
+            let rest = &after_colon[1..];
+            let Some(end) = rest.find('"') else {
+                return false;
+            };
+            let value = &rest[..end];
+            if !openapitools_json_string_ok(key, value) {
+                return false;
+            }
+            package_json_tail_ok(&rest[end + 1..])
+        }
+        b't' | b'f' => {
+            let rest = if let Some(rest) = after_colon.strip_prefix("true") {
+                rest
+            } else if let Some(rest) = after_colon.strip_prefix("false") {
+                rest
+            } else {
+                return false;
+            };
+            if key != "useDocker" {
+                return false;
+            }
+            package_json_tail_ok(rest)
+        }
+        b'0'..=b'9' => {
+            if key != "spaces" {
+                return false;
+            }
+            let digits = after_colon
+                .bytes()
+                .take_while(|b| b.is_ascii_digit())
+                .count();
+            if digits == 0 || digits > 2 {
+                return false;
+            }
+            if digits == 1 && after_colon.as_bytes()[0] == b'0' {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[digits..])
+        }
+        _ => false,
+    }
+}
+
+fn openapitools_json_string_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "storageDir" | "dockerImageName" | "generatorName" | "inputSpec" | "glob"
+    )
+}
+
+fn openapitools_json_string_ok(key: &str, value: &str) -> bool {
+    if value.contains('\n') {
+        return false;
+    }
+    match key {
+        "storageDir" | "inputSpec" | "glob" => openapitools_json_path_ok(value),
+        "dockerImageName" => openapitools_json_image_ok(value),
+        "generatorName" => openapitools_json_generator_name_ok(value),
+        _ => false,
+    }
+}
+
+fn openapitools_json_path_ok(value: &str) -> bool {
+    if value.is_empty() || value.len() > 512 {
+        return false;
+    }
+    if value.chars().all(|c| c.is_ascii_whitespace()) {
+        return false;
+    }
+    // Include `,` so globs like `**/petstore.{json,yaml}` work.
+    value.bytes().all(|b| {
+        b.is_ascii_alphanumeric()
+            || matches!(
+                b,
+                b'.' | b'-'
+                    | b'_'
+                    | b'/'
+                    | b'\\'
+                    | b':'
+                    | b'?'
+                    | b'='
+                    | b'&'
+                    | b'%'
+                    | b'#'
+                    | b'{'
+                    | b'}'
+                    | b'@'
+                    | b'+'
+                    | b' '
+                    | b'~'
+                    | b'*'
+                    | b'('
+                    | b')'
+                    | b'['
+                    | b']'
+                    | b','
+            )
+    })
+}
+
+fn openapitools_json_image_ok(value: &str) -> bool {
+    if value.is_empty() || value.len() > 256 {
+        return false;
+    }
+    if value.chars().all(|c| c.is_ascii_whitespace()) {
+        return false;
+    }
+    value
+        .bytes()
+        .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'.' | b'-' | b'_' | b'/' | b':' | b'@'))
+}
+
+fn openapitools_json_generator_name_ok(value: &str) -> bool {
+    if value.is_empty() || value.len() > 128 {
+        return false;
+    }
+    let bytes = value.as_bytes();
+    if !bytes[0].is_ascii_alphanumeric() {
+        return false;
+    }
+    value
+        .bytes()
+        .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'-' | b'_'))
 }
 
 /// go.mod / go.work directives: `module example.com/foo`, `go 1.22`,
@@ -86591,14 +86782,15 @@ mod func_like_line_tests {
         is_mysql_cnf_decl, is_named_conf_decl, is_nest_cli_json_decl, is_netlify_toml_decl,
         is_networks_file_decl, is_neutralino_json_decl, is_nextest_toml_decl, is_nftables_decl,
         is_nginx_conf_decl, is_nightwatch_json_decl, is_nixpacks_toml_decl, is_nm_connection_decl,
-        is_npmrc_decl, is_nsswitch_conf_decl, is_nx_json_decl, is_nyc_json_decl, is_openvpn_decl,
-        is_os_release_decl, is_oxlint_json_decl, is_package_json_decl, is_pacman_conf_decl,
-        is_pam_conf_decl, is_parcel_json_decl, is_paru_conf_decl, is_passwd_group_file_decl,
-        is_pdm_toml_decl, is_php_ini_decl, is_pip_conf_decl, is_pipfile_decl, is_pixi_toml_decl,
-        is_playwright_json_decl, is_podfile_decl, is_poetry_toml_decl, is_postcss_json_decl,
-        is_premake_decl, is_prettier_json_decl, is_protocols_file_decl, is_pycln_ini_decl,
-        is_pycodestyle_ini_decl, is_pydoclint_ini_decl, is_pydocstyle_ini_decl, is_pylama_ini_decl,
-        is_pylint_ini_decl, is_pypirc_ini_decl, is_pyproject_toml_decl, is_pyre_configuration_decl,
+        is_npmrc_decl, is_nsswitch_conf_decl, is_nx_json_decl, is_nyc_json_decl,
+        is_openapitools_json_decl, is_openvpn_decl, is_os_release_decl, is_oxlint_json_decl,
+        is_package_json_decl, is_pacman_conf_decl, is_pam_conf_decl, is_parcel_json_decl,
+        is_paru_conf_decl, is_passwd_group_file_decl, is_pdm_toml_decl, is_php_ini_decl,
+        is_pip_conf_decl, is_pipfile_decl, is_pixi_toml_decl, is_playwright_json_decl,
+        is_podfile_decl, is_poetry_toml_decl, is_postcss_json_decl, is_premake_decl,
+        is_prettier_json_decl, is_protocols_file_decl, is_pycln_ini_decl, is_pycodestyle_ini_decl,
+        is_pydoclint_ini_decl, is_pydocstyle_ini_decl, is_pylama_ini_decl, is_pylint_ini_decl,
+        is_pypirc_ini_decl, is_pyproject_toml_decl, is_pyre_configuration_decl,
         is_pyright_toml_decl, is_pyrightconfig_json_decl, is_pytest_ini_decl, is_pytype_ini_decl,
         is_pyupgrade_ini_decl, is_radon_ini_decl, is_railway_toml_decl, is_rake_decl,
         is_refurb_toml_decl, is_release_it_json_decl, is_release_please_json_decl,
@@ -110902,6 +111094,148 @@ mod func_like_line_tests {
         assert!(line_is_func_like(r#""rawModelOutputFolder": "obj/raw""#));
         assert!(line_is_func_like(r#""lruSize": 2048"#));
         assert!(line_is_func_like(r#""postProcessors": ["#));
+    }
+
+    #[test]
+    fn openapitools_json_keys_smoke() {
+        assert!(is_openapitools_json_decl(r#""generator-cli": {"#));
+        assert!(is_openapitools_json_decl(r#""spaces": 2"#));
+        assert!(is_openapitools_json_decl(
+            r#""storageDir": "./.openapitools""#
+        ));
+        assert!(is_openapitools_json_decl(r#""useDocker": true"#));
+        assert!(is_openapitools_json_decl(r#""useDocker": false"#));
+        assert!(is_openapitools_json_decl(
+            r#""dockerImageName": "openapitools/openapi-generator-cli""#
+        ));
+        assert!(is_openapitools_json_decl(
+            r#""generatorName": "typescript-fetch""#
+        ));
+        assert!(is_openapitools_json_decl(r#""generatorName": "java""#));
+        assert!(is_openapitools_json_decl(
+            r#""inputSpec": "https://petstore.swagger.io/v2/swagger.json""#
+        ));
+        assert!(is_openapitools_json_decl(r#""inputSpec": "openapi.yaml""#));
+        assert!(is_openapitools_json_decl(
+            r#""glob": "**/v3.0/petstore.{json,yaml}""#
+        ));
+        // Distinctive neighbours stay out of this scanner.
+        assert!(!is_openapitools_json_decl(r#""output": "documentation""#));
+        assert!(is_compodoc_json_decl(r#""output": "documentation""#));
+        assert!(!is_openapitools_json_decl(r#""generators": {"#));
+        assert!(is_nx_json_decl(r#""generators": {"#));
+        assert!(!is_openapitools_json_decl(r#""metadata": ["#));
+        assert!(is_docfx_json_decl(r#""metadata": ["#));
+        assert!(!is_openapitools_json_decl(r#""entryPoints": ["#));
+        assert!(is_typedoc_json_decl(r#""entryPoints": ["#));
+        assert!(!is_openapitools_json_decl(
+            r#""mainEntryPointFilePath": "<projectFolder>/lib/index.d.ts""#
+        ));
+        assert!(is_api_extractor_json_decl(
+            r#""mainEntryPointFilePath": "<projectFolder>/lib/index.d.ts""#
+        ));
+        assert!(!is_openapitools_json_decl(r#""pluginsConfig": {"#));
+        assert!(is_nx_json_decl(r#""pluginsConfig": {"#));
+    }
+
+    #[test]
+    fn openapitools_json_keys_count() {
+        assert!(is_openapitools_json_decl(r#""generator-cli": {"#));
+        assert!(is_openapitools_json_decl(r#""generator-cli": {,"#));
+        assert!(is_openapitools_json_decl(r#""generator-cli": { // cli"#));
+        assert!(!is_openapitools_json_decl(r#""generator-cli": ["#));
+        assert!(!is_openapitools_json_decl(r#""generator-cli": true"#));
+        assert!(!is_openapitools_json_decl(r#""generator-cli": "7.8.0""#));
+        assert!(is_openapitools_json_decl(r#""spaces": 2"#));
+        assert!(is_openapitools_json_decl(r#""spaces": 4,"#));
+        assert!(is_openapitools_json_decl(r#""spaces": 2 // indent"#));
+        assert!(!is_openapitools_json_decl(r#""spaces": 0"#));
+        assert!(!is_openapitools_json_decl(r#""spaces": true"#));
+        assert!(!is_openapitools_json_decl(r#""spaces": "2""#));
+        assert!(!is_openapitools_json_decl(r#""spaces": {"#));
+        assert!(is_openapitools_json_decl(
+            r#""storageDir": "~/openapi-jars""#
+        ));
+        assert!(is_openapitools_json_decl(r#""storageDir": "./versions""#));
+        assert!(!is_openapitools_json_decl(r#""storageDir": true"#));
+        assert!(!is_openapitools_json_decl(r#""storageDir": """#));
+        assert!(!is_openapitools_json_decl(r#""storageDir": {"#));
+        assert!(is_openapitools_json_decl(r#""useDocker": true"#));
+        assert!(is_openapitools_json_decl(r#""useDocker": false,"#));
+        assert!(!is_openapitools_json_decl(r#""useDocker": "true""#));
+        assert!(!is_openapitools_json_decl(r#""useDocker": 1"#));
+        assert!(is_openapitools_json_decl(
+            r#""dockerImageName": "openapitools/openapi-generator-cli:latest""#
+        ));
+        assert!(!is_openapitools_json_decl(r#""dockerImageName": true"#));
+        assert!(!is_openapitools_json_decl(r#""dockerImageName": """#));
+        assert!(is_openapitools_json_decl(
+            r#""generatorName": "typescript-axios""#
+        ));
+        assert!(is_openapitools_json_decl(r#""generatorName": "python""#));
+        assert!(!is_openapitools_json_decl(r#""generatorName": ""#));
+        assert!(!is_openapitools_json_decl(r#""generatorName": "-java""#));
+        assert!(!is_openapitools_json_decl(r#""generatorName": true"#));
+        assert!(is_openapitools_json_decl(
+            r#""inputSpec": "specs/openapi.yaml""#
+        ));
+        assert!(is_openapitools_json_decl(
+            r#""inputSpec": "https://example.com/openapi.json""#
+        ));
+        assert!(!is_openapitools_json_decl(r#""inputSpec": true"#));
+        assert!(!is_openapitools_json_decl(r#""inputSpec": {"#));
+        assert!(is_openapitools_json_decl(r#""glob": "**/openapi.yaml""#));
+        assert!(is_openapitools_json_decl(
+            r#""glob": "examples/v2.0/{json,yaml}/*.{json,yaml}""#
+        ));
+        assert!(!is_openapitools_json_decl(r#""glob": true"#));
+        assert!(!is_openapitools_json_decl(r#""glob": ["#));
+        // Incomplete / wrong shapes stay out.
+        assert!(!is_openapitools_json_decl(r#""generator-cli""#));
+        assert!(!is_openapitools_json_decl(r#""generator-cli":"#));
+        assert!(!is_openapitools_json_decl(r#""useDocker""#));
+        assert!(!is_openapitools_json_decl(r#""generatorName""#));
+        // Generic / neighbouring stay out.
+        assert!(!is_openapitools_json_decl(
+            r#""$schema": "node_modules/@openapitools/openapi-generator-cli/config.schema.json""#
+        ));
+        assert!(!is_openapitools_json_decl(r#""name": "My Project""#));
+        assert!(!is_openapitools_json_decl(r#""version": "7.8.0""#));
+        assert!(!is_openapitools_json_decl(r#""output": "./generated""#));
+        assert!(is_compodoc_json_decl(r#""output": "documentation""#));
+        assert!(!is_openapitools_json_decl(r#""generators": {"#));
+        assert!(is_nx_json_decl(r#""generators": {"#));
+        assert!(!is_openapitools_json_decl(r#""disabled": true"#));
+        assert!(!is_openapitools_json_decl(r#""additionalProperties": {"#));
+        assert!(!is_openapitools_json_decl(r#""config": "./config.json""#));
+        assert!(!is_openapitools_json_decl(r#""metadata": ["#));
+        assert!(is_docfx_json_decl(r#""metadata": ["#));
+        assert!(!is_openapitools_json_decl(r#""entryPoints": ["#));
+        assert!(is_typedoc_json_decl(r#""entryPoints": ["#));
+        assert!(!is_openapitools_json_decl(
+            r#""mainEntryPointFilePath": "<projectFolder>/lib/index.d.ts""#
+        ));
+        assert!(is_api_extractor_json_decl(
+            r#""mainEntryPointFilePath": "<projectFolder>/lib/index.d.ts""#
+        ));
+        assert!(!is_openapitools_json_decl(r#""apiReport": {"#));
+        assert!(is_api_extractor_json_decl(r#""apiReport": {"#));
+        assert!(!is_openapitools_json_decl(r#""printWidth": 80"#));
+        assert!(is_prettier_json_decl(r#""printWidth": 80"#));
+        assert!(!is_openapitools_json_decl(r#""bin": {"#));
+        assert!(is_package_json_decl(r#""bin": {"#));
+        assert!(!is_openapitools_json_decl(r#""basePath": ".""#));
+        assert!(is_karma_json_decl(r#""basePath": ".""#));
+        assert!(!is_openapitools_json_decl(r#""pluginsConfig": {"#));
+        assert!(is_nx_json_decl(r#""pluginsConfig": {"#));
+        // line_is_func_like wires the scanner.
+        assert!(line_is_func_like(r#""generator-cli": {"#));
+        assert!(line_is_func_like(r#""spaces": 2"#));
+        assert!(line_is_func_like(r#""storageDir": "./.openapitools""#));
+        assert!(line_is_func_like(r#""useDocker": true"#));
+        assert!(line_is_func_like(r#""generatorName": "typescript-fetch""#));
+        assert!(line_is_func_like(r#""inputSpec": "openapi.yaml""#));
+        assert!(line_is_func_like(r#""glob": "**/openapi.yaml""#));
     }
 
     #[test]
