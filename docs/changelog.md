@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.787] — 2026-11-11
+
+View:
+
+- **Function List** lists Hoverfly simulation JSON keys: `"hoverflyVersion": "v…"`, `"schemaVersion": "v5"` / `"v5.2"`, `"timeExported": "…"`, `"globalActions": {`, `"delaysLogNormal": [`, `"encodedBody": true` / `false`, `"fixedDelay": 0` / `2000`, `"logNormalDelay": {`, `"postServeAction": ""` / `"…"`, `"removesState": [`, `"transitionsState": {`, `"requiresState": {`, `"templated": true` / `false`, `"bodyFile": ""` / `"…"`. Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing `:` stay out. Generic `"$schema"` / `"data": {` / `"meta": {` / `"pairs": [` / `"request": {` / `"response": {` / `"status"` / `"body"` / `"headers": {` / `"matcher"` / `"value"` / `"delays": [` / `"literals": [` / `"variables": [` / Mountebank `"imposters"` / `"predicates"` / `"deepEquals"` / WireMock `"scenarioName"` / `"requiredScenarioState"` / `"fault"` / `"postServeActions"` / `"bodyFileName"` / `"fixedDelayMilliseconds"` / Mockoon `"lastMigration"` / `"endpointPrefix"` / `"bodyType"` / Hoppscotch `"preRequestScript"` / `"authType"` / Yaak `"yaakVersion"` / Bruno `"brunoConfig"` / Thunder Client `"client"` / `"collectionName"` / Postman `"_postman_id"` / Insomnia `"__export_format"` / `"_type"` / ReDoc `"disableSearch"` / RapiDoc `"specUrl"` / swagger `"dom_id"` / scalar `"layout": "modern"` / Elements `"layout": "sidebar"` / mintlify `"topbarLinks"` / Compodoc `"theme": "material"` / redocly `"apis"` / spectral `"functionsDir"` / openapitools `"generator-cli"` / docfx `"metadata": [` / typedoc `"entryPoints"` / api-extractor `"mainEntryPointFilePath"` / prettier `"printWidth"` / package.json `"bin"` / karma `"basePath"` stay out. `"schemaVersion"` only matches Hoverfly `vN` / `vN.M` / `vN.M.P` forms.
+
 ## [0.3.786] — 2026-11-11
 
 View:

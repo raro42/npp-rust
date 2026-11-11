@@ -32454,6 +32454,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_mockoon_json_decl(s)
             || is_wiremock_json_decl(s)
             || is_mountebank_json_decl(s)
+            || is_hoverfly_json_decl(s)
             || is_gomod_decl(s)
             || is_gemfile_decl(s)
             || is_brewfile_decl(s)
@@ -32818,6 +32819,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_mockoon_json_decl(s)
         || is_wiremock_json_decl(s)
         || is_mountebank_json_decl(s)
+        || is_hoverfly_json_decl(s)
         || is_gomod_decl(s)
         || is_gemfile_decl(s)
         || is_brewfile_decl(s)
@@ -59458,6 +59460,180 @@ fn mountebank_json_script_ok(value: &str) -> bool {
 
 fn mountebank_json_number_of_requests_and_tail_ok(key: &str, after_colon: &str) -> bool {
     if key != "numberOfRequests" {
+        return false;
+    }
+    let digits = after_colon
+        .bytes()
+        .take_while(|b| b.is_ascii_digit())
+        .count();
+    if digits == 0 || digits > 8 {
+        return false;
+    }
+    if digits > 1 && after_colon.as_bytes()[0] == b'0' {
+        return false;
+    }
+    package_json_tail_ok(&after_colon[digits..])
+}
+
+/// Hoverfly simulation JSON keys: `"hoverflyVersion": "v…"`,
+/// `"schemaVersion": "v5"` / `"v5.2"`, `"timeExported": "…"`,
+/// `"globalActions": {`, `"delaysLogNormal": [`, `"encodedBody": true` /
+/// `false`, `"fixedDelay": 0` / `2000`, `"logNormalDelay": {`,
+/// `"postServeAction": ""` / `"…"`, `"removesState": [`,
+/// `"transitionsState": {`, `"requiresState": {`, `"templated": true` /
+/// `false`, `"bodyFile": ""` / `"…"`. Optional trailing `,` and `//` /
+/// `/*` comment. Incomplete quotes / missing `:` stay out. Generic
+/// `"$schema"` / `"data": {` / `"meta": {` / `"pairs": [` / `"request": {` /
+/// `"response": {` / `"status"` / `"body"` / `"headers": {` / `"matcher"` /
+/// `"value"` / `"delays": [` / `"literals": [` / `"variables": [` /
+/// Mountebank `"imposters"` / `"predicates"` / `"deepEquals"` / WireMock
+/// `"scenarioName"` / `"requiredScenarioState"` / `"fault"` /
+/// `"postServeActions"` / `"bodyFileName"` / `"fixedDelayMilliseconds"` /
+/// Mockoon `"lastMigration"` / `"endpointPrefix"` / `"bodyType"` /
+/// Hoppscotch `"preRequestScript"` / `"authType"` / Yaak `"yaakVersion"` /
+/// Bruno `"brunoConfig"` / Thunder Client `"client"` / `"collectionName"` /
+/// Postman `"_postman_id"` / Insomnia `"__export_format"` / `"_type"` /
+/// ReDoc `"disableSearch"` / RapiDoc `"specUrl"` / swagger `"dom_id"` /
+/// scalar `"layout": "modern"` / Elements `"layout": "sidebar"` /
+/// mintlify `"topbarLinks"` / Compodoc `"theme": "material"` / redocly
+/// `"apis"` / spectral `"functionsDir"` / openapitools
+/// `"generator-cli"` / docfx `"metadata": [` / typedoc `"entryPoints"` /
+/// api-extractor `"mainEntryPointFilePath"` / prettier `"printWidth"` /
+/// package.json `"bin"` / karma `"basePath"` stay out. `"schemaVersion"`
+/// only matches Hoverfly `vN` / `vN.M` / `vN.M.P` forms.
+fn is_hoverfly_json_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    let Some(rest) = s.strip_prefix('"') else {
+        return false;
+    };
+    let Some(end) = rest.find('"') else {
+        return false;
+    };
+    let key = &rest[..end];
+    if !hoverfly_json_key_ok(key) {
+        return false;
+    }
+    let after_key = rest[end + 1..].trim_start();
+    let Some(after_colon) = after_key.strip_prefix(':') else {
+        return false;
+    };
+    let after_colon = after_colon.trim_start();
+    hoverfly_json_value_and_tail_ok(key, after_colon)
+}
+
+fn hoverfly_json_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "hoverflyVersion"
+            | "schemaVersion"
+            | "timeExported"
+            | "globalActions"
+            | "delaysLogNormal"
+            | "encodedBody"
+            | "fixedDelay"
+            | "logNormalDelay"
+            | "postServeAction"
+            | "removesState"
+            | "transitionsState"
+            | "requiresState"
+            | "templated"
+            | "bodyFile"
+    )
+}
+
+fn hoverfly_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool {
+    let bytes = after_colon.as_bytes();
+    let Some(first) = bytes.first().copied() else {
+        return false;
+    };
+    match first {
+        b'[' => {
+            if !matches!(key, "delaysLogNormal" | "removesState") {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[1..])
+        }
+        b'{' => {
+            if !matches!(
+                key,
+                "globalActions" | "logNormalDelay" | "transitionsState" | "requiresState"
+            ) {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[1..])
+        }
+        b'"' => {
+            if !matches!(
+                key,
+                "hoverflyVersion"
+                    | "schemaVersion"
+                    | "timeExported"
+                    | "postServeAction"
+                    | "bodyFile"
+            ) {
+                return false;
+            }
+            let rest = &after_colon[1..];
+            let Some(end) = rest.find('"') else {
+                return false;
+            };
+            let value = &rest[..end];
+            if !hoverfly_json_string_ok(key, value) {
+                return false;
+            }
+            package_json_tail_ok(&rest[end + 1..])
+        }
+        b't' | b'f' => {
+            if !matches!(key, "encodedBody" | "templated") {
+                return false;
+            }
+            let rest = if let Some(rest) = after_colon.strip_prefix("true") {
+                rest
+            } else if let Some(rest) = after_colon.strip_prefix("false") {
+                rest
+            } else {
+                return false;
+            };
+            package_json_tail_ok(rest)
+        }
+        b'0'..=b'9' => hoverfly_json_fixed_delay_and_tail_ok(key, after_colon),
+        _ => false,
+    }
+}
+
+fn hoverfly_json_string_ok(key: &str, value: &str) -> bool {
+    match key {
+        "hoverflyVersion" | "timeExported" | "postServeAction" | "bodyFile" => {
+            hoverfly_json_free_string_ok(value)
+        }
+        "schemaVersion" => hoverfly_json_schema_version_ok(value),
+        _ => false,
+    }
+}
+
+fn hoverfly_json_free_string_ok(value: &str) -> bool {
+    !value.contains('\n') && value.len() <= 8192
+}
+
+fn hoverfly_json_schema_version_ok(value: &str) -> bool {
+    let Some(rest) = value.strip_prefix('v') else {
+        return false;
+    };
+    if rest.is_empty() {
+        return false;
+    }
+    let mut n = 0;
+    for part in rest.split('.') {
+        n += 1;
+        if n > 3 || part.is_empty() || part.len() > 2 || !part.bytes().all(|b| b.is_ascii_digit()) {
+            return false;
+        }
+    }
+    n >= 1
+}
+
+fn hoverfly_json_fixed_delay_and_tail_ok(key: &str, after_colon: &str) -> bool {
+    if key != "fixedDelay" {
         return false;
     }
     let digits = after_colon
@@ -90106,16 +90282,16 @@ mod func_like_line_tests {
         is_fly_toml_decl, is_flynt_ini_decl, is_freeradius_decl, is_fstab_decl, is_gdm_conf_decl,
         is_gemfile_decl, is_gitconfig_decl, is_gomod_decl, is_grafana_ini_decl, is_haproxy_decl,
         is_hatch_toml_decl, is_hoppscotch_json_decl, is_hosts_access_decl, is_hosts_file_decl,
-        is_hypothesis_ini_decl, is_importlinter_ini_decl, is_insomnia_json_decl,
-        is_interrogate_ini_decl, is_ionic_json_decl, is_ipsec_conf_decl, is_isort_ini_decl,
-        is_jasmine_json_decl, is_jest_json_decl, is_jsdoc_json_decl, is_karma_json_decl,
-        is_keepalived_decl, is_knip_json_decl, is_krb5_conf_decl, is_lerna_json_decl,
-        is_lightdm_conf_decl, is_limits_conf_decl, is_lint_staged_json_decl, is_locale_conf_decl,
-        is_login_defs_decl, is_logrotate_decl, is_machine_info_decl, is_makepkg_conf_decl,
-        is_mdbook_toml_decl, is_mintlify_json_decl, is_mise_toml_decl, is_mkinitcpio_conf_decl,
-        is_mocha_json_decl, is_mockoon_json_decl, is_modprobe_conf_decl, is_mountebank_json_decl,
-        is_mutants_toml_decl, is_mypy_ini_decl, is_mysql_cnf_decl, is_named_conf_decl,
-        is_nest_cli_json_decl, is_netlify_toml_decl, is_networks_file_decl,
+        is_hoverfly_json_decl, is_hypothesis_ini_decl, is_importlinter_ini_decl,
+        is_insomnia_json_decl, is_interrogate_ini_decl, is_ionic_json_decl, is_ipsec_conf_decl,
+        is_isort_ini_decl, is_jasmine_json_decl, is_jest_json_decl, is_jsdoc_json_decl,
+        is_karma_json_decl, is_keepalived_decl, is_knip_json_decl, is_krb5_conf_decl,
+        is_lerna_json_decl, is_lightdm_conf_decl, is_limits_conf_decl, is_lint_staged_json_decl,
+        is_locale_conf_decl, is_login_defs_decl, is_logrotate_decl, is_machine_info_decl,
+        is_makepkg_conf_decl, is_mdbook_toml_decl, is_mintlify_json_decl, is_mise_toml_decl,
+        is_mkinitcpio_conf_decl, is_mocha_json_decl, is_mockoon_json_decl, is_modprobe_conf_decl,
+        is_mountebank_json_decl, is_mutants_toml_decl, is_mypy_ini_decl, is_mysql_cnf_decl,
+        is_named_conf_decl, is_nest_cli_json_decl, is_netlify_toml_decl, is_networks_file_decl,
         is_neutralino_json_decl, is_nextest_toml_decl, is_nftables_decl, is_nginx_conf_decl,
         is_nightwatch_json_decl, is_nixpacks_toml_decl, is_nm_connection_decl, is_npmrc_decl,
         is_nsswitch_conf_decl, is_nx_json_decl, is_nyc_json_decl, is_openapitools_json_decl,
@@ -118082,6 +118258,287 @@ mod func_like_line_tests {
         assert!(line_is_func_like(r#""shellTransform": "sed""#));
         assert!(line_is_func_like(r#""behaviors": ["#));
         assert!(line_is_func_like(r#""concatenateArrays": true"#));
+    }
+
+    #[test]
+    fn hoverfly_json_keys_smoke() {
+        assert!(is_hoverfly_json_decl(r#""hoverflyVersion": "v1.2.0""#));
+        assert!(is_hoverfly_json_decl(r#""schemaVersion": "v5""#));
+        assert!(is_hoverfly_json_decl(r#""schemaVersion": "v5.2""#));
+        assert!(is_hoverfly_json_decl(
+            r#""timeExported": "2020-04-25T17:56:32+03:00""#
+        ));
+        assert!(is_hoverfly_json_decl(r#""globalActions": {"#));
+        assert!(is_hoverfly_json_decl(r#""delaysLogNormal": ["#));
+        assert!(is_hoverfly_json_decl(r#""encodedBody": false"#));
+        assert!(is_hoverfly_json_decl(r#""fixedDelay": 2000"#));
+        assert!(is_hoverfly_json_decl(r#""logNormalDelay": {"#));
+        assert!(is_hoverfly_json_decl(r#""postServeAction": "webhook""#));
+        assert!(is_hoverfly_json_decl(r#""removesState": ["#));
+        assert!(is_hoverfly_json_decl(r#""transitionsState": {"#));
+        assert!(is_hoverfly_json_decl(r#""requiresState": {"#));
+        assert!(is_hoverfly_json_decl(r#""templated": true"#));
+        assert!(is_hoverfly_json_decl(r#""bodyFile": "body.json""#));
+        // Distinctive neighbours stay out of this scanner.
+        assert!(!is_hoverfly_json_decl(r#""imposters": ["#));
+        assert!(is_mountebank_json_decl(r#""imposters": ["#));
+        assert!(!is_hoverfly_json_decl(r#""scenarioName": "checkout""#));
+        assert!(is_wiremock_json_decl(r#""scenarioName": "checkout""#));
+        assert!(!is_hoverfly_json_decl(r#""postServeActions": {"#));
+        assert!(is_wiremock_json_decl(r#""postServeActions": {"#));
+        assert!(!is_hoverfly_json_decl(r#""fixedDelayMilliseconds": 250"#));
+        assert!(is_wiremock_json_decl(r#""fixedDelayMilliseconds": 250"#));
+        assert!(!is_hoverfly_json_decl(r#""bodyFileName": "body.json""#));
+        assert!(is_wiremock_json_decl(r#""bodyFileName": "body.json""#));
+        assert!(!is_hoverfly_json_decl(r#""lastMigration": 33"#));
+        assert!(is_mockoon_json_decl(r#""lastMigration": 33"#));
+        assert!(!is_hoverfly_json_decl(r#""preRequestScript": """#));
+        assert!(is_hoppscotch_json_decl(r#""preRequestScript": """#));
+        assert!(!is_hoverfly_json_decl(r#""yaakVersion": "2025.1.0""#));
+        assert!(is_yaak_json_decl(r#""yaakVersion": "2025.1.0""#));
+        assert!(!is_hoverfly_json_decl(r#""brunoConfig": {"#));
+        assert!(is_bruno_json_decl(r#""brunoConfig": {"#));
+        assert!(!is_hoverfly_json_decl(r#""client": "Thunder Client""#));
+        assert!(is_thunder_client_json_decl(r#""client": "Thunder Client""#));
+        assert!(!is_hoverfly_json_decl(
+            r#""_postman_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890""#
+        ));
+        assert!(is_postman_json_decl(
+            r#""_postman_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890""#
+        ));
+        assert!(!is_hoverfly_json_decl(r#""__export_format": 4"#));
+        assert!(is_insomnia_json_decl(r#""__export_format": 4"#));
+        assert!(!is_hoverfly_json_decl(r#""disableSearch": true"#));
+        assert!(is_redoc_json_decl(r#""disableSearch": true"#));
+        assert!(!is_hoverfly_json_decl(r#""specUrl": "./openapi.yaml""#));
+        assert!(is_rapidoc_json_decl(r#""specUrl": "./openapi.yaml""#));
+        assert!(!is_hoverfly_json_decl(r##""dom_id": "#swagger-ui""##));
+        assert!(is_swagger_ui_json_decl(r##""dom_id": "#swagger-ui""##));
+        assert!(!is_hoverfly_json_decl(r#""layout": "modern""#));
+        assert!(is_scalar_json_decl(r#""layout": "modern""#));
+        assert!(!is_hoverfly_json_decl(r#""layout": "sidebar""#));
+        assert!(is_stoplight_elements_json_decl(r#""layout": "sidebar""#));
+        assert!(!is_hoverfly_json_decl(r#""topbarLinks": ["#));
+        assert!(is_mintlify_json_decl(r#""topbarLinks": ["#));
+        assert!(!is_hoverfly_json_decl(r#""apis": {"#));
+        assert!(is_redocly_json_decl(r#""apis": {"#));
+        assert!(!is_hoverfly_json_decl(r#""functionsDir": "./functions""#));
+        assert!(is_spectral_json_decl(r#""functionsDir": "./functions""#));
+        assert!(!is_hoverfly_json_decl(r#""printWidth": 80"#));
+        assert!(is_prettier_json_decl(r#""printWidth": 80"#));
+        assert!(!is_hoverfly_json_decl(r#""basePath": ".""#));
+        assert!(is_karma_json_decl(r#""basePath": ".""#));
+    }
+
+    #[test]
+    fn hoverfly_json_keys_count() {
+        assert!(is_hoverfly_json_decl(r#""hoverflyVersion": """#));
+        assert!(is_hoverfly_json_decl(r#""hoverflyVersion": "v1.2.0""#));
+        assert!(is_hoverfly_json_decl(r#""hoverflyVersion": "v1.2.0","#));
+        assert!(is_hoverfly_json_decl(
+            r#""hoverflyVersion": "v1.2.0" // ver"#
+        ));
+        assert!(!is_hoverfly_json_decl(r#""hoverflyVersion": true"#));
+        assert!(!is_hoverfly_json_decl(r#""hoverflyVersion": ["#));
+        assert!(is_hoverfly_json_decl(r#""schemaVersion": "v5""#));
+        assert!(is_hoverfly_json_decl(r#""schemaVersion": "v5.2""#));
+        assert!(is_hoverfly_json_decl(r#""schemaVersion": "v5.2.0""#));
+        assert!(is_hoverfly_json_decl(r#""schemaVersion": "v5","#));
+        assert!(is_hoverfly_json_decl(r#""schemaVersion": "v5" // schema"#));
+        assert!(!is_hoverfly_json_decl(r#""schemaVersion": "5""#));
+        assert!(!is_hoverfly_json_decl(r#""schemaVersion": "v""#));
+        assert!(!is_hoverfly_json_decl(r#""schemaVersion": "v5.""#));
+        assert!(!is_hoverfly_json_decl(r#""schemaVersion": "V5""#));
+        assert!(!is_hoverfly_json_decl(r#""schemaVersion": true"#));
+        assert!(is_hoverfly_json_decl(
+            r#""timeExported": "2020-04-25T17:56:32+03:00""#
+        ));
+        assert!(is_hoverfly_json_decl(r#""timeExported": """#));
+        assert!(!is_hoverfly_json_decl(r#""timeExported": true"#));
+        assert!(is_hoverfly_json_decl(r#""globalActions": {"#));
+        assert!(is_hoverfly_json_decl(r#""globalActions": {,"#));
+        assert!(is_hoverfly_json_decl(r#""globalActions": { // ga"#));
+        assert!(!is_hoverfly_json_decl(r#""globalActions": ["#));
+        assert!(!is_hoverfly_json_decl(r#""globalActions": true"#));
+        assert!(is_hoverfly_json_decl(r#""delaysLogNormal": ["#));
+        assert!(is_hoverfly_json_decl(r#""delaysLogNormal": [,"#));
+        assert!(is_hoverfly_json_decl(r#""delaysLogNormal": [ // delay"#));
+        assert!(!is_hoverfly_json_decl(r#""delaysLogNormal": {"#));
+        assert!(!is_hoverfly_json_decl(r#""delaysLogNormal": true"#));
+        assert!(is_hoverfly_json_decl(r#""encodedBody": true"#));
+        assert!(is_hoverfly_json_decl(r#""encodedBody": false"#));
+        assert!(is_hoverfly_json_decl(r#""encodedBody": true,"#));
+        assert!(is_hoverfly_json_decl(r#""encodedBody": false // enc"#));
+        assert!(!is_hoverfly_json_decl(r#""encodedBody": ["#));
+        assert!(!is_hoverfly_json_decl(r#""encodedBody": "true""#));
+        assert!(is_hoverfly_json_decl(r#""fixedDelay": 0"#));
+        assert!(is_hoverfly_json_decl(r#""fixedDelay": 2000"#));
+        assert!(is_hoverfly_json_decl(r#""fixedDelay": 2000,"#));
+        assert!(is_hoverfly_json_decl(r#""fixedDelay": 2000 // ms"#));
+        assert!(!is_hoverfly_json_decl(r#""fixedDelay": 02000"#));
+        assert!(!is_hoverfly_json_decl(r#""fixedDelay": true"#));
+        assert!(!is_hoverfly_json_decl(r#""fixedDelay": "2000""#));
+        assert!(is_hoverfly_json_decl(r#""logNormalDelay": {"#));
+        assert!(is_hoverfly_json_decl(r#""logNormalDelay": {,"#));
+        assert!(is_hoverfly_json_decl(r#""logNormalDelay": { // ln"#));
+        assert!(!is_hoverfly_json_decl(r#""logNormalDelay": ["#));
+        assert!(!is_hoverfly_json_decl(r#""logNormalDelay": true"#));
+        assert!(is_hoverfly_json_decl(r#""postServeAction": """#));
+        assert!(is_hoverfly_json_decl(r#""postServeAction": "webhook""#));
+        assert!(is_hoverfly_json_decl(r#""postServeAction": "webhook","#));
+        assert!(!is_hoverfly_json_decl(r#""postServeAction": true"#));
+        assert!(!is_hoverfly_json_decl(r#""postServeAction": {"#));
+        assert!(is_hoverfly_json_decl(r#""removesState": ["#));
+        assert!(is_hoverfly_json_decl(r#""removesState": [,"#));
+        assert!(is_hoverfly_json_decl(r#""removesState": [ // state"#));
+        assert!(!is_hoverfly_json_decl(r#""removesState": {"#));
+        assert!(!is_hoverfly_json_decl(r#""removesState": true"#));
+        assert!(is_hoverfly_json_decl(r#""transitionsState": {"#));
+        assert!(is_hoverfly_json_decl(r#""transitionsState": {,"#));
+        assert!(is_hoverfly_json_decl(r#""transitionsState": { // ts"#));
+        assert!(!is_hoverfly_json_decl(r#""transitionsState": ["#));
+        assert!(!is_hoverfly_json_decl(r#""transitionsState": true"#));
+        assert!(is_hoverfly_json_decl(r#""requiresState": {"#));
+        assert!(is_hoverfly_json_decl(r#""requiresState": {,"#));
+        assert!(is_hoverfly_json_decl(r#""requiresState": { // rs"#));
+        assert!(!is_hoverfly_json_decl(r#""requiresState": ["#));
+        assert!(!is_hoverfly_json_decl(r#""requiresState": true"#));
+        assert!(is_hoverfly_json_decl(r#""templated": true"#));
+        assert!(is_hoverfly_json_decl(r#""templated": false"#));
+        assert!(is_hoverfly_json_decl(r#""templated": true,"#));
+        assert!(is_hoverfly_json_decl(r#""templated": false // tpl"#));
+        assert!(!is_hoverfly_json_decl(r#""templated": ["#));
+        assert!(!is_hoverfly_json_decl(r#""templated": "true""#));
+        assert!(is_hoverfly_json_decl(r#""bodyFile": """#));
+        assert!(is_hoverfly_json_decl(r#""bodyFile": "body.json""#));
+        assert!(is_hoverfly_json_decl(r#""bodyFile": "body.json","#));
+        assert!(!is_hoverfly_json_decl(r#""bodyFile": true"#));
+        assert!(!is_hoverfly_json_decl(r#""bodyFile": ["#));
+        // Incomplete / wrong shapes stay out.
+        assert!(!is_hoverfly_json_decl(r#""hoverflyVersion""#));
+        assert!(!is_hoverfly_json_decl(r#""hoverflyVersion":"#));
+        assert!(!is_hoverfly_json_decl(r#""schemaVersion""#));
+        assert!(!is_hoverfly_json_decl(r#""globalActions""#));
+        // Generic / neighbouring stay out.
+        assert!(!is_hoverfly_json_decl(
+            r#""$schema": "https://example.com""#
+        ));
+        assert!(!is_hoverfly_json_decl(r#""data": {"#));
+        assert!(!is_hoverfly_json_decl(r#""meta": {"#));
+        assert!(!is_hoverfly_json_decl(r#""pairs": ["#));
+        assert!(!is_hoverfly_json_decl(r#""request": {"#));
+        assert!(!is_hoverfly_json_decl(r#""response": {"#));
+        assert!(!is_hoverfly_json_decl(r#""status": 200"#));
+        assert!(!is_hoverfly_json_decl(r#""body": "OK""#));
+        assert!(!is_hoverfly_json_decl(r#""headers": {"#));
+        assert!(!is_hoverfly_json_decl(r#""matcher": "exact""#));
+        assert!(!is_hoverfly_json_decl(r#""value": "/api""#));
+        assert!(!is_hoverfly_json_decl(r#""delays": ["#));
+        assert!(!is_hoverfly_json_decl(r#""literals": ["#));
+        assert!(!is_hoverfly_json_decl(r#""variables": ["#));
+        assert!(!is_hoverfly_json_decl(r#""imposters": ["#));
+        assert!(is_mountebank_json_decl(r#""imposters": ["#));
+        assert!(!is_hoverfly_json_decl(r#""predicates": ["#));
+        assert!(is_mountebank_json_decl(r#""predicates": ["#));
+        assert!(!is_hoverfly_json_decl(r#""deepEquals": {"#));
+        assert!(is_mountebank_json_decl(r#""deepEquals": {"#));
+        assert!(!is_hoverfly_json_decl(r#""scenarioName": "checkout""#));
+        assert!(is_wiremock_json_decl(r#""scenarioName": "checkout""#));
+        assert!(!is_hoverfly_json_decl(
+            r#""requiredScenarioState": "Started""#
+        ));
+        assert!(is_wiremock_json_decl(
+            r#""requiredScenarioState": "Started""#
+        ));
+        assert!(!is_hoverfly_json_decl(
+            r#""fault": "CONNECTION_RESET_BY_PEER""#
+        ));
+        assert!(is_wiremock_json_decl(
+            r#""fault": "CONNECTION_RESET_BY_PEER""#
+        ));
+        assert!(!is_hoverfly_json_decl(r#""postServeActions": {"#));
+        assert!(is_wiremock_json_decl(r#""postServeActions": {"#));
+        assert!(!is_hoverfly_json_decl(r#""bodyFileName": "body.json""#));
+        assert!(is_wiremock_json_decl(r#""bodyFileName": "body.json""#));
+        assert!(!is_hoverfly_json_decl(r#""fixedDelayMilliseconds": 250"#));
+        assert!(is_wiremock_json_decl(r#""fixedDelayMilliseconds": 250"#));
+        assert!(!is_hoverfly_json_decl(r#""lastMigration": 33"#));
+        assert!(is_mockoon_json_decl(r#""lastMigration": 33"#));
+        assert!(!is_hoverfly_json_decl(r#""endpointPrefix": "api""#));
+        assert!(is_mockoon_json_decl(r#""endpointPrefix": "api""#));
+        assert!(!is_hoverfly_json_decl(r#""bodyType": "INLINE""#));
+        assert!(is_mockoon_json_decl(r#""bodyType": "INLINE""#));
+        assert!(!is_hoverfly_json_decl(r#""preRequestScript": """#));
+        assert!(is_hoppscotch_json_decl(r#""preRequestScript": """#));
+        assert!(!is_hoverfly_json_decl(r#""authType": "inherit""#));
+        assert!(is_hoppscotch_json_decl(r#""authType": "inherit""#));
+        assert!(!is_hoverfly_json_decl(r#""yaakVersion": "2025.1.0""#));
+        assert!(is_yaak_json_decl(r#""yaakVersion": "2025.1.0""#));
+        assert!(!is_hoverfly_json_decl(r#""brunoConfig": {"#));
+        assert!(is_bruno_json_decl(r#""brunoConfig": {"#));
+        assert!(!is_hoverfly_json_decl(r#""client": "Thunder Client""#));
+        assert!(is_thunder_client_json_decl(r#""client": "Thunder Client""#));
+        assert!(!is_hoverfly_json_decl(
+            r#""collectionName": "Petstore API""#
+        ));
+        assert!(is_thunder_client_json_decl(
+            r#""collectionName": "Petstore API""#
+        ));
+        assert!(!is_hoverfly_json_decl(
+            r#""_postman_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890""#
+        ));
+        assert!(is_postman_json_decl(
+            r#""_postman_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890""#
+        ));
+        assert!(!is_hoverfly_json_decl(r#""protocolProfileBehavior": {"#));
+        assert!(is_postman_json_decl(r#""protocolProfileBehavior": {"#));
+        assert!(!is_hoverfly_json_decl(r#""__export_format": 4"#));
+        assert!(is_insomnia_json_decl(r#""__export_format": 4"#));
+        assert!(!is_hoverfly_json_decl(r#""_type": "request""#));
+        assert!(is_insomnia_json_decl(r#""_type": "request""#));
+        assert!(!is_hoverfly_json_decl(r#""disableSearch": true"#));
+        assert!(is_redoc_json_decl(r#""disableSearch": true"#));
+        assert!(!is_hoverfly_json_decl(r#""specUrl": "./openapi.yaml""#));
+        assert!(is_rapidoc_json_decl(r#""specUrl": "./openapi.yaml""#));
+        assert!(!is_hoverfly_json_decl(r##""dom_id": "#swagger-ui""##));
+        assert!(is_swagger_ui_json_decl(r##""dom_id": "#swagger-ui""##));
+        assert!(!is_hoverfly_json_decl(r#""layout": "BaseLayout""#));
+        assert!(is_swagger_ui_json_decl(r#""layout": "BaseLayout""#));
+        assert!(!is_hoverfly_json_decl(r#""layout": "modern""#));
+        assert!(is_scalar_json_decl(r#""layout": "modern""#));
+        assert!(!is_hoverfly_json_decl(r#""layout": "sidebar""#));
+        assert!(is_stoplight_elements_json_decl(r#""layout": "sidebar""#));
+        assert!(!is_hoverfly_json_decl(r#""apiDescriptionUrl": "./o.yaml""#));
+        assert!(is_stoplight_elements_json_decl(
+            r#""apiDescriptionUrl": "./o.yaml""#
+        ));
+        assert!(!is_hoverfly_json_decl(r#""topbarLinks": ["#));
+        assert!(is_mintlify_json_decl(r#""topbarLinks": ["#));
+        assert!(!is_hoverfly_json_decl(r#""apis": {"#));
+        assert!(is_redocly_json_decl(r#""apis": {"#));
+        assert!(!is_hoverfly_json_decl(r#""functionsDir": "./functions""#));
+        assert!(is_spectral_json_decl(r#""functionsDir": "./functions""#));
+        assert!(!is_hoverfly_json_decl(r#""printWidth": 80"#));
+        assert!(is_prettier_json_decl(r#""printWidth": 80"#));
+        assert!(!is_hoverfly_json_decl(r#""basePath": ".""#));
+        assert!(is_karma_json_decl(r#""basePath": ".""#));
+        // line_is_func_like wires the scanner.
+        assert!(line_is_func_like(r#""hoverflyVersion": "v1.2.0""#));
+        assert!(line_is_func_like(r#""schemaVersion": "v5.2""#));
+        assert!(line_is_func_like(
+            r#""timeExported": "2020-04-25T17:56:32+03:00""#
+        ));
+        assert!(line_is_func_like(r#""globalActions": {"#));
+        assert!(line_is_func_like(r#""delaysLogNormal": ["#));
+        assert!(line_is_func_like(r#""encodedBody": false"#));
+        assert!(line_is_func_like(r#""fixedDelay": 2000"#));
+        assert!(line_is_func_like(r#""logNormalDelay": {"#));
+        assert!(line_is_func_like(r#""postServeAction": "webhook""#));
+        assert!(line_is_func_like(r#""removesState": ["#));
+        assert!(line_is_func_like(r#""transitionsState": {"#));
+        assert!(line_is_func_like(r#""requiresState": {"#));
+        assert!(line_is_func_like(r#""templated": true"#));
+        assert!(line_is_func_like(r#""bodyFile": "body.json""#));
     }
 
     #[test]

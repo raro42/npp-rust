@@ -1,3 +1,5 @@
+009 keep: Function List Hoverfly hoverflyVersion/schemaVersion/timeExported/globalActions/delaysLogNormal/encodedBody/fixedDelay/logNormalDelay/postServeAction/removesState/transitionsState/requiresState/templated/bodyFile (v0.3.787)
+
 009 keep: Function List Thunder Client client/collectionName/environmentName/dateExported/colId/containerId/sortNum (v0.3.780)
 
 009 keep: Function List Swagger UI swagger-config dom_id/urls/spec/layout BaseLayout|StandaloneLayout/docExpansion/deepLinking/validatorUrl/defaultModelsExpandDepth (v0.3.775)
@@ -1234,3 +1236,5 @@
 009 keep: Function List Mockoon lastMigration/endpointPrefix/proxyMode/proxyHost/proxyRemovePrefix/rootChildren/proxyReqHeaders/proxyResHeaders/headersCaseInsensitive/enableRandomLatency/tlsOptions/bodyType/rulesOperator/databucketID (v0.3.784)
 
 009 keep: Function List WireMock scenarioName/requiredScenarioState/newScenarioState/postServeActions/fixedDelayMilliseconds/bodyFileName/base64Body/proxyBaseUrl/urlPathPattern/bodyPatterns/fault/jsonBody (v0.3.785)
+
+009 keep: Function List Mountebank imposters/recordRequests/allowInjection/defaultResponse/numberOfRequests/predicates/deepEquals/inject/decorate/shellTransform/behaviors/concatenateArrays (v0.3.786)
