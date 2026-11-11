@@ -32462,6 +32462,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_har_json_decl(s)
             || is_otlp_json_decl(s)
             || is_zipkin_json_decl(s)
+            || is_jaeger_json_decl(s)
             || is_gomod_decl(s)
             || is_gemfile_decl(s)
             || is_brewfile_decl(s)
@@ -32834,6 +32835,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_har_json_decl(s)
         || is_otlp_json_decl(s)
         || is_zipkin_json_decl(s)
+        || is_jaeger_json_decl(s)
         || is_gomod_decl(s)
         || is_gemfile_decl(s)
         || is_brewfile_decl(s)
@@ -60348,7 +60350,9 @@ fn har_started_datetime_ok(value: &str) -> bool {
 /// Unix-nano strings are digit-only (1–20 chars). Zipkin
 /// `"localEndpoint"` / `"remoteEndpoint"` / `"annotations"` /
 /// `"parentId"` / `"kind"` / `"shared"` / `"debug"` / validated
-/// `"traceId"` stay out.
+/// `"traceId"` stay out. Jaeger `"traceID"` / `"spanID"` /
+/// `"operationName"` / `"references"` / `"processID"` / `"processes"` /
+/// `"flags"` / `"startTimeMillis"` / `"refType"` stay out.
 fn is_otlp_json_decl(s: &str) -> bool {
     let s = s.trim_start();
     let Some(rest) = s.strip_prefix('"') else {
@@ -60512,7 +60516,10 @@ fn otlp_json_number_and_tail_ok(key: &str, after_colon: &str) -> bool {
 /// openapitools `"generator-cli"` / Knip `"entry"` / prettier
 /// `"printWidth"` / package.json `"bin"` / karma `"basePath"` stay out.
 /// `"parentId"` only matches empty or 16-char lowercase hex.
-/// `"traceId"` only matches 16 or 32-char lowercase hex.
+/// `"traceId"` only matches 16 or 32-char lowercase hex. Jaeger
+/// `"traceID"` / `"spanID"` / `"operationName"` / `"references"` /
+/// `"processID"` / `"processes"` / `"flags"` / `"startTimeMillis"` /
+/// `"refType"` stay out.
 fn is_zipkin_json_decl(s: &str) -> bool {
     let s = s.trim_start();
     let Some(rest) = s.strip_prefix('"') else {
@@ -60629,6 +60636,171 @@ fn zipkin_json_bool_and_tail_ok(after_colon: &str) -> bool {
         return package_json_tail_ok(rest);
     }
     false
+}
+
+/// Jaeger query API / UI JSON keys: `"traceID": "…"` (16 or 32 lowercase
+/// hex; distinct from Zipkin `"traceId"`), `"spanID": "…"` (16 lowercase
+/// hex), `"operationName": "…"`, `"references": [`, `"processID": "p1"`,
+/// `"processes": {`, `"flags": 0` / `1`, `"startTimeMillis": 0` /
+/// `1485467191639`, `"refType": "CHILD_OF"` / `"FOLLOWS_FROM"`.
+/// Optional trailing `,` and `//` / `/*` comment. Incomplete quotes /
+/// missing `:` stay out. Generic `"$schema"` / `"name"` / `"id"` /
+/// `"timestamp"` / `"duration"` / `"tags": [` / `"logs": [` /
+/// `"startTime"` / `"spans": [` / `"serviceName"` / Zipkin
+/// `"localEndpoint"` / `"remoteEndpoint"` / `"annotations"` /
+/// `"parentId"` / `"kind"` / `"shared"` / `"debug"` / `"traceId"` /
+/// OTLP `"resourceSpans"` / `"parentSpanId"` / `"startTimeUnixNano"` /
+/// HAR `"startedDateTime"` / `"timings"` / OpenAPI `"openapi"` /
+/// AsyncAPI `"asyncapi"` / `"channels": {` / Pact `"consumer"` /
+/// MockServer `"httpRequest"` / Hoverfly `"hoverflyVersion"` /
+/// Mountebank `"imposters"` / WireMock `"scenarioName"` / Mockoon
+/// `"lastMigration"` / Hoppscotch `"preRequestScript"` / Yaak
+/// `"yaakVersion"` / Bruno `"brunoConfig"` / Thunder Client `"client"` /
+/// Postman `"_postman_id"` / Insomnia `"__export_format"` / ReDoc
+/// `"disableSearch"` / RapiDoc `"specUrl"` / swagger-ui `"dom_id"` /
+/// scalar `"layout": "modern"` / Elements `"layout": "sidebar"` /
+/// mintlify `"topbarLinks"` / Compodoc `"theme": "material"` / redocly
+/// `"apis"` / spectral `"functionsDir"` / openapitools `"generator-cli"` /
+/// Knip `"entry"` / prettier `"printWidth"` / package.json `"bin"` /
+/// karma `"basePath"` stay out. `"processID"` only matches `p` + digits.
+/// `"traceID"` only matches 16 or 32-char lowercase hex. `"spanID"` only
+/// matches 16-char lowercase hex. `"refType"` only matches Jaeger enums.
+fn is_jaeger_json_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    let Some(rest) = s.strip_prefix('"') else {
+        return false;
+    };
+    let Some(end) = rest.find('"') else {
+        return false;
+    };
+    let key = &rest[..end];
+    if !jaeger_json_key_ok(key) {
+        return false;
+    }
+    let after_key = rest[end + 1..].trim_start();
+    let Some(after_colon) = after_key.strip_prefix(':') else {
+        return false;
+    };
+    let after_colon = after_colon.trim_start();
+    jaeger_json_value_and_tail_ok(key, after_colon)
+}
+
+fn jaeger_json_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "traceID"
+            | "spanID"
+            | "operationName"
+            | "references"
+            | "processID"
+            | "processes"
+            | "flags"
+            | "startTimeMillis"
+            | "refType"
+    )
+}
+
+fn jaeger_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool {
+    let bytes = after_colon.as_bytes();
+    let Some(first) = bytes.first().copied() else {
+        return false;
+    };
+    match first {
+        b'{' => {
+            if key != "processes" {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[1..])
+        }
+        b'[' => {
+            if key != "references" {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[1..])
+        }
+        b'"' => {
+            if !matches!(
+                key,
+                "traceID" | "spanID" | "operationName" | "processID" | "refType"
+            ) {
+                return false;
+            }
+            let rest = &after_colon[1..];
+            let Some(end) = rest.find('"') else {
+                return false;
+            };
+            let value = &rest[..end];
+            if !jaeger_json_string_ok(key, value) {
+                return false;
+            }
+            package_json_tail_ok(&rest[end + 1..])
+        }
+        b'0'..=b'9' => jaeger_json_number_and_tail_ok(key, after_colon),
+        _ => false,
+    }
+}
+
+fn jaeger_json_string_ok(key: &str, value: &str) -> bool {
+    match key {
+        "traceID" => jaeger_trace_id_ok(value),
+        "spanID" => jaeger_span_id_ok(value),
+        "operationName" => jaeger_operation_name_ok(value),
+        "processID" => jaeger_process_id_ok(value),
+        "refType" => matches!(value, "CHILD_OF" | "FOLLOWS_FROM"),
+        _ => false,
+    }
+}
+
+fn jaeger_trace_id_ok(value: &str) -> bool {
+    if value.contains('\n') {
+        return false;
+    }
+    (value.len() == 16 || value.len() == 32)
+        && value
+            .bytes()
+            .all(|b| matches!(b, b'0'..=b'9' | b'a'..=b'f'))
+}
+
+fn jaeger_span_id_ok(value: &str) -> bool {
+    if value.contains('\n') {
+        return false;
+    }
+    value.len() == 16
+        && value
+            .bytes()
+            .all(|b| matches!(b, b'0'..=b'9' | b'a'..=b'f'))
+}
+
+fn jaeger_operation_name_ok(value: &str) -> bool {
+    !value.is_empty() && !value.contains('\n')
+}
+
+fn jaeger_process_id_ok(value: &str) -> bool {
+    let Some(rest) = value.strip_prefix('p') else {
+        return false;
+    };
+    if rest.is_empty() || rest.len() > 8 || rest.contains('\n') {
+        return false;
+    }
+    rest.bytes().all(|b| b.is_ascii_digit())
+}
+
+fn jaeger_json_number_and_tail_ok(key: &str, after_colon: &str) -> bool {
+    if !matches!(key, "flags" | "startTimeMillis") {
+        return false;
+    }
+    let digits = after_colon
+        .bytes()
+        .take_while(|b| b.is_ascii_digit())
+        .count();
+    let max_digits = if key == "startTimeMillis" { 16 } else { 8 };
+    if digits == 0 || digits > max_digits {
+        return false;
+    }
+    if digits > 1 && after_colon.as_bytes()[0] == b'0' {
+        return false;
+    }
+    package_json_tail_ok(&after_colon[digits..])
 }
 
 /// go.mod / go.work directives: `module example.com/foo`, `go 1.22`,
@@ -91267,13 +91439,13 @@ mod func_like_line_tests {
         is_har_json_decl, is_hatch_toml_decl, is_hoppscotch_json_decl, is_hosts_access_decl,
         is_hosts_file_decl, is_hoverfly_json_decl, is_hypothesis_ini_decl,
         is_importlinter_ini_decl, is_insomnia_json_decl, is_interrogate_ini_decl,
-        is_ionic_json_decl, is_ipsec_conf_decl, is_isort_ini_decl, is_jasmine_json_decl,
-        is_jest_json_decl, is_jsdoc_json_decl, is_karma_json_decl, is_keepalived_decl,
-        is_knip_json_decl, is_krb5_conf_decl, is_lerna_json_decl, is_lightdm_conf_decl,
-        is_limits_conf_decl, is_lint_staged_json_decl, is_locale_conf_decl, is_login_defs_decl,
-        is_logrotate_decl, is_machine_info_decl, is_makepkg_conf_decl, is_mdbook_toml_decl,
-        is_mintlify_json_decl, is_mise_toml_decl, is_mkinitcpio_conf_decl, is_mocha_json_decl,
-        is_mockoon_json_decl, is_mockserver_json_decl, is_modprobe_conf_decl,
+        is_ionic_json_decl, is_ipsec_conf_decl, is_isort_ini_decl, is_jaeger_json_decl,
+        is_jasmine_json_decl, is_jest_json_decl, is_jsdoc_json_decl, is_karma_json_decl,
+        is_keepalived_decl, is_knip_json_decl, is_krb5_conf_decl, is_lerna_json_decl,
+        is_lightdm_conf_decl, is_limits_conf_decl, is_lint_staged_json_decl, is_locale_conf_decl,
+        is_login_defs_decl, is_logrotate_decl, is_machine_info_decl, is_makepkg_conf_decl,
+        is_mdbook_toml_decl, is_mintlify_json_decl, is_mise_toml_decl, is_mkinitcpio_conf_decl,
+        is_mocha_json_decl, is_mockoon_json_decl, is_mockserver_json_decl, is_modprobe_conf_decl,
         is_mountebank_json_decl, is_mutants_toml_decl, is_mypy_ini_decl, is_mysql_cnf_decl,
         is_named_conf_decl, is_nest_cli_json_decl, is_netlify_toml_decl, is_networks_file_decl,
         is_neutralino_json_decl, is_nextest_toml_decl, is_nftables_decl, is_nginx_conf_decl,
@@ -121312,6 +121484,258 @@ mod func_like_line_tests {
         assert!(line_is_func_like(r#""shared": false"#));
         assert!(line_is_func_like(r#""debug": true"#));
         assert!(line_is_func_like(r#""traceId": "0123456789abcdef""#));
+    }
+
+    #[test]
+    fn jaeger_json_keys_smoke() {
+        assert!(is_jaeger_json_decl(
+            r#""traceID": "0123456789abcdef0123456789abcdef""#
+        ));
+        assert!(is_jaeger_json_decl(r#""spanID": "0123456789abcdef""#));
+        assert!(is_jaeger_json_decl(r#""operationName": "HTTP GET""#));
+        assert!(is_jaeger_json_decl(r#""references": ["#));
+        assert!(is_jaeger_json_decl(r#""processID": "p1""#));
+        assert!(is_jaeger_json_decl(r#""processes": {"#));
+        assert!(is_jaeger_json_decl(r#""flags": 1"#));
+        assert!(is_jaeger_json_decl(r#""startTimeMillis": 1485467191639"#));
+        assert!(is_jaeger_json_decl(r#""refType": "CHILD_OF""#));
+        assert!(is_jaeger_json_decl(r#""refType": "FOLLOWS_FROM""#));
+        // Distinctive neighbours stay out of this scanner.
+        assert!(!is_jaeger_json_decl(r#""localEndpoint": {"#));
+        assert!(is_zipkin_json_decl(r#""localEndpoint": {"#));
+        assert!(!is_jaeger_json_decl(r#""traceId": "0123456789abcdef""#));
+        assert!(is_zipkin_json_decl(r#""traceId": "0123456789abcdef""#));
+        assert!(!is_jaeger_json_decl(r#""resourceSpans": ["#));
+        assert!(is_otlp_json_decl(r#""resourceSpans": ["#));
+        assert!(!is_jaeger_json_decl(
+            r#""parentSpanId": "0123456789abcdef""#
+        ));
+        assert!(is_otlp_json_decl(r#""parentSpanId": "0123456789abcdef""#));
+        assert!(!is_jaeger_json_decl(
+            r#""startedDateTime": "2009-04-16T15:53:27.373Z""#
+        ));
+        assert!(is_har_json_decl(
+            r#""startedDateTime": "2009-04-16T15:53:27.373Z""#
+        ));
+        assert!(!is_jaeger_json_decl(r#""openapi": "3.0.3""#));
+        assert!(is_openapi_json_decl(r#""openapi": "3.0.3""#));
+        assert!(!is_jaeger_json_decl(r#""asyncapi": "2.6.0""#));
+        assert!(is_asyncapi_json_decl(r#""asyncapi": "2.6.0""#));
+        assert!(!is_jaeger_json_decl(r#""consumer": {"#));
+        assert!(is_pact_json_decl(r#""consumer": {"#));
+        assert!(!is_jaeger_json_decl(r#""httpRequest": {"#));
+        assert!(is_mockserver_json_decl(r#""httpRequest": {"#));
+        assert!(line_is_func_like(
+            r#""traceID": "0123456789abcdef0123456789abcdef""#
+        ));
+        assert!(line_is_func_like(r#""spanID": "0123456789abcdef""#));
+        assert!(line_is_func_like(r#""operationName": "HTTP GET""#));
+        assert!(line_is_func_like(r#""references": ["#));
+        assert!(line_is_func_like(r#""processID": "p1""#));
+        assert!(line_is_func_like(r#""processes": {"#));
+        assert!(line_is_func_like(r#""flags": 1"#));
+        assert!(line_is_func_like(r#""startTimeMillis": 1485467191639"#));
+        assert!(line_is_func_like(r#""refType": "CHILD_OF""#));
+    }
+
+    #[test]
+    fn jaeger_json_keys_count() {
+        assert!(is_jaeger_json_decl(r#""traceID": "0123456789abcdef""#));
+        assert!(is_jaeger_json_decl(
+            r#""traceID": "0123456789abcdef0123456789abcdef""#
+        ));
+        assert!(is_jaeger_json_decl(
+            r#""traceID": "0123456789abcdef0123456789abcdef","#
+        ));
+        assert!(is_jaeger_json_decl(
+            r#""traceID": "0123456789abcdef0123456789abcdef" // t"#
+        ));
+        assert!(!is_jaeger_json_decl(r#""traceID": "0123456789ABCDEF""#));
+        assert!(!is_jaeger_json_decl(r#""traceID": "0123456789abcde""#));
+        assert!(!is_jaeger_json_decl(r#""traceID": """#));
+        assert!(!is_jaeger_json_decl(r#""traceID": {"#));
+        assert!(!is_jaeger_json_decl(r#""traceID": true"#));
+        // Zipkin camelCase stays on Zipkin.
+        assert!(!is_jaeger_json_decl(r#""traceId": "0123456789abcdef""#));
+        assert!(is_zipkin_json_decl(r#""traceId": "0123456789abcdef""#));
+        assert!(is_jaeger_json_decl(r#""spanID": "0123456789abcdef""#));
+        assert!(is_jaeger_json_decl(r#""spanID": "0123456789abcdef","#));
+        assert!(is_jaeger_json_decl(r#""spanID": "0123456789abcdef" // s"#));
+        assert!(!is_jaeger_json_decl(r#""spanID": "0123456789ABCDEF""#));
+        assert!(!is_jaeger_json_decl(r#""spanID": "0123456789abcde""#));
+        assert!(!is_jaeger_json_decl(r#""spanID": """#));
+        assert!(!is_jaeger_json_decl(r#""spanID": {"#));
+        assert!(is_jaeger_json_decl(r#""operationName": "HTTP GET""#));
+        assert!(is_jaeger_json_decl(r#""operationName": "HTTP GET","#));
+        assert!(is_jaeger_json_decl(r#""operationName": "HTTP GET" // o"#));
+        assert!(!is_jaeger_json_decl(r#""operationName": """#));
+        assert!(!is_jaeger_json_decl(r#""operationName": {"#));
+        assert!(!is_jaeger_json_decl(r#""operationName": true"#));
+        assert!(is_jaeger_json_decl(r#""references": ["#));
+        assert!(is_jaeger_json_decl(r#""references": [,"#));
+        assert!(is_jaeger_json_decl(r#""references": [ // refs"#));
+        assert!(!is_jaeger_json_decl(r#""references": {"#));
+        assert!(!is_jaeger_json_decl(r#""references": true"#));
+        assert!(!is_jaeger_json_decl(r#""references": """#));
+        assert!(is_jaeger_json_decl(r#""processID": "p1""#));
+        assert!(is_jaeger_json_decl(r#""processID": "p12""#));
+        assert!(is_jaeger_json_decl(r#""processID": "p1","#));
+        assert!(is_jaeger_json_decl(r#""processID": "p1" // p"#));
+        assert!(!is_jaeger_json_decl(r#""processID": "P1""#));
+        assert!(!is_jaeger_json_decl(r#""processID": "1""#));
+        assert!(!is_jaeger_json_decl(r#""processID": "p""#));
+        assert!(!is_jaeger_json_decl(r#""processID": "proc1""#));
+        assert!(!is_jaeger_json_decl(r#""processID": {"#));
+        assert!(!is_jaeger_json_decl(r#""processID": true"#));
+        assert!(is_jaeger_json_decl(r#""processes": {"#));
+        assert!(is_jaeger_json_decl(r#""processes": {,"#));
+        assert!(is_jaeger_json_decl(r#""processes": { // procs"#));
+        assert!(!is_jaeger_json_decl(r#""processes": ["#));
+        assert!(!is_jaeger_json_decl(r#""processes": true"#));
+        assert!(!is_jaeger_json_decl(r#""processes": """#));
+        assert!(is_jaeger_json_decl(r#""flags": 0"#));
+        assert!(is_jaeger_json_decl(r#""flags": 1"#));
+        assert!(is_jaeger_json_decl(r#""flags": 1,"#));
+        assert!(is_jaeger_json_decl(r#""flags": 1 // f"#));
+        assert!(!is_jaeger_json_decl(r#""flags": 01"#));
+        assert!(!is_jaeger_json_decl(r#""flags": true"#));
+        assert!(!is_jaeger_json_decl(r#""flags": "1""#));
+        assert!(!is_jaeger_json_decl(r#""flags": {"#));
+        assert!(is_jaeger_json_decl(r#""startTimeMillis": 0"#));
+        assert!(is_jaeger_json_decl(r#""startTimeMillis": 1485467191639"#));
+        assert!(is_jaeger_json_decl(r#""startTimeMillis": 1485467191639,"#));
+        assert!(is_jaeger_json_decl(
+            r#""startTimeMillis": 1485467191639 // ms"#
+        ));
+        assert!(!is_jaeger_json_decl(r#""startTimeMillis": 01"#));
+        assert!(!is_jaeger_json_decl(r#""startTimeMillis": true"#));
+        assert!(!is_jaeger_json_decl(r#""startTimeMillis": "0""#));
+        assert!(!is_jaeger_json_decl(r#""startTimeMillis": {"#));
+        assert!(is_jaeger_json_decl(r#""refType": "CHILD_OF""#));
+        assert!(is_jaeger_json_decl(r#""refType": "FOLLOWS_FROM""#));
+        assert!(is_jaeger_json_decl(r#""refType": "CHILD_OF","#));
+        assert!(is_jaeger_json_decl(r#""refType": "CHILD_OF" // r"#));
+        assert!(!is_jaeger_json_decl(r#""refType": "child_of""#));
+        assert!(!is_jaeger_json_decl(r#""refType": "PARENT_OF""#));
+        assert!(!is_jaeger_json_decl(r#""refType": 1"#));
+        assert!(!is_jaeger_json_decl(r#""refType": {"#));
+        assert!(!is_jaeger_json_decl(r#""refType": true"#));
+        // Incomplete / wrong shapes stay out.
+        assert!(!is_jaeger_json_decl(r#""traceID""#));
+        assert!(!is_jaeger_json_decl(r#""traceID":"#));
+        assert!(!is_jaeger_json_decl(r#""spanID""#));
+        assert!(!is_jaeger_json_decl(r#""operationName""#));
+        assert!(!is_jaeger_json_decl(r#""references""#));
+        assert!(!is_jaeger_json_decl(r#""processID""#));
+        assert!(!is_jaeger_json_decl(r#""processes""#));
+        assert!(!is_jaeger_json_decl(r#""flags""#));
+        assert!(!is_jaeger_json_decl(r#""startTimeMillis""#));
+        assert!(!is_jaeger_json_decl(r#""refType""#));
+        // Generic / neighbouring stay out.
+        assert!(!is_jaeger_json_decl(
+            r#""$schema": "https://json-schema.org/draft/2020-12/schema""#
+        ));
+        assert!(!is_jaeger_json_decl(r#""name": "GET /users""#));
+        assert!(!is_jaeger_json_decl(r#""id": "0123456789abcdef""#));
+        assert!(!is_jaeger_json_decl(r#""timestamp": 1500000000000000"#));
+        assert!(!is_jaeger_json_decl(r#""duration": 35000"#));
+        assert!(!is_jaeger_json_decl(r#""startTime": 1485467191639875"#));
+        assert!(!is_jaeger_json_decl(r#""tags": ["#));
+        assert!(!is_jaeger_json_decl(r#""logs": ["#));
+        assert!(!is_jaeger_json_decl(r#""spans": ["#));
+        assert!(!is_jaeger_json_decl(r#""serviceName": "api""#));
+        assert!(!is_jaeger_json_decl(r#""warnings": ["#));
+        assert!(!is_jaeger_json_decl(r#""localEndpoint": {"#));
+        assert!(is_zipkin_json_decl(r#""localEndpoint": {"#));
+        assert!(!is_jaeger_json_decl(r#""remoteEndpoint": {"#));
+        assert!(is_zipkin_json_decl(r#""remoteEndpoint": {"#));
+        assert!(!is_jaeger_json_decl(r#""annotations": ["#));
+        assert!(is_zipkin_json_decl(r#""annotations": ["#));
+        assert!(!is_jaeger_json_decl(r#""parentId": "0123456789abcdef""#));
+        assert!(is_zipkin_json_decl(r#""parentId": "0123456789abcdef""#));
+        assert!(!is_jaeger_json_decl(r#""kind": "CLIENT""#));
+        assert!(is_zipkin_json_decl(r#""kind": "CLIENT""#));
+        assert!(!is_jaeger_json_decl(r#""shared": true"#));
+        assert!(is_zipkin_json_decl(r#""shared": true"#));
+        assert!(!is_jaeger_json_decl(r#""debug": false"#));
+        assert!(is_zipkin_json_decl(r#""debug": false"#));
+        assert!(!is_jaeger_json_decl(r#""resourceSpans": ["#));
+        assert!(is_otlp_json_decl(r#""resourceSpans": ["#));
+        assert!(!is_jaeger_json_decl(
+            r#""parentSpanId": "0123456789abcdef""#
+        ));
+        assert!(is_otlp_json_decl(r#""parentSpanId": "0123456789abcdef""#));
+        assert!(!is_jaeger_json_decl(
+            r#""startedDateTime": "2009-04-16T15:53:27.373Z""#
+        ));
+        assert!(is_har_json_decl(
+            r#""startedDateTime": "2009-04-16T15:53:27.373Z""#
+        ));
+        assert!(!is_jaeger_json_decl(r#""openapi": "3.0.3""#));
+        assert!(is_openapi_json_decl(r#""openapi": "3.0.3""#));
+        assert!(!is_jaeger_json_decl(r#""asyncapi": "2.6.0""#));
+        assert!(is_asyncapi_json_decl(r#""asyncapi": "2.6.0""#));
+        assert!(!is_jaeger_json_decl(r#""consumer": {"#));
+        assert!(is_pact_json_decl(r#""consumer": {"#));
+        assert!(!is_jaeger_json_decl(r#""httpRequest": {"#));
+        assert!(is_mockserver_json_decl(r#""httpRequest": {"#));
+        assert!(!is_jaeger_json_decl(r#""hoverflyVersion": "v1.2.0""#));
+        assert!(is_hoverfly_json_decl(r#""hoverflyVersion": "v1.2.0""#));
+        assert!(!is_jaeger_json_decl(r#""imposters": ["#));
+        assert!(is_mountebank_json_decl(r#""imposters": ["#));
+        assert!(!is_jaeger_json_decl(r#""scenarioName": "checkout""#));
+        assert!(is_wiremock_json_decl(r#""scenarioName": "checkout""#));
+        assert!(!is_jaeger_json_decl(r#""lastMigration": 33"#));
+        assert!(is_mockoon_json_decl(r#""lastMigration": 33"#));
+        assert!(!is_jaeger_json_decl(r#""preRequestScript": """#));
+        assert!(is_hoppscotch_json_decl(r#""preRequestScript": """#));
+        assert!(!is_jaeger_json_decl(r#""yaakVersion": "2025.1.0""#));
+        assert!(is_yaak_json_decl(r#""yaakVersion": "2025.1.0""#));
+        assert!(!is_jaeger_json_decl(r#""brunoConfig": {"#));
+        assert!(is_bruno_json_decl(r#""brunoConfig": {"#));
+        assert!(!is_jaeger_json_decl(r#""client": "Thunder Client""#));
+        assert!(is_thunder_client_json_decl(r#""client": "Thunder Client""#));
+        assert!(!is_jaeger_json_decl(
+            r#""_postman_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890""#
+        ));
+        assert!(is_postman_json_decl(
+            r#""_postman_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890""#
+        ));
+        assert!(!is_jaeger_json_decl(r#""__export_format": 4"#));
+        assert!(is_insomnia_json_decl(r#""__export_format": 4"#));
+        assert!(!is_jaeger_json_decl(r#""disableSearch": true"#));
+        assert!(is_redoc_json_decl(r#""disableSearch": true"#));
+        assert!(!is_jaeger_json_decl(r#""specUrl": "./openapi.yaml""#));
+        assert!(is_rapidoc_json_decl(r#""specUrl": "./openapi.yaml""#));
+        assert!(!is_jaeger_json_decl(r##""dom_id": "#swagger-ui""##));
+        assert!(is_swagger_ui_json_decl(r##""dom_id": "#swagger-ui""##));
+        assert!(!is_jaeger_json_decl(r#""layout": "modern""#));
+        assert!(is_scalar_json_decl(r#""layout": "modern""#));
+        assert!(!is_jaeger_json_decl(r#""layout": "sidebar""#));
+        assert!(is_stoplight_elements_json_decl(r#""layout": "sidebar""#));
+        assert!(!is_jaeger_json_decl(r#""topbarLinks": ["#));
+        assert!(is_mintlify_json_decl(r#""topbarLinks": ["#));
+        assert!(!is_jaeger_json_decl(r#""apis": {"#));
+        assert!(is_redocly_json_decl(r#""apis": {"#));
+        assert!(!is_jaeger_json_decl(r#""functionsDir": "./functions""#));
+        assert!(is_spectral_json_decl(r#""functionsDir": "./functions""#));
+        assert!(!is_jaeger_json_decl(r#""generator-cli": {"#));
+        assert!(is_openapitools_json_decl(r#""generator-cli": {"#));
+        assert!(!is_jaeger_json_decl(r#""printWidth": 80"#));
+        assert!(is_prettier_json_decl(r#""printWidth": 80"#));
+        assert!(!is_jaeger_json_decl(r#""basePath": ".""#));
+        assert!(is_karma_json_decl(r#""basePath": ".""#));
+        assert!(line_is_func_like(
+            r#""traceID": "0123456789abcdef0123456789abcdef""#
+        ));
+        assert!(line_is_func_like(r#""spanID": "0123456789abcdef""#));
+        assert!(line_is_func_like(r#""operationName": "HTTP GET""#));
+        assert!(line_is_func_like(r#""references": ["#));
+        assert!(line_is_func_like(r#""processID": "p1""#));
+        assert!(line_is_func_like(r#""processes": {"#));
+        assert!(line_is_func_like(r#""flags": 0"#));
+        assert!(line_is_func_like(r#""startTimeMillis": 1485467191639"#));
+        assert!(line_is_func_like(r#""refType": "FOLLOWS_FROM""#));
     }
 
     #[test]

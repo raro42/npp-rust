@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.795] — 2026-11-12
+
+View:
+
+- **Function List** lists Jaeger query API / UI JSON keys: `"traceID": "…"` (16 or 32 lowercase hex; distinct from Zipkin `"traceId"`), `"spanID": "…"` (16 lowercase hex), `"operationName": "…"`, `"references": [`, `"processID": "p1"`, `"processes": {`, `"flags": 0` / `1`, `"startTimeMillis": 0` / `1485467191639`, `"refType": "CHILD_OF"` / `"FOLLOWS_FROM"`. Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing `:` stay out. Generic `"$schema"` / `"name"` / `"id"` / `"timestamp"` / `"duration"` / `"tags": [` / `"logs": [` / `"startTime"` / `"spans": [` / `"serviceName"` / Zipkin `"localEndpoint"` / `"remoteEndpoint"` / `"annotations"` / `"parentId"` / `"kind"` / `"shared"` / `"debug"` / `"traceId"` / OTLP `"resourceSpans"` / `"parentSpanId"` / `"startTimeUnixNano"` / HAR `"startedDateTime"` / `"timings"` / OpenAPI `"openapi"` / AsyncAPI `"asyncapi"` / `"channels": {` / Pact `"consumer"` / MockServer `"httpRequest"` / Hoverfly `"hoverflyVersion"` / Mountebank `"imposters"` / WireMock `"scenarioName"` / Mockoon `"lastMigration"` / Hoppscotch `"preRequestScript"` / Yaak `"yaakVersion"` / Bruno `"brunoConfig"` / Thunder Client `"client"` / Postman `"_postman_id"` / Insomnia `"__export_format"` / ReDoc `"disableSearch"` / RapiDoc `"specUrl"` / swagger-ui `"dom_id"` / scalar `"layout": "modern"` / Elements `"layout": "sidebar"` / mintlify `"topbarLinks"` / Compodoc `"theme": "material"` / redocly `"apis"` / spectral `"functionsDir"` / openapitools `"generator-cli"` / Knip `"entry"` / prettier `"printWidth"` / package.json `"bin"` / karma `"basePath"` stay out. `"processID"` only matches `p` + digits. `"traceID"` only matches 16 or 32-char lowercase hex. `"spanID"` only matches 16-char lowercase hex. `"refType"` only matches Jaeger enums.
+
 ## [0.3.794] — 2026-11-12
 
 View:
