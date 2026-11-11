@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.790] — 2026-11-11
+
+View:
+
+- **Function List** lists OpenAPI 3 / Swagger 2 document JSON keys: `"openapi": "3.0.0"` / `"3.0.3"` / `"3.1.0"`, `"swagger": "2.0"`, `"paths": {`, `"components": {`, `"servers": [`, `"webhooks": {`, `"jsonSchemaDialect": ""` / `"…"`, `"securityDefinitions": {`, `"externalDocs": {`. Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing `:` stay out. Generic `"$schema"` / `"info": {` / `"tags": [` / `"security": [` / `"host"` / `"basePath"` / `"schemes": [` / `"consumes": [` / `"produces": [` / `"definitions": {` / `"parameters": {` / `"responses": {` / `"request": {` / `"response": {` / redocly object `"openapi": {` / Pact `"consumer"` / `"provider"` / `"interactions"` / `"matchingRules"` / `"pactSpecification"` / MockServer `"httpRequest"` / `"httpResponse"` / Hoverfly `"hoverflyVersion"` / Mountebank `"imposters"` / WireMock `"scenarioName"` / Mockoon `"lastMigration"` / Hoppscotch `"preRequestScript"` / Yaak `"yaakVersion"` / Bruno `"brunoConfig"` / Thunder Client `"client"` / Postman `"_postman_id"` / Insomnia `"__export_format"` / ReDoc `"disableSearch"` / RapiDoc `"specUrl"` / swagger-ui `"dom_id"` / scalar `"layout": "modern"` / Elements `"layout": "sidebar"` / mintlify `"topbarLinks"` / Compodoc `"theme": "material"` / redocly `"apis"` / spectral `"functionsDir"` / openapitools `"generator-cli"` / Knip `"entry"` / prettier `"printWidth"` / package.json `"bin"` / karma `"basePath"` stay out. `"openapi"` only matches `3.N.N` version strings. `"swagger"` only matches `"2.0"`. Shared `"paths": {` also matches Knip when shapes overlap; Cucumber `"paths": [` / string stays on Cucumber.
+
 ## [0.3.789] — 2026-11-11
 
 View:

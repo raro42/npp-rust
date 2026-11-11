@@ -32457,6 +32457,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_hoverfly_json_decl(s)
             || is_mockserver_json_decl(s)
             || is_pact_json_decl(s)
+            || is_openapi_json_decl(s)
             || is_gomod_decl(s)
             || is_gemfile_decl(s)
             || is_brewfile_decl(s)
@@ -32824,6 +32825,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_hoverfly_json_decl(s)
         || is_mockserver_json_decl(s)
         || is_pact_json_decl(s)
+        || is_openapi_json_decl(s)
         || is_gomod_decl(s)
         || is_gemfile_decl(s)
         || is_brewfile_decl(s)
@@ -59841,8 +59843,9 @@ fn mockserver_json_remaining_times_and_tail_ok(key: &str, after_colon: &str) -> 
 /// `"generator-cli"` / docfx `"metadata": [` / typedoc
 /// `"entryPoints"` / api-extractor `"mainEntryPointFilePath"` /
 /// prettier `"printWidth"` / package.json `"bin"` / karma
-/// `"basePath"` stay out. `"interactionMarkupType"` only matches
-/// Pact HTML / MARKDOWN enums.
+/// `"basePath"` / OpenAPI `"openapi": "3.0.3"` / `"swagger": "2.0"` /
+/// `"paths": {` / `"components": {` stay out. `"interactionMarkupType"`
+/// only matches Pact HTML / MARKDOWN enums.
 fn is_pact_json_decl(s: &str) -> bool {
     let s = s.trim_start();
     let Some(rest) = s.strip_prefix('"') else {
@@ -59932,6 +59935,139 @@ fn pact_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool {
 
 fn pact_json_free_string_ok(value: &str) -> bool {
     !value.contains('\n') && value.len() <= 8192
+}
+
+/// OpenAPI 3 / Swagger 2 document JSON keys: `"openapi": "3.0.0"` /
+/// `"3.0.3"` / `"3.1.0"`, `"swagger": "2.0"`, `"paths": {`,
+/// `"components": {`, `"servers": [`, `"webhooks": {`,
+/// `"jsonSchemaDialect": ""` / `"…"`, `"securityDefinitions": {`,
+/// `"externalDocs": {`. Optional trailing `,` and `//` / `/*` comment.
+/// Incomplete quotes / missing `:` stay out. Generic `"$schema"` /
+/// `"info": {` / `"tags": [` / `"security": [` / `"host"` /
+/// `"basePath"` / `"schemes": [` / `"consumes": [` / `"produces": [` /
+/// `"definitions": {` / `"parameters": {` / `"responses": {` /
+/// `"request": {` / `"response": {` / redocly object `"openapi": {` /
+/// Pact `"consumer"` / `"provider"` / `"interactions"` /
+/// `"matchingRules"` / `"pactSpecification"` / MockServer
+/// `"httpRequest"` / `"httpResponse"` / Hoverfly `"hoverflyVersion"` /
+/// Mountebank `"imposters"` / WireMock `"scenarioName"` / Mockoon
+/// `"lastMigration"` / Hoppscotch `"preRequestScript"` / Yaak
+/// `"yaakVersion"` / Bruno `"brunoConfig"` / Thunder Client `"client"` /
+/// Postman `"_postman_id"` / Insomnia `"__export_format"` / ReDoc
+/// `"disableSearch"` / RapiDoc `"specUrl"` / swagger-ui `"dom_id"` /
+/// scalar `"layout": "modern"` / Elements `"layout": "sidebar"` /
+/// mintlify `"topbarLinks"` / Compodoc `"theme": "material"` /
+/// redocly `"apis"` / spectral `"functionsDir"` / openapitools
+/// `"generator-cli"` / Knip `"entry"` / prettier `"printWidth"` /
+/// package.json `"bin"` / karma `"basePath"` stay out. `"openapi"` only
+/// matches `3.N.N` version strings. `"swagger"` only matches `"2.0"`.
+/// Shared `"paths": {` also matches Knip when shapes overlap; Cucumber
+/// `"paths": [` / string stays on Cucumber.
+fn is_openapi_json_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    let Some(rest) = s.strip_prefix('"') else {
+        return false;
+    };
+    let Some(end) = rest.find('"') else {
+        return false;
+    };
+    let key = &rest[..end];
+    if !openapi_json_key_ok(key) {
+        return false;
+    }
+    let after_key = rest[end + 1..].trim_start();
+    let Some(after_colon) = after_key.strip_prefix(':') else {
+        return false;
+    };
+    let after_colon = after_colon.trim_start();
+    openapi_json_value_and_tail_ok(key, after_colon)
+}
+
+fn openapi_json_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "openapi"
+            | "swagger"
+            | "paths"
+            | "components"
+            | "servers"
+            | "webhooks"
+            | "jsonSchemaDialect"
+            | "securityDefinitions"
+            | "externalDocs"
+    )
+}
+
+fn openapi_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool {
+    let bytes = after_colon.as_bytes();
+    let Some(first) = bytes.first().copied() else {
+        return false;
+    };
+    match first {
+        b'{' => {
+            if !matches!(
+                key,
+                "paths" | "components" | "webhooks" | "securityDefinitions" | "externalDocs"
+            ) {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[1..])
+        }
+        b'[' => {
+            if key != "servers" {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[1..])
+        }
+        b'"' => {
+            if !matches!(key, "openapi" | "swagger" | "jsonSchemaDialect") {
+                return false;
+            }
+            let rest = &after_colon[1..];
+            let Some(end) = rest.find('"') else {
+                return false;
+            };
+            let value = &rest[..end];
+            if !openapi_json_string_ok(key, value) {
+                return false;
+            }
+            package_json_tail_ok(&rest[end + 1..])
+        }
+        _ => false,
+    }
+}
+
+fn openapi_json_string_ok(key: &str, value: &str) -> bool {
+    match key {
+        "openapi" => openapi_version_ok(value),
+        "swagger" => value == "2.0",
+        "jsonSchemaDialect" => !value.contains('\n') && value.len() <= 8192,
+        _ => false,
+    }
+}
+
+fn openapi_version_ok(value: &str) -> bool {
+    // OpenAPI 3.x.y only (3.0.0 … 3.1.1, …).
+    let mut parts = value.split('.');
+    let Some(major) = parts.next() else {
+        return false;
+    };
+    if major != "3" {
+        return false;
+    }
+    let Some(minor) = parts.next() else {
+        return false;
+    };
+    let Some(patch) = parts.next() else {
+        return false;
+    };
+    if parts.next().is_some() {
+        return false;
+    }
+    !minor.is_empty()
+        && minor.bytes().all(|b| b.is_ascii_digit())
+        && !patch.is_empty()
+        && patch.bytes().all(|b| b.is_ascii_digit())
 }
 
 /// go.mod / go.work directives: `module example.com/foo`, `go 1.22`,
@@ -90580,10 +90716,10 @@ mod func_like_line_tests {
         is_networks_file_decl, is_neutralino_json_decl, is_nextest_toml_decl, is_nftables_decl,
         is_nginx_conf_decl, is_nightwatch_json_decl, is_nixpacks_toml_decl, is_nm_connection_decl,
         is_npmrc_decl, is_nsswitch_conf_decl, is_nx_json_decl, is_nyc_json_decl,
-        is_openapitools_json_decl, is_openvpn_decl, is_os_release_decl, is_oxlint_json_decl,
-        is_package_json_decl, is_pacman_conf_decl, is_pact_json_decl, is_pam_conf_decl,
-        is_parcel_json_decl, is_paru_conf_decl, is_passwd_group_file_decl, is_pdm_toml_decl,
-        is_php_ini_decl, is_pip_conf_decl, is_pipfile_decl, is_pixi_toml_decl,
+        is_openapi_json_decl, is_openapitools_json_decl, is_openvpn_decl, is_os_release_decl,
+        is_oxlint_json_decl, is_package_json_decl, is_pacman_conf_decl, is_pact_json_decl,
+        is_pam_conf_decl, is_parcel_json_decl, is_paru_conf_decl, is_passwd_group_file_decl,
+        is_pdm_toml_decl, is_php_ini_decl, is_pip_conf_decl, is_pipfile_decl, is_pixi_toml_decl,
         is_playwright_json_decl, is_podfile_decl, is_poetry_toml_decl, is_postcss_json_decl,
         is_postman_json_decl, is_premake_decl, is_prettier_json_decl, is_protocols_file_decl,
         is_pycln_ini_decl, is_pycodestyle_ini_decl, is_pydoclint_ini_decl, is_pydocstyle_ini_decl,
@@ -119170,6 +119306,12 @@ mod func_like_line_tests {
         assert!(is_prettier_json_decl(r#""printWidth": 80"#));
         assert!(!is_pact_json_decl(r#""basePath": ".""#));
         assert!(is_karma_json_decl(r#""basePath": ".""#));
+        assert!(!is_pact_json_decl(r#""openapi": "3.0.3""#));
+        assert!(is_openapi_json_decl(r#""openapi": "3.0.3""#));
+        assert!(!is_pact_json_decl(r#""swagger": "2.0""#));
+        assert!(is_openapi_json_decl(r#""swagger": "2.0""#));
+        assert!(!is_pact_json_decl(r#""components": {"#));
+        assert!(is_openapi_json_decl(r#""components": {"#));
     }
 
     #[test]
@@ -119276,6 +119418,14 @@ mod func_like_line_tests {
         assert!(is_prettier_json_decl(r#""printWidth": 80"#));
         assert!(!is_pact_json_decl(r#""basePath": ".""#));
         assert!(is_karma_json_decl(r#""basePath": ".""#));
+        assert!(!is_pact_json_decl(r#""openapi": "3.0.3""#));
+        assert!(is_openapi_json_decl(r#""openapi": "3.0.3""#));
+        assert!(!is_pact_json_decl(r#""swagger": "2.0""#));
+        assert!(is_openapi_json_decl(r#""swagger": "2.0""#));
+        assert!(!is_pact_json_decl(r#""paths": {"#));
+        assert!(is_openapi_json_decl(r#""paths": {"#));
+        assert!(!is_pact_json_decl(r#""components": {"#));
+        assert!(is_openapi_json_decl(r#""components": {"#));
         // line_is_func_like wires the scanner.
         assert!(line_is_func_like(r#""consumer": {"#));
         assert!(line_is_func_like(r#""provider": {"#));
@@ -119288,6 +119438,234 @@ mod func_like_line_tests {
         assert!(line_is_func_like(r#""interactionMarkupType": "HTML""#));
         assert!(line_is_func_like(r#""pact:matcher:type": "type""#));
         assert!(line_is_func_like(r#""pact:generator:type": "RandomInt""#));
+    }
+
+    #[test]
+    fn openapi_json_keys_smoke() {
+        assert!(is_openapi_json_decl(r#""openapi": "3.0.0""#));
+        assert!(is_openapi_json_decl(r#""openapi": "3.0.3""#));
+        assert!(is_openapi_json_decl(r#""openapi": "3.1.0""#));
+        assert!(is_openapi_json_decl(r#""swagger": "2.0""#));
+        assert!(is_openapi_json_decl(r#""paths": {"#));
+        assert!(is_openapi_json_decl(r#""components": {"#));
+        assert!(is_openapi_json_decl(r#""servers": ["#));
+        assert!(is_openapi_json_decl(r#""webhooks": {"#));
+        assert!(is_openapi_json_decl(
+            r#""jsonSchemaDialect": "https://spec.openapis.org/oas/3.1/dialect/base""#
+        ));
+        assert!(is_openapi_json_decl(r#""securityDefinitions": {"#));
+        assert!(is_openapi_json_decl(r#""externalDocs": {"#));
+        // Distinctive neighbours stay out of this scanner.
+        assert!(!is_openapi_json_decl(r#""consumer": {"#));
+        assert!(is_pact_json_decl(r#""consumer": {"#));
+        assert!(!is_openapi_json_decl(r#""interactions": ["#));
+        assert!(is_pact_json_decl(r#""interactions": ["#));
+        assert!(!is_openapi_json_decl(r#""httpRequest": {"#));
+        assert!(is_mockserver_json_decl(r#""httpRequest": {"#));
+        assert!(!is_openapi_json_decl(r#""hoverflyVersion": "v1.2.0""#));
+        assert!(is_hoverfly_json_decl(r#""hoverflyVersion": "v1.2.0""#));
+        assert!(!is_openapi_json_decl(r#""imposters": ["#));
+        assert!(is_mountebank_json_decl(r#""imposters": ["#));
+        assert!(!is_openapi_json_decl(r#""scenarioName": "checkout""#));
+        assert!(is_wiremock_json_decl(r#""scenarioName": "checkout""#));
+        assert!(!is_openapi_json_decl(r#""lastMigration": 33"#));
+        assert!(is_mockoon_json_decl(r#""lastMigration": 33"#));
+        assert!(!is_openapi_json_decl(r#""preRequestScript": """#));
+        assert!(is_hoppscotch_json_decl(r#""preRequestScript": """#));
+        assert!(!is_openapi_json_decl(r#""yaakVersion": "2025.1.0""#));
+        assert!(is_yaak_json_decl(r#""yaakVersion": "2025.1.0""#));
+        assert!(!is_openapi_json_decl(r#""brunoConfig": {"#));
+        assert!(is_bruno_json_decl(r#""brunoConfig": {"#));
+        assert!(!is_openapi_json_decl(r#""client": "Thunder Client""#));
+        assert!(is_thunder_client_json_decl(r#""client": "Thunder Client""#));
+        assert!(!is_openapi_json_decl(
+            r#""_postman_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890""#
+        ));
+        assert!(is_postman_json_decl(
+            r#""_postman_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890""#
+        ));
+        assert!(!is_openapi_json_decl(r#""__export_format": 4"#));
+        assert!(is_insomnia_json_decl(r#""__export_format": 4"#));
+        assert!(!is_openapi_json_decl(r#""disableSearch": true"#));
+        assert!(is_redoc_json_decl(r#""disableSearch": true"#));
+        assert!(!is_openapi_json_decl(r#""specUrl": "./openapi.yaml""#));
+        assert!(is_rapidoc_json_decl(r#""specUrl": "./openapi.yaml""#));
+        assert!(!is_openapi_json_decl(r##""dom_id": "#swagger-ui""##));
+        assert!(is_swagger_ui_json_decl(r##""dom_id": "#swagger-ui""##));
+        assert!(!is_openapi_json_decl(r#""layout": "modern""#));
+        assert!(is_scalar_json_decl(r#""layout": "modern""#));
+        assert!(!is_openapi_json_decl(r#""layout": "sidebar""#));
+        assert!(is_stoplight_elements_json_decl(r#""layout": "sidebar""#));
+        assert!(!is_openapi_json_decl(r#""topbarLinks": ["#));
+        assert!(is_mintlify_json_decl(r#""topbarLinks": ["#));
+        assert!(!is_openapi_json_decl(r#""apis": {"#));
+        assert!(is_redocly_json_decl(r#""apis": {"#));
+        assert!(!is_openapi_json_decl(r#""openapi": {"#));
+        assert!(is_redocly_json_decl(r#""openapi": {"#));
+        assert!(!is_openapi_json_decl(r#""functionsDir": "./functions""#));
+        assert!(is_spectral_json_decl(r#""functionsDir": "./functions""#));
+        assert!(!is_openapi_json_decl(r#""generator-cli": {"#));
+        assert!(is_openapitools_json_decl(r#""generator-cli": {"#));
+        assert!(!is_openapi_json_decl(r#""printWidth": 80"#));
+        assert!(is_prettier_json_decl(r#""printWidth": 80"#));
+        assert!(!is_openapi_json_decl(r#""basePath": ".""#));
+        assert!(is_karma_json_decl(r#""basePath": ".""#));
+        // Shared paths object also matches Knip; array/string stay Cucumber.
+        assert!(is_knip_json_decl(r#""paths": {"#));
+        assert!(!is_openapi_json_decl(r#""paths": ["#));
+        assert!(is_cucumber_json_decl(r#""paths": ["#));
+    }
+
+    #[test]
+    fn openapi_json_keys_count() {
+        assert!(is_openapi_json_decl(r#""openapi": "3.0.0""#));
+        assert!(is_openapi_json_decl(r#""openapi": "3.0.3""#));
+        assert!(is_openapi_json_decl(r#""openapi": "3.1.0""#));
+        assert!(is_openapi_json_decl(r#""openapi": "3.1.1""#));
+        assert!(is_openapi_json_decl(r#""openapi": "3.0.3","#));
+        assert!(is_openapi_json_decl(r#""openapi": "3.0.3" // ver"#));
+        assert!(!is_openapi_json_decl(r#""openapi": "2.0""#));
+        assert!(!is_openapi_json_decl(r#""openapi": "3""#));
+        assert!(!is_openapi_json_decl(r#""openapi": "3.0""#));
+        assert!(!is_openapi_json_decl(r#""openapi": "3.0.0.1""#));
+        assert!(!is_openapi_json_decl(r#""openapi": {"#));
+        assert!(!is_openapi_json_decl(r#""openapi": true"#));
+        assert!(!is_openapi_json_decl(r#""openapi": ["#));
+        assert!(is_openapi_json_decl(r#""swagger": "2.0""#));
+        assert!(is_openapi_json_decl(r#""swagger": "2.0","#));
+        assert!(is_openapi_json_decl(r#""swagger": "2.0" // sw"#));
+        assert!(!is_openapi_json_decl(r#""swagger": "3.0""#));
+        assert!(!is_openapi_json_decl(r#""swagger": "2""#));
+        assert!(!is_openapi_json_decl(r#""swagger": {"#));
+        assert!(!is_openapi_json_decl(r#""swagger": true"#));
+        assert!(is_openapi_json_decl(r#""paths": {"#));
+        assert!(is_openapi_json_decl(r#""paths": {,"#));
+        assert!(is_openapi_json_decl(r#""paths": { // ops"#));
+        assert!(!is_openapi_json_decl(r#""paths": ["#));
+        assert!(!is_openapi_json_decl(r#""paths": true"#));
+        assert!(!is_openapi_json_decl(r#""paths": "/v1""#));
+        assert!(is_openapi_json_decl(r#""components": {"#));
+        assert!(is_openapi_json_decl(r#""components": {,"#));
+        assert!(is_openapi_json_decl(r#""components": { // comps"#));
+        assert!(!is_openapi_json_decl(r#""components": ["#));
+        assert!(!is_openapi_json_decl(r#""components": true"#));
+        assert!(is_openapi_json_decl(r#""servers": ["#));
+        assert!(is_openapi_json_decl(r#""servers": [,"#));
+        assert!(is_openapi_json_decl(r#""servers": [ // list"#));
+        assert!(!is_openapi_json_decl(r#""servers": {"#));
+        assert!(!is_openapi_json_decl(r#""servers": true"#));
+        assert!(is_openapi_json_decl(r#""webhooks": {"#));
+        assert!(is_openapi_json_decl(r#""webhooks": {,"#));
+        assert!(!is_openapi_json_decl(r#""webhooks": ["#));
+        assert!(!is_openapi_json_decl(r#""webhooks": true"#));
+        assert!(is_openapi_json_decl(r#""jsonSchemaDialect": """#));
+        assert!(is_openapi_json_decl(
+            r#""jsonSchemaDialect": "https://spec.openapis.org/oas/3.1/dialect/base""#
+        ));
+        assert!(is_openapi_json_decl(
+            r#""jsonSchemaDialect": "https://example.com/dialect","#
+        ));
+        assert!(is_openapi_json_decl(
+            r#""jsonSchemaDialect": "https://example.com/dialect" // d"#
+        ));
+        assert!(!is_openapi_json_decl(r#""jsonSchemaDialect": {"#));
+        assert!(!is_openapi_json_decl(r#""jsonSchemaDialect": true"#));
+        assert!(is_openapi_json_decl(r#""securityDefinitions": {"#));
+        assert!(is_openapi_json_decl(r#""securityDefinitions": {,"#));
+        assert!(!is_openapi_json_decl(r#""securityDefinitions": ["#));
+        assert!(!is_openapi_json_decl(r#""securityDefinitions": true"#));
+        assert!(is_openapi_json_decl(r#""externalDocs": {"#));
+        assert!(is_openapi_json_decl(r#""externalDocs": {,"#));
+        assert!(!is_openapi_json_decl(r#""externalDocs": ["#));
+        assert!(!is_openapi_json_decl(r#""externalDocs": true"#));
+        // Incomplete / wrong shapes stay out.
+        assert!(!is_openapi_json_decl(r#""openapi""#));
+        assert!(!is_openapi_json_decl(r#""openapi":"#));
+        assert!(!is_openapi_json_decl(r#""swagger""#));
+        assert!(!is_openapi_json_decl(r#""paths""#));
+        assert!(!is_openapi_json_decl(r#""components""#));
+        assert!(!is_openapi_json_decl(r#""servers""#));
+        // Generic / neighbouring stay out.
+        assert!(!is_openapi_json_decl(
+            r#""$schema": "https://json-schema.org/draft/2020-12/schema""#
+        ));
+        assert!(!is_openapi_json_decl(r#""info": {"#));
+        assert!(!is_openapi_json_decl(r#""tags": ["#));
+        assert!(!is_openapi_json_decl(r#""security": ["#));
+        assert!(!is_openapi_json_decl(r#""host": "api.example.com""#));
+        assert!(!is_openapi_json_decl(r#""basePath": "/v2""#));
+        assert!(!is_openapi_json_decl(r#""schemes": ["#));
+        assert!(!is_openapi_json_decl(r#""consumes": ["#));
+        assert!(!is_openapi_json_decl(r#""produces": ["#));
+        assert!(!is_openapi_json_decl(r#""definitions": {"#));
+        assert!(!is_openapi_json_decl(r#""parameters": {"#));
+        assert!(!is_openapi_json_decl(r#""responses": {"#));
+        assert!(!is_openapi_json_decl(r#""request": {"#));
+        assert!(!is_openapi_json_decl(r#""response": {"#));
+        assert!(!is_openapi_json_decl(r#""consumer": {"#));
+        assert!(is_pact_json_decl(r#""consumer": {"#));
+        assert!(!is_openapi_json_decl(r#""httpRequest": {"#));
+        assert!(is_mockserver_json_decl(r#""httpRequest": {"#));
+        assert!(!is_openapi_json_decl(r#""hoverflyVersion": "v1.2.0""#));
+        assert!(is_hoverfly_json_decl(r#""hoverflyVersion": "v1.2.0""#));
+        assert!(!is_openapi_json_decl(r#""imposters": ["#));
+        assert!(is_mountebank_json_decl(r#""imposters": ["#));
+        assert!(!is_openapi_json_decl(r#""scenarioName": "checkout""#));
+        assert!(is_wiremock_json_decl(r#""scenarioName": "checkout""#));
+        assert!(!is_openapi_json_decl(r#""lastMigration": 33"#));
+        assert!(is_mockoon_json_decl(r#""lastMigration": 33"#));
+        assert!(!is_openapi_json_decl(r#""preRequestScript": """#));
+        assert!(is_hoppscotch_json_decl(r#""preRequestScript": """#));
+        assert!(!is_openapi_json_decl(r#""yaakVersion": "2025.1.0""#));
+        assert!(is_yaak_json_decl(r#""yaakVersion": "2025.1.0""#));
+        assert!(!is_openapi_json_decl(r#""brunoConfig": {"#));
+        assert!(is_bruno_json_decl(r#""brunoConfig": {"#));
+        assert!(!is_openapi_json_decl(r#""client": "Thunder Client""#));
+        assert!(is_thunder_client_json_decl(r#""client": "Thunder Client""#));
+        assert!(!is_openapi_json_decl(
+            r#""_postman_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890""#
+        ));
+        assert!(is_postman_json_decl(
+            r#""_postman_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890""#
+        ));
+        assert!(!is_openapi_json_decl(r#""__export_format": 4"#));
+        assert!(is_insomnia_json_decl(r#""__export_format": 4"#));
+        assert!(!is_openapi_json_decl(r#""disableSearch": true"#));
+        assert!(is_redoc_json_decl(r#""disableSearch": true"#));
+        assert!(!is_openapi_json_decl(r#""specUrl": "./openapi.yaml""#));
+        assert!(is_rapidoc_json_decl(r#""specUrl": "./openapi.yaml""#));
+        assert!(!is_openapi_json_decl(r##""dom_id": "#swagger-ui""##));
+        assert!(is_swagger_ui_json_decl(r##""dom_id": "#swagger-ui""##));
+        assert!(!is_openapi_json_decl(r#""layout": "modern""#));
+        assert!(is_scalar_json_decl(r#""layout": "modern""#));
+        assert!(!is_openapi_json_decl(r#""layout": "sidebar""#));
+        assert!(is_stoplight_elements_json_decl(r#""layout": "sidebar""#));
+        assert!(!is_openapi_json_decl(r#""topbarLinks": ["#));
+        assert!(is_mintlify_json_decl(r#""topbarLinks": ["#));
+        assert!(!is_openapi_json_decl(r#""apis": {"#));
+        assert!(is_redocly_json_decl(r#""apis": {"#));
+        assert!(!is_openapi_json_decl(r#""openapi": {"#));
+        assert!(is_redocly_json_decl(r#""openapi": {"#));
+        assert!(!is_openapi_json_decl(r#""functionsDir": "./functions""#));
+        assert!(is_spectral_json_decl(r#""functionsDir": "./functions""#));
+        assert!(!is_openapi_json_decl(r#""generator-cli": {"#));
+        assert!(is_openapitools_json_decl(r#""generator-cli": {"#));
+        assert!(!is_openapi_json_decl(r#""printWidth": 80"#));
+        assert!(is_prettier_json_decl(r#""printWidth": 80"#));
+        assert!(!is_openapi_json_decl(r#""basePath": ".""#));
+        assert!(is_karma_json_decl(r#""basePath": ".""#));
+        // line_is_func_like wires the scanner.
+        assert!(line_is_func_like(r#""openapi": "3.0.3""#));
+        assert!(line_is_func_like(r#""swagger": "2.0""#));
+        assert!(line_is_func_like(r#""paths": {"#));
+        assert!(line_is_func_like(r#""components": {"#));
+        assert!(line_is_func_like(r#""servers": ["#));
+        assert!(line_is_func_like(r#""webhooks": {"#));
+        assert!(line_is_func_like(
+            r#""jsonSchemaDialect": "https://spec.openapis.org/oas/3.1/dialect/base""#
+        ));
+        assert!(line_is_func_like(r#""securityDefinitions": {"#));
+        assert!(line_is_func_like(r#""externalDocs": {"#));
     }
 
     #[test]
