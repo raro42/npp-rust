@@ -32441,6 +32441,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_redocly_json_decl(s)
             || is_mintlify_json_decl(s)
             || is_scalar_json_decl(s)
+            || is_stoplight_elements_json_decl(s)
             || is_gomod_decl(s)
             || is_gemfile_decl(s)
             || is_brewfile_decl(s)
@@ -32792,6 +32793,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_redocly_json_decl(s)
         || is_mintlify_json_decl(s)
         || is_scalar_json_decl(s)
+        || is_stoplight_elements_json_decl(s)
         || is_gomod_decl(s)
         || is_gemfile_decl(s)
         || is_brewfile_decl(s)
@@ -56698,11 +56700,14 @@ fn mintlify_json_path_ok(value: &str) -> bool {
 /// `"theme": "mint"` / Compodoc `"theme": "material"` / redocly `"apis"` /
 /// `"licenseKey"` / spectral `"functionsDir"` / openapitools
 /// `"generator-cli"` / docfx `"metadata": [` / typedoc `"entryPoints"` /
-/// api-extractor `"mainEntryPointFilePath"` / prettier `"printWidth"` /
+/// api-extractor `"mainEntryPointFilePath"` / Stoplight Elements
+/// `"apiDescriptionUrl"` / `"hideTryIt"` / prettier `"printWidth"` /
 /// package.json `"bin"` / karma `"basePath"` stay out. Shared
 /// `"hideDarkModeToggle": true` also matches Compodoc when shapes overlap;
 /// shared `"favicon"` / `"logo"` string paths also match Mintlify when
-/// shapes overlap.
+/// shapes overlap. Scalar `"layout": "modern"` / `"classic"` stays here;
+/// Elements `"layout": "sidebar"` / `"stacked"` / `"responsive"` stays on
+/// the Elements scanner.
 fn is_scalar_json_decl(s: &str) -> bool {
     let s = s.trim_start();
     let Some(rest) = s.strip_prefix('"') else {
@@ -56979,6 +56984,218 @@ fn scalar_json_domain_ok(value: &str) -> bool {
     value
         .bytes()
         .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'.' | b'-'))
+}
+
+/// Stoplight Elements `elements-api` / API React component JSON keys:
+/// `"apiDescriptionUrl": "…"`, `"apiDescriptionDocument": {` / `"…"`,
+/// `"layout": "sidebar"` / `"stacked"` / `"responsive"`, `"router": "hash"`
+/// / `"memory"` / `"history"` / `"static"`, `"logo": "…"`,
+/// `"staticRouterPath": "…"`, `"tryItCorsProxy": "…"`,
+/// `"tryItCredentialsPolicy": "omit"` / `"include"` / `"same-origin"`,
+/// bools `"hideTryIt"` / `"hideTryItPanel"` / `"hideSamples"` /
+/// `"hideSchemas"` / `"hideInternal"` / `"hideExport"` /
+/// `"hideSecurityInfo"` / `"hideServerInfo"` / `"outerRouter"`, number
+/// `"maxRefDepth": 2`. Optional trailing `,` and `//` / `/*` comment.
+/// Incomplete quotes / missing `:` stay out. Generic `"$schema"` /
+/// `"name"` / `"version"` / karma `"basePath"` / scalar `"proxyUrl"` /
+/// `"layout": "modern"` / mintlify `"topbarLinks"` / `"theme": "mint"` /
+/// Compodoc `"theme": "material"` / redocly `"apis"` / `"licenseKey"` /
+/// spectral `"functionsDir"` / openapitools `"generator-cli"` / docfx
+/// `"metadata": [` / typedoc `"entryPoints"` / api-extractor
+/// `"mainEntryPointFilePath"` / prettier `"printWidth"` / package.json
+/// `"bin"` stay out. Shared `"logo"` string paths also match Mintlify /
+/// Scalar when shapes overlap. Elements `"layout": "sidebar"` stays here;
+/// Scalar `"layout": "modern"` / `"classic"` stays on Scalar.
+fn is_stoplight_elements_json_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    let Some(rest) = s.strip_prefix('"') else {
+        return false;
+    };
+    let Some(end) = rest.find('"') else {
+        return false;
+    };
+    let key = &rest[..end];
+    if !stoplight_elements_json_key_ok(key) {
+        return false;
+    }
+    let after_key = rest[end + 1..].trim_start();
+    let Some(after_colon) = after_key.strip_prefix(':') else {
+        return false;
+    };
+    let after_colon = after_colon.trim_start();
+    stoplight_elements_json_value_and_tail_ok(key, after_colon)
+}
+
+fn stoplight_elements_json_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "apiDescriptionUrl"
+            | "apiDescriptionDocument"
+            | "layout"
+            | "router"
+            | "logo"
+            | "staticRouterPath"
+            | "tryItCorsProxy"
+            | "tryItCredentialsPolicy"
+            | "hideTryIt"
+            | "hideTryItPanel"
+            | "hideSamples"
+            | "hideSchemas"
+            | "hideInternal"
+            | "hideExport"
+            | "hideSecurityInfo"
+            | "hideServerInfo"
+            | "outerRouter"
+            | "maxRefDepth"
+    )
+}
+
+fn stoplight_elements_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool {
+    let bytes = after_colon.as_bytes();
+    let Some(first) = bytes.first().copied() else {
+        return false;
+    };
+    match first {
+        b'{' => {
+            if key != "apiDescriptionDocument" {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[1..])
+        }
+        b'"' => {
+            if !stoplight_elements_json_string_key_ok(key) {
+                return false;
+            }
+            let rest = &after_colon[1..];
+            let Some(end) = rest.find('"') else {
+                return false;
+            };
+            let value = &rest[..end];
+            if !stoplight_elements_json_string_ok(key, value) {
+                return false;
+            }
+            package_json_tail_ok(&rest[end + 1..])
+        }
+        b't' | b'f' => {
+            let rest = if let Some(rest) = after_colon.strip_prefix("true") {
+                rest
+            } else if let Some(rest) = after_colon.strip_prefix("false") {
+                rest
+            } else {
+                return false;
+            };
+            if !stoplight_elements_json_bool_key_ok(key) {
+                return false;
+            }
+            package_json_tail_ok(rest)
+        }
+        b'0'..=b'9' => {
+            if key != "maxRefDepth" {
+                return false;
+            }
+            let digits = after_colon
+                .bytes()
+                .take_while(|b| b.is_ascii_digit())
+                .count();
+            // Allow 0..99 (including 0); reject leading-zero multi-digit.
+            if digits == 0 || digits > 2 {
+                return false;
+            }
+            if digits == 2 && after_colon.as_bytes()[0] == b'0' {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[digits..])
+        }
+        _ => false,
+    }
+}
+
+fn stoplight_elements_json_string_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "apiDescriptionUrl"
+            | "apiDescriptionDocument"
+            | "layout"
+            | "router"
+            | "logo"
+            | "staticRouterPath"
+            | "tryItCorsProxy"
+            | "tryItCredentialsPolicy"
+    )
+}
+
+fn stoplight_elements_json_bool_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "hideTryIt"
+            | "hideTryItPanel"
+            | "hideSamples"
+            | "hideSchemas"
+            | "hideInternal"
+            | "hideExport"
+            | "hideSecurityInfo"
+            | "hideServerInfo"
+            | "outerRouter"
+    )
+}
+
+fn stoplight_elements_json_string_ok(key: &str, value: &str) -> bool {
+    if value.contains('\n') {
+        return false;
+    }
+    match key {
+        "layout" => matches!(value, "sidebar" | "stacked" | "responsive"),
+        "router" => matches!(value, "hash" | "memory" | "history" | "static"),
+        "tryItCredentialsPolicy" => matches!(value, "omit" | "include" | "same-origin"),
+        "apiDescriptionUrl" | "tryItCorsProxy" | "logo" | "staticRouterPath" => {
+            mintlify_json_path_ok(value)
+        }
+        "apiDescriptionDocument" => stoplight_elements_json_document_ok(value),
+        _ => false,
+    }
+}
+
+fn stoplight_elements_json_document_ok(value: &str) -> bool {
+    if value.is_empty() || value.len() > 1024 {
+        return false;
+    }
+    if value.chars().all(|c| c.is_ascii_whitespace()) {
+        return false;
+    }
+    // Inline OpenAPI JSON/YAML snippet or a document path / URL.
+    value.bytes().all(|b| {
+        b.is_ascii_alphanumeric()
+            || b.is_ascii_whitespace()
+            || matches!(
+                b,
+                b'.' | b'-'
+                    | b'_'
+                    | b'/'
+                    | b'\\'
+                    | b':'
+                    | b';'
+                    | b'{'
+                    | b'}'
+                    | b'('
+                    | b')'
+                    | b'['
+                    | b']'
+                    | b'#'
+                    | b'@'
+                    | b'+'
+                    | b'~'
+                    | b'*'
+                    | b'?'
+                    | b'='
+                    | b'&'
+                    | b'%'
+                    | b','
+                    | b'\''
+                    | b'|'
+                    | b'!'
+                    | b'$'
+            )
+    })
 }
 
 /// go.mod / go.work directives: `module example.com/foo`, `go 1.22`,
@@ -87643,21 +87860,22 @@ mod func_like_line_tests {
         is_scriv_ini_decl, is_sddm_conf_decl, is_semantic_release_ini_decl,
         is_semantic_release_json_decl, is_services_file_decl, is_setup_cfg_decl,
         is_setuptools_scm_ini_decl, is_simple_git_hooks_json_decl, is_spectral_json_decl,
-        is_sqlfluff_ini_decl, is_ssh_config_decl, is_sssd_conf_decl, is_stryker_json_decl,
-        is_stylelint_json_decl, is_subuid_subgid_decl, is_sudoers_decl, is_supabase_toml_decl,
-        is_supervisord_conf_decl, is_swc_json_decl, is_syncpack_json_decl, is_sysctl_conf_decl,
-        is_syslog_ng_decl, is_systemd_networkd_decl, is_systemd_unit_decl, is_sysusers_d_decl,
-        is_tap_json_decl, is_taplo_toml_decl, is_tauri_json_decl, is_telegraf_toml_decl,
-        is_testcafe_json_decl, is_tmpfiles_d_decl, is_towncrier_ini_decl, is_tox_ini_decl,
-        is_trunk_toml_decl, is_tsconfig_json_decl, is_turbo_json_decl, is_ty_toml_decl,
-        is_typedoc_json_decl, is_typos_toml_decl, is_udev_rule_decl, is_unbound_nsd_conf_decl,
-        is_uniffi_toml_decl, is_unimport_ini_decl, is_uv_toml_decl, is_vconsole_conf_decl,
-        is_vector_toml_decl, is_vercel_json_decl, is_versioneer_ini_decl, is_versionrc_json_decl,
-        is_vitest_json_decl, is_vscode_launch_json_decl, is_vscode_tasks_json_decl,
-        is_vulture_ini_decl, is_wails_json_decl, is_wdio_json_decl,
-        is_webextension_manifest_json_decl, is_wireguard_config_decl, is_wrangler_toml_decl,
-        is_xmake_decl, is_xorg_conf_decl, is_yapf_ini_decl, is_yarnrc_yml_decl, is_yum_repo_decl,
-        is_zest_releaser_ini_decl, line_is_func_like,
+        is_sqlfluff_ini_decl, is_ssh_config_decl, is_sssd_conf_decl,
+        is_stoplight_elements_json_decl, is_stryker_json_decl, is_stylelint_json_decl,
+        is_subuid_subgid_decl, is_sudoers_decl, is_supabase_toml_decl, is_supervisord_conf_decl,
+        is_swc_json_decl, is_syncpack_json_decl, is_sysctl_conf_decl, is_syslog_ng_decl,
+        is_systemd_networkd_decl, is_systemd_unit_decl, is_sysusers_d_decl, is_tap_json_decl,
+        is_taplo_toml_decl, is_tauri_json_decl, is_telegraf_toml_decl, is_testcafe_json_decl,
+        is_tmpfiles_d_decl, is_towncrier_ini_decl, is_tox_ini_decl, is_trunk_toml_decl,
+        is_tsconfig_json_decl, is_turbo_json_decl, is_ty_toml_decl, is_typedoc_json_decl,
+        is_typos_toml_decl, is_udev_rule_decl, is_unbound_nsd_conf_decl, is_uniffi_toml_decl,
+        is_unimport_ini_decl, is_uv_toml_decl, is_vconsole_conf_decl, is_vector_toml_decl,
+        is_vercel_json_decl, is_versioneer_ini_decl, is_versionrc_json_decl, is_vitest_json_decl,
+        is_vscode_launch_json_decl, is_vscode_tasks_json_decl, is_vulture_ini_decl,
+        is_wails_json_decl, is_wdio_json_decl, is_webextension_manifest_json_decl,
+        is_wireguard_config_decl, is_wrangler_toml_decl, is_xmake_decl, is_xorg_conf_decl,
+        is_yapf_ini_decl, is_yarnrc_yml_decl, is_yum_repo_decl, is_zest_releaser_ini_decl,
+        line_is_func_like,
     };
 
     #[test]
@@ -112761,6 +112979,257 @@ mod func_like_line_tests {
         assert!(line_is_func_like(r#""hideTestRequestButton": true"#));
         assert!(line_is_func_like(r#""subdomain": "my-docs""#));
         assert!(line_is_func_like(r#""customDomain": "docs.example.com""#));
+    }
+
+    #[test]
+    fn stoplight_elements_json_keys_smoke() {
+        assert!(is_stoplight_elements_json_decl(
+            r#""apiDescriptionUrl": "https://api.example.com/openapi.json""#
+        ));
+        assert!(is_stoplight_elements_json_decl(
+            r#""apiDescriptionDocument": {"#
+        ));
+        assert!(is_stoplight_elements_json_decl(
+            r#""apiDescriptionDocument": "openapi: 3.0.0""#
+        ));
+        assert!(is_stoplight_elements_json_decl(r#""layout": "sidebar""#));
+        assert!(is_stoplight_elements_json_decl(r#""layout": "stacked""#));
+        assert!(is_stoplight_elements_json_decl(r#""layout": "responsive""#));
+        assert!(is_stoplight_elements_json_decl(r#""router": "history""#));
+        assert!(is_stoplight_elements_json_decl(r#""router": "hash""#));
+        assert!(is_stoplight_elements_json_decl(r#""router": "memory""#));
+        assert!(is_stoplight_elements_json_decl(r#""router": "static""#));
+        assert!(is_stoplight_elements_json_decl(r#""logo": "./logo.svg""#));
+        assert!(is_stoplight_elements_json_decl(
+            r#""staticRouterPath": "/api/getUser""#
+        ));
+        assert!(is_stoplight_elements_json_decl(
+            r#""tryItCorsProxy": "https://proxy.example.com""#
+        ));
+        assert!(is_stoplight_elements_json_decl(
+            r#""tryItCredentialsPolicy": "same-origin""#
+        ));
+        assert!(is_stoplight_elements_json_decl(r#""hideTryIt": true"#));
+        assert!(is_stoplight_elements_json_decl(
+            r#""hideTryItPanel": false"#
+        ));
+        assert!(is_stoplight_elements_json_decl(r#""hideSamples": true"#));
+        assert!(is_stoplight_elements_json_decl(r#""hideSchemas": true"#));
+        assert!(is_stoplight_elements_json_decl(r#""hideInternal": true"#));
+        assert!(is_stoplight_elements_json_decl(r#""hideExport": true"#));
+        assert!(is_stoplight_elements_json_decl(
+            r#""hideSecurityInfo": true"#
+        ));
+        assert!(is_stoplight_elements_json_decl(r#""hideServerInfo": true"#));
+        assert!(is_stoplight_elements_json_decl(r#""outerRouter": true"#));
+        assert!(is_stoplight_elements_json_decl(r#""maxRefDepth": 2"#));
+        assert!(is_stoplight_elements_json_decl(r#""maxRefDepth": 0"#));
+        // Distinctive neighbours stay out of this scanner.
+        assert!(!is_stoplight_elements_json_decl(
+            r#""proxyUrl": "https://proxy.scalar.com""#
+        ));
+        assert!(is_scalar_json_decl(
+            r#""proxyUrl": "https://proxy.scalar.com""#
+        ));
+        assert!(!is_stoplight_elements_json_decl(r#""layout": "modern""#));
+        assert!(is_scalar_json_decl(r#""layout": "modern""#));
+        assert!(!is_stoplight_elements_json_decl(r#""topbarLinks": ["#));
+        assert!(is_mintlify_json_decl(r#""topbarLinks": ["#));
+        assert!(!is_stoplight_elements_json_decl(r#""apis": {"#));
+        assert!(is_redocly_json_decl(r#""apis": {"#));
+        assert!(!is_stoplight_elements_json_decl(
+            r#""functionsDir": "./functions""#
+        ));
+        assert!(is_spectral_json_decl(r#""functionsDir": "./functions""#));
+        assert!(!is_stoplight_elements_json_decl(r#""basePath": ".""#));
+        assert!(is_karma_json_decl(r#""basePath": ".""#));
+        assert!(!is_stoplight_elements_json_decl(r#""printWidth": 80"#));
+        assert!(is_prettier_json_decl(r#""printWidth": 80"#));
+    }
+
+    #[test]
+    fn stoplight_elements_json_keys_count() {
+        assert!(is_stoplight_elements_json_decl(
+            r#""apiDescriptionUrl": "https://api.example.com/openapi.json""#
+        ));
+        assert!(is_stoplight_elements_json_decl(
+            r#""apiDescriptionUrl": "https://api.example.com/openapi.json","#
+        ));
+        assert!(is_stoplight_elements_json_decl(
+            r#""apiDescriptionUrl": "https://api.example.com/openapi.json" // spec"#
+        ));
+        assert!(is_stoplight_elements_json_decl(
+            r#""apiDescriptionUrl": "./openapi.yaml""#
+        ));
+        assert!(!is_stoplight_elements_json_decl(
+            r#""apiDescriptionUrl": {"#
+        ));
+        assert!(!is_stoplight_elements_json_decl(
+            r#""apiDescriptionUrl": true"#
+        ));
+        assert!(is_stoplight_elements_json_decl(
+            r#""apiDescriptionDocument": {"#
+        ));
+        assert!(is_stoplight_elements_json_decl(
+            r#""apiDescriptionDocument": { // inline"#
+        ));
+        assert!(is_stoplight_elements_json_decl(
+            r#""apiDescriptionDocument": "openapi: 3.0.0""#
+        ));
+        assert!(!is_stoplight_elements_json_decl(
+            r#""apiDescriptionDocument": ["#
+        ));
+        assert!(!is_stoplight_elements_json_decl(
+            r#""apiDescriptionDocument": true"#
+        ));
+        assert!(is_stoplight_elements_json_decl(r#""layout": "sidebar""#));
+        assert!(is_stoplight_elements_json_decl(r#""layout": "stacked","#));
+        assert!(is_stoplight_elements_json_decl(
+            r#""layout": "responsive" // ui"#
+        ));
+        assert!(!is_stoplight_elements_json_decl(r#""layout": "modern""#));
+        assert!(is_scalar_json_decl(r#""layout": "modern""#));
+        assert!(!is_stoplight_elements_json_decl(r#""layout": "classic""#));
+        assert!(is_scalar_json_decl(r#""layout": "classic""#));
+        assert!(!is_stoplight_elements_json_decl(r#""layout": {"#));
+        assert!(!is_stoplight_elements_json_decl(r#""layout": true"#));
+        assert!(is_stoplight_elements_json_decl(r#""router": "history""#));
+        assert!(is_stoplight_elements_json_decl(r#""router": "hash""#));
+        assert!(is_stoplight_elements_json_decl(r#""router": "memory""#));
+        assert!(is_stoplight_elements_json_decl(r#""router": "static""#));
+        assert!(!is_stoplight_elements_json_decl(r#""router": "browser""#));
+        assert!(!is_stoplight_elements_json_decl(r#""router": {"#));
+        assert!(is_stoplight_elements_json_decl(r#""logo": "/logo.svg""#));
+        assert!(is_stoplight_elements_json_decl(
+            r#""logo": "https://example.com/logo.png""#
+        ));
+        assert!(!is_stoplight_elements_json_decl(r#""logo": {"#));
+        assert!(!is_stoplight_elements_json_decl(r#""logo": true"#));
+        assert!(is_stoplight_elements_json_decl(
+            r#""staticRouterPath": "/ops/getUser""#
+        ));
+        assert!(!is_stoplight_elements_json_decl(r#""staticRouterPath": {"#));
+        assert!(is_stoplight_elements_json_decl(
+            r#""tryItCorsProxy": "https://cors.example.com""#
+        ));
+        assert!(!is_stoplight_elements_json_decl(
+            r#""tryItCorsProxy": true"#
+        ));
+        assert!(is_stoplight_elements_json_decl(
+            r#""tryItCredentialsPolicy": "omit""#
+        ));
+        assert!(is_stoplight_elements_json_decl(
+            r#""tryItCredentialsPolicy": "include""#
+        ));
+        assert!(is_stoplight_elements_json_decl(
+            r#""tryItCredentialsPolicy": "same-origin""#
+        ));
+        assert!(!is_stoplight_elements_json_decl(
+            r#""tryItCredentialsPolicy": "cors""#
+        ));
+        assert!(is_stoplight_elements_json_decl(r#""hideTryIt": true"#));
+        assert!(is_stoplight_elements_json_decl(r#""hideTryIt": false,"#));
+        assert!(is_stoplight_elements_json_decl(
+            r#""hideTryIt": true // hide"#
+        ));
+        assert!(!is_stoplight_elements_json_decl(r#""hideTryIt": "true""#));
+        assert!(!is_stoplight_elements_json_decl(r#""hideTryIt": {"#));
+        assert!(is_stoplight_elements_json_decl(r#""hideTryItPanel": true"#));
+        assert!(is_stoplight_elements_json_decl(r#""hideSamples": false"#));
+        assert!(is_stoplight_elements_json_decl(r#""hideSchemas": true"#));
+        assert!(is_stoplight_elements_json_decl(r#""hideInternal": true"#));
+        assert!(is_stoplight_elements_json_decl(r#""hideExport": false"#));
+        assert!(is_stoplight_elements_json_decl(
+            r#""hideSecurityInfo": true"#
+        ));
+        assert!(is_stoplight_elements_json_decl(
+            r#""hideServerInfo": false"#
+        ));
+        assert!(is_stoplight_elements_json_decl(r#""outerRouter": true"#));
+        assert!(!is_stoplight_elements_json_decl(r#""outerRouter": "true""#));
+        assert!(is_stoplight_elements_json_decl(r#""maxRefDepth": 0"#));
+        assert!(is_stoplight_elements_json_decl(r#""maxRefDepth": 2"#));
+        assert!(is_stoplight_elements_json_decl(r#""maxRefDepth": 12,"#));
+        assert!(is_stoplight_elements_json_decl(
+            r#""maxRefDepth": 3 // depth"#
+        ));
+        assert!(!is_stoplight_elements_json_decl(r#""maxRefDepth": 012"#));
+        assert!(!is_stoplight_elements_json_decl(r#""maxRefDepth": "2""#));
+        assert!(!is_stoplight_elements_json_decl(r#""maxRefDepth": true"#));
+        // Incomplete / wrong shapes stay out.
+        assert!(!is_stoplight_elements_json_decl(r#""apiDescriptionUrl""#));
+        assert!(!is_stoplight_elements_json_decl(r#""apiDescriptionUrl":"#));
+        assert!(!is_stoplight_elements_json_decl(r#""hideTryIt""#));
+        assert!(!is_stoplight_elements_json_decl(r#""layout""#));
+        // Generic / neighbouring stay out.
+        assert!(!is_stoplight_elements_json_decl(
+            r#""$schema": "https://example.com/elements.schema.json""#
+        ));
+        assert!(!is_stoplight_elements_json_decl(r#""name": "API""#));
+        assert!(!is_stoplight_elements_json_decl(r#""version": "1.0.0""#));
+        assert!(!is_stoplight_elements_json_decl(
+            r#""proxyUrl": "https://proxy.scalar.com""#
+        ));
+        assert!(is_scalar_json_decl(
+            r#""proxyUrl": "https://proxy.scalar.com""#
+        ));
+        assert!(!is_stoplight_elements_json_decl(r#""layout": "modern""#));
+        assert!(is_scalar_json_decl(r#""layout": "modern""#));
+        assert!(!is_stoplight_elements_json_decl(r#""topbarLinks": ["#));
+        assert!(is_mintlify_json_decl(r#""topbarLinks": ["#));
+        assert!(!is_stoplight_elements_json_decl(r#""theme": "mint""#));
+        assert!(is_mintlify_json_decl(r#""theme": "mint""#));
+        assert!(!is_stoplight_elements_json_decl(r#""theme": "material""#));
+        assert!(is_compodoc_json_decl(r#""theme": "material""#));
+        assert!(!is_stoplight_elements_json_decl(r#""apis": {"#));
+        assert!(is_redocly_json_decl(r#""apis": {"#));
+        assert!(!is_stoplight_elements_json_decl(
+            r#""licenseKey": "public_key""#
+        ));
+        assert!(is_redocly_json_decl(r#""licenseKey": "public_key""#));
+        assert!(!is_stoplight_elements_json_decl(
+            r#""functionsDir": "./functions""#
+        ));
+        assert!(is_spectral_json_decl(r#""functionsDir": "./functions""#));
+        assert!(!is_stoplight_elements_json_decl(r#""generator-cli": {"#));
+        assert!(is_openapitools_json_decl(r#""generator-cli": {"#));
+        assert!(!is_stoplight_elements_json_decl(r#""metadata": ["#));
+        assert!(is_docfx_json_decl(r#""metadata": ["#));
+        assert!(!is_stoplight_elements_json_decl(r#""entryPoints": ["#));
+        assert!(is_typedoc_json_decl(r#""entryPoints": ["#));
+        assert!(!is_stoplight_elements_json_decl(
+            r#""mainEntryPointFilePath": "<projectFolder>/lib/index.d.ts""#
+        ));
+        assert!(is_api_extractor_json_decl(
+            r#""mainEntryPointFilePath": "<projectFolder>/lib/index.d.ts""#
+        ));
+        assert!(!is_stoplight_elements_json_decl(r#""printWidth": 80"#));
+        assert!(is_prettier_json_decl(r#""printWidth": 80"#));
+        assert!(!is_stoplight_elements_json_decl(r#""bin": {"#));
+        assert!(is_package_json_decl(r#""bin": {"#));
+        assert!(!is_stoplight_elements_json_decl(r#""basePath": ".""#));
+        assert!(is_karma_json_decl(r#""basePath": ".""#));
+        // Shared shapes: both scanners may match.
+        assert!(is_stoplight_elements_json_decl(r#""logo": "/logo.svg""#));
+        assert!(is_mintlify_json_decl(r#""logo": "/logo.svg""#));
+        assert!(is_scalar_json_decl(r#""logo": "/logo.svg""#));
+        // line_is_func_like wires the scanner.
+        assert!(line_is_func_like(
+            r#""apiDescriptionUrl": "https://api.example.com/openapi.json""#
+        ));
+        assert!(line_is_func_like(r#""apiDescriptionDocument": {"#));
+        assert!(line_is_func_like(r#""layout": "sidebar""#));
+        assert!(line_is_func_like(r#""layout": "stacked""#));
+        assert!(line_is_func_like(r#""router": "history""#));
+        assert!(line_is_func_like(r#""tryItCredentialsPolicy": "omit""#));
+        assert!(line_is_func_like(r#""hideTryIt": true"#));
+        assert!(line_is_func_like(r#""hideInternal": true"#));
+        assert!(line_is_func_like(r#""outerRouter": true"#));
+        assert!(line_is_func_like(r#""maxRefDepth": 2"#));
+        assert!(line_is_func_like(r#""logo": "./logo.svg""#));
+        assert!(line_is_func_like(
+            r#""tryItCorsProxy": "https://proxy.example.com""#
+        ));
     }
 
     #[test]

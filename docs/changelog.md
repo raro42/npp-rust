@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.774] — 2026-11-11
+
+View:
+
+- **Function List** lists Stoplight Elements `elements-api` / API React component JSON keys: `"apiDescriptionUrl": "…"`, `"apiDescriptionDocument": {` / `"…"`, `"layout": "sidebar"` / `"stacked"` / `"responsive"`, `"router": "hash"` / `"memory"` / `"history"` / `"static"`, `"logo": "…"`, `"staticRouterPath": "…"`, `"tryItCorsProxy": "…"`, `"tryItCredentialsPolicy": "omit"` / `"include"` / `"same-origin"`, bools `"hideTryIt"` / `"hideTryItPanel"` / `"hideSamples"` / `"hideSchemas"` / `"hideInternal"` / `"hideExport"` / `"hideSecurityInfo"` / `"hideServerInfo"` / `"outerRouter"`, number `"maxRefDepth": 2`. Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing `:` stay out. Generic `"$schema"` / `"name"` / `"version"` / karma `"basePath"` / scalar `"proxyUrl"` / `"layout": "modern"` / mintlify `"topbarLinks"` / `"theme": "mint"` / Compodoc `"theme": "material"` / redocly `"apis"` / `"licenseKey"` / spectral `"functionsDir"` / openapitools `"generator-cli"` / docfx `"metadata": [` / typedoc `"entryPoints"` / api-extractor `"mainEntryPointFilePath"` / prettier `"printWidth"` / package.json `"bin"` stay out. Shared `"logo"` string paths also match Mintlify / Scalar when shapes overlap. Elements `"layout": "sidebar"` stays here; Scalar `"layout": "modern"` / `"classic"` stays on Scalar.
+
 ## [0.3.773] — 2026-11-11
 
 View:
