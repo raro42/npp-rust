@@ -32460,6 +32460,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_openapi_json_decl(s)
             || is_asyncapi_json_decl(s)
             || is_har_json_decl(s)
+            || is_otlp_json_decl(s)
             || is_gomod_decl(s)
             || is_gemfile_decl(s)
             || is_brewfile_decl(s)
@@ -32830,6 +32831,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_openapi_json_decl(s)
         || is_asyncapi_json_decl(s)
         || is_har_json_decl(s)
+        || is_otlp_json_decl(s)
         || is_gomod_decl(s)
         || is_gemfile_decl(s)
         || is_brewfile_decl(s)
@@ -60316,6 +60318,171 @@ fn har_started_datetime_ok(value: &str) -> bool {
         && b[7] == b'-'
         && b[8].is_ascii_digit()
         && b[9].is_ascii_digit()
+}
+
+/// OpenTelemetry OTLP JSON export keys: `"resourceSpans": [`,
+/// `"scopeSpans": [`, `"resourceLogs": [`, `"scopeLogs": [`,
+/// `"resourceMetrics": [`, `"scopeMetrics": [`,
+/// `"instrumentationScope": {`, `"parentSpanId": ""` / `"…"`,
+/// `"startTimeUnixNano": "…"` / `0`, `"endTimeUnixNano": "…"` / `0`,
+/// `"droppedAttributesCount": 0` / `1`.
+/// Optional trailing `,` and `//` / `/*` comment. Incomplete quotes /
+/// missing `:` stay out. Generic `"$schema"` / `"name"` / `"traceId"` /
+/// `"spanId"` / `"attributes": [` / `"events": [` / `"links": [` /
+/// `"status": {` / `"kind"` / `"service"` / HAR `"startedDateTime"` /
+/// `"timings"` / OpenAPI `"openapi"` / AsyncAPI `"asyncapi"` /
+/// `"channels": {` / Pact `"consumer"` / MockServer `"httpRequest"` /
+/// Hoverfly `"hoverflyVersion"` / Mountebank `"imposters"` / WireMock
+/// `"scenarioName"` / Mockoon `"lastMigration"` / Hoppscotch
+/// `"preRequestScript"` / Yaak `"yaakVersion"` / Bruno `"brunoConfig"` /
+/// Thunder Client `"client"` / Postman `"_postman_id"` / Insomnia
+/// `"__export_format"` / ReDoc `"disableSearch"` / RapiDoc `"specUrl"` /
+/// swagger-ui `"dom_id"` / scalar `"layout": "modern"` / Elements
+/// `"layout": "sidebar"` / mintlify `"topbarLinks"` / Compodoc
+/// `"theme": "material"` / redocly `"apis"` / spectral `"functionsDir"` /
+/// openapitools `"generator-cli"` / Knip `"entry"` / prettier
+/// `"printWidth"` / package.json `"bin"` / karma `"basePath"` stay out.
+/// `"parentSpanId"` only matches empty or 16-char lowercase hex.
+/// Unix-nano strings are digit-only (1–20 chars).
+fn is_otlp_json_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    let Some(rest) = s.strip_prefix('"') else {
+        return false;
+    };
+    let Some(end) = rest.find('"') else {
+        return false;
+    };
+    let key = &rest[..end];
+    if !otlp_json_key_ok(key) {
+        return false;
+    }
+    let after_key = rest[end + 1..].trim_start();
+    let Some(after_colon) = after_key.strip_prefix(':') else {
+        return false;
+    };
+    let after_colon = after_colon.trim_start();
+    otlp_json_value_and_tail_ok(key, after_colon)
+}
+
+fn otlp_json_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "resourceSpans"
+            | "scopeSpans"
+            | "resourceLogs"
+            | "scopeLogs"
+            | "resourceMetrics"
+            | "scopeMetrics"
+            | "instrumentationScope"
+            | "parentSpanId"
+            | "startTimeUnixNano"
+            | "endTimeUnixNano"
+            | "droppedAttributesCount"
+    )
+}
+
+fn otlp_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool {
+    let bytes = after_colon.as_bytes();
+    let Some(first) = bytes.first().copied() else {
+        return false;
+    };
+    match first {
+        b'{' => {
+            if key != "instrumentationScope" {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[1..])
+        }
+        b'[' => {
+            if !matches!(
+                key,
+                "resourceSpans"
+                    | "scopeSpans"
+                    | "resourceLogs"
+                    | "scopeLogs"
+                    | "resourceMetrics"
+                    | "scopeMetrics"
+            ) {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[1..])
+        }
+        b'"' => {
+            if !matches!(
+                key,
+                "parentSpanId" | "startTimeUnixNano" | "endTimeUnixNano"
+            ) {
+                return false;
+            }
+            let rest = &after_colon[1..];
+            let Some(end) = rest.find('"') else {
+                return false;
+            };
+            let value = &rest[..end];
+            if !otlp_json_string_ok(key, value) {
+                return false;
+            }
+            package_json_tail_ok(&rest[end + 1..])
+        }
+        b'0'..=b'9' => otlp_json_number_and_tail_ok(key, after_colon),
+        _ => false,
+    }
+}
+
+fn otlp_json_string_ok(key: &str, value: &str) -> bool {
+    match key {
+        "parentSpanId" => otlp_parent_span_id_ok(value),
+        "startTimeUnixNano" | "endTimeUnixNano" => otlp_unix_nano_string_ok(value),
+        _ => false,
+    }
+}
+
+fn otlp_parent_span_id_ok(value: &str) -> bool {
+    if value.contains('\n') {
+        return false;
+    }
+    if value.is_empty() {
+        return true;
+    }
+    value.len() == 16
+        && value
+            .bytes()
+            .all(|b| matches!(b, b'0'..=b'9' | b'a'..=b'f'))
+}
+
+fn otlp_unix_nano_string_ok(value: &str) -> bool {
+    if value.is_empty() || value.len() > 20 || value.contains('\n') {
+        return false;
+    }
+    if value.len() > 1 && value.as_bytes()[0] == b'0' {
+        return false;
+    }
+    value.bytes().all(|b| b.is_ascii_digit())
+}
+
+fn otlp_json_number_and_tail_ok(key: &str, after_colon: &str) -> bool {
+    if !matches!(
+        key,
+        "startTimeUnixNano" | "endTimeUnixNano" | "droppedAttributesCount"
+    ) {
+        return false;
+    }
+    let digits = after_colon
+        .bytes()
+        .take_while(|b| b.is_ascii_digit())
+        .count();
+    let max_digits = if matches!(key, "startTimeUnixNano" | "endTimeUnixNano") {
+        20
+    } else {
+        8
+    };
+    if digits == 0 || digits > max_digits {
+        return false;
+    }
+    if digits > 1 && after_colon.as_bytes()[0] == b'0' {
+        return false;
+    }
+    package_json_tail_ok(&after_colon[digits..])
 }
 
 /// go.mod / go.work directives: `module example.com/foo`, `go 1.22`,
@@ -90966,10 +91133,10 @@ mod func_like_line_tests {
         is_neutralino_json_decl, is_nextest_toml_decl, is_nftables_decl, is_nginx_conf_decl,
         is_nightwatch_json_decl, is_nixpacks_toml_decl, is_nm_connection_decl, is_npmrc_decl,
         is_nsswitch_conf_decl, is_nx_json_decl, is_nyc_json_decl, is_openapi_json_decl,
-        is_openapitools_json_decl, is_openvpn_decl, is_os_release_decl, is_oxlint_json_decl,
-        is_package_json_decl, is_pacman_conf_decl, is_pact_json_decl, is_pam_conf_decl,
-        is_parcel_json_decl, is_paru_conf_decl, is_passwd_group_file_decl, is_pdm_toml_decl,
-        is_php_ini_decl, is_pip_conf_decl, is_pipfile_decl, is_pixi_toml_decl,
+        is_openapitools_json_decl, is_openvpn_decl, is_os_release_decl, is_otlp_json_decl,
+        is_oxlint_json_decl, is_package_json_decl, is_pacman_conf_decl, is_pact_json_decl,
+        is_pam_conf_decl, is_parcel_json_decl, is_paru_conf_decl, is_passwd_group_file_decl,
+        is_pdm_toml_decl, is_php_ini_decl, is_pip_conf_decl, is_pipfile_decl, is_pixi_toml_decl,
         is_playwright_json_decl, is_podfile_decl, is_poetry_toml_decl, is_postcss_json_decl,
         is_postman_json_decl, is_premake_decl, is_prettier_json_decl, is_protocols_file_decl,
         is_pycln_ini_decl, is_pycodestyle_ini_decl, is_pydoclint_ini_decl, is_pydocstyle_ini_decl,
@@ -120038,6 +120205,15 @@ mod func_like_line_tests {
         ));
         assert!(!is_asyncapi_json_decl(r#""timings": {"#));
         assert!(is_har_json_decl(r#""timings": {"#));
+        // OTLP distinctive keys stay on OTLP.
+        assert!(!is_asyncapi_json_decl(r#""resourceSpans": ["#));
+        assert!(is_otlp_json_decl(r#""resourceSpans": ["#));
+        assert!(!is_asyncapi_json_decl(
+            r#""startTimeUnixNano": "1700000000000000000""#
+        ));
+        assert!(is_otlp_json_decl(
+            r#""startTimeUnixNano": "1700000000000000000""#
+        ));
     }
 
     #[test]
@@ -120171,6 +120347,15 @@ mod func_like_line_tests {
         ));
         assert!(!is_asyncapi_json_decl(r#""timings": {"#));
         assert!(is_har_json_decl(r#""timings": {"#));
+        // OTLP distinctive keys stay on OTLP.
+        assert!(!is_asyncapi_json_decl(r#""resourceSpans": ["#));
+        assert!(is_otlp_json_decl(r#""resourceSpans": ["#));
+        assert!(!is_asyncapi_json_decl(
+            r#""startTimeUnixNano": "1700000000000000000""#
+        ));
+        assert!(is_otlp_json_decl(
+            r#""startTimeUnixNano": "1700000000000000000""#
+        ));
         // line_is_func_like wires the scanner.
         assert!(line_is_func_like(r#""asyncapi": "2.6.0""#));
         assert!(line_is_func_like(r#""asyncapi": "3.0.0""#));
@@ -120252,6 +120437,14 @@ mod func_like_line_tests {
         assert!(is_prettier_json_decl(r#""printWidth": 80"#));
         assert!(!is_har_json_decl(r#""basePath": ".""#));
         assert!(is_karma_json_decl(r#""basePath": ".""#));
+        assert!(!is_har_json_decl(r#""resourceSpans": ["#));
+        assert!(is_otlp_json_decl(r#""resourceSpans": ["#));
+        assert!(!is_har_json_decl(
+            r#""startTimeUnixNano": "1700000000000000000""#
+        ));
+        assert!(is_otlp_json_decl(
+            r#""startTimeUnixNano": "1700000000000000000""#
+        ));
         assert!(line_is_func_like(
             r#""startedDateTime": "2009-04-16T15:53:27.373Z""#
         ));
@@ -120438,6 +120631,292 @@ mod func_like_line_tests {
         assert!(line_is_func_like(r#""_priority": "High""#));
         assert!(line_is_func_like(r#""_fromCache": "disk""#));
         assert!(line_is_func_like(r#""_initiator": {"#));
+        // OTLP distinctive keys stay on OTLP.
+        assert!(!is_har_json_decl(r#""resourceSpans": ["#));
+        assert!(is_otlp_json_decl(r#""resourceSpans": ["#));
+        assert!(!is_har_json_decl(
+            r#""startTimeUnixNano": "1700000000000000000""#
+        ));
+        assert!(is_otlp_json_decl(
+            r#""startTimeUnixNano": "1700000000000000000""#
+        ));
+    }
+
+    #[test]
+    fn otlp_json_keys_smoke() {
+        assert!(is_otlp_json_decl(r#""resourceSpans": ["#));
+        assert!(is_otlp_json_decl(r#""scopeSpans": ["#));
+        assert!(is_otlp_json_decl(r#""resourceLogs": ["#));
+        assert!(is_otlp_json_decl(r#""scopeLogs": ["#));
+        assert!(is_otlp_json_decl(r#""resourceMetrics": ["#));
+        assert!(is_otlp_json_decl(r#""scopeMetrics": ["#));
+        assert!(is_otlp_json_decl(r#""instrumentationScope": {"#));
+        assert!(is_otlp_json_decl(r#""parentSpanId": """#));
+        assert!(is_otlp_json_decl(r#""parentSpanId": "0123456789abcdef""#));
+        assert!(is_otlp_json_decl(
+            r#""startTimeUnixNano": "1700000000000000000""#
+        ));
+        assert!(is_otlp_json_decl(
+            r#""startTimeUnixNano": 1700000000000000000"#
+        ));
+        assert!(is_otlp_json_decl(
+            r#""endTimeUnixNano": "1700000000000000100""#
+        ));
+        assert!(is_otlp_json_decl(r#""endTimeUnixNano": 0"#));
+        assert!(is_otlp_json_decl(r#""droppedAttributesCount": 0"#));
+        assert!(is_otlp_json_decl(r#""droppedAttributesCount": 3"#));
+        // Distinctive neighbours stay out of this scanner.
+        assert!(!is_otlp_json_decl(
+            r#""startedDateTime": "2009-04-16T15:53:27.373Z""#
+        ));
+        assert!(is_har_json_decl(
+            r#""startedDateTime": "2009-04-16T15:53:27.373Z""#
+        ));
+        assert!(!is_otlp_json_decl(r#""timings": {"#));
+        assert!(is_har_json_decl(r#""timings": {"#));
+        assert!(!is_otlp_json_decl(r#""asyncapi": "2.6.0""#));
+        assert!(is_asyncapi_json_decl(r#""asyncapi": "2.6.0""#));
+        assert!(!is_otlp_json_decl(r#""openapi": "3.0.3""#));
+        assert!(is_openapi_json_decl(r#""openapi": "3.0.3""#));
+        assert!(!is_otlp_json_decl(r#""channels": {"#));
+        assert!(is_asyncapi_json_decl(r#""channels": {"#));
+        assert!(!is_otlp_json_decl(r#""consumer": {"#));
+        assert!(is_pact_json_decl(r#""consumer": {"#));
+        assert!(!is_otlp_json_decl(r#""httpRequest": {"#));
+        assert!(is_mockserver_json_decl(r#""httpRequest": {"#));
+        assert!(!is_otlp_json_decl(r#""hoverflyVersion": "v1.2.0""#));
+        assert!(is_hoverfly_json_decl(r#""hoverflyVersion": "v1.2.0""#));
+        assert!(!is_otlp_json_decl(r#""imposters": ["#));
+        assert!(is_mountebank_json_decl(r#""imposters": ["#));
+        assert!(!is_otlp_json_decl(r#""scenarioName": "checkout""#));
+        assert!(is_wiremock_json_decl(r#""scenarioName": "checkout""#));
+        assert!(!is_otlp_json_decl(r#""lastMigration": 33"#));
+        assert!(is_mockoon_json_decl(r#""lastMigration": 33"#));
+        assert!(!is_otlp_json_decl(r#""preRequestScript": """#));
+        assert!(is_hoppscotch_json_decl(r#""preRequestScript": """#));
+        assert!(!is_otlp_json_decl(r#""yaakVersion": "2025.1.0""#));
+        assert!(is_yaak_json_decl(r#""yaakVersion": "2025.1.0""#));
+        assert!(!is_otlp_json_decl(r#""brunoConfig": {"#));
+        assert!(is_bruno_json_decl(r#""brunoConfig": {"#));
+        assert!(!is_otlp_json_decl(r#""client": "Thunder Client""#));
+        assert!(is_thunder_client_json_decl(r#""client": "Thunder Client""#));
+        assert!(!is_otlp_json_decl(
+            r#""_postman_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890""#
+        ));
+        assert!(is_postman_json_decl(
+            r#""_postman_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890""#
+        ));
+        assert!(!is_otlp_json_decl(r#""__export_format": 4"#));
+        assert!(is_insomnia_json_decl(r#""__export_format": 4"#));
+        assert!(!is_otlp_json_decl(r#""disableSearch": true"#));
+        assert!(is_redoc_json_decl(r#""disableSearch": true"#));
+        assert!(!is_otlp_json_decl(r#""specUrl": "./openapi.yaml""#));
+        assert!(is_rapidoc_json_decl(r#""specUrl": "./openapi.yaml""#));
+        assert!(!is_otlp_json_decl(r##""dom_id": "#swagger-ui""##));
+        assert!(is_swagger_ui_json_decl(r##""dom_id": "#swagger-ui""##));
+        assert!(!is_otlp_json_decl(r#""layout": "modern""#));
+        assert!(is_scalar_json_decl(r#""layout": "modern""#));
+        assert!(!is_otlp_json_decl(r#""layout": "sidebar""#));
+        assert!(is_stoplight_elements_json_decl(r#""layout": "sidebar""#));
+        assert!(!is_otlp_json_decl(r#""topbarLinks": ["#));
+        assert!(is_mintlify_json_decl(r#""topbarLinks": ["#));
+        assert!(!is_otlp_json_decl(r#""apis": {"#));
+        assert!(is_redocly_json_decl(r#""apis": {"#));
+        assert!(!is_otlp_json_decl(r#""functionsDir": "./functions""#));
+        assert!(is_spectral_json_decl(r#""functionsDir": "./functions""#));
+        assert!(!is_otlp_json_decl(r#""generator-cli": {"#));
+        assert!(is_openapitools_json_decl(r#""generator-cli": {"#));
+        assert!(!is_otlp_json_decl(r#""printWidth": 80"#));
+        assert!(is_prettier_json_decl(r#""printWidth": 80"#));
+        assert!(!is_otlp_json_decl(r#""basePath": ".""#));
+        assert!(is_karma_json_decl(r#""basePath": ".""#));
+        assert!(line_is_func_like(r#""resourceSpans": ["#));
+        assert!(line_is_func_like(r#""scopeSpans": ["#));
+        assert!(line_is_func_like(r#""resourceLogs": ["#));
+        assert!(line_is_func_like(r#""scopeLogs": ["#));
+        assert!(line_is_func_like(r#""resourceMetrics": ["#));
+        assert!(line_is_func_like(r#""scopeMetrics": ["#));
+        assert!(line_is_func_like(r#""instrumentationScope": {"#));
+        assert!(line_is_func_like(r#""parentSpanId": "0123456789abcdef""#));
+        assert!(line_is_func_like(
+            r#""startTimeUnixNano": "1700000000000000000""#
+        ));
+        assert!(line_is_func_like(r#""endTimeUnixNano": 0"#));
+        assert!(line_is_func_like(r#""droppedAttributesCount": 3"#));
+    }
+
+    #[test]
+    fn otlp_json_keys_count() {
+        assert!(is_otlp_json_decl(r#""resourceSpans": ["#));
+        assert!(is_otlp_json_decl(r#""resourceSpans": [,"#));
+        assert!(is_otlp_json_decl(r#""resourceSpans": [ // spans"#));
+        assert!(!is_otlp_json_decl(r#""resourceSpans": {"#));
+        assert!(!is_otlp_json_decl(r#""resourceSpans": true"#));
+        assert!(!is_otlp_json_decl(r#""resourceSpans": """#));
+        assert!(is_otlp_json_decl(r#""scopeSpans": ["#));
+        assert!(is_otlp_json_decl(r#""scopeSpans": [,"#));
+        assert!(is_otlp_json_decl(r#""scopeSpans": [ // scope"#));
+        assert!(!is_otlp_json_decl(r#""scopeSpans": {"#));
+        assert!(is_otlp_json_decl(r#""resourceLogs": ["#));
+        assert!(is_otlp_json_decl(r#""scopeLogs": ["#));
+        assert!(is_otlp_json_decl(r#""resourceMetrics": ["#));
+        assert!(is_otlp_json_decl(r#""scopeMetrics": ["#));
+        assert!(is_otlp_json_decl(r#""instrumentationScope": {"#));
+        assert!(is_otlp_json_decl(r#""instrumentationScope": {,"#));
+        assert!(is_otlp_json_decl(r#""instrumentationScope": { // scope"#));
+        assert!(!is_otlp_json_decl(r#""instrumentationScope": ["#));
+        assert!(!is_otlp_json_decl(r#""instrumentationScope": true"#));
+        assert!(!is_otlp_json_decl(r#""instrumentationScope": """#));
+        assert!(is_otlp_json_decl(r#""parentSpanId": """#));
+        assert!(is_otlp_json_decl(r#""parentSpanId": "0123456789abcdef""#));
+        assert!(is_otlp_json_decl(r#""parentSpanId": "0123456789abcdef","#));
+        assert!(is_otlp_json_decl(
+            r#""parentSpanId": "0123456789abcdef" // id"#
+        ));
+        assert!(!is_otlp_json_decl(r#""parentSpanId": "0123456789ABCDEF""#));
+        assert!(!is_otlp_json_decl(r#""parentSpanId": "0123456789abcde""#));
+        assert!(!is_otlp_json_decl(r#""parentSpanId": "not-hex-span-id!!""#));
+        assert!(!is_otlp_json_decl(r#""parentSpanId": {"#));
+        assert!(!is_otlp_json_decl(r#""parentSpanId": true"#));
+        assert!(!is_otlp_json_decl(r#""parentSpanId": ["#));
+        assert!(is_otlp_json_decl(
+            r#""startTimeUnixNano": "1700000000000000000""#
+        ));
+        assert!(is_otlp_json_decl(
+            r#""startTimeUnixNano": "1700000000000000000","#
+        ));
+        assert!(is_otlp_json_decl(
+            r#""startTimeUnixNano": "1700000000000000000" // ns"#
+        ));
+        assert!(is_otlp_json_decl(r#""startTimeUnixNano": "0""#));
+        assert!(is_otlp_json_decl(r#""startTimeUnixNano": 0"#));
+        assert!(is_otlp_json_decl(
+            r#""startTimeUnixNano": 1700000000000000000"#
+        ));
+        assert!(!is_otlp_json_decl(r#""startTimeUnixNano": """#));
+        assert!(!is_otlp_json_decl(r#""startTimeUnixNano": "01""#));
+        assert!(!is_otlp_json_decl(r#""startTimeUnixNano": "abc""#));
+        assert!(!is_otlp_json_decl(r#""startTimeUnixNano": 01"#));
+        assert!(!is_otlp_json_decl(r#""startTimeUnixNano": {"#));
+        assert!(!is_otlp_json_decl(r#""startTimeUnixNano": true"#));
+        assert!(!is_otlp_json_decl(r#""startTimeUnixNano": ["#));
+        assert!(is_otlp_json_decl(
+            r#""endTimeUnixNano": "1700000000000000100""#
+        ));
+        assert!(is_otlp_json_decl(r#""endTimeUnixNano": 100"#));
+        assert!(!is_otlp_json_decl(r#""endTimeUnixNano": """#));
+        assert!(!is_otlp_json_decl(r#""endTimeUnixNano": {"#));
+        assert!(is_otlp_json_decl(r#""droppedAttributesCount": 0"#));
+        assert!(is_otlp_json_decl(r#""droppedAttributesCount": 3"#));
+        assert!(is_otlp_json_decl(r#""droppedAttributesCount": 3,"#));
+        assert!(is_otlp_json_decl(r#""droppedAttributesCount": 3 // n"#));
+        assert!(!is_otlp_json_decl(r#""droppedAttributesCount": 01"#));
+        assert!(!is_otlp_json_decl(r#""droppedAttributesCount": true"#));
+        assert!(!is_otlp_json_decl(r#""droppedAttributesCount": "3""#));
+        assert!(!is_otlp_json_decl(r#""droppedAttributesCount": {"#));
+        assert!(!is_otlp_json_decl(r#""droppedAttributesCount": ["#));
+        // Incomplete / wrong shapes stay out.
+        assert!(!is_otlp_json_decl(r#""resourceSpans""#));
+        assert!(!is_otlp_json_decl(r#""resourceSpans":"#));
+        assert!(!is_otlp_json_decl(r#""scopeSpans""#));
+        assert!(!is_otlp_json_decl(r#""instrumentationScope""#));
+        assert!(!is_otlp_json_decl(r#""parentSpanId""#));
+        assert!(!is_otlp_json_decl(r#""startTimeUnixNano""#));
+        assert!(!is_otlp_json_decl(r#""endTimeUnixNano""#));
+        assert!(!is_otlp_json_decl(r#""droppedAttributesCount""#));
+        // Generic / neighbouring stay out.
+        assert!(!is_otlp_json_decl(
+            r#""$schema": "https://json-schema.org/draft/2020-12/schema""#
+        ));
+        assert!(!is_otlp_json_decl(r#""name": "GET /users""#));
+        assert!(!is_otlp_json_decl(
+            r#""traceId": "0123456789abcdef0123456789abcdef""#
+        ));
+        assert!(!is_otlp_json_decl(r#""spanId": "0123456789abcdef""#));
+        assert!(!is_otlp_json_decl(r#""attributes": ["#));
+        assert!(!is_otlp_json_decl(r#""events": ["#));
+        assert!(!is_otlp_json_decl(r#""links": ["#));
+        assert!(!is_otlp_json_decl(r#""status": {"#));
+        assert!(!is_otlp_json_decl(r#""kind": 1"#));
+        assert!(!is_otlp_json_decl(r#""service": "api""#));
+        assert!(!is_otlp_json_decl(
+            r#""startedDateTime": "2009-04-16T15:53:27.373Z""#
+        ));
+        assert!(is_har_json_decl(
+            r#""startedDateTime": "2009-04-16T15:53:27.373Z""#
+        ));
+        assert!(!is_otlp_json_decl(r#""timings": {"#));
+        assert!(is_har_json_decl(r#""timings": {"#));
+        assert!(!is_otlp_json_decl(r#""asyncapi": "2.6.0""#));
+        assert!(is_asyncapi_json_decl(r#""asyncapi": "2.6.0""#));
+        assert!(!is_otlp_json_decl(r#""openapi": "3.0.3""#));
+        assert!(is_openapi_json_decl(r#""openapi": "3.0.3""#));
+        assert!(!is_otlp_json_decl(r#""channels": {"#));
+        assert!(is_asyncapi_json_decl(r#""channels": {"#));
+        assert!(!is_otlp_json_decl(r#""consumer": {"#));
+        assert!(is_pact_json_decl(r#""consumer": {"#));
+        assert!(!is_otlp_json_decl(r#""httpRequest": {"#));
+        assert!(is_mockserver_json_decl(r#""httpRequest": {"#));
+        assert!(!is_otlp_json_decl(r#""hoverflyVersion": "v1.2.0""#));
+        assert!(is_hoverfly_json_decl(r#""hoverflyVersion": "v1.2.0""#));
+        assert!(!is_otlp_json_decl(r#""imposters": ["#));
+        assert!(is_mountebank_json_decl(r#""imposters": ["#));
+        assert!(!is_otlp_json_decl(r#""scenarioName": "checkout""#));
+        assert!(is_wiremock_json_decl(r#""scenarioName": "checkout""#));
+        assert!(!is_otlp_json_decl(r#""lastMigration": 33"#));
+        assert!(is_mockoon_json_decl(r#""lastMigration": 33"#));
+        assert!(!is_otlp_json_decl(r#""preRequestScript": """#));
+        assert!(is_hoppscotch_json_decl(r#""preRequestScript": """#));
+        assert!(!is_otlp_json_decl(r#""yaakVersion": "2025.1.0""#));
+        assert!(is_yaak_json_decl(r#""yaakVersion": "2025.1.0""#));
+        assert!(!is_otlp_json_decl(r#""brunoConfig": {"#));
+        assert!(is_bruno_json_decl(r#""brunoConfig": {"#));
+        assert!(!is_otlp_json_decl(r#""client": "Thunder Client""#));
+        assert!(is_thunder_client_json_decl(r#""client": "Thunder Client""#));
+        assert!(!is_otlp_json_decl(
+            r#""_postman_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890""#
+        ));
+        assert!(is_postman_json_decl(
+            r#""_postman_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890""#
+        ));
+        assert!(!is_otlp_json_decl(r#""__export_format": 4"#));
+        assert!(is_insomnia_json_decl(r#""__export_format": 4"#));
+        assert!(!is_otlp_json_decl(r#""disableSearch": true"#));
+        assert!(is_redoc_json_decl(r#""disableSearch": true"#));
+        assert!(!is_otlp_json_decl(r#""specUrl": "./openapi.yaml""#));
+        assert!(is_rapidoc_json_decl(r#""specUrl": "./openapi.yaml""#));
+        assert!(!is_otlp_json_decl(r##""dom_id": "#swagger-ui""##));
+        assert!(is_swagger_ui_json_decl(r##""dom_id": "#swagger-ui""##));
+        assert!(!is_otlp_json_decl(r#""layout": "modern""#));
+        assert!(is_scalar_json_decl(r#""layout": "modern""#));
+        assert!(!is_otlp_json_decl(r#""layout": "sidebar""#));
+        assert!(is_stoplight_elements_json_decl(r#""layout": "sidebar""#));
+        assert!(!is_otlp_json_decl(r#""topbarLinks": ["#));
+        assert!(is_mintlify_json_decl(r#""topbarLinks": ["#));
+        assert!(!is_otlp_json_decl(r#""apis": {"#));
+        assert!(is_redocly_json_decl(r#""apis": {"#));
+        assert!(!is_otlp_json_decl(r#""functionsDir": "./functions""#));
+        assert!(is_spectral_json_decl(r#""functionsDir": "./functions""#));
+        assert!(!is_otlp_json_decl(r#""generator-cli": {"#));
+        assert!(is_openapitools_json_decl(r#""generator-cli": {"#));
+        assert!(!is_otlp_json_decl(r#""printWidth": 80"#));
+        assert!(is_prettier_json_decl(r#""printWidth": 80"#));
+        assert!(!is_otlp_json_decl(r#""basePath": ".""#));
+        assert!(is_karma_json_decl(r#""basePath": ".""#));
+        // line_is_func_like wires the scanner.
+        assert!(line_is_func_like(r#""resourceSpans": ["#));
+        assert!(line_is_func_like(r#""scopeSpans": ["#));
+        assert!(line_is_func_like(r#""resourceLogs": ["#));
+        assert!(line_is_func_like(r#""scopeLogs": ["#));
+        assert!(line_is_func_like(r#""resourceMetrics": ["#));
+        assert!(line_is_func_like(r#""scopeMetrics": ["#));
+        assert!(line_is_func_like(r#""instrumentationScope": {"#));
+        assert!(line_is_func_like(r#""parentSpanId": "0123456789abcdef""#));
+        assert!(line_is_func_like(
+            r#""startTimeUnixNano": "1700000000000000000""#
+        ));
+        assert!(line_is_func_like(r#""endTimeUnixNano": 0"#));
+        assert!(line_is_func_like(r#""droppedAttributesCount": 3"#));
     }
 
     #[test]

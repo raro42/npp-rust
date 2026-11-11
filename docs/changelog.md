@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.793] — 2026-11-12
+
+View:
+
+- **Function List** lists OpenTelemetry OTLP JSON export keys: `"resourceSpans": [`, `"scopeSpans": [`, `"resourceLogs": [`, `"scopeLogs": [`, `"resourceMetrics": [`, `"scopeMetrics": [`, `"instrumentationScope": {`, `"parentSpanId": ""` / `"…"`, `"startTimeUnixNano": "…"` / `0`, `"endTimeUnixNano": "…"` / `0`, `"droppedAttributesCount": 0` / `1`. Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing `:` stay out. Generic `"$schema"` / `"name"` / `"traceId"` / `"spanId"` / `"attributes": [` / `"events": [` / `"links": [` / `"status": {` / `"kind"` / `"service"` / HAR `"startedDateTime"` / `"timings"` / OpenAPI `"openapi"` / AsyncAPI `"asyncapi"` / `"channels": {` / Pact `"consumer"` / MockServer `"httpRequest"` / Hoverfly `"hoverflyVersion"` / Mountebank `"imposters"` / WireMock `"scenarioName"` / Mockoon `"lastMigration"` / Hoppscotch `"preRequestScript"` / Yaak `"yaakVersion"` / Bruno `"brunoConfig"` / Thunder Client `"client"` / Postman `"_postman_id"` / Insomnia `"__export_format"` / ReDoc `"disableSearch"` / RapiDoc `"specUrl"` / swagger-ui `"dom_id"` / scalar `"layout": "modern"` / Elements `"layout": "sidebar"` / mintlify `"topbarLinks"` / Compodoc `"theme": "material"` / redocly `"apis"` / spectral `"functionsDir"` / openapitools `"generator-cli"` / Knip `"entry"` / prettier `"printWidth"` / package.json `"bin"` / karma `"basePath"` stay out. `"parentSpanId"` only matches empty or 16-char lowercase hex. Unix-nano strings are digit-only (1–20 chars).
+
 ## [0.3.792] — 2026-11-11
 
 View:

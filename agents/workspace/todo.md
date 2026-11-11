@@ -1,3 +1,5 @@
+009 keep: Function List OTLP resourceSpans/scopeSpans/resourceLogs/scopeLogs/resourceMetrics/scopeMetrics/instrumentationScope/parentSpanId/startTimeUnixNano/endTimeUnixNano/droppedAttributesCount (v0.3.793)
+
 009 keep: Function List OpenAPI/Swagger openapi/swagger/paths/components/servers/webhooks/jsonSchemaDialect/securityDefinitions/externalDocs (v0.3.790)
 
 009 keep: Function List Pact consumer/provider/interactions/matchingRules/providerStates/providerState/pactSpecification/interactionMarkup/interactionMarkupType/pact:matcher:type/pact:generator:type (v0.3.789)
