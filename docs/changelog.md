@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.773] — 2026-11-11
+
+View:
+
+- **Function List** lists Scalar `scalar.config.json` / API Reference JSON keys: `"proxyUrl": "…"`, `"baseServerURL": "…"`, `"searchHotKey": "k"`, `"forceDarkModeState": "dark"` / `"light"`, `"layout": "modern"` / `"classic"`, `"theme": "default"` / `"alternate"` / `"moon"` / `"purple"` / `"solarized"` / `"bluePlanet"` / `"saturn"` / `"kepler"` / `"mars"` / `"deepSpace"` / `"laserwave"` / `"none"`, `"customCss": "…"`, `"subdomain": "…"`, `"customDomain": "…"`, `"favicon": "…"`, `"logo": "…"`, `"hiddenClients": [`, `"guides": [`, `"defaultHttpClient": {`, `"pathRouting": {`, `"metaData": {`, `"siteConfig": {`, `"authentication": {`, bools `"isEditable"` / `"showSidebar"` / `"hideModels"` / `"hideDownloadButton"` / `"hideTestRequestButton"` / `"darkMode"` / `"hideDarkModeToggle"` / `"withDefaultFonts"` / `"defaultOpenAllTags"` / `"expandAllModelSections"` / `"expandAllResponses"` / `"orderRequiredPropertiesFirst"` / `"hideClientButton"` / `"hideSearch"` / `"persistAuth"` / `"showOperationId"` / `"telemetry"`. Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing `:` stay out. Generic `"$schema"` / `"name"` / `"version"` / mintlify `"topbarLinks"` / `"theme": "mint"` / Compodoc `"theme": "material"` / redocly `"apis"` / `"licenseKey"` / spectral `"functionsDir"` / openapitools `"generator-cli"` / docfx `"metadata": [` / typedoc `"entryPoints"` / api-extractor `"mainEntryPointFilePath"` / prettier `"printWidth"` / package.json `"bin"` / karma `"basePath"` stay out. Shared `"hideDarkModeToggle": true` also matches Compodoc when shapes overlap; shared `"favicon"` / `"logo"` string paths also match Mintlify when shapes overlap.
+
 ## [0.3.772] — 2026-11-11
 
 View:

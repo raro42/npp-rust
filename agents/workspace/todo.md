@@ -1,3 +1,5 @@
+009 keep: Function List Scalar scalar.config.json proxyUrl/baseServerURL/searchHotKey/forceDarkModeState/layout/theme/hiddenClients/guides/defaultHttpClient/pathRouting/subdomain/customDomain (v0.3.773)
+
 009 keep: Function List openapitools.json generator-cli/spaces/storageDir/useDocker/dockerImageName/generatorName/inputSpec/glob (v0.3.769)
 
 009 keep: Function List syncpack .syncpackrc.json semverGroups/versionGroups/dependencyGroups/customTypes/sortAz/sortFirst/sortExports/source/indent/sourceMode/sortPackages/formatBugs/formatRepository/maxConcurrentRequests/minimumReleaseAge (v0.3.762)

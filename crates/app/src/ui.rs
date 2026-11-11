@@ -32440,6 +32440,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_spectral_json_decl(s)
             || is_redocly_json_decl(s)
             || is_mintlify_json_decl(s)
+            || is_scalar_json_decl(s)
             || is_gomod_decl(s)
             || is_gemfile_decl(s)
             || is_brewfile_decl(s)
@@ -32790,6 +32791,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_spectral_json_decl(s)
         || is_redocly_json_decl(s)
         || is_mintlify_json_decl(s)
+        || is_scalar_json_decl(s)
         || is_gomod_decl(s)
         || is_gemfile_decl(s)
         || is_brewfile_decl(s)
@@ -56674,6 +56676,309 @@ fn mintlify_json_path_ok(value: &str) -> bool {
                     | b')'
             )
     })
+}
+
+/// Scalar `scalar.config.json` / API Reference JSON keys: `"proxyUrl": "…"`,
+/// `"baseServerURL": "…"`, `"searchHotKey": "k"`, `"forceDarkModeState":
+/// "dark"` / `"light"`, `"layout": "modern"` / `"classic"`, `"theme":
+/// "default"` / `"alternate"` / `"moon"` / `"purple"` / `"solarized"` /
+/// `"bluePlanet"` / `"saturn"` / `"kepler"` / `"mars"` / `"deepSpace"` /
+/// `"laserwave"` / `"none"`, `"customCss": "…"`, `"subdomain": "…"`,
+/// `"customDomain": "…"`, `"favicon": "…"`, `"logo": "…"`, `"hiddenClients":
+/// [`, `"guides": [`, `"defaultHttpClient": {`, `"pathRouting": {`,
+/// `"metaData": {`, `"siteConfig": {`, `"authentication": {`, bools
+/// `"isEditable"` / `"showSidebar"` / `"hideModels"` /
+/// `"hideDownloadButton"` / `"hideTestRequestButton"` / `"darkMode"` /
+/// `"hideDarkModeToggle"` / `"withDefaultFonts"` / `"defaultOpenAllTags"` /
+/// `"expandAllModelSections"` / `"expandAllResponses"` /
+/// `"orderRequiredPropertiesFirst"` / `"hideClientButton"` / `"hideSearch"` /
+/// `"persistAuth"` / `"showOperationId"` / `"telemetry"`. Optional trailing
+/// `,` and `//` / `/*` comment. Incomplete quotes / missing `:` stay out.
+/// Generic `"$schema"` / `"name"` / `"version"` / mintlify `"topbarLinks"` /
+/// `"theme": "mint"` / Compodoc `"theme": "material"` / redocly `"apis"` /
+/// `"licenseKey"` / spectral `"functionsDir"` / openapitools
+/// `"generator-cli"` / docfx `"metadata": [` / typedoc `"entryPoints"` /
+/// api-extractor `"mainEntryPointFilePath"` / prettier `"printWidth"` /
+/// package.json `"bin"` / karma `"basePath"` stay out. Shared
+/// `"hideDarkModeToggle": true` also matches Compodoc when shapes overlap;
+/// shared `"favicon"` / `"logo"` string paths also match Mintlify when
+/// shapes overlap.
+fn is_scalar_json_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    let Some(rest) = s.strip_prefix('"') else {
+        return false;
+    };
+    let Some(end) = rest.find('"') else {
+        return false;
+    };
+    let key = &rest[..end];
+    if !scalar_json_key_ok(key) {
+        return false;
+    }
+    let after_key = rest[end + 1..].trim_start();
+    let Some(after_colon) = after_key.strip_prefix(':') else {
+        return false;
+    };
+    let after_colon = after_colon.trim_start();
+    scalar_json_value_and_tail_ok(key, after_colon)
+}
+
+fn scalar_json_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "proxyUrl"
+            | "baseServerURL"
+            | "searchHotKey"
+            | "forceDarkModeState"
+            | "layout"
+            | "theme"
+            | "customCss"
+            | "subdomain"
+            | "customDomain"
+            | "favicon"
+            | "logo"
+            | "hiddenClients"
+            | "guides"
+            | "defaultHttpClient"
+            | "pathRouting"
+            | "metaData"
+            | "siteConfig"
+            | "authentication"
+            | "isEditable"
+            | "showSidebar"
+            | "hideModels"
+            | "hideDownloadButton"
+            | "hideTestRequestButton"
+            | "darkMode"
+            | "hideDarkModeToggle"
+            | "withDefaultFonts"
+            | "defaultOpenAllTags"
+            | "expandAllModelSections"
+            | "expandAllResponses"
+            | "orderRequiredPropertiesFirst"
+            | "hideClientButton"
+            | "hideSearch"
+            | "persistAuth"
+            | "showOperationId"
+            | "telemetry"
+    )
+}
+
+fn scalar_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool {
+    let bytes = after_colon.as_bytes();
+    let Some(first) = bytes.first().copied() else {
+        return false;
+    };
+    match first {
+        b'{' => {
+            if !matches!(
+                key,
+                "defaultHttpClient" | "pathRouting" | "metaData" | "siteConfig" | "authentication"
+            ) {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[1..])
+        }
+        b'[' => {
+            if !matches!(key, "hiddenClients" | "guides") {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[1..])
+        }
+        b'"' => {
+            if !scalar_json_string_key_ok(key) {
+                return false;
+            }
+            let rest = &after_colon[1..];
+            let Some(end) = rest.find('"') else {
+                return false;
+            };
+            let value = &rest[..end];
+            if !scalar_json_string_ok(key, value) {
+                return false;
+            }
+            package_json_tail_ok(&rest[end + 1..])
+        }
+        b't' | b'f' => {
+            let rest = if let Some(rest) = after_colon.strip_prefix("true") {
+                rest
+            } else if let Some(rest) = after_colon.strip_prefix("false") {
+                rest
+            } else {
+                return false;
+            };
+            if !scalar_json_bool_key_ok(key) {
+                return false;
+            }
+            package_json_tail_ok(rest)
+        }
+        _ => false,
+    }
+}
+
+fn scalar_json_string_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "proxyUrl"
+            | "baseServerURL"
+            | "searchHotKey"
+            | "forceDarkModeState"
+            | "layout"
+            | "theme"
+            | "customCss"
+            | "subdomain"
+            | "customDomain"
+            | "favicon"
+            | "logo"
+    )
+}
+
+fn scalar_json_bool_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "isEditable"
+            | "showSidebar"
+            | "hideModels"
+            | "hideDownloadButton"
+            | "hideTestRequestButton"
+            | "darkMode"
+            | "hideDarkModeToggle"
+            | "withDefaultFonts"
+            | "defaultOpenAllTags"
+            | "expandAllModelSections"
+            | "expandAllResponses"
+            | "orderRequiredPropertiesFirst"
+            | "hideClientButton"
+            | "hideSearch"
+            | "persistAuth"
+            | "showOperationId"
+            | "telemetry"
+    )
+}
+
+fn scalar_json_string_ok(key: &str, value: &str) -> bool {
+    if value.contains('\n') {
+        return false;
+    }
+    match key {
+        "theme" => scalar_json_theme_ok(value),
+        "layout" => matches!(value, "modern" | "classic"),
+        "forceDarkModeState" => matches!(value, "dark" | "light"),
+        "searchHotKey" => scalar_json_hotkey_ok(value),
+        "proxyUrl" | "baseServerURL" | "favicon" | "logo" => mintlify_json_path_ok(value),
+        "customCss" => scalar_json_css_ok(value),
+        "subdomain" => scalar_json_subdomain_ok(value),
+        "customDomain" => scalar_json_domain_ok(value),
+        _ => false,
+    }
+}
+
+fn scalar_json_theme_ok(value: &str) -> bool {
+    matches!(
+        value,
+        "default"
+            | "alternate"
+            | "moon"
+            | "purple"
+            | "solarized"
+            | "bluePlanet"
+            | "saturn"
+            | "kepler"
+            | "mars"
+            | "deepSpace"
+            | "laserwave"
+            | "none"
+    )
+}
+
+fn scalar_json_hotkey_ok(value: &str) -> bool {
+    // Scalar searchHotKey is typically a single printable key (e.g. "k").
+    if value.is_empty() || value.len() > 8 {
+        return false;
+    }
+    value
+        .bytes()
+        .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'-' | b'_' | b'+'))
+}
+
+fn scalar_json_css_ok(value: &str) -> bool {
+    if value.is_empty() || value.len() > 1024 {
+        return false;
+    }
+    if value.chars().all(|c| c.is_ascii_whitespace()) {
+        return false;
+    }
+    // Inline CSS snippet or a stylesheet path / URL.
+    value.bytes().all(|b| {
+        b.is_ascii_alphanumeric()
+            || b.is_ascii_whitespace()
+            || matches!(
+                b,
+                b'.' | b'-'
+                    | b'_'
+                    | b'/'
+                    | b'\\'
+                    | b':'
+                    | b';'
+                    | b'{'
+                    | b'}'
+                    | b'('
+                    | b')'
+                    | b'['
+                    | b']'
+                    | b'#'
+                    | b'@'
+                    | b','
+                    | b'!'
+                    | b'%'
+                    | b'*'
+                    | b'+'
+                    | b'='
+                    | b'?'
+                    | b'&'
+                    | b'\''
+                    | b'"'
+                    | b'`'
+                    | b'~'
+                    | b'^'
+                    | b'|'
+                    | b'<'
+                    | b'>'
+            )
+    })
+}
+
+fn scalar_json_subdomain_ok(value: &str) -> bool {
+    if value.is_empty() || value.len() > 128 {
+        return false;
+    }
+    let bytes = value.as_bytes();
+    if !bytes[0].is_ascii_alphanumeric() || !bytes[bytes.len() - 1].is_ascii_alphanumeric() {
+        return false;
+    }
+    value
+        .bytes()
+        .all(|b| b.is_ascii_alphanumeric() || b == b'-')
+}
+
+fn scalar_json_domain_ok(value: &str) -> bool {
+    if value.is_empty() || value.len() > 253 {
+        return false;
+    }
+    // Hostname (docs.example.com) or URL host form.
+    if value.starts_with("https://") || value.starts_with("http://") {
+        return mintlify_json_path_ok(value);
+    }
+    if !value.contains('.') {
+        return false;
+    }
+    let bytes = value.as_bytes();
+    if !bytes[0].is_ascii_alphanumeric() || !bytes[bytes.len() - 1].is_ascii_alphanumeric() {
+        return false;
+    }
+    value
+        .bytes()
+        .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'.' | b'-'))
 }
 
 /// go.mod / go.work directives: `module example.com/foo`, `go 1.22`,
@@ -87334,25 +87639,25 @@ mod func_like_line_tests {
         is_release_please_json_decl, is_release_toml_decl, is_renovate_json_decl,
         is_resolv_conf_decl, is_rpc_file_decl, is_rstcheck_ini_decl, is_rsyslog_decl,
         is_ruff_toml_decl, is_rush_json_decl, is_rust_toolchain_toml_decl, is_rustfmt_toml_decl,
-        is_samba_conf_decl, is_samconfig_toml_decl, is_scons_decl, is_scriv_ini_decl,
-        is_sddm_conf_decl, is_semantic_release_ini_decl, is_semantic_release_json_decl,
-        is_services_file_decl, is_setup_cfg_decl, is_setuptools_scm_ini_decl,
-        is_simple_git_hooks_json_decl, is_spectral_json_decl, is_sqlfluff_ini_decl,
-        is_ssh_config_decl, is_sssd_conf_decl, is_stryker_json_decl, is_stylelint_json_decl,
-        is_subuid_subgid_decl, is_sudoers_decl, is_supabase_toml_decl, is_supervisord_conf_decl,
-        is_swc_json_decl, is_syncpack_json_decl, is_sysctl_conf_decl, is_syslog_ng_decl,
-        is_systemd_networkd_decl, is_systemd_unit_decl, is_sysusers_d_decl, is_tap_json_decl,
-        is_taplo_toml_decl, is_tauri_json_decl, is_telegraf_toml_decl, is_testcafe_json_decl,
-        is_tmpfiles_d_decl, is_towncrier_ini_decl, is_tox_ini_decl, is_trunk_toml_decl,
-        is_tsconfig_json_decl, is_turbo_json_decl, is_ty_toml_decl, is_typedoc_json_decl,
-        is_typos_toml_decl, is_udev_rule_decl, is_unbound_nsd_conf_decl, is_uniffi_toml_decl,
-        is_unimport_ini_decl, is_uv_toml_decl, is_vconsole_conf_decl, is_vector_toml_decl,
-        is_vercel_json_decl, is_versioneer_ini_decl, is_versionrc_json_decl, is_vitest_json_decl,
-        is_vscode_launch_json_decl, is_vscode_tasks_json_decl, is_vulture_ini_decl,
-        is_wails_json_decl, is_wdio_json_decl, is_webextension_manifest_json_decl,
-        is_wireguard_config_decl, is_wrangler_toml_decl, is_xmake_decl, is_xorg_conf_decl,
-        is_yapf_ini_decl, is_yarnrc_yml_decl, is_yum_repo_decl, is_zest_releaser_ini_decl,
-        line_is_func_like,
+        is_samba_conf_decl, is_samconfig_toml_decl, is_scalar_json_decl, is_scons_decl,
+        is_scriv_ini_decl, is_sddm_conf_decl, is_semantic_release_ini_decl,
+        is_semantic_release_json_decl, is_services_file_decl, is_setup_cfg_decl,
+        is_setuptools_scm_ini_decl, is_simple_git_hooks_json_decl, is_spectral_json_decl,
+        is_sqlfluff_ini_decl, is_ssh_config_decl, is_sssd_conf_decl, is_stryker_json_decl,
+        is_stylelint_json_decl, is_subuid_subgid_decl, is_sudoers_decl, is_supabase_toml_decl,
+        is_supervisord_conf_decl, is_swc_json_decl, is_syncpack_json_decl, is_sysctl_conf_decl,
+        is_syslog_ng_decl, is_systemd_networkd_decl, is_systemd_unit_decl, is_sysusers_d_decl,
+        is_tap_json_decl, is_taplo_toml_decl, is_tauri_json_decl, is_telegraf_toml_decl,
+        is_testcafe_json_decl, is_tmpfiles_d_decl, is_towncrier_ini_decl, is_tox_ini_decl,
+        is_trunk_toml_decl, is_tsconfig_json_decl, is_turbo_json_decl, is_ty_toml_decl,
+        is_typedoc_json_decl, is_typos_toml_decl, is_udev_rule_decl, is_unbound_nsd_conf_decl,
+        is_uniffi_toml_decl, is_unimport_ini_decl, is_uv_toml_decl, is_vconsole_conf_decl,
+        is_vector_toml_decl, is_vercel_json_decl, is_versioneer_ini_decl, is_versionrc_json_decl,
+        is_vitest_json_decl, is_vscode_launch_json_decl, is_vscode_tasks_json_decl,
+        is_vulture_ini_decl, is_wails_json_decl, is_wdio_json_decl,
+        is_webextension_manifest_json_decl, is_wireguard_config_decl, is_wrangler_toml_decl,
+        is_xmake_decl, is_xorg_conf_decl, is_yapf_ini_decl, is_yarnrc_yml_decl, is_yum_repo_decl,
+        is_zest_releaser_ini_decl, line_is_func_like,
     };
 
     #[test]
@@ -112233,6 +112538,229 @@ mod func_like_line_tests {
         assert!(line_is_func_like(r#""theme": "mint""#));
         assert!(line_is_func_like(r#""navbar": {"#));
         assert!(line_is_func_like(r#""footer": {"#));
+    }
+
+    #[test]
+    fn scalar_json_keys_smoke() {
+        assert!(is_scalar_json_decl(
+            r#""proxyUrl": "https://proxy.scalar.com""#
+        ));
+        assert!(is_scalar_json_decl(
+            r#""baseServerURL": "https://api.example.com""#
+        ));
+        assert!(is_scalar_json_decl(r#""searchHotKey": "k""#));
+        assert!(is_scalar_json_decl(r#""forceDarkModeState": "dark""#));
+        assert!(is_scalar_json_decl(r#""layout": "modern""#));
+        assert!(is_scalar_json_decl(r#""theme": "purple""#));
+        assert!(is_scalar_json_decl(r#""theme": "bluePlanet""#));
+        assert!(is_scalar_json_decl(
+            r#""customCss": ".dark-mode { color: red; }""#
+        ));
+        assert!(is_scalar_json_decl(r#""subdomain": "my-docs""#));
+        assert!(is_scalar_json_decl(r#""customDomain": "docs.example.com""#));
+        assert!(is_scalar_json_decl(r#""favicon": "/favicon.svg""#));
+        assert!(is_scalar_json_decl(r#""logo": "./logo.svg""#));
+        assert!(is_scalar_json_decl(r#""hiddenClients": ["#));
+        assert!(is_scalar_json_decl(r#""guides": ["#));
+        assert!(is_scalar_json_decl(r#""defaultHttpClient": {"#));
+        assert!(is_scalar_json_decl(r#""pathRouting": {"#));
+        assert!(is_scalar_json_decl(r#""metaData": {"#));
+        assert!(is_scalar_json_decl(r#""siteConfig": {"#));
+        assert!(is_scalar_json_decl(r#""authentication": {"#));
+        assert!(is_scalar_json_decl(r#""isEditable": true"#));
+        assert!(is_scalar_json_decl(r#""hideModels": false"#));
+        assert!(is_scalar_json_decl(r#""hideTestRequestButton": true"#));
+        assert!(is_scalar_json_decl(r#""persistAuth": true"#));
+        // Distinctive neighbours stay out of this scanner.
+        assert!(!is_scalar_json_decl(r#""topbarLinks": ["#));
+        assert!(is_mintlify_json_decl(r#""topbarLinks": ["#));
+        assert!(!is_scalar_json_decl(r#""theme": "mint""#));
+        assert!(is_mintlify_json_decl(r#""theme": "mint""#));
+        assert!(!is_scalar_json_decl(r#""theme": "material""#));
+        assert!(is_compodoc_json_decl(r#""theme": "material""#));
+        assert!(!is_scalar_json_decl(r#""apis": {"#));
+        assert!(is_redocly_json_decl(r#""apis": {"#));
+        assert!(!is_scalar_json_decl(r#""functionsDir": "./functions""#));
+        assert!(is_spectral_json_decl(r#""functionsDir": "./functions""#));
+        assert!(!is_scalar_json_decl(r#""printWidth": 80"#));
+        assert!(is_prettier_json_decl(r#""printWidth": 80"#));
+    }
+
+    #[test]
+    fn scalar_json_keys_count() {
+        assert!(is_scalar_json_decl(
+            r#""proxyUrl": "https://proxy.scalar.com""#
+        ));
+        assert!(is_scalar_json_decl(
+            r#""proxyUrl": "https://proxy.scalar.com","#
+        ));
+        assert!(is_scalar_json_decl(
+            r#""proxyUrl": "https://proxy.scalar.com" // proxy"#
+        ));
+        assert!(!is_scalar_json_decl(r#""proxyUrl": true"#));
+        assert!(!is_scalar_json_decl(r#""proxyUrl": {"#));
+        assert!(!is_scalar_json_decl(r#""proxyUrl": "proxy""#));
+        assert!(is_scalar_json_decl(
+            r#""baseServerURL": "https://api.example.com""#
+        ));
+        assert!(is_scalar_json_decl(r#""baseServerURL": "/v1""#));
+        assert!(!is_scalar_json_decl(r#""baseServerURL": true"#));
+        assert!(is_scalar_json_decl(r#""searchHotKey": "k""#));
+        assert!(is_scalar_json_decl(r#""searchHotKey": "K""#));
+        assert!(is_scalar_json_decl(r#""searchHotKey": "ctrl""#));
+        assert!(!is_scalar_json_decl(r#""searchHotKey": """#));
+        assert!(!is_scalar_json_decl(r#""searchHotKey": true"#));
+        assert!(!is_scalar_json_decl(r#""searchHotKey": {"#));
+        assert!(is_scalar_json_decl(r#""forceDarkModeState": "dark""#));
+        assert!(is_scalar_json_decl(r#""forceDarkModeState": "light""#));
+        assert!(!is_scalar_json_decl(r#""forceDarkModeState": "auto""#));
+        assert!(!is_scalar_json_decl(r#""forceDarkModeState": true"#));
+        assert!(is_scalar_json_decl(r#""layout": "modern""#));
+        assert!(is_scalar_json_decl(r#""layout": "classic""#));
+        assert!(!is_scalar_json_decl(r#""layout": "sidebar""#));
+        assert!(!is_scalar_json_decl(r#""layout": {"#));
+        assert!(is_scalar_json_decl(r#""theme": "default""#));
+        assert!(is_scalar_json_decl(r#""theme": "alternate""#));
+        assert!(is_scalar_json_decl(r#""theme": "moon""#));
+        assert!(is_scalar_json_decl(r#""theme": "purple""#));
+        assert!(is_scalar_json_decl(r#""theme": "solarized""#));
+        assert!(is_scalar_json_decl(r#""theme": "bluePlanet""#));
+        assert!(is_scalar_json_decl(r#""theme": "saturn""#));
+        assert!(is_scalar_json_decl(r#""theme": "kepler""#));
+        assert!(is_scalar_json_decl(r#""theme": "mars""#));
+        assert!(is_scalar_json_decl(r#""theme": "deepSpace""#));
+        assert!(is_scalar_json_decl(r#""theme": "laserwave""#));
+        assert!(is_scalar_json_decl(r#""theme": "none""#));
+        assert!(!is_scalar_json_decl(r#""theme": "mint""#));
+        assert!(!is_scalar_json_decl(r#""theme": "material""#));
+        assert!(!is_scalar_json_decl(r#""theme": {"#));
+        assert!(is_scalar_json_decl(
+            r#""customCss": ".sidebar { display: none }""#
+        ));
+        assert!(is_scalar_json_decl(r#""customCss": "/styles/custom.css""#));
+        assert!(!is_scalar_json_decl(r#""customCss": """#));
+        assert!(!is_scalar_json_decl(r#""customCss": true"#));
+        assert!(is_scalar_json_decl(r#""subdomain": "acme""#));
+        assert!(is_scalar_json_decl(r#""subdomain": "my-docs""#));
+        assert!(!is_scalar_json_decl(r#""subdomain": "-bad""#));
+        assert!(!is_scalar_json_decl(r#""subdomain": "bad-""#));
+        assert!(!is_scalar_json_decl(r#""subdomain": "has.dot""#));
+        assert!(!is_scalar_json_decl(r#""subdomain": true"#));
+        assert!(is_scalar_json_decl(r#""customDomain": "docs.example.com""#));
+        assert!(is_scalar_json_decl(
+            r#""customDomain": "https://docs.example.com""#
+        ));
+        assert!(!is_scalar_json_decl(r#""customDomain": "local""#));
+        assert!(!is_scalar_json_decl(r#""customDomain": true"#));
+        assert!(is_scalar_json_decl(r#""favicon": "/favicon.svg""#));
+        assert!(is_scalar_json_decl(r#""logo": "./logo.png""#));
+        assert!(!is_scalar_json_decl(r#""favicon": "icon""#));
+        assert!(!is_scalar_json_decl(r#""logo": {"#));
+        assert!(is_scalar_json_decl(r#""hiddenClients": ["#));
+        assert!(is_scalar_json_decl(r#""hiddenClients": [,"#));
+        assert!(is_scalar_json_decl(r#""hiddenClients": [ // hide"#));
+        assert!(!is_scalar_json_decl(r#""hiddenClients": {"#));
+        assert!(!is_scalar_json_decl(r#""hiddenClients": true"#));
+        assert!(is_scalar_json_decl(r#""guides": ["#));
+        assert!(!is_scalar_json_decl(r#""guides": {"#));
+        assert!(is_scalar_json_decl(r#""defaultHttpClient": {"#));
+        assert!(is_scalar_json_decl(r#""defaultHttpClient": { // client"#));
+        assert!(!is_scalar_json_decl(r#""defaultHttpClient": ["#));
+        assert!(is_scalar_json_decl(r#""pathRouting": {"#));
+        assert!(!is_scalar_json_decl(r#""pathRouting": ["#));
+        assert!(is_scalar_json_decl(r#""metaData": {"#));
+        assert!(is_scalar_json_decl(r#""siteConfig": {"#));
+        assert!(is_scalar_json_decl(r#""authentication": {"#));
+        assert!(!is_scalar_json_decl(r#""authentication": ["#));
+        assert!(is_scalar_json_decl(r#""isEditable": true"#));
+        assert!(is_scalar_json_decl(r#""isEditable": false"#));
+        assert!(is_scalar_json_decl(r#""showSidebar": true,"#));
+        assert!(is_scalar_json_decl(r#""hideModels": true"#));
+        assert!(is_scalar_json_decl(r#""hideDownloadButton": false"#));
+        assert!(is_scalar_json_decl(r#""hideTestRequestButton": true"#));
+        assert!(is_scalar_json_decl(r#""darkMode": true"#));
+        assert!(is_scalar_json_decl(r#""hideDarkModeToggle": true"#));
+        assert!(is_scalar_json_decl(r#""withDefaultFonts": false"#));
+        assert!(is_scalar_json_decl(r#""defaultOpenAllTags": true"#));
+        assert!(is_scalar_json_decl(r#""expandAllModelSections": true"#));
+        assert!(is_scalar_json_decl(r#""expandAllResponses": false"#));
+        assert!(is_scalar_json_decl(
+            r#""orderRequiredPropertiesFirst": true"#
+        ));
+        assert!(is_scalar_json_decl(r#""hideClientButton": true"#));
+        assert!(is_scalar_json_decl(r#""hideSearch": false"#));
+        assert!(is_scalar_json_decl(r#""persistAuth": true"#));
+        assert!(is_scalar_json_decl(r#""showOperationId": true"#));
+        assert!(is_scalar_json_decl(r#""telemetry": false"#));
+        assert!(!is_scalar_json_decl(r#""isEditable": "yes""#));
+        assert!(!is_scalar_json_decl(r#""hideModels": {"#));
+        // Incomplete / wrong shapes stay out.
+        assert!(!is_scalar_json_decl(r#""proxyUrl""#));
+        assert!(!is_scalar_json_decl(r#""proxyUrl":"#));
+        assert!(!is_scalar_json_decl(r#""theme""#));
+        assert!(!is_scalar_json_decl(r#""hideModels""#));
+        // Generic / neighbouring stay out.
+        assert!(!is_scalar_json_decl(
+            r#""$schema": "https://cdn.scalar.com/schema.json""#
+        ));
+        assert!(!is_scalar_json_decl(r#""name": "API""#));
+        assert!(!is_scalar_json_decl(r#""version": "1.0.0""#));
+        assert!(!is_scalar_json_decl(r#""topbarLinks": ["#));
+        assert!(is_mintlify_json_decl(r#""topbarLinks": ["#));
+        assert!(!is_scalar_json_decl(r#""theme": "mint""#));
+        assert!(is_mintlify_json_decl(r#""theme": "mint""#));
+        assert!(!is_scalar_json_decl(r#""theme": "material""#));
+        assert!(is_compodoc_json_decl(r#""theme": "material""#));
+        assert!(!is_scalar_json_decl(r#""apis": {"#));
+        assert!(is_redocly_json_decl(r#""apis": {"#));
+        assert!(!is_scalar_json_decl(r#""licenseKey": "public_key""#));
+        assert!(is_redocly_json_decl(r#""licenseKey": "public_key""#));
+        assert!(!is_scalar_json_decl(r#""functionsDir": "./functions""#));
+        assert!(is_spectral_json_decl(r#""functionsDir": "./functions""#));
+        assert!(!is_scalar_json_decl(r#""generator-cli": {"#));
+        assert!(is_openapitools_json_decl(r#""generator-cli": {"#));
+        assert!(!is_scalar_json_decl(r#""metadata": ["#));
+        assert!(is_docfx_json_decl(r#""metadata": ["#));
+        assert!(!is_scalar_json_decl(r#""entryPoints": ["#));
+        assert!(is_typedoc_json_decl(r#""entryPoints": ["#));
+        assert!(!is_scalar_json_decl(
+            r#""mainEntryPointFilePath": "<projectFolder>/lib/index.d.ts""#
+        ));
+        assert!(is_api_extractor_json_decl(
+            r#""mainEntryPointFilePath": "<projectFolder>/lib/index.d.ts""#
+        ));
+        assert!(!is_scalar_json_decl(r#""printWidth": 80"#));
+        assert!(is_prettier_json_decl(r#""printWidth": 80"#));
+        assert!(!is_scalar_json_decl(r#""bin": {"#));
+        assert!(is_package_json_decl(r#""bin": {"#));
+        assert!(!is_scalar_json_decl(r#""basePath": ".""#));
+        assert!(is_karma_json_decl(r#""basePath": ".""#));
+        // Shared shapes: both scanners may match.
+        assert!(is_scalar_json_decl(r#""hideDarkModeToggle": true"#));
+        assert!(is_compodoc_json_decl(r#""hideDarkModeToggle": true"#));
+        assert!(is_scalar_json_decl(r#""favicon": "/favicon.svg""#));
+        assert!(is_mintlify_json_decl(r#""favicon": "/favicon.svg""#));
+        // line_is_func_like wires the scanner.
+        assert!(line_is_func_like(
+            r#""proxyUrl": "https://proxy.scalar.com""#
+        ));
+        assert!(line_is_func_like(
+            r#""baseServerURL": "https://api.example.com""#
+        ));
+        assert!(line_is_func_like(r#""searchHotKey": "k""#));
+        assert!(line_is_func_like(r#""forceDarkModeState": "dark""#));
+        assert!(line_is_func_like(r#""layout": "modern""#));
+        assert!(line_is_func_like(r#""theme": "purple""#));
+        assert!(line_is_func_like(r#""theme": "deepSpace""#));
+        assert!(line_is_func_like(r#""hiddenClients": ["#));
+        assert!(line_is_func_like(r#""guides": ["#));
+        assert!(line_is_func_like(r#""defaultHttpClient": {"#));
+        assert!(line_is_func_like(r#""pathRouting": {"#));
+        assert!(line_is_func_like(r#""isEditable": true"#));
+        assert!(line_is_func_like(r#""hideModels": true"#));
+        assert!(line_is_func_like(r#""hideTestRequestButton": true"#));
+        assert!(line_is_func_like(r#""subdomain": "my-docs""#));
+        assert!(line_is_func_like(r#""customDomain": "docs.example.com""#));
     }
 
     #[test]
