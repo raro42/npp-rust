@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.772] — 2026-11-11
+
+View:
+
+- **Function List** lists Mintlify `mint.json` / `docs.json` JSON keys: `"topbarLinks": [`, `"anchors": [`, `"navigation": [` / `{`, `"tabs": [`, `"versions": [`, `"redirects": [`, `"topbarCtaButton": {`, `"footerSocials": {`, `"modeToggle": {`, `"colors": {`, `"logo": {` / `"…"`, `"api": {`, `"feedback": {`, `"analytics": {`, `"integrations": {`, `"navbar": {`, `"footer": {`, `"favicon": "…"`, `"theme": "mint"` / `"palm"` / `"willow"` / `"linden"` / `"almond"` / `"aspen"` / `"peat"` / `"flower"` / `"spruce"` / `"rainfrog"` / `"luxe"` / `"maple"` / `"hazel"` / `"venus"` / `"mercury"` / `"neo"` / `"mintlify"`. Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing `:` stay out. Generic `"$schema"` / `"name"` / `"version"` / redocly `"apis"` / `"licenseKey"` / spectral `"functionsDir"` / openapitools `"generator-cli"` / `"spaces"` / docfx `"metadata": [` / typedoc `"entryPoints"` / api-extractor `"mainEntryPointFilePath"` / Compodoc `"theme": "material"` / prettier `"printWidth"` / package.json `"bin"` / karma `"basePath"` stay out. Shared `"redirects": [` also matches vercel when shapes overlap.
+
 ## [0.3.771] — 2026-11-11
 
 View:

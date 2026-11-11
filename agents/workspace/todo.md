@@ -1206,3 +1206,5 @@
 009 keep: Function List Spectral .spectral.json functionsDir/functions/formats/aliases/except/documentationUrl/extends spectral: @stoplight (v0.3.770)
 
 009 keep: Function List Redocly redocly.json apis/decorators/preprocessors/resolve/theme/openapi/licenseKey/extends recommended|minimal|recommended-strict (v0.3.771)
+
+009 keep: Function List Mintlify mint.json/docs.json topbarLinks/anchors/navigation/tabs/topbarCtaButton/footerSocials/modeToggle/colors/logo/favicon/theme mint|palm|… (v0.3.772)

@@ -32439,6 +32439,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_openapitools_json_decl(s)
             || is_spectral_json_decl(s)
             || is_redocly_json_decl(s)
+            || is_mintlify_json_decl(s)
             || is_gomod_decl(s)
             || is_gemfile_decl(s)
             || is_brewfile_decl(s)
@@ -32788,6 +32789,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_openapitools_json_decl(s)
         || is_spectral_json_decl(s)
         || is_redocly_json_decl(s)
+        || is_mintlify_json_decl(s)
         || is_gomod_decl(s)
         || is_gemfile_decl(s)
         || is_brewfile_decl(s)
@@ -56478,6 +56480,198 @@ fn redocly_json_extends_ok(value: &str) -> bool {
                     | b')'
                     | b'['
                     | b']'
+            )
+    })
+}
+
+/// Mintlify `mint.json` / `docs.json` JSON keys: `"topbarLinks": [`,
+/// `"anchors": [`, `"navigation": [` / `{`, `"tabs": [`, `"versions": [`,
+/// `"redirects": [`, `"topbarCtaButton": {`, `"footerSocials": {`,
+/// `"modeToggle": {`, `"colors": {`, `"logo": {` / `"…"`, `"api": {`,
+/// `"feedback": {`, `"analytics": {`, `"integrations": {`, `"navbar": {`,
+/// `"footer": {`, `"favicon": "…"`, `"theme": "mint"` / `"palm"` / ….
+/// Optional trailing `,` and `//` / `/*` comment. Incomplete quotes /
+/// missing `:` stay out. Generic `"$schema"` / `"name"` / `"version"` /
+/// redocly `"apis"` / `"licenseKey"` / spectral `"functionsDir"` /
+/// openapitools `"generator-cli"` / docfx `"metadata": [` / typedoc
+/// `"entryPoints"` / api-extractor `"mainEntryPointFilePath"` /
+/// Compodoc `"theme": "material"` / prettier `"printWidth"` /
+/// package.json `"bin"` / karma `"basePath"` stay out. Shared
+/// `"redirects": [` also matches vercel when shapes overlap.
+fn is_mintlify_json_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    let Some(rest) = s.strip_prefix('"') else {
+        return false;
+    };
+    let Some(end) = rest.find('"') else {
+        return false;
+    };
+    let key = &rest[..end];
+    if !mintlify_json_key_ok(key) {
+        return false;
+    }
+    let after_key = rest[end + 1..].trim_start();
+    let Some(after_colon) = after_key.strip_prefix(':') else {
+        return false;
+    };
+    let after_colon = after_colon.trim_start();
+    mintlify_json_value_and_tail_ok(key, after_colon)
+}
+
+fn mintlify_json_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "topbarLinks"
+            | "anchors"
+            | "navigation"
+            | "tabs"
+            | "versions"
+            | "redirects"
+            | "topbarCtaButton"
+            | "footerSocials"
+            | "modeToggle"
+            | "colors"
+            | "logo"
+            | "api"
+            | "feedback"
+            | "analytics"
+            | "integrations"
+            | "navbar"
+            | "footer"
+            | "favicon"
+            | "theme"
+    )
+}
+
+fn mintlify_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool {
+    let bytes = after_colon.as_bytes();
+    let Some(first) = bytes.first().copied() else {
+        return false;
+    };
+    match first {
+        b'{' => {
+            if !matches!(
+                key,
+                "topbarCtaButton"
+                    | "footerSocials"
+                    | "modeToggle"
+                    | "colors"
+                    | "logo"
+                    | "api"
+                    | "feedback"
+                    | "analytics"
+                    | "integrations"
+                    | "navbar"
+                    | "footer"
+                    | "navigation"
+            ) {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[1..])
+        }
+        b'[' => {
+            if !matches!(
+                key,
+                "topbarLinks" | "anchors" | "navigation" | "tabs" | "versions" | "redirects"
+            ) {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[1..])
+        }
+        b'"' => {
+            if !mintlify_json_string_key_ok(key) {
+                return false;
+            }
+            let rest = &after_colon[1..];
+            let Some(end) = rest.find('"') else {
+                return false;
+            };
+            let value = &rest[..end];
+            if !mintlify_json_string_ok(key, value) {
+                return false;
+            }
+            package_json_tail_ok(&rest[end + 1..])
+        }
+        _ => false,
+    }
+}
+
+fn mintlify_json_string_key_ok(key: &str) -> bool {
+    matches!(key, "favicon" | "logo" | "theme")
+}
+
+fn mintlify_json_string_ok(key: &str, value: &str) -> bool {
+    if value.contains('\n') {
+        return false;
+    }
+    match key {
+        "theme" => mintlify_json_theme_ok(value),
+        "favicon" | "logo" => mintlify_json_path_ok(value),
+        _ => false,
+    }
+}
+
+fn mintlify_json_theme_ok(value: &str) -> bool {
+    matches!(
+        value,
+        "mint"
+            | "palm"
+            | "willow"
+            | "linden"
+            | "almond"
+            | "aspen"
+            | "peat"
+            | "flower"
+            | "spruce"
+            | "rainfrog"
+            | "luxe"
+            | "maple"
+            | "hazel"
+            | "venus"
+            | "mercury"
+            | "neo"
+            | "mintlify"
+    )
+}
+
+fn mintlify_json_path_ok(value: &str) -> bool {
+    if value.is_empty() || value.len() > 512 {
+        return false;
+    }
+    if value.chars().all(|c| c.is_ascii_whitespace()) {
+        return false;
+    }
+    // Path / URL asset refs (favicon / logo string forms).
+    let ok_scheme = value.starts_with('/')
+        || value.starts_with("./")
+        || value.starts_with("../")
+        || value.starts_with("https://")
+        || value.starts_with("http://")
+        || value.contains('.')
+        || value.contains('/');
+    if !ok_scheme {
+        return false;
+    }
+    value.bytes().all(|b| {
+        b.is_ascii_alphanumeric()
+            || matches!(
+                b,
+                b'.' | b'-'
+                    | b'_'
+                    | b'/'
+                    | b'\\'
+                    | b':'
+                    | b'?'
+                    | b'='
+                    | b'&'
+                    | b'%'
+                    | b'#'
+                    | b'@'
+                    | b'+'
+                    | b'~'
+                    | b'*'
+                    | b'('
+                    | b')'
             )
     })
 }
@@ -87120,20 +87314,20 @@ mod func_like_line_tests {
         is_karma_json_decl, is_keepalived_decl, is_knip_json_decl, is_krb5_conf_decl,
         is_lerna_json_decl, is_lightdm_conf_decl, is_limits_conf_decl, is_lint_staged_json_decl,
         is_locale_conf_decl, is_login_defs_decl, is_logrotate_decl, is_machine_info_decl,
-        is_makepkg_conf_decl, is_mdbook_toml_decl, is_mise_toml_decl, is_mkinitcpio_conf_decl,
-        is_mocha_json_decl, is_modprobe_conf_decl, is_mutants_toml_decl, is_mypy_ini_decl,
-        is_mysql_cnf_decl, is_named_conf_decl, is_nest_cli_json_decl, is_netlify_toml_decl,
-        is_networks_file_decl, is_neutralino_json_decl, is_nextest_toml_decl, is_nftables_decl,
-        is_nginx_conf_decl, is_nightwatch_json_decl, is_nixpacks_toml_decl, is_nm_connection_decl,
-        is_npmrc_decl, is_nsswitch_conf_decl, is_nx_json_decl, is_nyc_json_decl,
-        is_openapitools_json_decl, is_openvpn_decl, is_os_release_decl, is_oxlint_json_decl,
-        is_package_json_decl, is_pacman_conf_decl, is_pam_conf_decl, is_parcel_json_decl,
-        is_paru_conf_decl, is_passwd_group_file_decl, is_pdm_toml_decl, is_php_ini_decl,
-        is_pip_conf_decl, is_pipfile_decl, is_pixi_toml_decl, is_playwright_json_decl,
-        is_podfile_decl, is_poetry_toml_decl, is_postcss_json_decl, is_premake_decl,
-        is_prettier_json_decl, is_protocols_file_decl, is_pycln_ini_decl, is_pycodestyle_ini_decl,
-        is_pydoclint_ini_decl, is_pydocstyle_ini_decl, is_pylama_ini_decl, is_pylint_ini_decl,
-        is_pypirc_ini_decl, is_pyproject_toml_decl, is_pyre_configuration_decl,
+        is_makepkg_conf_decl, is_mdbook_toml_decl, is_mintlify_json_decl, is_mise_toml_decl,
+        is_mkinitcpio_conf_decl, is_mocha_json_decl, is_modprobe_conf_decl, is_mutants_toml_decl,
+        is_mypy_ini_decl, is_mysql_cnf_decl, is_named_conf_decl, is_nest_cli_json_decl,
+        is_netlify_toml_decl, is_networks_file_decl, is_neutralino_json_decl, is_nextest_toml_decl,
+        is_nftables_decl, is_nginx_conf_decl, is_nightwatch_json_decl, is_nixpacks_toml_decl,
+        is_nm_connection_decl, is_npmrc_decl, is_nsswitch_conf_decl, is_nx_json_decl,
+        is_nyc_json_decl, is_openapitools_json_decl, is_openvpn_decl, is_os_release_decl,
+        is_oxlint_json_decl, is_package_json_decl, is_pacman_conf_decl, is_pam_conf_decl,
+        is_parcel_json_decl, is_paru_conf_decl, is_passwd_group_file_decl, is_pdm_toml_decl,
+        is_php_ini_decl, is_pip_conf_decl, is_pipfile_decl, is_pixi_toml_decl,
+        is_playwright_json_decl, is_podfile_decl, is_poetry_toml_decl, is_postcss_json_decl,
+        is_premake_decl, is_prettier_json_decl, is_protocols_file_decl, is_pycln_ini_decl,
+        is_pycodestyle_ini_decl, is_pydoclint_ini_decl, is_pydocstyle_ini_decl, is_pylama_ini_decl,
+        is_pylint_ini_decl, is_pypirc_ini_decl, is_pyproject_toml_decl, is_pyre_configuration_decl,
         is_pyright_toml_decl, is_pyrightconfig_json_decl, is_pytest_ini_decl, is_pytype_ini_decl,
         is_pyupgrade_ini_decl, is_radon_ini_decl, is_railway_toml_decl, is_rake_decl,
         is_redocly_json_decl, is_refurb_toml_decl, is_release_it_json_decl,
@@ -111861,6 +112055,184 @@ mod func_like_line_tests {
         assert!(line_is_func_like(r#""licenseKey": "public_key""#));
         assert!(line_is_func_like(r#""extends": "recommended""#));
         assert!(line_is_func_like(r#""extends": ["#));
+    }
+
+    #[test]
+    fn mintlify_json_keys_smoke() {
+        assert!(is_mintlify_json_decl(r#""topbarLinks": ["#));
+        assert!(is_mintlify_json_decl(r#""anchors": ["#));
+        assert!(is_mintlify_json_decl(r#""navigation": ["#));
+        assert!(is_mintlify_json_decl(r#""navigation": {"#));
+        assert!(is_mintlify_json_decl(r#""tabs": ["#));
+        assert!(is_mintlify_json_decl(r#""versions": ["#));
+        assert!(is_mintlify_json_decl(r#""redirects": ["#));
+        assert!(is_mintlify_json_decl(r#""topbarCtaButton": {"#));
+        assert!(is_mintlify_json_decl(r#""footerSocials": {"#));
+        assert!(is_mintlify_json_decl(r#""modeToggle": {"#));
+        assert!(is_mintlify_json_decl(r#""colors": {"#));
+        assert!(is_mintlify_json_decl(r#""logo": {"#));
+        assert!(is_mintlify_json_decl(r#""logo": "/logo.svg""#));
+        assert!(is_mintlify_json_decl(r#""api": {"#));
+        assert!(is_mintlify_json_decl(r#""feedback": {"#));
+        assert!(is_mintlify_json_decl(r#""analytics": {"#));
+        assert!(is_mintlify_json_decl(r#""integrations": {"#));
+        assert!(is_mintlify_json_decl(r#""navbar": {"#));
+        assert!(is_mintlify_json_decl(r#""footer": {"#));
+        assert!(is_mintlify_json_decl(r#""favicon": "/favicon.svg""#));
+        assert!(is_mintlify_json_decl(r#""theme": "mint""#));
+        assert!(is_mintlify_json_decl(r#""theme": "palm""#));
+        assert!(is_mintlify_json_decl(r#""theme": "willow""#));
+        // Distinctive neighbours stay out of this scanner.
+        assert!(!is_mintlify_json_decl(r#""apis": {"#));
+        assert!(is_redocly_json_decl(r#""apis": {"#));
+        assert!(!is_mintlify_json_decl(r#""functionsDir": "./functions""#));
+        assert!(is_spectral_json_decl(r#""functionsDir": "./functions""#));
+        assert!(!is_mintlify_json_decl(r#""generator-cli": {"#));
+        assert!(is_openapitools_json_decl(r#""generator-cli": {"#));
+        assert!(!is_mintlify_json_decl(r#""theme": "material""#));
+        assert!(is_compodoc_json_decl(r#""theme": "material""#));
+        assert!(!is_mintlify_json_decl(r#""printWidth": 80"#));
+        assert!(is_prettier_json_decl(r#""printWidth": 80"#));
+    }
+
+    #[test]
+    fn mintlify_json_keys_count() {
+        assert!(is_mintlify_json_decl(r#""topbarLinks": ["#));
+        assert!(is_mintlify_json_decl(r#""topbarLinks": [,"#));
+        assert!(is_mintlify_json_decl(r#""topbarLinks": [ // nav"#));
+        assert!(!is_mintlify_json_decl(r#""topbarLinks": {"#));
+        assert!(!is_mintlify_json_decl(r#""topbarLinks": true"#));
+        assert!(is_mintlify_json_decl(r#""anchors": ["#));
+        assert!(is_mintlify_json_decl(r#""anchors": [ // side"#));
+        assert!(!is_mintlify_json_decl(r#""anchors": {"#));
+        assert!(!is_mintlify_json_decl(r#""anchors": "api""#));
+        assert!(is_mintlify_json_decl(r#""navigation": ["#));
+        assert!(is_mintlify_json_decl(r#""navigation": {"#));
+        assert!(is_mintlify_json_decl(r#""navigation": { // docs"#));
+        assert!(!is_mintlify_json_decl(r#""navigation": true"#));
+        assert!(!is_mintlify_json_decl(r#""navigation": "intro""#));
+        assert!(is_mintlify_json_decl(r#""tabs": ["#));
+        assert!(is_mintlify_json_decl(r#""tabs": [],"#));
+        assert!(!is_mintlify_json_decl(r#""tabs": {"#));
+        assert!(is_mintlify_json_decl(r#""versions": ["#));
+        assert!(!is_mintlify_json_decl(r#""versions": {"#));
+        assert!(is_mintlify_json_decl(r#""redirects": ["#));
+        assert!(is_mintlify_json_decl(r#""redirects": [ // alias"#));
+        assert!(!is_mintlify_json_decl(r#""redirects": {"#));
+        assert!(is_mintlify_json_decl(r#""topbarCtaButton": {"#));
+        assert!(is_mintlify_json_decl(r#""topbarCtaButton": {,"#));
+        assert!(!is_mintlify_json_decl(r#""topbarCtaButton": ["#));
+        assert!(!is_mintlify_json_decl(r#""topbarCtaButton": "Dashboard""#));
+        assert!(is_mintlify_json_decl(r#""footerSocials": {"#));
+        assert!(!is_mintlify_json_decl(r#""footerSocials": ["#));
+        assert!(is_mintlify_json_decl(r#""modeToggle": {"#));
+        assert!(!is_mintlify_json_decl(r#""modeToggle": true"#));
+        assert!(is_mintlify_json_decl(r#""colors": {"#));
+        assert!(!is_mintlify_json_decl(r#""colors": ["#));
+        assert!(!is_mintlify_json_decl(r##""colors": "#0D9373""##));
+        assert!(is_mintlify_json_decl(r#""logo": {"#));
+        assert!(is_mintlify_json_decl(r#""logo": "/logo/dark.svg""#));
+        assert!(is_mintlify_json_decl(r#""logo": "./logo.png""#));
+        assert!(is_mintlify_json_decl(
+            r#""logo": "https://example.com/logo.svg""#
+        ));
+        assert!(!is_mintlify_json_decl(r#""logo": ["#));
+        assert!(!is_mintlify_json_decl(r#""logo": "logo""#));
+        assert!(is_mintlify_json_decl(r#""api": {"#));
+        assert!(!is_mintlify_json_decl(r#""api": ["#));
+        assert!(is_mintlify_json_decl(r#""feedback": {"#));
+        assert!(is_mintlify_json_decl(r#""analytics": {"#));
+        assert!(is_mintlify_json_decl(r#""integrations": {"#));
+        assert!(is_mintlify_json_decl(r#""navbar": {"#));
+        assert!(is_mintlify_json_decl(r#""footer": {"#));
+        assert!(!is_mintlify_json_decl(r#""footer": ["#));
+        assert!(is_mintlify_json_decl(r#""favicon": "/favicon.svg""#));
+        assert!(is_mintlify_json_decl(r#""favicon": "./favicon.ico","#));
+        assert!(is_mintlify_json_decl(
+            r#""favicon": "https://example.com/favicon.png""#
+        ));
+        assert!(!is_mintlify_json_decl(r#""favicon": true"#));
+        assert!(!is_mintlify_json_decl(r#""favicon": {"#));
+        assert!(!is_mintlify_json_decl(r#""favicon": "icon""#));
+        assert!(is_mintlify_json_decl(r#""theme": "mint""#));
+        assert!(is_mintlify_json_decl(r#""theme": "palm""#));
+        assert!(is_mintlify_json_decl(r#""theme": "willow""#));
+        assert!(is_mintlify_json_decl(r#""theme": "linden""#));
+        assert!(is_mintlify_json_decl(r#""theme": "almond""#));
+        assert!(is_mintlify_json_decl(r#""theme": "aspen""#));
+        assert!(is_mintlify_json_decl(r#""theme": "peat""#));
+        assert!(is_mintlify_json_decl(r#""theme": "flower""#));
+        assert!(is_mintlify_json_decl(r#""theme": "spruce""#));
+        assert!(is_mintlify_json_decl(r#""theme": "rainfrog""#));
+        assert!(is_mintlify_json_decl(r#""theme": "luxe""#));
+        assert!(is_mintlify_json_decl(r#""theme": "maple""#));
+        assert!(is_mintlify_json_decl(r#""theme": "hazel""#));
+        assert!(is_mintlify_json_decl(r#""theme": "venus""#));
+        assert!(is_mintlify_json_decl(r#""theme": "mercury""#));
+        assert!(is_mintlify_json_decl(r#""theme": "neo""#));
+        assert!(is_mintlify_json_decl(r#""theme": "mintlify""#));
+        assert!(!is_mintlify_json_decl(r#""theme": "material""#));
+        assert!(!is_mintlify_json_decl(r#""theme": "gitbook""#));
+        assert!(!is_mintlify_json_decl(r#""theme": {"#));
+        assert!(!is_mintlify_json_decl(r#""theme": ["#));
+        assert!(!is_mintlify_json_decl(r#""theme": true"#));
+        // Incomplete / wrong shapes stay out.
+        assert!(!is_mintlify_json_decl(r#""topbarLinks""#));
+        assert!(!is_mintlify_json_decl(r#""topbarLinks":"#));
+        assert!(!is_mintlify_json_decl(r#""favicon""#));
+        assert!(!is_mintlify_json_decl(r#""theme""#));
+        // Generic / neighbouring stay out.
+        assert!(!is_mintlify_json_decl(
+            r#""$schema": "https://mintlify.com/docs.json""#
+        ));
+        assert!(!is_mintlify_json_decl(r#""name": "My Docs""#));
+        assert!(!is_mintlify_json_decl(r#""version": "1.0.0""#));
+        assert!(!is_mintlify_json_decl(r#""apis": {"#));
+        assert!(is_redocly_json_decl(r#""apis": {"#));
+        assert!(!is_mintlify_json_decl(r#""licenseKey": "public_key""#));
+        assert!(is_redocly_json_decl(r#""licenseKey": "public_key""#));
+        assert!(!is_mintlify_json_decl(r#""functionsDir": "./functions""#));
+        assert!(is_spectral_json_decl(r#""functionsDir": "./functions""#));
+        assert!(!is_mintlify_json_decl(r#""generator-cli": {"#));
+        assert!(is_openapitools_json_decl(r#""generator-cli": {"#));
+        assert!(!is_mintlify_json_decl(r#""spaces": 2"#));
+        assert!(is_openapitools_json_decl(r#""spaces": 2"#));
+        assert!(!is_mintlify_json_decl(r#""metadata": ["#));
+        assert!(is_docfx_json_decl(r#""metadata": ["#));
+        assert!(!is_mintlify_json_decl(r#""entryPoints": ["#));
+        assert!(is_typedoc_json_decl(r#""entryPoints": ["#));
+        assert!(!is_mintlify_json_decl(
+            r#""mainEntryPointFilePath": "<projectFolder>/lib/index.d.ts""#
+        ));
+        assert!(is_api_extractor_json_decl(
+            r#""mainEntryPointFilePath": "<projectFolder>/lib/index.d.ts""#
+        ));
+        assert!(!is_mintlify_json_decl(r#""theme": "material""#));
+        assert!(is_compodoc_json_decl(r#""theme": "material""#));
+        assert!(!is_mintlify_json_decl(r#""printWidth": 80"#));
+        assert!(is_prettier_json_decl(r#""printWidth": 80"#));
+        assert!(!is_mintlify_json_decl(r#""bin": {"#));
+        assert!(is_package_json_decl(r#""bin": {"#));
+        assert!(!is_mintlify_json_decl(r#""basePath": ".""#));
+        assert!(is_karma_json_decl(r#""basePath": ".""#));
+        // Shared shapes: both scanners may match.
+        assert!(is_mintlify_json_decl(r#""redirects": ["#));
+        assert!(is_vercel_json_decl(r#""redirects": ["#));
+        // line_is_func_like wires the scanner.
+        assert!(line_is_func_like(r#""topbarLinks": ["#));
+        assert!(line_is_func_like(r#""anchors": ["#));
+        assert!(line_is_func_like(r#""navigation": ["#));
+        assert!(line_is_func_like(r#""navigation": {"#));
+        assert!(line_is_func_like(r#""tabs": ["#));
+        assert!(line_is_func_like(r#""topbarCtaButton": {"#));
+        assert!(line_is_func_like(r#""footerSocials": {"#));
+        assert!(line_is_func_like(r#""modeToggle": {"#));
+        assert!(line_is_func_like(r#""colors": {"#));
+        assert!(line_is_func_like(r#""logo": {"#));
+        assert!(line_is_func_like(r#""favicon": "/favicon.svg""#));
+        assert!(line_is_func_like(r#""theme": "mint""#));
+        assert!(line_is_func_like(r#""navbar": {"#));
+        assert!(line_is_func_like(r#""footer": {"#));
     }
 
     #[test]
