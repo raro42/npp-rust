@@ -32459,6 +32459,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_pact_json_decl(s)
             || is_openapi_json_decl(s)
             || is_asyncapi_json_decl(s)
+            || is_har_json_decl(s)
             || is_gomod_decl(s)
             || is_gemfile_decl(s)
             || is_brewfile_decl(s)
@@ -32828,6 +32829,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_pact_json_decl(s)
         || is_openapi_json_decl(s)
         || is_asyncapi_json_decl(s)
+        || is_har_json_decl(s)
         || is_gomod_decl(s)
         || is_gemfile_decl(s)
         || is_brewfile_decl(s)
@@ -60181,6 +60183,139 @@ fn asyncapi_version_ok(value: &str) -> bool {
         && minor.bytes().all(|b| b.is_ascii_digit())
         && !patch.is_empty()
         && patch.bytes().all(|b| b.is_ascii_digit())
+}
+
+/// HTTP Archive (HAR 1.2) entry / Chrome-export JSON keys:
+/// `"startedDateTime": "2009-04-16T15:53:27.373Z"`, `"timings": {`,
+/// `"serverIPAddress": ""` / `"…"`, `"pageref": ""` / `"…"`,
+/// `"_resourceType": ""` / `"…"`, `"_webSocketMessages": [`,
+/// `"_priority": ""` / `"…"`, `"_fromCache": ""` / `"…"`,
+/// `"_initiator": {`. Optional trailing `,` and `//` / `/*` comment.
+/// Incomplete quotes / missing `:` stay out. Generic `"log": {` /
+/// `"version"` / `"creator": {` / `"browser": {` / `"pages": [` /
+/// `"entries": [` / `"request": {` / `"response": {` / `"cache": {` /
+/// `"comment"` / `"time"` / `"headers": [` / `"cookies": [` /
+/// `"queryString": [` / `"content": {` / `"status"` / `"method"` /
+/// `"url"` / `"$schema"` / OpenAPI `"openapi"` / AsyncAPI
+/// `"asyncapi"` / `"channels": {` / Pact `"consumer"` / MockServer
+/// `"httpRequest"` / Hoverfly `"hoverflyVersion"` / Mountebank
+/// `"imposters"` / WireMock `"scenarioName"` / Mockoon
+/// `"lastMigration"` / Hoppscotch `"preRequestScript"` / Yaak
+/// `"yaakVersion"` / Bruno `"brunoConfig"` / Thunder Client
+/// `"client"` / Postman `"_postman_id"` / Insomnia
+/// `"__export_format"` / ReDoc `"disableSearch"` / RapiDoc
+/// `"specUrl"` / swagger-ui `"dom_id"` / scalar `"layout": "modern"`
+/// / Elements `"layout": "sidebar"` / mintlify `"topbarLinks"` /
+/// Compodoc `"theme": "material"` / redocly `"apis"` / spectral
+/// `"functionsDir"` / openapitools `"generator-cli"` / Knip
+/// `"entry"` / prettier `"printWidth"` / package.json `"bin"` /
+/// karma `"basePath"` stay out. `"startedDateTime"` only matches
+/// ISO-8601 date prefixes (`YYYY-MM-DD…`).
+fn is_har_json_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    let Some(rest) = s.strip_prefix('"') else {
+        return false;
+    };
+    let Some(end) = rest.find('"') else {
+        return false;
+    };
+    let key = &rest[..end];
+    if !har_json_key_ok(key) {
+        return false;
+    }
+    let after_key = rest[end + 1..].trim_start();
+    let Some(after_colon) = after_key.strip_prefix(':') else {
+        return false;
+    };
+    let after_colon = after_colon.trim_start();
+    har_json_value_and_tail_ok(key, after_colon)
+}
+
+fn har_json_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "startedDateTime"
+            | "timings"
+            | "serverIPAddress"
+            | "pageref"
+            | "_resourceType"
+            | "_webSocketMessages"
+            | "_priority"
+            | "_fromCache"
+            | "_initiator"
+    )
+}
+
+fn har_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool {
+    let bytes = after_colon.as_bytes();
+    let Some(first) = bytes.first().copied() else {
+        return false;
+    };
+    match first {
+        b'{' => {
+            if !matches!(key, "timings" | "_initiator") {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[1..])
+        }
+        b'[' => {
+            if key != "_webSocketMessages" {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[1..])
+        }
+        b'"' => {
+            if !matches!(
+                key,
+                "startedDateTime"
+                    | "serverIPAddress"
+                    | "pageref"
+                    | "_resourceType"
+                    | "_priority"
+                    | "_fromCache"
+            ) {
+                return false;
+            }
+            let rest = &after_colon[1..];
+            let Some(end) = rest.find('"') else {
+                return false;
+            };
+            let value = &rest[..end];
+            if !har_json_string_ok(key, value) {
+                return false;
+            }
+            package_json_tail_ok(&rest[end + 1..])
+        }
+        _ => false,
+    }
+}
+
+fn har_json_string_ok(key: &str, value: &str) -> bool {
+    match key {
+        "startedDateTime" => har_started_datetime_ok(value),
+        "serverIPAddress" | "pageref" | "_resourceType" | "_priority" | "_fromCache" => {
+            !value.contains('\n') && value.len() <= 8192
+        }
+        _ => false,
+    }
+}
+
+fn har_started_datetime_ok(value: &str) -> bool {
+    // HAR uses ISO 8601, e.g. 2009-04-16T15:53:27.373Z
+    if value.len() < 10 || value.len() > 64 || value.contains('\n') {
+        return false;
+    }
+    let b = value.as_bytes();
+    b[0].is_ascii_digit()
+        && b[1].is_ascii_digit()
+        && b[2].is_ascii_digit()
+        && b[3].is_ascii_digit()
+        && b[4] == b'-'
+        && b[5].is_ascii_digit()
+        && b[6].is_ascii_digit()
+        && b[7] == b'-'
+        && b[8].is_ascii_digit()
+        && b[9].is_ascii_digit()
 }
 
 /// go.mod / go.work directives: `module example.com/foo`, `go 1.22`,
@@ -90816,24 +90951,25 @@ mod func_like_line_tests {
         is_fail2ban_conf_decl, is_firebase_json_decl, is_flake8_ini_decl, is_fluent_bit_decl,
         is_fly_toml_decl, is_flynt_ini_decl, is_freeradius_decl, is_fstab_decl, is_gdm_conf_decl,
         is_gemfile_decl, is_gitconfig_decl, is_gomod_decl, is_grafana_ini_decl, is_haproxy_decl,
-        is_hatch_toml_decl, is_hoppscotch_json_decl, is_hosts_access_decl, is_hosts_file_decl,
-        is_hoverfly_json_decl, is_hypothesis_ini_decl, is_importlinter_ini_decl,
-        is_insomnia_json_decl, is_interrogate_ini_decl, is_ionic_json_decl, is_ipsec_conf_decl,
-        is_isort_ini_decl, is_jasmine_json_decl, is_jest_json_decl, is_jsdoc_json_decl,
-        is_karma_json_decl, is_keepalived_decl, is_knip_json_decl, is_krb5_conf_decl,
-        is_lerna_json_decl, is_lightdm_conf_decl, is_limits_conf_decl, is_lint_staged_json_decl,
-        is_locale_conf_decl, is_login_defs_decl, is_logrotate_decl, is_machine_info_decl,
-        is_makepkg_conf_decl, is_mdbook_toml_decl, is_mintlify_json_decl, is_mise_toml_decl,
-        is_mkinitcpio_conf_decl, is_mocha_json_decl, is_mockoon_json_decl, is_mockserver_json_decl,
-        is_modprobe_conf_decl, is_mountebank_json_decl, is_mutants_toml_decl, is_mypy_ini_decl,
-        is_mysql_cnf_decl, is_named_conf_decl, is_nest_cli_json_decl, is_netlify_toml_decl,
-        is_networks_file_decl, is_neutralino_json_decl, is_nextest_toml_decl, is_nftables_decl,
-        is_nginx_conf_decl, is_nightwatch_json_decl, is_nixpacks_toml_decl, is_nm_connection_decl,
-        is_npmrc_decl, is_nsswitch_conf_decl, is_nx_json_decl, is_nyc_json_decl,
-        is_openapi_json_decl, is_openapitools_json_decl, is_openvpn_decl, is_os_release_decl,
-        is_oxlint_json_decl, is_package_json_decl, is_pacman_conf_decl, is_pact_json_decl,
-        is_pam_conf_decl, is_parcel_json_decl, is_paru_conf_decl, is_passwd_group_file_decl,
-        is_pdm_toml_decl, is_php_ini_decl, is_pip_conf_decl, is_pipfile_decl, is_pixi_toml_decl,
+        is_har_json_decl, is_hatch_toml_decl, is_hoppscotch_json_decl, is_hosts_access_decl,
+        is_hosts_file_decl, is_hoverfly_json_decl, is_hypothesis_ini_decl,
+        is_importlinter_ini_decl, is_insomnia_json_decl, is_interrogate_ini_decl,
+        is_ionic_json_decl, is_ipsec_conf_decl, is_isort_ini_decl, is_jasmine_json_decl,
+        is_jest_json_decl, is_jsdoc_json_decl, is_karma_json_decl, is_keepalived_decl,
+        is_knip_json_decl, is_krb5_conf_decl, is_lerna_json_decl, is_lightdm_conf_decl,
+        is_limits_conf_decl, is_lint_staged_json_decl, is_locale_conf_decl, is_login_defs_decl,
+        is_logrotate_decl, is_machine_info_decl, is_makepkg_conf_decl, is_mdbook_toml_decl,
+        is_mintlify_json_decl, is_mise_toml_decl, is_mkinitcpio_conf_decl, is_mocha_json_decl,
+        is_mockoon_json_decl, is_mockserver_json_decl, is_modprobe_conf_decl,
+        is_mountebank_json_decl, is_mutants_toml_decl, is_mypy_ini_decl, is_mysql_cnf_decl,
+        is_named_conf_decl, is_nest_cli_json_decl, is_netlify_toml_decl, is_networks_file_decl,
+        is_neutralino_json_decl, is_nextest_toml_decl, is_nftables_decl, is_nginx_conf_decl,
+        is_nightwatch_json_decl, is_nixpacks_toml_decl, is_nm_connection_decl, is_npmrc_decl,
+        is_nsswitch_conf_decl, is_nx_json_decl, is_nyc_json_decl, is_openapi_json_decl,
+        is_openapitools_json_decl, is_openvpn_decl, is_os_release_decl, is_oxlint_json_decl,
+        is_package_json_decl, is_pacman_conf_decl, is_pact_json_decl, is_pam_conf_decl,
+        is_parcel_json_decl, is_paru_conf_decl, is_passwd_group_file_decl, is_pdm_toml_decl,
+        is_php_ini_decl, is_pip_conf_decl, is_pipfile_decl, is_pixi_toml_decl,
         is_playwright_json_decl, is_podfile_decl, is_poetry_toml_decl, is_postcss_json_decl,
         is_postman_json_decl, is_premake_decl, is_prettier_json_decl, is_protocols_file_decl,
         is_pycln_ini_decl, is_pycodestyle_ini_decl, is_pydoclint_ini_decl, is_pydocstyle_ini_decl,
@@ -119893,6 +120029,15 @@ mod func_like_line_tests {
         assert!(is_prettier_json_decl(r#""printWidth": 80"#));
         assert!(!is_asyncapi_json_decl(r#""basePath": ".""#));
         assert!(is_karma_json_decl(r#""basePath": ".""#));
+        // HAR distinctive keys stay on HAR.
+        assert!(!is_asyncapi_json_decl(
+            r#""startedDateTime": "2009-04-16T15:53:27.373Z""#
+        ));
+        assert!(is_har_json_decl(
+            r#""startedDateTime": "2009-04-16T15:53:27.373Z""#
+        ));
+        assert!(!is_asyncapi_json_decl(r#""timings": {"#));
+        assert!(is_har_json_decl(r#""timings": {"#));
     }
 
     #[test]
@@ -120017,6 +120162,15 @@ mod func_like_line_tests {
         assert!(is_prettier_json_decl(r#""printWidth": 80"#));
         assert!(!is_asyncapi_json_decl(r#""basePath": ".""#));
         assert!(is_karma_json_decl(r#""basePath": ".""#));
+        // HAR distinctive keys stay on HAR.
+        assert!(!is_asyncapi_json_decl(
+            r#""startedDateTime": "2009-04-16T15:53:27.373Z""#
+        ));
+        assert!(is_har_json_decl(
+            r#""startedDateTime": "2009-04-16T15:53:27.373Z""#
+        ));
+        assert!(!is_asyncapi_json_decl(r#""timings": {"#));
+        assert!(is_har_json_decl(r#""timings": {"#));
         // line_is_func_like wires the scanner.
         assert!(line_is_func_like(r#""asyncapi": "2.6.0""#));
         assert!(line_is_func_like(r#""asyncapi": "3.0.0""#));
@@ -120026,6 +120180,264 @@ mod func_like_line_tests {
         assert!(line_is_func_like(
             r#""defaultContentType": "application/json""#
         ));
+    }
+
+    #[test]
+    fn har_json_keys_smoke() {
+        assert!(is_har_json_decl(
+            r#""startedDateTime": "2009-04-16T15:53:27.373Z""#
+        ));
+        assert!(is_har_json_decl(r#""timings": {"#));
+        assert!(is_har_json_decl(r#""serverIPAddress": "10.0.0.1""#));
+        assert!(is_har_json_decl(r#""pageref": "page_0""#));
+        assert!(is_har_json_decl(r#""_resourceType": "xhr""#));
+        assert!(is_har_json_decl(r#""_webSocketMessages": ["#));
+        assert!(is_har_json_decl(r#""_priority": "High""#));
+        assert!(is_har_json_decl(r#""_fromCache": "disk""#));
+        assert!(is_har_json_decl(r#""_initiator": {"#));
+        // Distinctive neighbours stay out of this scanner.
+        assert!(!is_har_json_decl(r#""asyncapi": "2.6.0""#));
+        assert!(is_asyncapi_json_decl(r#""asyncapi": "2.6.0""#));
+        assert!(!is_har_json_decl(r#""openapi": "3.0.3""#));
+        assert!(is_openapi_json_decl(r#""openapi": "3.0.3""#));
+        assert!(!is_har_json_decl(r#""channels": {"#));
+        assert!(is_asyncapi_json_decl(r#""channels": {"#));
+        assert!(!is_har_json_decl(r#""consumer": {"#));
+        assert!(is_pact_json_decl(r#""consumer": {"#));
+        assert!(!is_har_json_decl(r#""httpRequest": {"#));
+        assert!(is_mockserver_json_decl(r#""httpRequest": {"#));
+        assert!(!is_har_json_decl(r#""hoverflyVersion": "v1.2.0""#));
+        assert!(is_hoverfly_json_decl(r#""hoverflyVersion": "v1.2.0""#));
+        assert!(!is_har_json_decl(r#""imposters": ["#));
+        assert!(is_mountebank_json_decl(r#""imposters": ["#));
+        assert!(!is_har_json_decl(r#""scenarioName": "checkout""#));
+        assert!(is_wiremock_json_decl(r#""scenarioName": "checkout""#));
+        assert!(!is_har_json_decl(r#""lastMigration": 33"#));
+        assert!(is_mockoon_json_decl(r#""lastMigration": 33"#));
+        assert!(!is_har_json_decl(r#""preRequestScript": """#));
+        assert!(is_hoppscotch_json_decl(r#""preRequestScript": """#));
+        assert!(!is_har_json_decl(r#""yaakVersion": "2025.1.0""#));
+        assert!(is_yaak_json_decl(r#""yaakVersion": "2025.1.0""#));
+        assert!(!is_har_json_decl(r#""brunoConfig": {"#));
+        assert!(is_bruno_json_decl(r#""brunoConfig": {"#));
+        assert!(!is_har_json_decl(r#""client": "Thunder Client""#));
+        assert!(is_thunder_client_json_decl(r#""client": "Thunder Client""#));
+        assert!(!is_har_json_decl(
+            r#""_postman_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890""#
+        ));
+        assert!(is_postman_json_decl(
+            r#""_postman_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890""#
+        ));
+        assert!(!is_har_json_decl(r#""__export_format": 4"#));
+        assert!(is_insomnia_json_decl(r#""__export_format": 4"#));
+        assert!(!is_har_json_decl(r#""disableSearch": true"#));
+        assert!(is_redoc_json_decl(r#""disableSearch": true"#));
+        assert!(!is_har_json_decl(r#""specUrl": "./openapi.yaml""#));
+        assert!(is_rapidoc_json_decl(r#""specUrl": "./openapi.yaml""#));
+        assert!(!is_har_json_decl(r##""dom_id": "#swagger-ui""##));
+        assert!(is_swagger_ui_json_decl(r##""dom_id": "#swagger-ui""##));
+        assert!(!is_har_json_decl(r#""layout": "modern""#));
+        assert!(is_scalar_json_decl(r#""layout": "modern""#));
+        assert!(!is_har_json_decl(r#""layout": "sidebar""#));
+        assert!(is_stoplight_elements_json_decl(r#""layout": "sidebar""#));
+        assert!(!is_har_json_decl(r#""topbarLinks": ["#));
+        assert!(is_mintlify_json_decl(r#""topbarLinks": ["#));
+        assert!(!is_har_json_decl(r#""apis": {"#));
+        assert!(is_redocly_json_decl(r#""apis": {"#));
+        assert!(!is_har_json_decl(r#""functionsDir": "./functions""#));
+        assert!(is_spectral_json_decl(r#""functionsDir": "./functions""#));
+        assert!(!is_har_json_decl(r#""generator-cli": {"#));
+        assert!(is_openapitools_json_decl(r#""generator-cli": {"#));
+        assert!(!is_har_json_decl(r#""printWidth": 80"#));
+        assert!(is_prettier_json_decl(r#""printWidth": 80"#));
+        assert!(!is_har_json_decl(r#""basePath": ".""#));
+        assert!(is_karma_json_decl(r#""basePath": ".""#));
+        assert!(line_is_func_like(
+            r#""startedDateTime": "2009-04-16T15:53:27.373Z""#
+        ));
+        assert!(line_is_func_like(r#""timings": {"#));
+        assert!(line_is_func_like(r#""serverIPAddress": "10.0.0.1""#));
+        assert!(line_is_func_like(r#""pageref": "page_0""#));
+        assert!(line_is_func_like(r#""_resourceType": "xhr""#));
+        assert!(line_is_func_like(r#""_webSocketMessages": ["#));
+        assert!(line_is_func_like(r#""_priority": "High""#));
+        assert!(line_is_func_like(r#""_fromCache": "disk""#));
+        assert!(line_is_func_like(r#""_initiator": {"#));
+    }
+
+    #[test]
+    fn har_json_keys_count() {
+        assert!(is_har_json_decl(
+            r#""startedDateTime": "2009-04-16T15:53:27.373Z""#
+        ));
+        assert!(is_har_json_decl(
+            r#""startedDateTime": "2009-04-16T15:53:27.373Z","#
+        ));
+        assert!(is_har_json_decl(
+            r#""startedDateTime": "2009-04-16T15:53:27.373Z" // when"#
+        ));
+        assert!(is_har_json_decl(r#""startedDateTime": "2024-01-01""#));
+        assert!(!is_har_json_decl(r#""startedDateTime": """#));
+        assert!(!is_har_json_decl(r#""startedDateTime": "not-a-date""#));
+        assert!(!is_har_json_decl(r#""startedDateTime": "09-04-16""#));
+        assert!(!is_har_json_decl(r#""startedDateTime": {"#));
+        assert!(!is_har_json_decl(r#""startedDateTime": true"#));
+        assert!(!is_har_json_decl(r#""startedDateTime": ["#));
+        assert!(is_har_json_decl(r#""timings": {"#));
+        assert!(is_har_json_decl(r#""timings": {,"#));
+        assert!(is_har_json_decl(r#""timings": { // ms"#));
+        assert!(!is_har_json_decl(r#""timings": ["#));
+        assert!(!is_har_json_decl(r#""timings": true"#));
+        assert!(!is_har_json_decl(r#""timings": "blocked""#));
+        assert!(is_har_json_decl(r#""serverIPAddress": """#));
+        assert!(is_har_json_decl(r#""serverIPAddress": "10.0.0.1""#));
+        assert!(is_har_json_decl(r#""serverIPAddress": "10.0.0.1","#));
+        assert!(is_har_json_decl(r#""serverIPAddress": "10.0.0.1" // ip"#));
+        assert!(!is_har_json_decl(r#""serverIPAddress": {"#));
+        assert!(!is_har_json_decl(r#""serverIPAddress": true"#));
+        assert!(!is_har_json_decl(r#""serverIPAddress": ["#));
+        assert!(is_har_json_decl(r#""pageref": """#));
+        assert!(is_har_json_decl(r#""pageref": "page_0""#));
+        assert!(is_har_json_decl(r#""pageref": "page_0","#));
+        assert!(is_har_json_decl(r#""pageref": "page_0" // ref"#));
+        assert!(!is_har_json_decl(r#""pageref": {"#));
+        assert!(!is_har_json_decl(r#""pageref": true"#));
+        assert!(!is_har_json_decl(r#""pageref": ["#));
+        assert!(is_har_json_decl(r#""_resourceType": """#));
+        assert!(is_har_json_decl(r#""_resourceType": "xhr""#));
+        assert!(is_har_json_decl(r#""_resourceType": "xhr","#));
+        assert!(is_har_json_decl(r#""_resourceType": "xhr" // chrome"#));
+        assert!(!is_har_json_decl(r#""_resourceType": {"#));
+        assert!(!is_har_json_decl(r#""_resourceType": true"#));
+        assert!(!is_har_json_decl(r#""_resourceType": ["#));
+        assert!(is_har_json_decl(r#""_webSocketMessages": ["#));
+        assert!(is_har_json_decl(r#""_webSocketMessages": [,"#));
+        assert!(is_har_json_decl(r#""_webSocketMessages": [ // ws"#));
+        assert!(!is_har_json_decl(r#""_webSocketMessages": {"#));
+        assert!(!is_har_json_decl(r#""_webSocketMessages": true"#));
+        assert!(!is_har_json_decl(r#""_webSocketMessages": """#));
+        assert!(is_har_json_decl(r#""_priority": """#));
+        assert!(is_har_json_decl(r#""_priority": "High""#));
+        assert!(is_har_json_decl(r#""_priority": "High","#));
+        assert!(is_har_json_decl(r#""_priority": "High" // chrome"#));
+        assert!(!is_har_json_decl(r#""_priority": {"#));
+        assert!(!is_har_json_decl(r#""_priority": true"#));
+        assert!(!is_har_json_decl(r#""_priority": ["#));
+        assert!(is_har_json_decl(r#""_fromCache": """#));
+        assert!(is_har_json_decl(r#""_fromCache": "disk""#));
+        assert!(is_har_json_decl(r#""_fromCache": "memory""#));
+        assert!(is_har_json_decl(r#""_fromCache": "disk","#));
+        assert!(is_har_json_decl(r#""_fromCache": "disk" // chrome"#));
+        assert!(!is_har_json_decl(r#""_fromCache": {"#));
+        assert!(!is_har_json_decl(r#""_fromCache": true"#));
+        assert!(!is_har_json_decl(r#""_fromCache": ["#));
+        assert!(is_har_json_decl(r#""_initiator": {"#));
+        assert!(is_har_json_decl(r#""_initiator": {,"#));
+        assert!(is_har_json_decl(r#""_initiator": { // chrome"#));
+        assert!(!is_har_json_decl(r#""_initiator": ["#));
+        assert!(!is_har_json_decl(r#""_initiator": true"#));
+        assert!(!is_har_json_decl(r#""_initiator": """#));
+        // Incomplete / wrong shapes stay out.
+        assert!(!is_har_json_decl(r#""startedDateTime""#));
+        assert!(!is_har_json_decl(r#""startedDateTime":"#));
+        assert!(!is_har_json_decl(r#""timings""#));
+        assert!(!is_har_json_decl(r#""serverIPAddress""#));
+        assert!(!is_har_json_decl(r#""pageref""#));
+        assert!(!is_har_json_decl(r#""_resourceType""#));
+        assert!(!is_har_json_decl(r#""_webSocketMessages""#));
+        assert!(!is_har_json_decl(r#""_priority""#));
+        assert!(!is_har_json_decl(r#""_fromCache""#));
+        assert!(!is_har_json_decl(r#""_initiator""#));
+        // Generic / neighbouring stay out.
+        assert!(!is_har_json_decl(r#""log": {"#));
+        assert!(!is_har_json_decl(r#""version": "1.2""#));
+        assert!(!is_har_json_decl(r#""creator": {"#));
+        assert!(!is_har_json_decl(r#""browser": {"#));
+        assert!(!is_har_json_decl(r#""pages": ["#));
+        assert!(!is_har_json_decl(r#""entries": ["#));
+        assert!(!is_har_json_decl(r#""request": {"#));
+        assert!(!is_har_json_decl(r#""response": {"#));
+        assert!(!is_har_json_decl(r#""cache": {"#));
+        assert!(!is_har_json_decl(r#""comment": "note""#));
+        assert!(!is_har_json_decl(r#""time": 50"#));
+        assert!(!is_har_json_decl(r#""headers": ["#));
+        assert!(!is_har_json_decl(r#""cookies": ["#));
+        assert!(!is_har_json_decl(r#""queryString": ["#));
+        assert!(!is_har_json_decl(r#""content": {"#));
+        assert!(!is_har_json_decl(r#""status": 200"#));
+        assert!(!is_har_json_decl(r#""method": "GET""#));
+        assert!(!is_har_json_decl(r#""url": "https://example.com/""#));
+        assert!(!is_har_json_decl(
+            r#""$schema": "https://json-schema.org/draft/2020-12/schema""#
+        ));
+        assert!(!is_har_json_decl(r#""asyncapi": "2.6.0""#));
+        assert!(is_asyncapi_json_decl(r#""asyncapi": "2.6.0""#));
+        assert!(!is_har_json_decl(r#""openapi": "3.0.3""#));
+        assert!(is_openapi_json_decl(r#""openapi": "3.0.3""#));
+        assert!(!is_har_json_decl(r#""channels": {"#));
+        assert!(is_asyncapi_json_decl(r#""channels": {"#));
+        assert!(!is_har_json_decl(r#""consumer": {"#));
+        assert!(is_pact_json_decl(r#""consumer": {"#));
+        assert!(!is_har_json_decl(r#""httpRequest": {"#));
+        assert!(is_mockserver_json_decl(r#""httpRequest": {"#));
+        assert!(!is_har_json_decl(r#""hoverflyVersion": "v1.2.0""#));
+        assert!(is_hoverfly_json_decl(r#""hoverflyVersion": "v1.2.0""#));
+        assert!(!is_har_json_decl(r#""imposters": ["#));
+        assert!(is_mountebank_json_decl(r#""imposters": ["#));
+        assert!(!is_har_json_decl(r#""scenarioName": "checkout""#));
+        assert!(is_wiremock_json_decl(r#""scenarioName": "checkout""#));
+        assert!(!is_har_json_decl(r#""lastMigration": 33"#));
+        assert!(is_mockoon_json_decl(r#""lastMigration": 33"#));
+        assert!(!is_har_json_decl(r#""preRequestScript": """#));
+        assert!(is_hoppscotch_json_decl(r#""preRequestScript": """#));
+        assert!(!is_har_json_decl(r#""yaakVersion": "2025.1.0""#));
+        assert!(is_yaak_json_decl(r#""yaakVersion": "2025.1.0""#));
+        assert!(!is_har_json_decl(r#""brunoConfig": {"#));
+        assert!(is_bruno_json_decl(r#""brunoConfig": {"#));
+        assert!(!is_har_json_decl(r#""client": "Thunder Client""#));
+        assert!(is_thunder_client_json_decl(r#""client": "Thunder Client""#));
+        assert!(!is_har_json_decl(
+            r#""_postman_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890""#
+        ));
+        assert!(is_postman_json_decl(
+            r#""_postman_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890""#
+        ));
+        assert!(!is_har_json_decl(r#""__export_format": 4"#));
+        assert!(is_insomnia_json_decl(r#""__export_format": 4"#));
+        assert!(!is_har_json_decl(r#""disableSearch": true"#));
+        assert!(is_redoc_json_decl(r#""disableSearch": true"#));
+        assert!(!is_har_json_decl(r#""specUrl": "./openapi.yaml""#));
+        assert!(is_rapidoc_json_decl(r#""specUrl": "./openapi.yaml""#));
+        assert!(!is_har_json_decl(r##""dom_id": "#swagger-ui""##));
+        assert!(is_swagger_ui_json_decl(r##""dom_id": "#swagger-ui""##));
+        assert!(!is_har_json_decl(r#""layout": "modern""#));
+        assert!(is_scalar_json_decl(r#""layout": "modern""#));
+        assert!(!is_har_json_decl(r#""layout": "sidebar""#));
+        assert!(is_stoplight_elements_json_decl(r#""layout": "sidebar""#));
+        assert!(!is_har_json_decl(r#""topbarLinks": ["#));
+        assert!(is_mintlify_json_decl(r#""topbarLinks": ["#));
+        assert!(!is_har_json_decl(r#""apis": {"#));
+        assert!(is_redocly_json_decl(r#""apis": {"#));
+        assert!(!is_har_json_decl(r#""functionsDir": "./functions""#));
+        assert!(is_spectral_json_decl(r#""functionsDir": "./functions""#));
+        assert!(!is_har_json_decl(r#""generator-cli": {"#));
+        assert!(is_openapitools_json_decl(r#""generator-cli": {"#));
+        assert!(!is_har_json_decl(r#""printWidth": 80"#));
+        assert!(is_prettier_json_decl(r#""printWidth": 80"#));
+        assert!(!is_har_json_decl(r#""basePath": ".""#));
+        assert!(is_karma_json_decl(r#""basePath": ".""#));
+        // line_is_func_like wires the scanner.
+        assert!(line_is_func_like(
+            r#""startedDateTime": "2009-04-16T15:53:27.373Z""#
+        ));
+        assert!(line_is_func_like(r#""timings": {"#));
+        assert!(line_is_func_like(r#""serverIPAddress": "10.0.0.1""#));
+        assert!(line_is_func_like(r#""pageref": "page_0""#));
+        assert!(line_is_func_like(r#""_resourceType": "xhr""#));
+        assert!(line_is_func_like(r#""_webSocketMessages": ["#));
+        assert!(line_is_func_like(r#""_priority": "High""#));
+        assert!(line_is_func_like(r#""_fromCache": "disk""#));
+        assert!(line_is_func_like(r#""_initiator": {"#));
     }
 
     #[test]

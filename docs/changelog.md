@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.792] — 2026-11-11
+
+View:
+
+- **Function List** lists HTTP Archive (HAR 1.2) entry / Chrome-export JSON keys: `"startedDateTime": "2009-04-16T15:53:27.373Z"`, `"timings": {`, `"serverIPAddress": ""` / `"…"`, `"pageref": ""` / `"…"`, `"_resourceType": ""` / `"…"`, `"_webSocketMessages": [`, `"_priority": ""` / `"…"`, `"_fromCache": ""` / `"…"`, `"_initiator": {`. Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing `:` stay out. Generic `"log": {` / `"version"` / `"creator": {` / `"browser": {` / `"pages": [` / `"entries": [` / `"request": {` / `"response": {` / `"cache": {` / `"comment"` / `"time"` / `"headers": [` / `"cookies": [` / `"queryString": [` / `"content": {` / `"status"` / `"method"` / `"url"` / `"$schema"` / OpenAPI `"openapi"` / AsyncAPI `"asyncapi"` / `"channels": {` / Pact `"consumer"` / MockServer `"httpRequest"` / Hoverfly `"hoverflyVersion"` / Mountebank `"imposters"` / WireMock `"scenarioName"` / Mockoon `"lastMigration"` / Hoppscotch `"preRequestScript"` / Yaak `"yaakVersion"` / Bruno `"brunoConfig"` / Thunder Client `"client"` / Postman `"_postman_id"` / Insomnia `"__export_format"` / ReDoc `"disableSearch"` / RapiDoc `"specUrl"` / swagger-ui `"dom_id"` / scalar `"layout": "modern"` / Elements `"layout": "sidebar"` / mintlify `"topbarLinks"` / Compodoc `"theme": "material"` / redocly `"apis"` / spectral `"functionsDir"` / openapitools `"generator-cli"` / Knip `"entry"` / prettier `"printWidth"` / package.json `"bin"` / karma `"basePath"` stay out. `"startedDateTime"` only matches ISO-8601 date prefixes (`YYYY-MM-DD…`).
+
 ## [0.3.791] — 2026-11-11
 
 View:

@@ -1246,3 +1246,5 @@
 009 keep: Function List Mountebank imposters/recordRequests/allowInjection/defaultResponse/numberOfRequests/predicates/deepEquals/inject/decorate/shellTransform/behaviors/concatenateArrays (v0.3.786)
 
 009 keep: Function List AsyncAPI asyncapi/channels/operations/servers{}/defaultContentType (v0.3.791)
+
+009 keep: Function List HAR startedDateTime/timings/serverIPAddress/pageref/_resourceType/_webSocketMessages/_priority/_fromCache/_initiator (v0.3.792)
