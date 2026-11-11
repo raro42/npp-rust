@@ -32445,6 +32445,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_swagger_ui_json_decl(s)
             || is_rapidoc_json_decl(s)
             || is_redoc_json_decl(s)
+            || is_postman_json_decl(s)
             || is_gomod_decl(s)
             || is_gemfile_decl(s)
             || is_brewfile_decl(s)
@@ -32800,6 +32801,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_swagger_ui_json_decl(s)
         || is_rapidoc_json_decl(s)
         || is_redoc_json_decl(s)
+        || is_postman_json_decl(s)
         || is_gomod_decl(s)
         || is_gemfile_decl(s)
         || is_brewfile_decl(s)
@@ -58064,6 +58066,178 @@ fn redoc_json_number_and_tail_ok(key: &str, after_colon: &str) -> bool {
         return false;
     }
     package_json_tail_ok(&after_colon[digits..])
+}
+
+/// Postman Collection v2.x / Environment / Globals export JSON keys:
+/// `"_postman_id": "…"`, `"_exporter_id": "…"`, `"_collection_link": "…"`,
+/// `"_postman_variable_scope": "environment"` / `"globals"` / `"collection"`,
+/// `"_postman_exported_at": "…"`, `"_postman_exported_using": "Postman/…"`,
+/// `"_postman_previewlanguage": "json"` / `"xml"` / `"html"` / `"text"` /
+/// `"javascript"` / `"auto"` / `"plain"` / `"graphql"`,
+/// `"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"`
+/// / `v2.0.0`, `"protocolProfileBehavior": {`. Optional trailing `,` and
+/// `//` / `/*` comment. Incomplete quotes / missing `:` stay out. Generic
+/// `"$schema"` / `"name"` / `"version"` / `"url"` / `"item": [` / `"event": [` /
+/// `"variable": [` / `"auth": {` / `"request": {` / `"info": {` / swagger
+/// `"dom_id"` / `"layout": "BaseLayout"` / Elements `"layout": "sidebar"` /
+/// `"apiDescriptionUrl"` / scalar `"proxyUrl"` / `"layout": "modern"` /
+/// RapiDoc `"specUrl"` / `"renderStyle"` / ReDoc `"disableSearch"` /
+/// `"sideNavStyle"` / mintlify `"topbarLinks"` / Compodoc `"theme": "material"` /
+/// redocly `"apis"` / `"licenseKey"` / spectral `"functionsDir"` /
+/// openapitools `"generator-cli"` / docfx `"metadata": [` / typedoc
+/// `"entryPoints"` / api-extractor `"mainEntryPointFilePath"` / prettier
+/// `"printWidth"` / package.json `"bin"` / karma `"basePath"` stay out.
+/// `"schema"` only matches when the value is a Postman collection schema URL.
+fn is_postman_json_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    let Some(rest) = s.strip_prefix('"') else {
+        return false;
+    };
+    let Some(end) = rest.find('"') else {
+        return false;
+    };
+    let key = &rest[..end];
+    if !postman_json_key_ok(key) {
+        return false;
+    }
+    let after_key = rest[end + 1..].trim_start();
+    let Some(after_colon) = after_key.strip_prefix(':') else {
+        return false;
+    };
+    let after_colon = after_colon.trim_start();
+    postman_json_value_and_tail_ok(key, after_colon)
+}
+
+fn postman_json_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "_postman_id"
+            | "_exporter_id"
+            | "_collection_link"
+            | "_postman_variable_scope"
+            | "_postman_exported_at"
+            | "_postman_exported_using"
+            | "_postman_previewlanguage"
+            | "schema"
+            | "protocolProfileBehavior"
+    )
+}
+
+fn postman_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool {
+    let bytes = after_colon.as_bytes();
+    let Some(first) = bytes.first().copied() else {
+        return false;
+    };
+    match first {
+        b'{' => {
+            if key != "protocolProfileBehavior" {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[1..])
+        }
+        b'"' => {
+            if !postman_json_string_key_ok(key) {
+                return false;
+            }
+            let rest = &after_colon[1..];
+            let Some(end) = rest.find('"') else {
+                return false;
+            };
+            let value = &rest[..end];
+            if !postman_json_string_ok(key, value) {
+                return false;
+            }
+            package_json_tail_ok(&rest[end + 1..])
+        }
+        _ => false,
+    }
+}
+
+fn postman_json_string_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "_postman_id"
+            | "_exporter_id"
+            | "_collection_link"
+            | "_postman_variable_scope"
+            | "_postman_exported_at"
+            | "_postman_exported_using"
+            | "_postman_previewlanguage"
+            | "schema"
+    )
+}
+
+fn postman_json_string_ok(key: &str, value: &str) -> bool {
+    if value.contains('\n') {
+        return false;
+    }
+    match key {
+        "_postman_variable_scope" => {
+            matches!(value, "environment" | "globals" | "collection")
+        }
+        "_postman_previewlanguage" => matches!(
+            value,
+            "json" | "xml" | "html" | "text" | "javascript" | "auto" | "plain" | "graphql"
+        ),
+        "schema" => postman_json_schema_url_ok(value),
+        "_collection_link" => mintlify_json_path_ok(value),
+        "_postman_exported_using" => postman_json_exported_using_ok(value),
+        "_postman_exported_at" => postman_json_exported_at_ok(value),
+        "_postman_id" | "_exporter_id" => postman_json_id_ok(value),
+        _ => false,
+    }
+}
+
+fn postman_json_schema_url_ok(value: &str) -> bool {
+    matches!(
+        value,
+        "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+            | "https://schema.getpostman.com/json/collection/v2.0.0/collection.json"
+            | "http://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+            | "http://schema.getpostman.com/json/collection/v2.0.0/collection.json"
+    )
+}
+
+fn postman_json_id_ok(value: &str) -> bool {
+    if value.is_empty() || value.len() > 128 {
+        return false;
+    }
+    value
+        .bytes()
+        .all(|b| b.is_ascii_hexdigit() || matches!(b, b'-' | b'_' | b'.'))
+        && value.bytes().any(|b| b.is_ascii_alphanumeric())
+}
+
+fn postman_json_exported_using_ok(value: &str) -> bool {
+    if value.is_empty() || value.len() > 128 {
+        return false;
+    }
+    let lower = value.to_ascii_lowercase();
+    if !(lower.starts_with("postman") || lower.contains("postman/")) {
+        return false;
+    }
+    value.bytes().all(|b| {
+        b.is_ascii_alphanumeric()
+            || matches!(
+                b,
+                b' ' | b'.' | b'-' | b'_' | b'/' | b':' | b'(' | b')' | b'+'
+            )
+    })
+}
+
+fn postman_json_exported_at_ok(value: &str) -> bool {
+    if value.len() < 10 || value.len() > 64 {
+        return false;
+    }
+    // ISO-8601-ish: 2024-01-15T12:34:56.000Z / 2024-01-15T12:34:56+00:00
+    let bytes = value.as_bytes();
+    if !bytes[0].is_ascii_digit() {
+        return false;
+    }
+    value
+        .bytes()
+        .all(|b| b.is_ascii_digit() || matches!(b, b'-' | b':' | b'T' | b'Z' | b'.' | b'+'))
+        && value.contains('T')
 }
 
 /// go.mod / go.work directives: `module example.com/foo`, `go 1.22`,
@@ -88715,17 +88889,18 @@ mod func_like_line_tests {
         is_parcel_json_decl, is_paru_conf_decl, is_passwd_group_file_decl, is_pdm_toml_decl,
         is_php_ini_decl, is_pip_conf_decl, is_pipfile_decl, is_pixi_toml_decl,
         is_playwright_json_decl, is_podfile_decl, is_poetry_toml_decl, is_postcss_json_decl,
-        is_premake_decl, is_prettier_json_decl, is_protocols_file_decl, is_pycln_ini_decl,
-        is_pycodestyle_ini_decl, is_pydoclint_ini_decl, is_pydocstyle_ini_decl, is_pylama_ini_decl,
-        is_pylint_ini_decl, is_pypirc_ini_decl, is_pyproject_toml_decl, is_pyre_configuration_decl,
-        is_pyright_toml_decl, is_pyrightconfig_json_decl, is_pytest_ini_decl, is_pytype_ini_decl,
-        is_pyupgrade_ini_decl, is_radon_ini_decl, is_railway_toml_decl, is_rake_decl,
-        is_rapidoc_json_decl, is_redoc_json_decl, is_redocly_json_decl, is_refurb_toml_decl,
-        is_release_it_json_decl, is_release_please_json_decl, is_release_toml_decl,
-        is_renovate_json_decl, is_resolv_conf_decl, is_rpc_file_decl, is_rstcheck_ini_decl,
-        is_rsyslog_decl, is_ruff_toml_decl, is_rush_json_decl, is_rust_toolchain_toml_decl,
-        is_rustfmt_toml_decl, is_samba_conf_decl, is_samconfig_toml_decl, is_scalar_json_decl,
-        is_scons_decl, is_scriv_ini_decl, is_sddm_conf_decl, is_semantic_release_ini_decl,
+        is_postman_json_decl, is_premake_decl, is_prettier_json_decl, is_protocols_file_decl,
+        is_pycln_ini_decl, is_pycodestyle_ini_decl, is_pydoclint_ini_decl, is_pydocstyle_ini_decl,
+        is_pylama_ini_decl, is_pylint_ini_decl, is_pypirc_ini_decl, is_pyproject_toml_decl,
+        is_pyre_configuration_decl, is_pyright_toml_decl, is_pyrightconfig_json_decl,
+        is_pytest_ini_decl, is_pytype_ini_decl, is_pyupgrade_ini_decl, is_radon_ini_decl,
+        is_railway_toml_decl, is_rake_decl, is_rapidoc_json_decl, is_redoc_json_decl,
+        is_redocly_json_decl, is_refurb_toml_decl, is_release_it_json_decl,
+        is_release_please_json_decl, is_release_toml_decl, is_renovate_json_decl,
+        is_resolv_conf_decl, is_rpc_file_decl, is_rstcheck_ini_decl, is_rsyslog_decl,
+        is_ruff_toml_decl, is_rush_json_decl, is_rust_toolchain_toml_decl, is_rustfmt_toml_decl,
+        is_samba_conf_decl, is_samconfig_toml_decl, is_scalar_json_decl, is_scons_decl,
+        is_scriv_ini_decl, is_sddm_conf_decl, is_semantic_release_ini_decl,
         is_semantic_release_json_decl, is_services_file_decl, is_setup_cfg_decl,
         is_setuptools_scm_ini_decl, is_simple_git_hooks_json_decl, is_spectral_json_decl,
         is_sqlfluff_ini_decl, is_ssh_config_decl, is_sssd_conf_decl,
@@ -114825,6 +115000,239 @@ mod func_like_line_tests {
         assert!(line_is_func_like(r#""sortOperationsAlphabetically": true"#));
         assert!(line_is_func_like(r#""nativeScrollbars": true"#));
         assert!(line_is_func_like(r#""untrustedSpec": false"#));
+    }
+
+    #[test]
+    fn postman_json_keys_smoke() {
+        assert!(is_postman_json_decl(
+            r#""_postman_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890""#
+        ));
+        assert!(is_postman_json_decl(r#""_exporter_id": "12345678""#));
+        assert!(is_postman_json_decl(
+            r#""_collection_link": "https://www.postman.com/collection/abc""#
+        ));
+        assert!(is_postman_json_decl(
+            r#""_postman_variable_scope": "environment""#
+        ));
+        assert!(is_postman_json_decl(
+            r#""_postman_variable_scope": "globals""#
+        ));
+        assert!(is_postman_json_decl(
+            r#""_postman_variable_scope": "collection""#
+        ));
+        assert!(is_postman_json_decl(
+            r#""_postman_exported_at": "2024-01-15T12:34:56.000Z""#
+        ));
+        assert!(is_postman_json_decl(
+            r#""_postman_exported_using": "Postman/10.24.0""#
+        ));
+        assert!(is_postman_json_decl(
+            r#""_postman_previewlanguage": "json""#
+        ));
+        assert!(is_postman_json_decl(
+            r#""_postman_previewlanguage": "graphql""#
+        ));
+        assert!(is_postman_json_decl(
+            r#""schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json""#
+        ));
+        assert!(is_postman_json_decl(
+            r#""schema": "https://schema.getpostman.com/json/collection/v2.0.0/collection.json""#
+        ));
+        assert!(is_postman_json_decl(r#""protocolProfileBehavior": {"#));
+        // Distinctive neighbours stay out of this scanner.
+        assert!(!is_postman_json_decl(r#""disableSearch": true"#));
+        assert!(is_redoc_json_decl(r#""disableSearch": true"#));
+        assert!(!is_postman_json_decl(r#""specUrl": "./openapi.yaml""#));
+        assert!(is_rapidoc_json_decl(r#""specUrl": "./openapi.yaml""#));
+        assert!(!is_postman_json_decl(r##""dom_id": "#swagger-ui""##));
+        assert!(is_swagger_ui_json_decl(r##""dom_id": "#swagger-ui""##));
+        assert!(!is_postman_json_decl(r#""layout": "modern""#));
+        assert!(is_scalar_json_decl(r#""layout": "modern""#));
+        assert!(!is_postman_json_decl(r#""layout": "sidebar""#));
+        assert!(is_stoplight_elements_json_decl(r#""layout": "sidebar""#));
+        assert!(!is_postman_json_decl(r#""topbarLinks": ["#));
+        assert!(is_mintlify_json_decl(r#""topbarLinks": ["#));
+        assert!(!is_postman_json_decl(r#""apis": {"#));
+        assert!(is_redocly_json_decl(r#""apis": {"#));
+        assert!(!is_postman_json_decl(r#""functionsDir": "./functions""#));
+        assert!(is_spectral_json_decl(r#""functionsDir": "./functions""#));
+        assert!(!is_postman_json_decl(r#""printWidth": 80"#));
+        assert!(is_prettier_json_decl(r#""printWidth": 80"#));
+        assert!(!is_postman_json_decl(r#""basePath": ".""#));
+        assert!(is_karma_json_decl(r#""basePath": ".""#));
+    }
+
+    #[test]
+    fn postman_json_keys_count() {
+        assert!(is_postman_json_decl(
+            r#""_postman_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890""#
+        ));
+        assert!(is_postman_json_decl(
+            r#""_postman_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890","#
+        ));
+        assert!(is_postman_json_decl(
+            r#""_postman_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890" // id"#
+        ));
+        assert!(!is_postman_json_decl(r#""_postman_id": true"#));
+        assert!(!is_postman_json_decl(r#""_postman_id": {"#));
+        assert!(!is_postman_json_decl(r#""_postman_id": "not a uuid!!""#));
+        assert!(is_postman_json_decl(r#""_exporter_id": "deadbeef""#));
+        assert!(!is_postman_json_decl(r#""_exporter_id": "bad id""#));
+        assert!(is_postman_json_decl(
+            r#""_postman_variable_scope": "environment""#
+        ));
+        assert!(is_postman_json_decl(
+            r#""_postman_variable_scope": "globals","#
+        ));
+        assert!(!is_postman_json_decl(
+            r#""_postman_variable_scope": "workspace""#
+        ));
+        assert!(!is_postman_json_decl(r#""_postman_variable_scope": true"#));
+        assert!(is_postman_json_decl(
+            r#""_postman_exported_at": "2024-01-15T12:34:56+00:00""#
+        ));
+        assert!(!is_postman_json_decl(
+            r#""_postman_exported_at": "2024-01-15""#
+        ));
+        assert!(!is_postman_json_decl(r#""_postman_exported_at": true"#));
+        assert!(is_postman_json_decl(
+            r#""_postman_exported_using": "Postman/11.0.0""#
+        ));
+        assert!(is_postman_json_decl(
+            r#""_postman_exported_using": "postman/10.24.0""#
+        ));
+        assert!(!is_postman_json_decl(
+            r#""_postman_exported_using": "Insomnia/8.0.0""#
+        ));
+        assert!(!is_postman_json_decl(r#""_postman_exported_using": true"#));
+        assert!(is_postman_json_decl(
+            r#""_postman_previewlanguage": "json""#
+        ));
+        assert!(is_postman_json_decl(r#""_postman_previewlanguage": "xml""#));
+        assert!(is_postman_json_decl(
+            r#""_postman_previewlanguage": "html""#
+        ));
+        assert!(is_postman_json_decl(
+            r#""_postman_previewlanguage": "text""#
+        ));
+        assert!(is_postman_json_decl(
+            r#""_postman_previewlanguage": "javascript""#
+        ));
+        assert!(is_postman_json_decl(
+            r#""_postman_previewlanguage": "auto""#
+        ));
+        assert!(is_postman_json_decl(
+            r#""_postman_previewlanguage": "plain""#
+        ));
+        assert!(is_postman_json_decl(
+            r#""_postman_previewlanguage": "graphql""#
+        ));
+        assert!(!is_postman_json_decl(
+            r#""_postman_previewlanguage": "yaml""#
+        ));
+        assert!(!is_postman_json_decl(r#""_postman_previewlanguage": true"#));
+        assert!(is_postman_json_decl(
+            r#""schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json""#
+        ));
+        assert!(is_postman_json_decl(
+            r#""schema": "http://schema.getpostman.com/json/collection/v2.0.0/collection.json","#
+        ));
+        assert!(!is_postman_json_decl(
+            r#""schema": "https://json-schema.org/draft-07/schema""#
+        ));
+        assert!(!is_postman_json_decl(r#""schema": true"#));
+        assert!(is_postman_json_decl(r#""protocolProfileBehavior": {"#));
+        assert!(is_postman_json_decl(
+            r#""protocolProfileBehavior": { // profile"#
+        ));
+        assert!(!is_postman_json_decl(r#""protocolProfileBehavior": true"#));
+        assert!(!is_postman_json_decl(r#""protocolProfileBehavior": ["#));
+        assert!(!is_postman_json_decl(
+            r#""protocolProfileBehavior": "strict""#
+        ));
+        // Incomplete / wrong shapes stay out.
+        assert!(!is_postman_json_decl(r#""_postman_id""#));
+        assert!(!is_postman_json_decl(r#""_postman_id":"#));
+        assert!(!is_postman_json_decl(r#""schema""#));
+        assert!(!is_postman_json_decl(r#""protocolProfileBehavior""#));
+        // Generic / neighbouring stay out.
+        assert!(!is_postman_json_decl(
+            r#""$schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json""#
+        ));
+        assert!(!is_postman_json_decl(r#""name": "Petstore""#));
+        assert!(!is_postman_json_decl(r#""version": "1.0.0""#));
+        assert!(!is_postman_json_decl(r#""item": ["#));
+        assert!(!is_postman_json_decl(r#""event": ["#));
+        assert!(!is_postman_json_decl(r#""variable": ["#));
+        assert!(!is_postman_json_decl(r#""auth": {"#));
+        assert!(!is_postman_json_decl(r#""request": {"#));
+        assert!(!is_postman_json_decl(r#""info": {"#));
+        assert!(!is_postman_json_decl(r#""disableSearch": true"#));
+        assert!(is_redoc_json_decl(r#""disableSearch": true"#));
+        assert!(!is_postman_json_decl(r#""specUrl": "./openapi.yaml""#));
+        assert!(is_rapidoc_json_decl(r#""specUrl": "./openapi.yaml""#));
+        assert!(!is_postman_json_decl(r##""dom_id": "#swagger-ui""##));
+        assert!(is_swagger_ui_json_decl(r##""dom_id": "#swagger-ui""##));
+        assert!(!is_postman_json_decl(r#""layout": "BaseLayout""#));
+        assert!(is_swagger_ui_json_decl(r#""layout": "BaseLayout""#));
+        assert!(!is_postman_json_decl(r#""layout": "modern""#));
+        assert!(is_scalar_json_decl(r#""layout": "modern""#));
+        assert!(!is_postman_json_decl(r#""layout": "sidebar""#));
+        assert!(is_stoplight_elements_json_decl(r#""layout": "sidebar""#));
+        assert!(!is_postman_json_decl(r#""apiDescriptionUrl": "./o.yaml""#));
+        assert!(is_stoplight_elements_json_decl(
+            r#""apiDescriptionUrl": "./o.yaml""#
+        ));
+        assert!(!is_postman_json_decl(
+            r#""proxyUrl": "https://proxy.scalar.com""#
+        ));
+        assert!(is_scalar_json_decl(
+            r#""proxyUrl": "https://proxy.scalar.com""#
+        ));
+        assert!(!is_postman_json_decl(r#""topbarLinks": ["#));
+        assert!(is_mintlify_json_decl(r#""topbarLinks": ["#));
+        assert!(!is_postman_json_decl(r#""apis": {"#));
+        assert!(is_redocly_json_decl(r#""apis": {"#));
+        assert!(!is_postman_json_decl(r#""licenseKey": "public_key""#));
+        assert!(is_redocly_json_decl(r#""licenseKey": "public_key""#));
+        assert!(!is_postman_json_decl(r#""functionsDir": "./functions""#));
+        assert!(is_spectral_json_decl(r#""functionsDir": "./functions""#));
+        assert!(!is_postman_json_decl(r#""generator-cli": {"#));
+        assert!(is_openapitools_json_decl(r#""generator-cli": {"#));
+        assert!(!is_postman_json_decl(r#""metadata": ["#));
+        assert!(is_docfx_json_decl(r#""metadata": ["#));
+        assert!(!is_postman_json_decl(r#""entryPoints": ["#));
+        assert!(is_typedoc_json_decl(r#""entryPoints": ["#));
+        assert!(!is_postman_json_decl(
+            r#""mainEntryPointFilePath": "<projectFolder>/lib/index.d.ts""#
+        ));
+        assert!(is_api_extractor_json_decl(
+            r#""mainEntryPointFilePath": "<projectFolder>/lib/index.d.ts""#
+        ));
+        assert!(!is_postman_json_decl(r#""printWidth": 80"#));
+        assert!(is_prettier_json_decl(r#""printWidth": 80"#));
+        assert!(!is_postman_json_decl(r#""bin": {"#));
+        assert!(is_package_json_decl(r#""bin": {"#));
+        assert!(!is_postman_json_decl(r#""basePath": ".""#));
+        assert!(is_karma_json_decl(r#""basePath": ".""#));
+        // line_is_func_like wires the scanner.
+        assert!(line_is_func_like(
+            r#""_postman_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890""#
+        ));
+        assert!(line_is_func_like(
+            r#""_postman_variable_scope": "environment""#
+        ));
+        assert!(line_is_func_like(
+            r#""schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json""#
+        ));
+        assert!(line_is_func_like(r#""protocolProfileBehavior": {"#));
+        assert!(line_is_func_like(
+            r#""_postman_exported_using": "Postman/10.24.0""#
+        ));
+        assert!(line_is_func_like(r#""_postman_previewlanguage": "json""#));
+        assert!(line_is_func_like(
+            r#""_postman_exported_at": "2024-01-15T12:34:56.000Z""#
+        ));
     }
 
     #[test]

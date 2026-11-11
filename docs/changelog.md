@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.778] — 2026-11-11
+
+View:
+
+- **Function List** lists Postman Collection v2.x / Environment / Globals export JSON keys: `"_postman_id": "…"`, `"_exporter_id": "…"`, `"_collection_link": "…"`, `"_postman_variable_scope": "environment"` / `"globals"` / `"collection"`, `"_postman_exported_at": "…"`, `"_postman_exported_using": "Postman/…"`, `"_postman_previewlanguage": "json"` / `"xml"` / `"html"` / `"text"` / `"javascript"` / `"auto"` / `"plain"` / `"graphql"`, `"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"` / `v2.0.0`, `"protocolProfileBehavior": {`. Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing `:` stay out. Generic `"$schema"` / `"name"` / `"version"` / `"url"` / `"item": [` / `"event": [` / `"variable": [` / `"auth": {` / `"request": {` / `"info": {` / swagger `"dom_id"` / `"layout": "BaseLayout"` / Elements `"layout": "sidebar"` / `"apiDescriptionUrl"` / scalar `"proxyUrl"` / `"layout": "modern"` / RapiDoc `"specUrl"` / `"renderStyle"` / ReDoc `"disableSearch"` / `"sideNavStyle"` / mintlify `"topbarLinks"` / Compodoc `"theme": "material"` / redocly `"apis"` / `"licenseKey"` / spectral `"functionsDir"` / openapitools `"generator-cli"` / docfx `"metadata": [` / typedoc `"entryPoints"` / api-extractor `"mainEntryPointFilePath"` / prettier `"printWidth"` / package.json `"bin"` / karma `"basePath"` stay out. `"schema"` only matches when the value is a Postman collection schema URL.
+
 ## [0.3.777] — 2026-11-11
 
 View:

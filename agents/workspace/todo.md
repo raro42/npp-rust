@@ -1218,3 +1218,5 @@
 009 keep: Function List RapiDoc specUrl/renderStyle/schemaStyle/theme light|dark/showMethodInNavBar/allowTry/primaryColor (v0.3.776)
 
 009 keep: Function List ReDoc disableSearch/sideNavStyle/expandResponses/theme{/pathInMiddlePanel/nativeScrollbars/untrustedSpec (v0.3.777)
+
+009 keep: Function List Postman Collection/Environment _postman_id/_postman_variable_scope/schema getpostman.com/protocolProfileBehavior (v0.3.778)
