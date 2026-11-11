@@ -1226,3 +1226,5 @@
 009 keep: Function List Insomnia export __export_format/__export_source/_type/_id metaSortKey/settingFollowRedirects/settingStoreCookies (v0.3.779)
 
 009 keep: Function List Bruno bruno.json/export brunoConfig/clientCertificates/moduleWhitelist/additionalContextRoots/collectionVersion/bypassProxy/opencollection (v0.3.781)
+
+009 keep: Function List Yaak yaakVersion/yaakSchema/httpRequests/grpcRequests/websocketRequests (v0.3.782)

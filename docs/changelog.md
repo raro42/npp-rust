@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.782] — 2026-11-11
+
+View:
+
+- **Function List** lists Yaak workspace-export JSON keys: `"yaakVersion": "…"`, `"yaakSchema": 4`, `"httpRequests": [`, `"grpcRequests": [`, `"websocketRequests": [`. Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing `:` stay out. Generic `"$schema"` / `"name"` / `"version"` / `"timestamp"` / `"resources": {` / `"workspaces": [` / `"folders": [` / `"environments": [` / Bruno `"brunoConfig"` / Thunder Client `"client"` / `"collectionName"` / Postman `"_postman_id"` / `"protocolProfileBehavior"` / Insomnia `"__export_format"` / `"_type"` / ReDoc `"disableSearch"` / RapiDoc `"specUrl"` / swagger `"dom_id"` / scalar `"layout": "modern"` / Elements `"layout": "sidebar"` / mintlify `"topbarLinks"` / Compodoc `"theme": "material"` / redocly `"apis"` / spectral `"functionsDir"` / openapitools `"generator-cli"` / docfx `"metadata": [` / typedoc `"entryPoints"` / api-extractor `"mainEntryPointFilePath"` / prettier `"printWidth"` / package.json `"bin"` / karma `"basePath"` stay out.
+
 ## [0.3.781] — 2026-11-11
 
 View:

@@ -32449,6 +32449,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_insomnia_json_decl(s)
             || is_thunder_client_json_decl(s)
             || is_bruno_json_decl(s)
+            || is_yaak_json_decl(s)
             || is_gomod_decl(s)
             || is_gemfile_decl(s)
             || is_brewfile_decl(s)
@@ -32808,6 +32809,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_insomnia_json_decl(s)
         || is_thunder_client_json_decl(s)
         || is_bruno_json_decl(s)
+        || is_yaak_json_decl(s)
         || is_gomod_decl(s)
         || is_gemfile_decl(s)
         || is_brewfile_decl(s)
@@ -58740,6 +58742,105 @@ fn bruno_json_collection_version_ok(value: &str) -> bool {
         .bytes()
         .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'.' | b'-' | b'_' | b'+'))
         && value.bytes().any(|b| b.is_ascii_alphanumeric())
+}
+
+/// Yaak workspace export JSON keys: `"yaakVersion": "…"`, `"yaakSchema": 4`,
+/// `"httpRequests": [`, `"grpcRequests": [`, `"websocketRequests": [`.
+/// Optional trailing `,` and `//` / `/*` comment. Incomplete quotes /
+/// missing `:` stay out. Generic `"$schema"` / `"name"` / `"version"` /
+/// `"timestamp"` / `"resources": {` / `"workspaces": [` / `"folders": [` /
+/// `"environments": [` / Bruno `"brunoConfig"` / Thunder Client `"client"` /
+/// `"collectionName"` / Postman `"_postman_id"` / Insomnia
+/// `"__export_format"` / `"_type"` / ReDoc `"disableSearch"` / RapiDoc
+/// `"specUrl"` / swagger `"dom_id"` / scalar `"layout": "modern"` /
+/// Elements `"layout": "sidebar"` / mintlify `"topbarLinks"` / Compodoc
+/// `"theme": "material"` / redocly `"apis"` / spectral `"functionsDir"` /
+/// openapitools `"generator-cli"` / docfx `"metadata": [` / typedoc
+/// `"entryPoints"` / api-extractor `"mainEntryPointFilePath"` / prettier
+/// `"printWidth"` / package.json `"bin"` / karma `"basePath"` stay out.
+fn is_yaak_json_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    let Some(rest) = s.strip_prefix('"') else {
+        return false;
+    };
+    let Some(end) = rest.find('"') else {
+        return false;
+    };
+    let key = &rest[..end];
+    if !yaak_json_key_ok(key) {
+        return false;
+    }
+    let after_key = rest[end + 1..].trim_start();
+    let Some(after_colon) = after_key.strip_prefix(':') else {
+        return false;
+    };
+    let after_colon = after_colon.trim_start();
+    yaak_json_value_and_tail_ok(key, after_colon)
+}
+
+fn yaak_json_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "yaakVersion" | "yaakSchema" | "httpRequests" | "grpcRequests" | "websocketRequests"
+    )
+}
+
+fn yaak_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool {
+    let bytes = after_colon.as_bytes();
+    let Some(first) = bytes.first().copied() else {
+        return false;
+    };
+    match first {
+        b'[' => {
+            if !matches!(key, "httpRequests" | "grpcRequests" | "websocketRequests") {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[1..])
+        }
+        b'"' => {
+            if key != "yaakVersion" {
+                return false;
+            }
+            let rest = &after_colon[1..];
+            let Some(end) = rest.find('"') else {
+                return false;
+            };
+            let value = &rest[..end];
+            if !yaak_json_version_ok(value) {
+                return false;
+            }
+            package_json_tail_ok(&rest[end + 1..])
+        }
+        b'0'..=b'9' => yaak_json_schema_and_tail_ok(key, after_colon),
+        _ => false,
+    }
+}
+
+fn yaak_json_version_ok(value: &str) -> bool {
+    if value.is_empty() || value.len() > 64 {
+        return false;
+    }
+    value
+        .bytes()
+        .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'.' | b'-' | b'_' | b'+'))
+        && value.bytes().any(|b| b.is_ascii_alphanumeric())
+}
+
+fn yaak_json_schema_and_tail_ok(key: &str, after_colon: &str) -> bool {
+    if key != "yaakSchema" {
+        return false;
+    }
+    let digits = after_colon
+        .bytes()
+        .take_while(|b| b.is_ascii_digit())
+        .count();
+    if digits == 0 || digits > 8 {
+        return false;
+    }
+    if digits > 1 && after_colon.as_bytes()[0] == b'0' {
+        return false;
+    }
+    package_json_tail_ok(&after_colon[digits..])
 }
 
 /// go.mod / go.work directives: `module example.com/foo`, `go 1.22`,
@@ -89420,8 +89521,8 @@ mod func_like_line_tests {
         is_vscode_launch_json_decl, is_vscode_tasks_json_decl, is_vulture_ini_decl,
         is_wails_json_decl, is_wdio_json_decl, is_webextension_manifest_json_decl,
         is_wireguard_config_decl, is_wrangler_toml_decl, is_xmake_decl, is_xorg_conf_decl,
-        is_yapf_ini_decl, is_yarnrc_yml_decl, is_yum_repo_decl, is_zest_releaser_ini_decl,
-        line_is_func_like,
+        is_yaak_json_decl, is_yapf_ini_decl, is_yarnrc_yml_decl, is_yum_repo_decl,
+        is_zest_releaser_ini_decl, line_is_func_like,
     };
 
     #[test]
@@ -116328,6 +116429,141 @@ mod func_like_line_tests {
         assert!(line_is_func_like(r#""collectionVersion": "1.0.0""#));
         assert!(line_is_func_like(r#""bypassProxy": """#));
         assert!(line_is_func_like(r#""opencollection": true"#));
+    }
+
+    #[test]
+    fn yaak_json_keys_smoke() {
+        assert!(is_yaak_json_decl(r#""yaakVersion": "2025.1.0""#));
+        assert!(is_yaak_json_decl(r#""yaakSchema": 4"#));
+        assert!(is_yaak_json_decl(r#""httpRequests": ["#));
+        assert!(is_yaak_json_decl(r#""grpcRequests": ["#));
+        assert!(is_yaak_json_decl(r#""websocketRequests": ["#));
+        // Distinctive neighbours stay out of this scanner.
+        assert!(!is_yaak_json_decl(r#""brunoConfig": {"#));
+        assert!(is_bruno_json_decl(r#""brunoConfig": {"#));
+        assert!(!is_yaak_json_decl(r#""client": "Thunder Client""#));
+        assert!(is_thunder_client_json_decl(r#""client": "Thunder Client""#));
+        assert!(!is_yaak_json_decl(
+            r#""_postman_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890""#
+        ));
+        assert!(is_postman_json_decl(
+            r#""_postman_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890""#
+        ));
+        assert!(!is_yaak_json_decl(r#""__export_format": 4"#));
+        assert!(is_insomnia_json_decl(r#""__export_format": 4"#));
+        assert!(!is_yaak_json_decl(r#""disableSearch": true"#));
+        assert!(is_redoc_json_decl(r#""disableSearch": true"#));
+        assert!(!is_yaak_json_decl(r#""specUrl": "./openapi.yaml""#));
+        assert!(is_rapidoc_json_decl(r#""specUrl": "./openapi.yaml""#));
+        assert!(!is_yaak_json_decl(r##""dom_id": "#swagger-ui""##));
+        assert!(is_swagger_ui_json_decl(r##""dom_id": "#swagger-ui""##));
+        assert!(!is_yaak_json_decl(r#""layout": "modern""#));
+        assert!(is_scalar_json_decl(r#""layout": "modern""#));
+        assert!(!is_yaak_json_decl(r#""layout": "sidebar""#));
+        assert!(is_stoplight_elements_json_decl(r#""layout": "sidebar""#));
+        assert!(!is_yaak_json_decl(r#""topbarLinks": ["#));
+        assert!(is_mintlify_json_decl(r#""topbarLinks": ["#));
+        assert!(!is_yaak_json_decl(r#""apis": {"#));
+        assert!(is_redocly_json_decl(r#""apis": {"#));
+        assert!(!is_yaak_json_decl(r#""functionsDir": "./functions""#));
+        assert!(is_spectral_json_decl(r#""functionsDir": "./functions""#));
+        assert!(!is_yaak_json_decl(r#""printWidth": 80"#));
+        assert!(is_prettier_json_decl(r#""printWidth": 80"#));
+        assert!(!is_yaak_json_decl(r#""basePath": ".""#));
+        assert!(is_karma_json_decl(r#""basePath": ".""#));
+    }
+
+    #[test]
+    fn yaak_json_keys_count() {
+        assert!(is_yaak_json_decl(r#""yaakVersion": "2025.1.0""#));
+        assert!(is_yaak_json_decl(r#""yaakVersion": "2025.1.0","#));
+        assert!(is_yaak_json_decl(r#""yaakVersion": "2025.1.0" // ver"#));
+        assert!(is_yaak_json_decl(r#""yaakVersion": "1.0.0-beta""#));
+        assert!(!is_yaak_json_decl(r#""yaakVersion": """#));
+        assert!(!is_yaak_json_decl(r#""yaakVersion": true"#));
+        assert!(!is_yaak_json_decl(r#""yaakVersion": 4"#));
+        assert!(is_yaak_json_decl(r#""yaakSchema": 4"#));
+        assert!(is_yaak_json_decl(r#""yaakSchema": 4,"#));
+        assert!(is_yaak_json_decl(r#""yaakSchema": 4 // schema"#));
+        assert!(is_yaak_json_decl(r#""yaakSchema": 11"#));
+        assert!(!is_yaak_json_decl(r#""yaakSchema": 04"#));
+        assert!(!is_yaak_json_decl(r#""yaakSchema": "4""#));
+        assert!(!is_yaak_json_decl(r#""yaakSchema": true"#));
+        assert!(is_yaak_json_decl(r#""httpRequests": ["#));
+        assert!(is_yaak_json_decl(r#""httpRequests": [,"#));
+        assert!(is_yaak_json_decl(r#""httpRequests": [ // reqs"#));
+        assert!(!is_yaak_json_decl(r#""httpRequests": {"#));
+        assert!(!is_yaak_json_decl(r#""httpRequests": true"#));
+        assert!(is_yaak_json_decl(r#""grpcRequests": ["#));
+        assert!(!is_yaak_json_decl(r#""grpcRequests": {"#));
+        assert!(is_yaak_json_decl(r#""websocketRequests": ["#));
+        assert!(!is_yaak_json_decl(r#""websocketRequests": {"#));
+        // Incomplete / wrong shapes stay out.
+        assert!(!is_yaak_json_decl(r#""yaakVersion""#));
+        assert!(!is_yaak_json_decl(r#""yaakVersion":"#));
+        assert!(!is_yaak_json_decl(r#""yaakSchema""#));
+        assert!(!is_yaak_json_decl(r#""httpRequests""#));
+        // Generic / neighbouring stay out.
+        assert!(!is_yaak_json_decl(r#""$schema": "https://example.com""#));
+        assert!(!is_yaak_json_decl(r#""name": "Petstore""#));
+        assert!(!is_yaak_json_decl(r#""version": "1""#));
+        assert!(!is_yaak_json_decl(r#""timestamp": "2025-01-01T00:00:00""#));
+        assert!(!is_yaak_json_decl(r#""resources": {"#));
+        assert!(!is_yaak_json_decl(r#""workspaces": ["#));
+        assert!(!is_yaak_json_decl(r#""folders": ["#));
+        assert!(!is_yaak_json_decl(r#""environments": ["#));
+        assert!(!is_yaak_json_decl(r#""brunoConfig": {"#));
+        assert!(is_bruno_json_decl(r#""brunoConfig": {"#));
+        assert!(!is_yaak_json_decl(r#""client": "Thunder Client""#));
+        assert!(is_thunder_client_json_decl(r#""client": "Thunder Client""#));
+        assert!(!is_yaak_json_decl(r#""collectionName": "Petstore API""#));
+        assert!(is_thunder_client_json_decl(
+            r#""collectionName": "Petstore API""#
+        ));
+        assert!(!is_yaak_json_decl(
+            r#""_postman_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890""#
+        ));
+        assert!(is_postman_json_decl(
+            r#""_postman_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890""#
+        ));
+        assert!(!is_yaak_json_decl(r#""protocolProfileBehavior": {"#));
+        assert!(is_postman_json_decl(r#""protocolProfileBehavior": {"#));
+        assert!(!is_yaak_json_decl(r#""__export_format": 4"#));
+        assert!(is_insomnia_json_decl(r#""__export_format": 4"#));
+        assert!(!is_yaak_json_decl(r#""_type": "request""#));
+        assert!(is_insomnia_json_decl(r#""_type": "request""#));
+        assert!(!is_yaak_json_decl(r#""disableSearch": true"#));
+        assert!(is_redoc_json_decl(r#""disableSearch": true"#));
+        assert!(!is_yaak_json_decl(r#""specUrl": "./openapi.yaml""#));
+        assert!(is_rapidoc_json_decl(r#""specUrl": "./openapi.yaml""#));
+        assert!(!is_yaak_json_decl(r##""dom_id": "#swagger-ui""##));
+        assert!(is_swagger_ui_json_decl(r##""dom_id": "#swagger-ui""##));
+        assert!(!is_yaak_json_decl(r#""layout": "BaseLayout""#));
+        assert!(is_swagger_ui_json_decl(r#""layout": "BaseLayout""#));
+        assert!(!is_yaak_json_decl(r#""layout": "modern""#));
+        assert!(is_scalar_json_decl(r#""layout": "modern""#));
+        assert!(!is_yaak_json_decl(r#""layout": "sidebar""#));
+        assert!(is_stoplight_elements_json_decl(r#""layout": "sidebar""#));
+        assert!(!is_yaak_json_decl(r#""apiDescriptionUrl": "./o.yaml""#));
+        assert!(is_stoplight_elements_json_decl(
+            r#""apiDescriptionUrl": "./o.yaml""#
+        ));
+        assert!(!is_yaak_json_decl(r#""topbarLinks": ["#));
+        assert!(is_mintlify_json_decl(r#""topbarLinks": ["#));
+        assert!(!is_yaak_json_decl(r#""apis": {"#));
+        assert!(is_redocly_json_decl(r#""apis": {"#));
+        assert!(!is_yaak_json_decl(r#""functionsDir": "./functions""#));
+        assert!(is_spectral_json_decl(r#""functionsDir": "./functions""#));
+        assert!(!is_yaak_json_decl(r#""printWidth": 80"#));
+        assert!(is_prettier_json_decl(r#""printWidth": 80"#));
+        assert!(!is_yaak_json_decl(r#""basePath": ".""#));
+        assert!(is_karma_json_decl(r#""basePath": ".""#));
+        // line_is_func_like wires the scanner.
+        assert!(line_is_func_like(r#""yaakVersion": "2025.1.0""#));
+        assert!(line_is_func_like(r#""yaakSchema": 4"#));
+        assert!(line_is_func_like(r#""httpRequests": ["#));
+        assert!(line_is_func_like(r#""grpcRequests": ["#));
+        assert!(line_is_func_like(r#""websocketRequests": ["#));
     }
 
     #[test]
