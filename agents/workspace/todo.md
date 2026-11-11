@@ -1232,3 +1232,5 @@
 009 keep: Function List Hoppscotch preRequestScript/testScript/requestVariables/_ref_id/authType/authActive/responseMeta (v0.3.783)
 
 009 keep: Function List Mockoon lastMigration/endpointPrefix/proxyMode/proxyHost/proxyRemovePrefix/rootChildren/proxyReqHeaders/proxyResHeaders/headersCaseInsensitive/enableRandomLatency/tlsOptions/bodyType/rulesOperator/databucketID (v0.3.784)
+
+009 keep: Function List WireMock scenarioName/requiredScenarioState/newScenarioState/postServeActions/fixedDelayMilliseconds/bodyFileName/base64Body/proxyBaseUrl/urlPathPattern/bodyPatterns/fault/jsonBody (v0.3.785)

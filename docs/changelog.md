@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.785] — 2026-11-11
+
+View:
+
+- **Function List** lists WireMock stub-mapping JSON keys: `"scenarioName": ""` / `"…"`, `"requiredScenarioState": ""` / `"…"`, `"newScenarioState": ""` / `"…"`, `"postServeActions": {`, `"fixedDelayMilliseconds": 0` / `250`, `"bodyFileName": ""` / `"…"`, `"base64Body": ""` / `"…"`, `"proxyBaseUrl": ""` / `"…"`, `"urlPathPattern": ""` / `"…"`, `"bodyPatterns": [`, `"fault": "CONNECTION_RESET_BY_PEER"` / `"EMPTY_RESPONSE"` / `"MALFORMED_RESPONSE_CHUNK"` / `"RANDOM_DATA_THEN_CLOSE"`, `"jsonBody": {`. Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing `:` stay out. Generic `"$schema"` / `"name"` / `"id"` / `"uuid"` / `"priority"` / `"request": {` / `"response": {` / `"persistent"` / `"metadata": {` / `"method"` / `"url"` / `"urlPath"` / `"urlPattern"` / `"headers": {` / `"status"` / `"body"` / `"transformers": [` / Mockoon `"lastMigration"` / `"endpointPrefix"` / `"bodyType"` / Hoppscotch `"preRequestScript"` / `"authType"` / Yaak `"yaakVersion"` / Bruno `"brunoConfig"` / Thunder Client `"client"` / `"collectionName"` / Postman `"_postman_id"` / Insomnia `"__export_format"` / `"_type"` / ReDoc `"disableSearch"` / RapiDoc `"specUrl"` / swagger `"dom_id"` / scalar `"layout": "modern"` / Elements `"layout": "sidebar"` / mintlify `"topbarLinks"` / Compodoc `"theme": "material"` / redocly `"apis"` / spectral `"functionsDir"` / openapitools `"generator-cli"` / docfx `"metadata": [` / typedoc `"entryPoints"` / api-extractor `"mainEntryPointFilePath"` / prettier `"printWidth"` / package.json `"bin"` / karma `"basePath"` stay out. `"fault"` only matches WireMock fault enums.
+
 ## [0.3.784] — 2026-11-11
 
 View:

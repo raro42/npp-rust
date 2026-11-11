@@ -32452,6 +32452,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_yaak_json_decl(s)
             || is_hoppscotch_json_decl(s)
             || is_mockoon_json_decl(s)
+            || is_wiremock_json_decl(s)
             || is_gomod_decl(s)
             || is_gemfile_decl(s)
             || is_brewfile_decl(s)
@@ -32814,6 +32815,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_yaak_json_decl(s)
         || is_hoppscotch_json_decl(s)
         || is_mockoon_json_decl(s)
+        || is_wiremock_json_decl(s)
         || is_gomod_decl(s)
         || is_gemfile_decl(s)
         || is_brewfile_decl(s)
@@ -58866,7 +58868,8 @@ fn yaak_json_schema_and_tail_ok(key: &str, after_colon: &str) -> bool {
 /// `"metadata": [` / typedoc `"entryPoints"` / api-extractor
 /// `"mainEntryPointFilePath"` / prettier `"printWidth"` / package.json
 /// `"bin"` / karma `"basePath"` / Mockoon `"lastMigration"` /
-/// `"endpointPrefix"` / `"bodyType"` stay out. `"_ref_id"` only matches
+/// `"endpointPrefix"` / `"bodyType"` / WireMock `"scenarioName"` /
+/// `"requiredScenarioState"` / `"fault"` stay out. `"_ref_id"` only matches
 /// Hoppscotch `prefix_timestamp_uuid` refs. `"authType"` only matches
 /// Hoppscotch auth enums.
 fn is_hoppscotch_json_decl(s: &str) -> bool {
@@ -59027,7 +59030,8 @@ fn hoppscotch_json_auth_type_ok(value: &str) -> bool {
 /// `"theme": "material"` / redocly `"apis"` / spectral `"functionsDir"` /
 /// openapitools `"generator-cli"` / docfx `"metadata": [` / typedoc
 /// `"entryPoints"` / api-extractor `"mainEntryPointFilePath"` / prettier
-/// `"printWidth"` / package.json `"bin"` / karma `"basePath"` stay out.
+/// `"printWidth"` / package.json `"bin"` / karma `"basePath"` / WireMock
+/// `"scenarioName"` / `"requiredScenarioState"` / `"fault"` stay out.
 /// `"bodyType"` / `"rulesOperator"` only match Mockoon enums.
 fn is_mockoon_json_decl(s: &str) -> bool {
     let s = s.trim_start();
@@ -59155,6 +59159,166 @@ fn mockoon_json_rules_operator_ok(value: &str) -> bool {
 
 fn mockoon_json_last_migration_and_tail_ok(key: &str, after_colon: &str) -> bool {
     if key != "lastMigration" {
+        return false;
+    }
+    let digits = after_colon
+        .bytes()
+        .take_while(|b| b.is_ascii_digit())
+        .count();
+    if digits == 0 || digits > 8 {
+        return false;
+    }
+    if digits > 1 && after_colon.as_bytes()[0] == b'0' {
+        return false;
+    }
+    package_json_tail_ok(&after_colon[digits..])
+}
+
+/// WireMock stub-mapping JSON keys:
+/// `"scenarioName": ""` / `"…"`, `"requiredScenarioState": ""` / `"…"`,
+/// `"newScenarioState": ""` / `"…"`, `"postServeActions": {`,
+/// `"fixedDelayMilliseconds": 0` / `250`, `"bodyFileName": ""` / `"…"`,
+/// `"base64Body": ""` / `"…"`, `"proxyBaseUrl": ""` / `"…"`,
+/// `"urlPathPattern": ""` / `"…"`, `"bodyPatterns": [`,
+/// `"fault": "CONNECTION_RESET_BY_PEER"` / `"EMPTY_RESPONSE"` /
+/// `"MALFORMED_RESPONSE_CHUNK"` / `"RANDOM_DATA_THEN_CLOSE"`,
+/// `"jsonBody": {`. Optional trailing `,` and `//` / `/*` comment.
+/// Incomplete quotes / missing `:` stay out. Generic `"$schema"` /
+/// `"name"` / `"id"` / `"uuid"` / `"priority"` / `"request": {` /
+/// `"response": {` / `"persistent"` / `"metadata": {` / `"method"` /
+/// `"url"` / `"urlPath"` / `"urlPattern"` / `"headers": {` /
+/// `"status"` / `"body"` / `"transformers": [` / Mockoon
+/// `"lastMigration"` / `"endpointPrefix"` / `"bodyType"` / Hoppscotch
+/// `"preRequestScript"` / `"authType"` / Yaak `"yaakVersion"` / Bruno
+/// `"brunoConfig"` / Thunder Client `"client"` / `"collectionName"` /
+/// Postman `"_postman_id"` / Insomnia `"__export_format"` / `"_type"` /
+/// ReDoc `"disableSearch"` / RapiDoc `"specUrl"` / swagger `"dom_id"` /
+/// scalar `"layout": "modern"` / Elements `"layout": "sidebar"` /
+/// mintlify `"topbarLinks"` / Compodoc `"theme": "material"` / redocly
+/// `"apis"` / spectral `"functionsDir"` / openapitools
+/// `"generator-cli"` / docfx `"metadata": [` / typedoc `"entryPoints"` /
+/// api-extractor `"mainEntryPointFilePath"` / prettier `"printWidth"` /
+/// package.json `"bin"` / karma `"basePath"` stay out. `"fault"` only
+/// matches WireMock fault enums.
+fn is_wiremock_json_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    let Some(rest) = s.strip_prefix('"') else {
+        return false;
+    };
+    let Some(end) = rest.find('"') else {
+        return false;
+    };
+    let key = &rest[..end];
+    if !wiremock_json_key_ok(key) {
+        return false;
+    }
+    let after_key = rest[end + 1..].trim_start();
+    let Some(after_colon) = after_key.strip_prefix(':') else {
+        return false;
+    };
+    let after_colon = after_colon.trim_start();
+    wiremock_json_value_and_tail_ok(key, after_colon)
+}
+
+fn wiremock_json_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "scenarioName"
+            | "requiredScenarioState"
+            | "newScenarioState"
+            | "postServeActions"
+            | "fixedDelayMilliseconds"
+            | "bodyFileName"
+            | "base64Body"
+            | "proxyBaseUrl"
+            | "urlPathPattern"
+            | "bodyPatterns"
+            | "fault"
+            | "jsonBody"
+    )
+}
+
+fn wiremock_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool {
+    let bytes = after_colon.as_bytes();
+    let Some(first) = bytes.first().copied() else {
+        return false;
+    };
+    match first {
+        b'[' => {
+            if key != "bodyPatterns" {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[1..])
+        }
+        b'{' => {
+            if !matches!(key, "postServeActions" | "jsonBody") {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[1..])
+        }
+        b'"' => {
+            if !matches!(
+                key,
+                "scenarioName"
+                    | "requiredScenarioState"
+                    | "newScenarioState"
+                    | "bodyFileName"
+                    | "base64Body"
+                    | "proxyBaseUrl"
+                    | "urlPathPattern"
+                    | "fault"
+            ) {
+                return false;
+            }
+            let rest = &after_colon[1..];
+            let Some(end) = rest.find('"') else {
+                return false;
+            };
+            let value = &rest[..end];
+            if !wiremock_json_string_ok(key, value) {
+                return false;
+            }
+            package_json_tail_ok(&rest[end + 1..])
+        }
+        b'0'..=b'9' => wiremock_json_delay_and_tail_ok(key, after_colon),
+        _ => false,
+    }
+}
+
+fn wiremock_json_string_ok(key: &str, value: &str) -> bool {
+    if value.contains('\n') {
+        return false;
+    }
+    match key {
+        "scenarioName"
+        | "requiredScenarioState"
+        | "newScenarioState"
+        | "bodyFileName"
+        | "base64Body"
+        | "proxyBaseUrl"
+        | "urlPathPattern" => wiremock_json_free_string_ok(value),
+        "fault" => wiremock_json_fault_ok(value),
+        _ => false,
+    }
+}
+
+fn wiremock_json_free_string_ok(value: &str) -> bool {
+    // Empty strings are stock defaults (Started / body file unset / no proxy).
+    value.len() <= 2048
+}
+
+fn wiremock_json_fault_ok(value: &str) -> bool {
+    matches!(
+        value,
+        "CONNECTION_RESET_BY_PEER"
+            | "EMPTY_RESPONSE"
+            | "MALFORMED_RESPONSE_CHUNK"
+            | "RANDOM_DATA_THEN_CLOSE"
+    )
+}
+
+fn wiremock_json_delay_and_tail_ok(key: &str, after_colon: &str) -> bool {
+    if key != "fixedDelayMilliseconds" {
         return false;
     }
     let digits = after_colon
@@ -89848,9 +90012,9 @@ mod func_like_line_tests {
         is_versioneer_ini_decl, is_versionrc_json_decl, is_vitest_json_decl,
         is_vscode_launch_json_decl, is_vscode_tasks_json_decl, is_vulture_ini_decl,
         is_wails_json_decl, is_wdio_json_decl, is_webextension_manifest_json_decl,
-        is_wireguard_config_decl, is_wrangler_toml_decl, is_xmake_decl, is_xorg_conf_decl,
-        is_yaak_json_decl, is_yapf_ini_decl, is_yarnrc_yml_decl, is_yum_repo_decl,
-        is_zest_releaser_ini_decl, line_is_func_like,
+        is_wireguard_config_decl, is_wiremock_json_decl, is_wrangler_toml_decl, is_xmake_decl,
+        is_xorg_conf_decl, is_yaak_json_decl, is_yapf_ini_decl, is_yarnrc_yml_decl,
+        is_yum_repo_decl, is_zest_releaser_ini_decl, line_is_func_like,
     };
 
     #[test]
@@ -117305,6 +117469,247 @@ mod func_like_line_tests {
         assert!(line_is_func_like(r#""bodyType": "DATABUCKET""#));
         assert!(line_is_func_like(r#""rulesOperator": "AND""#));
         assert!(line_is_func_like(r#""databucketID": """#));
+    }
+
+    #[test]
+    fn wiremock_json_keys_smoke() {
+        assert!(is_wiremock_json_decl(r#""scenarioName": "checkout""#));
+        assert!(is_wiremock_json_decl(
+            r#""requiredScenarioState": "Started""#
+        ));
+        assert!(is_wiremock_json_decl(r#""newScenarioState": "CartOpen""#));
+        assert!(is_wiremock_json_decl(r#""postServeActions": {"#));
+        assert!(is_wiremock_json_decl(r#""fixedDelayMilliseconds": 250"#));
+        assert!(is_wiremock_json_decl(r#""bodyFileName": "body.json""#));
+        assert!(is_wiremock_json_decl(r#""base64Body": """#));
+        assert!(is_wiremock_json_decl(
+            r#""proxyBaseUrl": "http://example.com""#
+        ));
+        assert!(is_wiremock_json_decl(r#""urlPathPattern": "/api/.*""#));
+        assert!(is_wiremock_json_decl(r#""bodyPatterns": ["#));
+        assert!(is_wiremock_json_decl(
+            r#""fault": "CONNECTION_RESET_BY_PEER""#
+        ));
+        assert!(is_wiremock_json_decl(r#""jsonBody": {"#));
+        // Distinctive neighbours stay out of this scanner.
+        assert!(!is_wiremock_json_decl(r#""lastMigration": 33"#));
+        assert!(is_mockoon_json_decl(r#""lastMigration": 33"#));
+        assert!(!is_wiremock_json_decl(r#""preRequestScript": """#));
+        assert!(is_hoppscotch_json_decl(r#""preRequestScript": """#));
+        assert!(!is_wiremock_json_decl(r#""yaakVersion": "2025.1.0""#));
+        assert!(is_yaak_json_decl(r#""yaakVersion": "2025.1.0""#));
+        assert!(!is_wiremock_json_decl(r#""brunoConfig": {"#));
+        assert!(is_bruno_json_decl(r#""brunoConfig": {"#));
+        assert!(!is_wiremock_json_decl(r#""client": "Thunder Client""#));
+        assert!(is_thunder_client_json_decl(r#""client": "Thunder Client""#));
+        assert!(!is_wiremock_json_decl(
+            r#""_postman_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890""#
+        ));
+        assert!(is_postman_json_decl(
+            r#""_postman_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890""#
+        ));
+        assert!(!is_wiremock_json_decl(r#""__export_format": 4"#));
+        assert!(is_insomnia_json_decl(r#""__export_format": 4"#));
+        assert!(!is_wiremock_json_decl(r#""disableSearch": true"#));
+        assert!(is_redoc_json_decl(r#""disableSearch": true"#));
+        assert!(!is_wiremock_json_decl(r#""specUrl": "./openapi.yaml""#));
+        assert!(is_rapidoc_json_decl(r#""specUrl": "./openapi.yaml""#));
+        assert!(!is_wiremock_json_decl(r##""dom_id": "#swagger-ui""##));
+        assert!(is_swagger_ui_json_decl(r##""dom_id": "#swagger-ui""##));
+        assert!(!is_wiremock_json_decl(r#""layout": "modern""#));
+        assert!(is_scalar_json_decl(r#""layout": "modern""#));
+        assert!(!is_wiremock_json_decl(r#""layout": "sidebar""#));
+        assert!(is_stoplight_elements_json_decl(r#""layout": "sidebar""#));
+        assert!(!is_wiremock_json_decl(r#""topbarLinks": ["#));
+        assert!(is_mintlify_json_decl(r#""topbarLinks": ["#));
+        assert!(!is_wiremock_json_decl(r#""apis": {"#));
+        assert!(is_redocly_json_decl(r#""apis": {"#));
+        assert!(!is_wiremock_json_decl(r#""functionsDir": "./functions""#));
+        assert!(is_spectral_json_decl(r#""functionsDir": "./functions""#));
+        assert!(!is_wiremock_json_decl(r#""printWidth": 80"#));
+        assert!(is_prettier_json_decl(r#""printWidth": 80"#));
+        assert!(!is_wiremock_json_decl(r#""basePath": ".""#));
+        assert!(is_karma_json_decl(r#""basePath": ".""#));
+    }
+
+    #[test]
+    fn wiremock_json_keys_count() {
+        assert!(is_wiremock_json_decl(r#""scenarioName": """#));
+        assert!(is_wiremock_json_decl(r#""scenarioName": "checkout""#));
+        assert!(is_wiremock_json_decl(r#""scenarioName": "checkout","#));
+        assert!(is_wiremock_json_decl(
+            r#""scenarioName": "checkout" // scen"#
+        ));
+        assert!(!is_wiremock_json_decl(r#""scenarioName": true"#));
+        assert!(!is_wiremock_json_decl(r#""scenarioName": ["#));
+        assert!(is_wiremock_json_decl(r#""requiredScenarioState": """#));
+        assert!(is_wiremock_json_decl(
+            r#""requiredScenarioState": "Started""#
+        ));
+        assert!(is_wiremock_json_decl(
+            r#""requiredScenarioState": "Started","#
+        ));
+        assert!(!is_wiremock_json_decl(r#""requiredScenarioState": true"#));
+        assert!(is_wiremock_json_decl(r#""newScenarioState": """#));
+        assert!(is_wiremock_json_decl(r#""newScenarioState": "CartOpen""#));
+        assert!(!is_wiremock_json_decl(r#""newScenarioState": {"#));
+        assert!(is_wiremock_json_decl(r#""postServeActions": {"#));
+        assert!(is_wiremock_json_decl(r#""postServeActions": {,"#));
+        assert!(is_wiremock_json_decl(r#""postServeActions": { // webhook"#));
+        assert!(!is_wiremock_json_decl(r#""postServeActions": ["#));
+        assert!(!is_wiremock_json_decl(r#""postServeActions": true"#));
+        assert!(is_wiremock_json_decl(r#""fixedDelayMilliseconds": 0"#));
+        assert!(is_wiremock_json_decl(r#""fixedDelayMilliseconds": 250"#));
+        assert!(is_wiremock_json_decl(r#""fixedDelayMilliseconds": 250,"#));
+        assert!(is_wiremock_json_decl(
+            r#""fixedDelayMilliseconds": 250 // ms"#
+        ));
+        assert!(!is_wiremock_json_decl(r#""fixedDelayMilliseconds": 0250"#));
+        assert!(!is_wiremock_json_decl(r#""fixedDelayMilliseconds": true"#));
+        assert!(!is_wiremock_json_decl(r#""fixedDelayMilliseconds": "250""#));
+        assert!(is_wiremock_json_decl(r#""bodyFileName": """#));
+        assert!(is_wiremock_json_decl(r#""bodyFileName": "body.json""#));
+        assert!(!is_wiremock_json_decl(r#""bodyFileName": true"#));
+        assert!(is_wiremock_json_decl(r#""base64Body": """#));
+        assert!(is_wiremock_json_decl(r#""base64Body": "SGVsbG8=""#));
+        assert!(!is_wiremock_json_decl(r#""base64Body": ["#));
+        assert!(is_wiremock_json_decl(r#""proxyBaseUrl": """#));
+        assert!(is_wiremock_json_decl(
+            r#""proxyBaseUrl": "http://example.com""#
+        ));
+        assert!(!is_wiremock_json_decl(r#""proxyBaseUrl": true"#));
+        assert!(is_wiremock_json_decl(r#""urlPathPattern": """#));
+        assert!(is_wiremock_json_decl(r#""urlPathPattern": "/api/.*""#));
+        assert!(!is_wiremock_json_decl(r#""urlPathPattern": {"#));
+        assert!(is_wiremock_json_decl(r#""bodyPatterns": ["#));
+        assert!(is_wiremock_json_decl(r#""bodyPatterns": [,"#));
+        assert!(is_wiremock_json_decl(r#""bodyPatterns": [ // match"#));
+        assert!(!is_wiremock_json_decl(r#""bodyPatterns": {"#));
+        assert!(!is_wiremock_json_decl(r#""bodyPatterns": true"#));
+        assert!(is_wiremock_json_decl(
+            r#""fault": "CONNECTION_RESET_BY_PEER""#
+        ));
+        assert!(is_wiremock_json_decl(r#""fault": "EMPTY_RESPONSE""#));
+        assert!(is_wiremock_json_decl(
+            r#""fault": "MALFORMED_RESPONSE_CHUNK""#
+        ));
+        assert!(is_wiremock_json_decl(
+            r#""fault": "RANDOM_DATA_THEN_CLOSE""#
+        ));
+        assert!(is_wiremock_json_decl(r#""fault": "EMPTY_RESPONSE","#));
+        assert!(is_wiremock_json_decl(
+            r#""fault": "EMPTY_RESPONSE" // fault"#
+        ));
+        assert!(!is_wiremock_json_decl(r#""fault": "empty_response""#));
+        assert!(!is_wiremock_json_decl(r#""fault": "TIMEOUT""#));
+        assert!(!is_wiremock_json_decl(r#""fault": true"#));
+        assert!(is_wiremock_json_decl(r#""jsonBody": {"#));
+        assert!(is_wiremock_json_decl(r#""jsonBody": {,"#));
+        assert!(is_wiremock_json_decl(r#""jsonBody": { // body"#));
+        assert!(!is_wiremock_json_decl(r#""jsonBody": ["#));
+        assert!(!is_wiremock_json_decl(r#""jsonBody": true"#));
+        // Incomplete / wrong shapes stay out.
+        assert!(!is_wiremock_json_decl(r#""scenarioName""#));
+        assert!(!is_wiremock_json_decl(r#""scenarioName":"#));
+        assert!(!is_wiremock_json_decl(r#""fault""#));
+        assert!(!is_wiremock_json_decl(r#""bodyPatterns""#));
+        // Generic / neighbouring stay out.
+        assert!(!is_wiremock_json_decl(
+            r#""$schema": "https://example.com""#
+        ));
+        assert!(!is_wiremock_json_decl(r#""name": "Stub Mapping""#));
+        assert!(!is_wiremock_json_decl(
+            r#""id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890""#
+        ));
+        assert!(!is_wiremock_json_decl(
+            r#""uuid": "a1b2c3d4-e5f6-7890-abcd-ef1234567890""#
+        ));
+        assert!(!is_wiremock_json_decl(r#""priority": 1"#));
+        assert!(!is_wiremock_json_decl(r#""request": {"#));
+        assert!(!is_wiremock_json_decl(r#""response": {"#));
+        assert!(!is_wiremock_json_decl(r#""persistent": true"#));
+        assert!(!is_wiremock_json_decl(r#""metadata": {"#));
+        assert!(!is_wiremock_json_decl(r#""method": "GET""#));
+        assert!(!is_wiremock_json_decl(r#""url": "/api/specific""#));
+        assert!(!is_wiremock_json_decl(r#""urlPath": "/api/specific""#));
+        assert!(!is_wiremock_json_decl(r#""urlPattern": "/api/.*""#));
+        assert!(!is_wiremock_json_decl(r#""headers": {"#));
+        assert!(!is_wiremock_json_decl(r#""status": 200"#));
+        assert!(!is_wiremock_json_decl(r#""body": "OK""#));
+        assert!(!is_wiremock_json_decl(r#""transformers": ["#));
+        assert!(!is_wiremock_json_decl(r#""lastMigration": 33"#));
+        assert!(is_mockoon_json_decl(r#""lastMigration": 33"#));
+        assert!(!is_wiremock_json_decl(r#""endpointPrefix": "api""#));
+        assert!(is_mockoon_json_decl(r#""endpointPrefix": "api""#));
+        assert!(!is_wiremock_json_decl(r#""bodyType": "INLINE""#));
+        assert!(is_mockoon_json_decl(r#""bodyType": "INLINE""#));
+        assert!(!is_wiremock_json_decl(r#""preRequestScript": """#));
+        assert!(is_hoppscotch_json_decl(r#""preRequestScript": """#));
+        assert!(!is_wiremock_json_decl(r#""authType": "inherit""#));
+        assert!(is_hoppscotch_json_decl(r#""authType": "inherit""#));
+        assert!(!is_wiremock_json_decl(r#""yaakVersion": "2025.1.0""#));
+        assert!(is_yaak_json_decl(r#""yaakVersion": "2025.1.0""#));
+        assert!(!is_wiremock_json_decl(r#""brunoConfig": {"#));
+        assert!(is_bruno_json_decl(r#""brunoConfig": {"#));
+        assert!(!is_wiremock_json_decl(r#""client": "Thunder Client""#));
+        assert!(is_thunder_client_json_decl(r#""client": "Thunder Client""#));
+        assert!(!is_wiremock_json_decl(
+            r#""collectionName": "Petstore API""#
+        ));
+        assert!(is_thunder_client_json_decl(
+            r#""collectionName": "Petstore API""#
+        ));
+        assert!(!is_wiremock_json_decl(
+            r#""_postman_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890""#
+        ));
+        assert!(is_postman_json_decl(
+            r#""_postman_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890""#
+        ));
+        assert!(!is_wiremock_json_decl(r#""protocolProfileBehavior": {"#));
+        assert!(is_postman_json_decl(r#""protocolProfileBehavior": {"#));
+        assert!(!is_wiremock_json_decl(r#""__export_format": 4"#));
+        assert!(is_insomnia_json_decl(r#""__export_format": 4"#));
+        assert!(!is_wiremock_json_decl(r#""_type": "request""#));
+        assert!(is_insomnia_json_decl(r#""_type": "request""#));
+        assert!(!is_wiremock_json_decl(r#""disableSearch": true"#));
+        assert!(is_redoc_json_decl(r#""disableSearch": true"#));
+        assert!(!is_wiremock_json_decl(r#""specUrl": "./openapi.yaml""#));
+        assert!(is_rapidoc_json_decl(r#""specUrl": "./openapi.yaml""#));
+        assert!(!is_wiremock_json_decl(r##""dom_id": "#swagger-ui""##));
+        assert!(is_swagger_ui_json_decl(r##""dom_id": "#swagger-ui""##));
+        assert!(!is_wiremock_json_decl(r#""layout": "BaseLayout""#));
+        assert!(is_swagger_ui_json_decl(r#""layout": "BaseLayout""#));
+        assert!(!is_wiremock_json_decl(r#""layout": "modern""#));
+        assert!(is_scalar_json_decl(r#""layout": "modern""#));
+        assert!(!is_wiremock_json_decl(r#""layout": "sidebar""#));
+        assert!(is_stoplight_elements_json_decl(r#""layout": "sidebar""#));
+        assert!(!is_wiremock_json_decl(r#""apiDescriptionUrl": "./o.yaml""#));
+        assert!(is_stoplight_elements_json_decl(
+            r#""apiDescriptionUrl": "./o.yaml""#
+        ));
+        assert!(!is_wiremock_json_decl(r#""topbarLinks": ["#));
+        assert!(is_mintlify_json_decl(r#""topbarLinks": ["#));
+        assert!(!is_wiremock_json_decl(r#""apis": {"#));
+        assert!(is_redocly_json_decl(r#""apis": {"#));
+        assert!(!is_wiremock_json_decl(r#""functionsDir": "./functions""#));
+        assert!(is_spectral_json_decl(r#""functionsDir": "./functions""#));
+        assert!(!is_wiremock_json_decl(r#""printWidth": 80"#));
+        assert!(is_prettier_json_decl(r#""printWidth": 80"#));
+        assert!(!is_wiremock_json_decl(r#""basePath": ".""#));
+        assert!(is_karma_json_decl(r#""basePath": ".""#));
+        // line_is_func_like wires the scanner.
+        assert!(line_is_func_like(r#""scenarioName": "checkout""#));
+        assert!(line_is_func_like(r#""requiredScenarioState": "Started""#));
+        assert!(line_is_func_like(r#""newScenarioState": "CartOpen""#));
+        assert!(line_is_func_like(r#""postServeActions": {"#));
+        assert!(line_is_func_like(r#""fixedDelayMilliseconds": 250"#));
+        assert!(line_is_func_like(r#""bodyFileName": "body.json""#));
+        assert!(line_is_func_like(r#""base64Body": """#));
+        assert!(line_is_func_like(r#""proxyBaseUrl": "http://example.com""#));
+        assert!(line_is_func_like(r#""urlPathPattern": "/api/.*""#));
+        assert!(line_is_func_like(r#""bodyPatterns": ["#));
+        assert!(line_is_func_like(r#""fault": "CONNECTION_RESET_BY_PEER""#));
+        assert!(line_is_func_like(r#""jsonBody": {"#));
     }
 
     #[test]
