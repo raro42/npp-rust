@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.770] — 2026-11-11
+
+View:
+
+- **Function List** lists Stoplight Spectral `.spectral.json` JSON keys: `"functionsDir": "…"`, `"functions": [`, `"formats": [`, `"aliases": {`, `"except": {`, `"documentationUrl": "https://…"` / `http://…` / relative path, `"extends": "spectral:oas"` / `"spectral:asyncapi"` / `"@stoplight/…"`, `"extends": [`. Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing `:` stay out. Generic `"$schema"` / `"name"` / `"version"` / `"rules": {` / `"overrides": [` / openapitools `"generator-cli"` / `"spaces"` / docfx `"metadata": [` / typedoc `"entryPoints"` / api-extractor `"mainEntryPointFilePath"` / eslint `"extends": "eslint:recommended"` / prettier `"printWidth"` / package.json `"bin"` / karma `"basePath"` stay out. Shared `"extends": [` also matches eslint / stylelint / babel when shapes overlap; string `"extends"` needs a `spectral:` or `@stoplight/` value so eslint / tsconfig path extends stay on their scanners.
+
 ## [0.3.769] — 2026-11-11
 
 View:

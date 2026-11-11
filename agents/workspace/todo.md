@@ -1202,3 +1202,5 @@
 009 keep: Function List Compodoc .compodocrc.json tsconfig/output/theme/includes(string)/disableLifeCycleHooks/hideDarkModeToggle/exportFormat/port/navTabConfig (v0.3.767)
 
 009 keep: Function List DocFX docfx.json metadata/overwrite/xref/globalMetadata/markdownEngineName/keepFileLink/… (v0.3.768)
+
+009 keep: Function List Spectral .spectral.json functionsDir/functions/formats/aliases/except/documentationUrl/extends spectral: @stoplight (v0.3.770)

@@ -32437,6 +32437,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_compodoc_json_decl(s)
             || is_docfx_json_decl(s)
             || is_openapitools_json_decl(s)
+            || is_spectral_json_decl(s)
             || is_gomod_decl(s)
             || is_gemfile_decl(s)
             || is_brewfile_decl(s)
@@ -32784,6 +32785,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_compodoc_json_decl(s)
         || is_docfx_json_decl(s)
         || is_openapitools_json_decl(s)
+        || is_spectral_json_decl(s)
         || is_gomod_decl(s)
         || is_gemfile_decl(s)
         || is_brewfile_decl(s)
@@ -56137,6 +56139,179 @@ fn openapitools_json_generator_name_ok(value: &str) -> bool {
     value
         .bytes()
         .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'-' | b'_'))
+}
+
+/// Stoplight Spectral `.spectral.json` / `.spectral.yaml` JSON-shaped keys:
+/// `"functionsDir": "…"`, `"functions": [`, `"formats": [`, `"aliases": {`,
+/// `"except": {`, `"documentationUrl": "…"`, `"extends": "spectral:oas"` /
+/// `"@stoplight/…"`, `"extends": [`. Optional trailing `,` and `//` / `/*`
+/// comment. Incomplete quotes / missing `:` stay out. Generic `"$schema"` /
+/// `"name"` / `"version"` / `"rules": {` / `"overrides": [` /
+/// openapitools `"generator-cli"` / `"spaces"` / docfx `"metadata": [` /
+/// typedoc `"entryPoints"` / api-extractor `"mainEntryPointFilePath"` /
+/// eslint `"extends": "eslint:recommended"` / prettier `"printWidth"` /
+/// package.json `"bin"` / karma `"basePath"` stay out. Shared
+/// `"extends": [` also matches eslint / stylelint / babel / parcel when
+/// shapes overlap; string `"extends"` needs a `spectral:` or `@stoplight/`
+/// value so eslint / tsconfig path extends stay on their scanners.
+fn is_spectral_json_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    let Some(rest) = s.strip_prefix('"') else {
+        return false;
+    };
+    let Some(end) = rest.find('"') else {
+        return false;
+    };
+    let key = &rest[..end];
+    if !spectral_json_key_ok(key) {
+        return false;
+    }
+    let after_key = rest[end + 1..].trim_start();
+    let Some(after_colon) = after_key.strip_prefix(':') else {
+        return false;
+    };
+    let after_colon = after_colon.trim_start();
+    spectral_json_value_and_tail_ok(key, after_colon)
+}
+
+fn spectral_json_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "functionsDir"
+            | "functions"
+            | "formats"
+            | "aliases"
+            | "except"
+            | "documentationUrl"
+            | "extends"
+    )
+}
+
+fn spectral_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool {
+    let bytes = after_colon.as_bytes();
+    let Some(first) = bytes.first().copied() else {
+        return false;
+    };
+    match first {
+        b'{' => {
+            if !matches!(key, "aliases" | "except") {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[1..])
+        }
+        b'[' => {
+            if !matches!(key, "functions" | "formats" | "extends") {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[1..])
+        }
+        b'"' => {
+            if !spectral_json_string_key_ok(key) {
+                return false;
+            }
+            let rest = &after_colon[1..];
+            let Some(end) = rest.find('"') else {
+                return false;
+            };
+            let value = &rest[..end];
+            if !spectral_json_string_ok(key, value) {
+                return false;
+            }
+            package_json_tail_ok(&rest[end + 1..])
+        }
+        _ => false,
+    }
+}
+
+fn spectral_json_string_key_ok(key: &str) -> bool {
+    matches!(key, "functionsDir" | "documentationUrl" | "extends")
+}
+
+fn spectral_json_string_ok(key: &str, value: &str) -> bool {
+    if value.contains('\n') {
+        return false;
+    }
+    match key {
+        "functionsDir" => spectral_json_path_ok(value),
+        "documentationUrl" => spectral_json_url_ok(value),
+        "extends" => spectral_json_extends_ok(value),
+        _ => false,
+    }
+}
+
+fn spectral_json_path_ok(value: &str) -> bool {
+    if value.is_empty() || value.len() > 512 {
+        return false;
+    }
+    if value.chars().all(|c| c.is_ascii_whitespace()) {
+        return false;
+    }
+    value.bytes().all(|b| {
+        b.is_ascii_alphanumeric()
+            || matches!(
+                b,
+                b'.' | b'-'
+                    | b'_'
+                    | b'/'
+                    | b'\\'
+                    | b':'
+                    | b'?'
+                    | b'='
+                    | b'&'
+                    | b'%'
+                    | b'#'
+                    | b'@'
+                    | b'+'
+                    | b' '
+                    | b'~'
+                    | b'*'
+                    | b'('
+                    | b')'
+                    | b'['
+                    | b']'
+            )
+    })
+}
+
+fn spectral_json_url_ok(value: &str) -> bool {
+    if value.is_empty() || value.len() > 512 {
+        return false;
+    }
+    if value.chars().all(|c| c.is_ascii_whitespace()) {
+        return false;
+    }
+    let ok_scheme = value.starts_with("https://")
+        || value.starts_with("http://")
+        || value.starts_with("./")
+        || value.starts_with("../")
+        || value.starts_with('/');
+    if !ok_scheme {
+        return false;
+    }
+    spectral_json_path_ok(value)
+}
+
+fn spectral_json_extends_ok(value: &str) -> bool {
+    if value.is_empty() || value.len() > 256 {
+        return false;
+    }
+    if let Some(rest) = value.strip_prefix("spectral:") {
+        if rest.is_empty() {
+            return false;
+        }
+        return rest
+            .bytes()
+            .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'.' | b'-' | b'_'));
+    }
+    if let Some(rest) = value.strip_prefix("@stoplight/") {
+        if rest.is_empty() {
+            return false;
+        }
+        return rest
+            .bytes()
+            .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'.' | b'-' | b'_' | b'/' | b'@'));
+    }
+    false
 }
 
 /// go.mod / go.work directives: `module example.com/foo`, `go 1.22`,
@@ -86800,18 +86975,18 @@ mod func_like_line_tests {
         is_samconfig_toml_decl, is_scons_decl, is_scriv_ini_decl, is_sddm_conf_decl,
         is_semantic_release_ini_decl, is_semantic_release_json_decl, is_services_file_decl,
         is_setup_cfg_decl, is_setuptools_scm_ini_decl, is_simple_git_hooks_json_decl,
-        is_sqlfluff_ini_decl, is_ssh_config_decl, is_sssd_conf_decl, is_stryker_json_decl,
-        is_stylelint_json_decl, is_subuid_subgid_decl, is_sudoers_decl, is_supabase_toml_decl,
-        is_supervisord_conf_decl, is_swc_json_decl, is_syncpack_json_decl, is_sysctl_conf_decl,
-        is_syslog_ng_decl, is_systemd_networkd_decl, is_systemd_unit_decl, is_sysusers_d_decl,
-        is_tap_json_decl, is_taplo_toml_decl, is_tauri_json_decl, is_telegraf_toml_decl,
-        is_testcafe_json_decl, is_tmpfiles_d_decl, is_towncrier_ini_decl, is_tox_ini_decl,
-        is_trunk_toml_decl, is_tsconfig_json_decl, is_turbo_json_decl, is_ty_toml_decl,
-        is_typedoc_json_decl, is_typos_toml_decl, is_udev_rule_decl, is_unbound_nsd_conf_decl,
-        is_uniffi_toml_decl, is_unimport_ini_decl, is_uv_toml_decl, is_vconsole_conf_decl,
-        is_vector_toml_decl, is_vercel_json_decl, is_versioneer_ini_decl, is_versionrc_json_decl,
-        is_vitest_json_decl, is_vscode_launch_json_decl, is_vscode_tasks_json_decl,
-        is_vulture_ini_decl, is_wails_json_decl, is_wdio_json_decl,
+        is_spectral_json_decl, is_sqlfluff_ini_decl, is_ssh_config_decl, is_sssd_conf_decl,
+        is_stryker_json_decl, is_stylelint_json_decl, is_subuid_subgid_decl, is_sudoers_decl,
+        is_supabase_toml_decl, is_supervisord_conf_decl, is_swc_json_decl, is_syncpack_json_decl,
+        is_sysctl_conf_decl, is_syslog_ng_decl, is_systemd_networkd_decl, is_systemd_unit_decl,
+        is_sysusers_d_decl, is_tap_json_decl, is_taplo_toml_decl, is_tauri_json_decl,
+        is_telegraf_toml_decl, is_testcafe_json_decl, is_tmpfiles_d_decl, is_towncrier_ini_decl,
+        is_tox_ini_decl, is_trunk_toml_decl, is_tsconfig_json_decl, is_turbo_json_decl,
+        is_ty_toml_decl, is_typedoc_json_decl, is_typos_toml_decl, is_udev_rule_decl,
+        is_unbound_nsd_conf_decl, is_uniffi_toml_decl, is_unimport_ini_decl, is_uv_toml_decl,
+        is_vconsole_conf_decl, is_vector_toml_decl, is_vercel_json_decl, is_versioneer_ini_decl,
+        is_versionrc_json_decl, is_vitest_json_decl, is_vscode_launch_json_decl,
+        is_vscode_tasks_json_decl, is_vulture_ini_decl, is_wails_json_decl, is_wdio_json_decl,
         is_webextension_manifest_json_decl, is_wireguard_config_decl, is_wrangler_toml_decl,
         is_xmake_decl, is_xorg_conf_decl, is_yapf_ini_decl, is_yarnrc_yml_decl, is_yum_repo_decl,
         is_zest_releaser_ini_decl, line_is_func_like,
@@ -111236,6 +111411,144 @@ mod func_like_line_tests {
         assert!(line_is_func_like(r#""generatorName": "typescript-fetch""#));
         assert!(line_is_func_like(r#""inputSpec": "openapi.yaml""#));
         assert!(line_is_func_like(r#""glob": "**/openapi.yaml""#));
+    }
+
+    #[test]
+    fn spectral_json_keys_smoke() {
+        assert!(is_spectral_json_decl(r#""functionsDir": "./functions""#));
+        assert!(is_spectral_json_decl(r#""functions": ["#));
+        assert!(is_spectral_json_decl(r#""formats": ["#));
+        assert!(is_spectral_json_decl(r#""aliases": {"#));
+        assert!(is_spectral_json_decl(r#""except": {"#));
+        assert!(is_spectral_json_decl(
+            r#""documentationUrl": "https://example.com/rules""#
+        ));
+        assert!(is_spectral_json_decl(r#""extends": "spectral:oas""#));
+        assert!(is_spectral_json_decl(r#""extends": "spectral:asyncapi""#));
+        assert!(is_spectral_json_decl(
+            r#""extends": "@stoplight/spectral-ruleset-complexity""#
+        ));
+        assert!(is_spectral_json_decl(r#""extends": ["#));
+        // Distinctive neighbours stay out of this scanner.
+        assert!(!is_spectral_json_decl(r#""generator-cli": {"#));
+        assert!(is_openapitools_json_decl(r#""generator-cli": {"#));
+        assert!(!is_spectral_json_decl(r#""metadata": ["#));
+        assert!(is_docfx_json_decl(r#""metadata": ["#));
+        assert!(!is_spectral_json_decl(r#""entryPoints": ["#));
+        assert!(is_typedoc_json_decl(r#""entryPoints": ["#));
+        assert!(!is_spectral_json_decl(r#""extends": "eslint:recommended""#));
+        assert!(is_eslint_json_decl(r#""extends": "eslint:recommended""#));
+        assert!(!is_spectral_json_decl(r#""printWidth": 80"#));
+        assert!(is_prettier_json_decl(r#""printWidth": 80"#));
+    }
+
+    #[test]
+    fn spectral_json_keys_count() {
+        assert!(is_spectral_json_decl(r#""functionsDir": "./functions""#));
+        assert!(is_spectral_json_decl(r#""functionsDir": "./fns","#));
+        assert!(is_spectral_json_decl(
+            r#""functionsDir": "../spectral-fns" // local"#
+        ));
+        assert!(!is_spectral_json_decl(r#""functionsDir": true"#));
+        assert!(!is_spectral_json_decl(r#""functionsDir": """#));
+        assert!(!is_spectral_json_decl(r#""functionsDir": {"#));
+        assert!(!is_spectral_json_decl(r#""functionsDir": ["#));
+        assert!(is_spectral_json_decl(r#""functions": ["#));
+        assert!(is_spectral_json_decl(r#""functions": [,"#));
+        assert!(is_spectral_json_decl(r#""functions": [ // fns"#));
+        assert!(!is_spectral_json_decl(r#""functions": {"#));
+        assert!(!is_spectral_json_decl(r#""functions": true"#));
+        assert!(!is_spectral_json_decl(r#""functions": "foo""#));
+        assert!(is_spectral_json_decl(r#""formats": ["#));
+        assert!(is_spectral_json_decl(r#""formats": [],"#));
+        assert!(!is_spectral_json_decl(r#""formats": {"#));
+        assert!(!is_spectral_json_decl(r#""formats": "oas3""#));
+        assert!(is_spectral_json_decl(r#""aliases": {"#));
+        assert!(is_spectral_json_decl(r#""aliases": { // named"#));
+        assert!(!is_spectral_json_decl(r#""aliases": ["#));
+        assert!(!is_spectral_json_decl(r#""aliases": true"#));
+        assert!(is_spectral_json_decl(r#""except": {"#));
+        assert!(is_spectral_json_decl(r#""except": {,"#));
+        assert!(!is_spectral_json_decl(r#""except": ["#));
+        assert!(!is_spectral_json_decl(r#""except": "rule""#));
+        assert!(is_spectral_json_decl(
+            r#""documentationUrl": "https://docs.example.com/spectral""#
+        ));
+        assert!(is_spectral_json_decl(
+            r#""documentationUrl": "http://localhost/rules""#
+        ));
+        assert!(is_spectral_json_decl(r#""documentationUrl": "./RULES.md""#));
+        assert!(!is_spectral_json_decl(r#""documentationUrl": true"#));
+        assert!(!is_spectral_json_decl(r#""documentationUrl": """#));
+        assert!(!is_spectral_json_decl(r#""documentationUrl": "rules""#));
+        assert!(!is_spectral_json_decl(r#""documentationUrl": {"#));
+        assert!(is_spectral_json_decl(r#""extends": "spectral:oas""#));
+        assert!(is_spectral_json_decl(r#""extends": "spectral:oas3.1""#));
+        assert!(is_spectral_json_decl(r#""extends": "spectral:asyncapi""#));
+        assert!(is_spectral_json_decl(
+            r#""extends": "spectral:json-schema""#
+        ));
+        assert!(is_spectral_json_decl(
+            r#""extends": "@stoplight/spectral-ruleset-complexity""#
+        ));
+        assert!(is_spectral_json_decl(r#""extends": ["#));
+        assert!(is_spectral_json_decl(r#""extends": [],"#));
+        assert!(is_spectral_json_decl(r#""extends": [ // rulesets"#));
+        assert!(!is_spectral_json_decl(r#""extends": "eslint:recommended""#));
+        assert!(!is_spectral_json_decl(
+            r#""extends": "./tsconfig.base.json""#
+        ));
+        assert!(!is_spectral_json_decl(r#""extends": "spectral:""#));
+        assert!(!is_spectral_json_decl(r#""extends": "@stoplight/""#));
+        assert!(!is_spectral_json_decl(r#""extends": true"#));
+        assert!(!is_spectral_json_decl(r#""extends": {"#));
+        // Incomplete / wrong shapes stay out.
+        assert!(!is_spectral_json_decl(r#""functionsDir""#));
+        assert!(!is_spectral_json_decl(r#""functionsDir":"#));
+        assert!(!is_spectral_json_decl(r#""extends""#));
+        assert!(!is_spectral_json_decl(r#""formats""#));
+        // Generic / neighbouring stay out.
+        assert!(!is_spectral_json_decl(
+            r#""$schema": "https://unpkg.com/@stoplight/spectral-cli/dist/schemas/config.schema.json""#
+        ));
+        assert!(!is_spectral_json_decl(r#""name": "My Ruleset""#));
+        assert!(!is_spectral_json_decl(r#""version": "1.0.0""#));
+        assert!(!is_spectral_json_decl(r#""rules": {"#));
+        assert!(!is_spectral_json_decl(r#""overrides": ["#));
+        assert!(!is_spectral_json_decl(r#""generator-cli": {"#));
+        assert!(is_openapitools_json_decl(r#""generator-cli": {"#));
+        assert!(!is_spectral_json_decl(r#""spaces": 2"#));
+        assert!(is_openapitools_json_decl(r#""spaces": 2"#));
+        assert!(!is_spectral_json_decl(r#""metadata": ["#));
+        assert!(is_docfx_json_decl(r#""metadata": ["#));
+        assert!(!is_spectral_json_decl(r#""entryPoints": ["#));
+        assert!(is_typedoc_json_decl(r#""entryPoints": ["#));
+        assert!(!is_spectral_json_decl(
+            r#""mainEntryPointFilePath": "<projectFolder>/lib/index.d.ts""#
+        ));
+        assert!(is_api_extractor_json_decl(
+            r#""mainEntryPointFilePath": "<projectFolder>/lib/index.d.ts""#
+        ));
+        assert!(!is_spectral_json_decl(r#""printWidth": 80"#));
+        assert!(is_prettier_json_decl(r#""printWidth": 80"#));
+        assert!(!is_spectral_json_decl(r#""bin": {"#));
+        assert!(is_package_json_decl(r#""bin": {"#));
+        assert!(!is_spectral_json_decl(r#""basePath": ".""#));
+        assert!(is_karma_json_decl(r#""basePath": ".""#));
+        // Shared extends array: spectral + eslint when shapes match.
+        assert!(is_spectral_json_decl(r#""extends": ["#));
+        assert!(is_eslint_json_decl(r#""extends": ["#));
+        // line_is_func_like wires the scanner.
+        assert!(line_is_func_like(r#""functionsDir": "./functions""#));
+        assert!(line_is_func_like(r#""functions": ["#));
+        assert!(line_is_func_like(r#""formats": ["#));
+        assert!(line_is_func_like(r#""aliases": {"#));
+        assert!(line_is_func_like(r#""except": {"#));
+        assert!(line_is_func_like(
+            r#""documentationUrl": "https://example.com/rules""#
+        ));
+        assert!(line_is_func_like(r#""extends": "spectral:oas""#));
+        assert!(line_is_func_like(r#""extends": ["#));
     }
 
     #[test]
