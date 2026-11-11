@@ -1,3 +1,5 @@
+009 keep: Function List Zipkin localEndpoint/remoteEndpoint/annotations/parentId/kind/shared/debug/traceId (v0.3.794)
+
 009 keep: Function List OTLP resourceSpans/scopeSpans/resourceLogs/scopeLogs/resourceMetrics/scopeMetrics/instrumentationScope/parentSpanId/startTimeUnixNano/endTimeUnixNano/droppedAttributesCount (v0.3.793)
 
 009 keep: Function List OpenAPI/Swagger openapi/swagger/paths/components/servers/webhooks/jsonSchemaDialect/securityDefinitions/externalDocs (v0.3.790)

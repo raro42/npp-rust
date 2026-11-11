@@ -32461,6 +32461,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_asyncapi_json_decl(s)
             || is_har_json_decl(s)
             || is_otlp_json_decl(s)
+            || is_zipkin_json_decl(s)
             || is_gomod_decl(s)
             || is_gemfile_decl(s)
             || is_brewfile_decl(s)
@@ -32832,6 +32833,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_asyncapi_json_decl(s)
         || is_har_json_decl(s)
         || is_otlp_json_decl(s)
+        || is_zipkin_json_decl(s)
         || is_gomod_decl(s)
         || is_gemfile_decl(s)
         || is_brewfile_decl(s)
@@ -60343,7 +60345,10 @@ fn har_started_datetime_ok(value: &str) -> bool {
 /// openapitools `"generator-cli"` / Knip `"entry"` / prettier
 /// `"printWidth"` / package.json `"bin"` / karma `"basePath"` stay out.
 /// `"parentSpanId"` only matches empty or 16-char lowercase hex.
-/// Unix-nano strings are digit-only (1–20 chars).
+/// Unix-nano strings are digit-only (1–20 chars). Zipkin
+/// `"localEndpoint"` / `"remoteEndpoint"` / `"annotations"` /
+/// `"parentId"` / `"kind"` / `"shared"` / `"debug"` / validated
+/// `"traceId"` stay out.
 fn is_otlp_json_decl(s: &str) -> bool {
     let s = s.trim_start();
     let Some(rest) = s.strip_prefix('"') else {
@@ -60483,6 +60488,147 @@ fn otlp_json_number_and_tail_ok(key: &str, after_colon: &str) -> bool {
         return false;
     }
     package_json_tail_ok(&after_colon[digits..])
+}
+
+/// Zipkin v2 Span JSON keys: `"localEndpoint": {`, `"remoteEndpoint": {`,
+/// `"annotations": [`, `"parentId": ""` / `"…"`, `"kind": "CLIENT"` /
+/// `"SERVER"` / `"PRODUCER"` / `"CONSUMER"`, `"shared": true` / `false`,
+/// `"debug": true` / `false`, `"traceId": "…"` (16 or 32 lowercase hex).
+/// Optional trailing `,` and `//` / `/*` comment. Incomplete quotes /
+/// missing `:` stay out. Generic `"$schema"` / `"name"` / `"id"` /
+/// `"timestamp"` / `"duration"` / `"tags": {` / `"serviceName"` /
+/// `"ipv4"` / `"port"` / OTLP `"resourceSpans"` / `"parentSpanId"` /
+/// `"startTimeUnixNano"` / HAR `"startedDateTime"` / `"timings"` /
+/// OpenAPI `"openapi"` / AsyncAPI `"asyncapi"` / `"channels": {` /
+/// Pact `"consumer"` / MockServer `"httpRequest"` / Hoverfly
+/// `"hoverflyVersion"` / Mountebank `"imposters"` / WireMock
+/// `"scenarioName"` / Mockoon `"lastMigration"` / Hoppscotch
+/// `"preRequestScript"` / Yaak `"yaakVersion"` / Bruno `"brunoConfig"` /
+/// Thunder Client `"client"` / Postman `"_postman_id"` / Insomnia
+/// `"__export_format"` / ReDoc `"disableSearch"` / RapiDoc `"specUrl"` /
+/// swagger-ui `"dom_id"` / scalar `"layout": "modern"` / Elements
+/// `"layout": "sidebar"` / mintlify `"topbarLinks"` / Compodoc
+/// `"theme": "material"` / redocly `"apis"` / spectral `"functionsDir"` /
+/// openapitools `"generator-cli"` / Knip `"entry"` / prettier
+/// `"printWidth"` / package.json `"bin"` / karma `"basePath"` stay out.
+/// `"parentId"` only matches empty or 16-char lowercase hex.
+/// `"traceId"` only matches 16 or 32-char lowercase hex.
+fn is_zipkin_json_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    let Some(rest) = s.strip_prefix('"') else {
+        return false;
+    };
+    let Some(end) = rest.find('"') else {
+        return false;
+    };
+    let key = &rest[..end];
+    if !zipkin_json_key_ok(key) {
+        return false;
+    }
+    let after_key = rest[end + 1..].trim_start();
+    let Some(after_colon) = after_key.strip_prefix(':') else {
+        return false;
+    };
+    let after_colon = after_colon.trim_start();
+    zipkin_json_value_and_tail_ok(key, after_colon)
+}
+
+fn zipkin_json_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "localEndpoint"
+            | "remoteEndpoint"
+            | "annotations"
+            | "parentId"
+            | "kind"
+            | "shared"
+            | "debug"
+            | "traceId"
+    )
+}
+
+fn zipkin_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool {
+    let bytes = after_colon.as_bytes();
+    let Some(first) = bytes.first().copied() else {
+        return false;
+    };
+    match first {
+        b'{' => {
+            if !matches!(key, "localEndpoint" | "remoteEndpoint") {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[1..])
+        }
+        b'[' => {
+            if key != "annotations" {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[1..])
+        }
+        b'"' => {
+            if !matches!(key, "parentId" | "kind" | "traceId") {
+                return false;
+            }
+            let rest = &after_colon[1..];
+            let Some(end) = rest.find('"') else {
+                return false;
+            };
+            let value = &rest[..end];
+            if !zipkin_json_string_ok(key, value) {
+                return false;
+            }
+            package_json_tail_ok(&rest[end + 1..])
+        }
+        b't' | b'f' => {
+            if !matches!(key, "shared" | "debug") {
+                return false;
+            }
+            zipkin_json_bool_and_tail_ok(after_colon)
+        }
+        _ => false,
+    }
+}
+
+fn zipkin_json_string_ok(key: &str, value: &str) -> bool {
+    match key {
+        "parentId" => zipkin_parent_id_ok(value),
+        "traceId" => zipkin_trace_id_ok(value),
+        "kind" => matches!(value, "CLIENT" | "SERVER" | "PRODUCER" | "CONSUMER"),
+        _ => false,
+    }
+}
+
+fn zipkin_parent_id_ok(value: &str) -> bool {
+    if value.contains('\n') {
+        return false;
+    }
+    if value.is_empty() {
+        return true;
+    }
+    value.len() == 16
+        && value
+            .bytes()
+            .all(|b| matches!(b, b'0'..=b'9' | b'a'..=b'f'))
+}
+
+fn zipkin_trace_id_ok(value: &str) -> bool {
+    if value.contains('\n') {
+        return false;
+    }
+    (value.len() == 16 || value.len() == 32)
+        && value
+            .bytes()
+            .all(|b| matches!(b, b'0'..=b'9' | b'a'..=b'f'))
+}
+
+fn zipkin_json_bool_and_tail_ok(after_colon: &str) -> bool {
+    if let Some(rest) = after_colon.strip_prefix("true") {
+        return package_json_tail_ok(rest);
+    }
+    if let Some(rest) = after_colon.strip_prefix("false") {
+        return package_json_tail_ok(rest);
+    }
+    false
 }
 
 /// go.mod / go.work directives: `module example.com/foo`, `go 1.22`,
@@ -91168,7 +91314,7 @@ mod func_like_line_tests {
         is_wails_json_decl, is_wdio_json_decl, is_webextension_manifest_json_decl,
         is_wireguard_config_decl, is_wiremock_json_decl, is_wrangler_toml_decl, is_xmake_decl,
         is_xorg_conf_decl, is_yaak_json_decl, is_yapf_ini_decl, is_yarnrc_yml_decl,
-        is_yum_repo_decl, is_zest_releaser_ini_decl, line_is_func_like,
+        is_yum_repo_decl, is_zest_releaser_ini_decl, is_zipkin_json_decl, line_is_func_like,
     };
 
     #[test]
@@ -120674,6 +120820,16 @@ mod func_like_line_tests {
         ));
         assert!(!is_otlp_json_decl(r#""timings": {"#));
         assert!(is_har_json_decl(r#""timings": {"#));
+        assert!(!is_otlp_json_decl(r#""localEndpoint": {"#));
+        assert!(is_zipkin_json_decl(r#""localEndpoint": {"#));
+        assert!(!is_otlp_json_decl(r#""kind": "CLIENT""#));
+        assert!(is_zipkin_json_decl(r#""kind": "CLIENT""#));
+        assert!(!is_otlp_json_decl(
+            r#""traceId": "0123456789abcdef0123456789abcdef""#
+        ));
+        assert!(is_zipkin_json_decl(
+            r#""traceId": "0123456789abcdef0123456789abcdef""#
+        ));
         assert!(!is_otlp_json_decl(r#""asyncapi": "2.6.0""#));
         assert!(is_asyncapi_json_decl(r#""asyncapi": "2.6.0""#));
         assert!(!is_otlp_json_decl(r#""openapi": "3.0.3""#));
@@ -120832,6 +120988,9 @@ mod func_like_line_tests {
         assert!(!is_otlp_json_decl(
             r#""traceId": "0123456789abcdef0123456789abcdef""#
         ));
+        assert!(is_zipkin_json_decl(
+            r#""traceId": "0123456789abcdef0123456789abcdef""#
+        ));
         assert!(!is_otlp_json_decl(r#""spanId": "0123456789abcdef""#));
         assert!(!is_otlp_json_decl(r#""attributes": ["#));
         assert!(!is_otlp_json_decl(r#""events": ["#));
@@ -120839,6 +120998,20 @@ mod func_like_line_tests {
         assert!(!is_otlp_json_decl(r#""status": {"#));
         assert!(!is_otlp_json_decl(r#""kind": 1"#));
         assert!(!is_otlp_json_decl(r#""service": "api""#));
+        assert!(!is_otlp_json_decl(r#""localEndpoint": {"#));
+        assert!(is_zipkin_json_decl(r#""localEndpoint": {"#));
+        assert!(!is_otlp_json_decl(r#""remoteEndpoint": {"#));
+        assert!(is_zipkin_json_decl(r#""remoteEndpoint": {"#));
+        assert!(!is_otlp_json_decl(r#""annotations": ["#));
+        assert!(is_zipkin_json_decl(r#""annotations": ["#));
+        assert!(!is_otlp_json_decl(r#""parentId": "0123456789abcdef""#));
+        assert!(is_zipkin_json_decl(r#""parentId": "0123456789abcdef""#));
+        assert!(!is_otlp_json_decl(r#""kind": "CLIENT""#));
+        assert!(is_zipkin_json_decl(r#""kind": "CLIENT""#));
+        assert!(!is_otlp_json_decl(r#""shared": true"#));
+        assert!(is_zipkin_json_decl(r#""shared": true"#));
+        assert!(!is_otlp_json_decl(r#""debug": false"#));
+        assert!(is_zipkin_json_decl(r#""debug": false"#));
         assert!(!is_otlp_json_decl(
             r#""startedDateTime": "2009-04-16T15:53:27.373Z""#
         ));
@@ -120917,6 +121090,228 @@ mod func_like_line_tests {
         ));
         assert!(line_is_func_like(r#""endTimeUnixNano": 0"#));
         assert!(line_is_func_like(r#""droppedAttributesCount": 3"#));
+    }
+
+    #[test]
+    fn zipkin_json_keys_smoke() {
+        assert!(is_zipkin_json_decl(r#""localEndpoint": {"#));
+        assert!(is_zipkin_json_decl(r#""remoteEndpoint": {"#));
+        assert!(is_zipkin_json_decl(r#""annotations": ["#));
+        assert!(is_zipkin_json_decl(r#""parentId": """#));
+        assert!(is_zipkin_json_decl(r#""parentId": "0123456789abcdef""#));
+        assert!(is_zipkin_json_decl(r#""kind": "CLIENT""#));
+        assert!(is_zipkin_json_decl(r#""kind": "SERVER""#));
+        assert!(is_zipkin_json_decl(r#""kind": "PRODUCER""#));
+        assert!(is_zipkin_json_decl(r#""kind": "CONSUMER""#));
+        assert!(is_zipkin_json_decl(r#""shared": true"#));
+        assert!(is_zipkin_json_decl(r#""shared": false"#));
+        assert!(is_zipkin_json_decl(r#""debug": true"#));
+        assert!(is_zipkin_json_decl(r#""debug": false"#));
+        assert!(is_zipkin_json_decl(r#""traceId": "0123456789abcdef""#));
+        assert!(is_zipkin_json_decl(
+            r#""traceId": "0123456789abcdef0123456789abcdef""#
+        ));
+        // Distinctive neighbours stay out of this scanner.
+        assert!(!is_zipkin_json_decl(r#""resourceSpans": ["#));
+        assert!(is_otlp_json_decl(r#""resourceSpans": ["#));
+        assert!(!is_zipkin_json_decl(
+            r#""parentSpanId": "0123456789abcdef""#
+        ));
+        assert!(is_otlp_json_decl(r#""parentSpanId": "0123456789abcdef""#));
+        assert!(!is_zipkin_json_decl(
+            r#""startTimeUnixNano": "1700000000000000000""#
+        ));
+        assert!(is_otlp_json_decl(
+            r#""startTimeUnixNano": "1700000000000000000""#
+        ));
+        assert!(!is_zipkin_json_decl(
+            r#""startedDateTime": "2009-04-16T15:53:27.373Z""#
+        ));
+        assert!(is_har_json_decl(
+            r#""startedDateTime": "2009-04-16T15:53:27.373Z""#
+        ));
+        assert!(!is_zipkin_json_decl(r#""openapi": "3.0.3""#));
+        assert!(is_openapi_json_decl(r#""openapi": "3.0.3""#));
+        assert!(!is_zipkin_json_decl(r#""asyncapi": "2.6.0""#));
+        assert!(is_asyncapi_json_decl(r#""asyncapi": "2.6.0""#));
+        assert!(!is_zipkin_json_decl(r#""consumer": {"#));
+        assert!(is_pact_json_decl(r#""consumer": {"#));
+        assert!(!is_zipkin_json_decl(r#""httpRequest": {"#));
+        assert!(is_mockserver_json_decl(r#""httpRequest": {"#));
+        assert!(line_is_func_like(r#""localEndpoint": {"#));
+        assert!(line_is_func_like(r#""remoteEndpoint": {"#));
+        assert!(line_is_func_like(r#""annotations": ["#));
+        assert!(line_is_func_like(r#""parentId": "0123456789abcdef""#));
+        assert!(line_is_func_like(r#""kind": "CLIENT""#));
+        assert!(line_is_func_like(r#""shared": true"#));
+        assert!(line_is_func_like(r#""debug": false"#));
+        assert!(line_is_func_like(
+            r#""traceId": "0123456789abcdef0123456789abcdef""#
+        ));
+    }
+
+    #[test]
+    fn zipkin_json_keys_count() {
+        assert!(is_zipkin_json_decl(r#""localEndpoint": {"#));
+        assert!(is_zipkin_json_decl(r#""localEndpoint": {,"#));
+        assert!(is_zipkin_json_decl(r#""localEndpoint": { // ep"#));
+        assert!(!is_zipkin_json_decl(r#""localEndpoint": ["#));
+        assert!(!is_zipkin_json_decl(r#""localEndpoint": true"#));
+        assert!(!is_zipkin_json_decl(r#""localEndpoint": """#));
+        assert!(is_zipkin_json_decl(r#""remoteEndpoint": {"#));
+        assert!(is_zipkin_json_decl(r#""remoteEndpoint": {,"#));
+        assert!(!is_zipkin_json_decl(r#""remoteEndpoint": ["#));
+        assert!(is_zipkin_json_decl(r#""annotations": ["#));
+        assert!(is_zipkin_json_decl(r#""annotations": [,"#));
+        assert!(is_zipkin_json_decl(r#""annotations": [ // a"#));
+        assert!(!is_zipkin_json_decl(r#""annotations": {"#));
+        assert!(!is_zipkin_json_decl(r#""annotations": true"#));
+        assert!(is_zipkin_json_decl(r#""parentId": """#));
+        assert!(is_zipkin_json_decl(r#""parentId": "0123456789abcdef""#));
+        assert!(is_zipkin_json_decl(r#""parentId": "0123456789abcdef","#));
+        assert!(is_zipkin_json_decl(
+            r#""parentId": "0123456789abcdef" // id"#
+        ));
+        assert!(!is_zipkin_json_decl(r#""parentId": "0123456789ABCDEF""#));
+        assert!(!is_zipkin_json_decl(r#""parentId": "0123456789abcde""#));
+        assert!(!is_zipkin_json_decl(r#""parentId": "not-hex-span-id!!""#));
+        assert!(!is_zipkin_json_decl(r#""parentId": {"#));
+        assert!(!is_zipkin_json_decl(r#""parentId": true"#));
+        assert!(!is_zipkin_json_decl(r#""parentId": ["#));
+        assert!(is_zipkin_json_decl(r#""kind": "CLIENT""#));
+        assert!(is_zipkin_json_decl(r#""kind": "SERVER""#));
+        assert!(is_zipkin_json_decl(r#""kind": "PRODUCER""#));
+        assert!(is_zipkin_json_decl(r#""kind": "CONSUMER""#));
+        assert!(is_zipkin_json_decl(r#""kind": "CLIENT","#));
+        assert!(is_zipkin_json_decl(r#""kind": "CLIENT" // k"#));
+        assert!(!is_zipkin_json_decl(r#""kind": "client""#));
+        assert!(!is_zipkin_json_decl(r#""kind": "INTERNAL""#));
+        assert!(!is_zipkin_json_decl(r#""kind": 1"#));
+        assert!(!is_zipkin_json_decl(r#""kind": {"#));
+        assert!(!is_zipkin_json_decl(r#""kind": true"#));
+        assert!(is_zipkin_json_decl(r#""shared": true"#));
+        assert!(is_zipkin_json_decl(r#""shared": false"#));
+        assert!(is_zipkin_json_decl(r#""shared": true,"#));
+        assert!(is_zipkin_json_decl(r#""shared": true // s"#));
+        assert!(!is_zipkin_json_decl(r#""shared": True"#));
+        assert!(!is_zipkin_json_decl(r#""shared": 1"#));
+        assert!(!is_zipkin_json_decl(r#""shared": "true""#));
+        assert!(!is_zipkin_json_decl(r#""shared": {"#));
+        assert!(is_zipkin_json_decl(r#""debug": true"#));
+        assert!(is_zipkin_json_decl(r#""debug": false"#));
+        assert!(!is_zipkin_json_decl(r#""debug": True"#));
+        assert!(!is_zipkin_json_decl(r#""debug": 0"#));
+        assert!(is_zipkin_json_decl(r#""traceId": "0123456789abcdef""#));
+        assert!(is_zipkin_json_decl(
+            r#""traceId": "0123456789abcdef0123456789abcdef""#
+        ));
+        assert!(is_zipkin_json_decl(
+            r#""traceId": "0123456789abcdef0123456789abcdef","#
+        ));
+        assert!(is_zipkin_json_decl(
+            r#""traceId": "0123456789abcdef0123456789abcdef" // t"#
+        ));
+        assert!(!is_zipkin_json_decl(r#""traceId": "0123456789ABCDEF""#));
+        assert!(!is_zipkin_json_decl(r#""traceId": "0123456789abcde""#));
+        assert!(!is_zipkin_json_decl(r#""traceId": """#));
+        assert!(!is_zipkin_json_decl(r#""traceId": {"#));
+        assert!(!is_zipkin_json_decl(r#""traceId": true"#));
+        // Incomplete / wrong shapes stay out.
+        assert!(!is_zipkin_json_decl(r#""localEndpoint""#));
+        assert!(!is_zipkin_json_decl(r#""localEndpoint":"#));
+        assert!(!is_zipkin_json_decl(r#""remoteEndpoint""#));
+        assert!(!is_zipkin_json_decl(r#""annotations""#));
+        assert!(!is_zipkin_json_decl(r#""parentId""#));
+        assert!(!is_zipkin_json_decl(r#""kind""#));
+        assert!(!is_zipkin_json_decl(r#""shared""#));
+        assert!(!is_zipkin_json_decl(r#""debug""#));
+        assert!(!is_zipkin_json_decl(r#""traceId""#));
+        // Generic / neighbouring stay out.
+        assert!(!is_zipkin_json_decl(
+            r#""$schema": "https://json-schema.org/draft/2020-12/schema""#
+        ));
+        assert!(!is_zipkin_json_decl(r#""name": "GET /users""#));
+        assert!(!is_zipkin_json_decl(r#""id": "0123456789abcdef""#));
+        assert!(!is_zipkin_json_decl(r#""timestamp": 1500000000000000"#));
+        assert!(!is_zipkin_json_decl(r#""duration": 35000"#));
+        assert!(!is_zipkin_json_decl(r#""tags": {"#));
+        assert!(!is_zipkin_json_decl(r#""serviceName": "api""#));
+        assert!(!is_zipkin_json_decl(r#""ipv4": "127.0.0.1""#));
+        assert!(!is_zipkin_json_decl(r#""port": 8080"#));
+        assert!(!is_zipkin_json_decl(r#""resourceSpans": ["#));
+        assert!(is_otlp_json_decl(r#""resourceSpans": ["#));
+        assert!(!is_zipkin_json_decl(
+            r#""parentSpanId": "0123456789abcdef""#
+        ));
+        assert!(is_otlp_json_decl(r#""parentSpanId": "0123456789abcdef""#));
+        assert!(!is_zipkin_json_decl(
+            r#""startedDateTime": "2009-04-16T15:53:27.373Z""#
+        ));
+        assert!(is_har_json_decl(
+            r#""startedDateTime": "2009-04-16T15:53:27.373Z""#
+        ));
+        assert!(!is_zipkin_json_decl(r#""openapi": "3.0.3""#));
+        assert!(is_openapi_json_decl(r#""openapi": "3.0.3""#));
+        assert!(!is_zipkin_json_decl(r#""asyncapi": "2.6.0""#));
+        assert!(is_asyncapi_json_decl(r#""asyncapi": "2.6.0""#));
+        assert!(!is_zipkin_json_decl(r#""consumer": {"#));
+        assert!(is_pact_json_decl(r#""consumer": {"#));
+        assert!(!is_zipkin_json_decl(r#""httpRequest": {"#));
+        assert!(is_mockserver_json_decl(r#""httpRequest": {"#));
+        assert!(!is_zipkin_json_decl(r#""hoverflyVersion": "v1.2.0""#));
+        assert!(is_hoverfly_json_decl(r#""hoverflyVersion": "v1.2.0""#));
+        assert!(!is_zipkin_json_decl(r#""imposters": ["#));
+        assert!(is_mountebank_json_decl(r#""imposters": ["#));
+        assert!(!is_zipkin_json_decl(r#""scenarioName": "checkout""#));
+        assert!(is_wiremock_json_decl(r#""scenarioName": "checkout""#));
+        assert!(!is_zipkin_json_decl(r#""lastMigration": 33"#));
+        assert!(is_mockoon_json_decl(r#""lastMigration": 33"#));
+        assert!(!is_zipkin_json_decl(r#""preRequestScript": """#));
+        assert!(is_hoppscotch_json_decl(r#""preRequestScript": """#));
+        assert!(!is_zipkin_json_decl(r#""yaakVersion": "2025.1.0""#));
+        assert!(is_yaak_json_decl(r#""yaakVersion": "2025.1.0""#));
+        assert!(!is_zipkin_json_decl(r#""brunoConfig": {"#));
+        assert!(is_bruno_json_decl(r#""brunoConfig": {"#));
+        assert!(!is_zipkin_json_decl(r#""client": "Thunder Client""#));
+        assert!(is_thunder_client_json_decl(r#""client": "Thunder Client""#));
+        assert!(!is_zipkin_json_decl(
+            r#""_postman_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890""#
+        ));
+        assert!(is_postman_json_decl(
+            r#""_postman_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890""#
+        ));
+        assert!(!is_zipkin_json_decl(r#""__export_format": 4"#));
+        assert!(is_insomnia_json_decl(r#""__export_format": 4"#));
+        assert!(!is_zipkin_json_decl(r#""disableSearch": true"#));
+        assert!(is_redoc_json_decl(r#""disableSearch": true"#));
+        assert!(!is_zipkin_json_decl(r#""specUrl": "./openapi.yaml""#));
+        assert!(is_rapidoc_json_decl(r#""specUrl": "./openapi.yaml""#));
+        assert!(!is_zipkin_json_decl(r##""dom_id": "#swagger-ui""##));
+        assert!(is_swagger_ui_json_decl(r##""dom_id": "#swagger-ui""##));
+        assert!(!is_zipkin_json_decl(r#""layout": "modern""#));
+        assert!(is_scalar_json_decl(r#""layout": "modern""#));
+        assert!(!is_zipkin_json_decl(r#""layout": "sidebar""#));
+        assert!(is_stoplight_elements_json_decl(r#""layout": "sidebar""#));
+        assert!(!is_zipkin_json_decl(r#""topbarLinks": ["#));
+        assert!(is_mintlify_json_decl(r#""topbarLinks": ["#));
+        assert!(!is_zipkin_json_decl(r#""apis": {"#));
+        assert!(is_redocly_json_decl(r#""apis": {"#));
+        assert!(!is_zipkin_json_decl(r#""functionsDir": "./functions""#));
+        assert!(is_spectral_json_decl(r#""functionsDir": "./functions""#));
+        assert!(!is_zipkin_json_decl(r#""generator-cli": {"#));
+        assert!(is_openapitools_json_decl(r#""generator-cli": {"#));
+        assert!(!is_zipkin_json_decl(r#""printWidth": 80"#));
+        assert!(is_prettier_json_decl(r#""printWidth": 80"#));
+        assert!(!is_zipkin_json_decl(r#""basePath": ".""#));
+        assert!(is_karma_json_decl(r#""basePath": ".""#));
+        assert!(line_is_func_like(r#""localEndpoint": {"#));
+        assert!(line_is_func_like(r#""remoteEndpoint": {"#));
+        assert!(line_is_func_like(r#""annotations": ["#));
+        assert!(line_is_func_like(r#""parentId": "0123456789abcdef""#));
+        assert!(line_is_func_like(r#""kind": "SERVER""#));
+        assert!(line_is_func_like(r#""shared": false"#));
+        assert!(line_is_func_like(r#""debug": true"#));
+        assert!(line_is_func_like(r#""traceId": "0123456789abcdef""#));
     }
 
     #[test]

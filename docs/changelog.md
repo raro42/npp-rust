@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.794] — 2026-11-12
+
+View:
+
+- **Function List** lists Zipkin v2 Span JSON keys: `"localEndpoint": {`, `"remoteEndpoint": {`, `"annotations": [`, `"parentId": ""` / `"…"`, `"kind": "CLIENT"` / `"SERVER"` / `"PRODUCER"` / `"CONSUMER"`, `"shared": true` / `false`, `"debug": true` / `false`, `"traceId": "…"` (16 or 32 lowercase hex). Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing `:` stay out. Generic `"$schema"` / `"name"` / `"id"` / `"timestamp"` / `"duration"` / `"tags": {` / `"serviceName"` / `"ipv4"` / `"port"` / OTLP `"resourceSpans"` / `"parentSpanId"` / `"startTimeUnixNano"` / HAR `"startedDateTime"` / `"timings"` / OpenAPI `"openapi"` / AsyncAPI `"asyncapi"` / `"channels": {` / Pact `"consumer"` / MockServer `"httpRequest"` / Hoverfly `"hoverflyVersion"` / Mountebank `"imposters"` / WireMock `"scenarioName"` / Mockoon `"lastMigration"` / Hoppscotch `"preRequestScript"` / Yaak `"yaakVersion"` / Bruno `"brunoConfig"` / Thunder Client `"client"` / Postman `"_postman_id"` / Insomnia `"__export_format"` / ReDoc `"disableSearch"` / RapiDoc `"specUrl"` / swagger-ui `"dom_id"` / scalar `"layout": "modern"` / Elements `"layout": "sidebar"` / mintlify `"topbarLinks"` / Compodoc `"theme": "material"` / redocly `"apis"` / spectral `"functionsDir"` / openapitools `"generator-cli"` / Knip `"entry"` / prettier `"printWidth"` / package.json `"bin"` / karma `"basePath"` stay out. `"parentId"` only matches empty or 16-char lowercase hex. `"traceId"` only matches 16 or 32-char lowercase hex.
+
 ## [0.3.793] — 2026-11-12
 
 View:
