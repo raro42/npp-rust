@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.789] — 2026-11-11
+
+View:
+
+- **Function List** lists Pact contract JSON keys: `"consumer": {`, `"provider": {`, `"interactions": [`, `"matchingRules": {`, `"providerStates": [`, `"providerState": ""` / `"…"`, `"pactSpecification": {`, `"interactionMarkup": ""` / `"…"`, `"interactionMarkupType": "HTML"` / `"MARKDOWN"`, `"pact:matcher:type": ""` / `"…"`, `"pact:generator:type": ""` / `"…"`. Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing `:` stay out. Generic `"$schema"` / `"request": {` / `"response": {` / `"description"` / `"method"` / `"path"` / `"headers": {` / `"body"` / `"status"` / `"metadata": {` / `"generators": {` (Nx) / `"pending"` / `"messages": [` / MockServer `"httpRequest"` / `"httpResponse"` / `"dropConnection"` / Hoverfly `"hoverflyVersion"` / `"schemaVersion"` / `"fixedDelay"` / `"bodyFile"` / Mountebank `"imposters"` / `"predicates"` / `"deepEquals"` / WireMock `"scenarioName"` / `"requiredScenarioState"` / `"fault"` / `"postServeActions"` / `"bodyFileName"` / `"fixedDelayMilliseconds"` / Mockoon `"lastMigration"` / `"endpointPrefix"` / `"bodyType"` / Hoppscotch `"preRequestScript"` / `"authType"` / Yaak `"yaakVersion"` / `"httpRequests"` / Bruno `"brunoConfig"` / Thunder Client `"client"` / `"collectionName"` / Postman `"_postman_id"` / Insomnia `"__export_format"` / `"_type"` / ReDoc `"disableSearch"` / RapiDoc `"specUrl"` / swagger `"dom_id"` / scalar `"layout": "modern"` / Elements `"layout": "sidebar"` / mintlify `"topbarLinks"` / Compodoc `"theme": "material"` / redocly `"apis"` / spectral `"functionsDir"` / openapitools `"generator-cli"` / docfx `"metadata": [` / typedoc `"entryPoints"` / api-extractor `"mainEntryPointFilePath"` / prettier `"printWidth"` / package.json `"bin"` / karma `"basePath"` stay out. `"interactionMarkupType"` only matches Pact HTML / MARKDOWN enums.
+
 ## [0.3.788] — 2026-11-11
 
 View:

@@ -32456,6 +32456,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_mountebank_json_decl(s)
             || is_hoverfly_json_decl(s)
             || is_mockserver_json_decl(s)
+            || is_pact_json_decl(s)
             || is_gomod_decl(s)
             || is_gemfile_decl(s)
             || is_brewfile_decl(s)
@@ -32822,6 +32823,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_mountebank_json_decl(s)
         || is_hoverfly_json_decl(s)
         || is_mockserver_json_decl(s)
+        || is_pact_json_decl(s)
         || is_gomod_decl(s)
         || is_gemfile_decl(s)
         || is_brewfile_decl(s)
@@ -59683,7 +59685,8 @@ fn hoverfly_json_fixed_delay_and_tail_ok(key: &str, after_colon: &str) -> bool {
 /// `"generator-cli"` / docfx `"metadata": [` / typedoc
 /// `"entryPoints"` / api-extractor `"mainEntryPointFilePath"` /
 /// prettier `"printWidth"` / package.json `"bin"` / karma
-/// `"basePath"` stay out.
+/// `"basePath"` / Pact `"interactions"` / `"matchingRules"` /
+/// `"providerStates"` / `"pactSpecification"` stay out.
 fn is_mockserver_json_decl(s: &str) -> bool {
     let s = s.trim_start();
     let Some(rest) = s.strip_prefix('"') else {
@@ -59806,6 +59809,129 @@ fn mockserver_json_remaining_times_and_tail_ok(key: &str, after_colon: &str) -> 
         return false;
     }
     package_json_tail_ok(&after_colon[digits..])
+}
+
+/// Pact contract JSON keys: `"consumer": {`, `"provider": {`,
+/// `"interactions": [`, `"matchingRules": {`, `"providerStates": [`,
+/// `"providerState": ""` / `"…"`, `"pactSpecification": {`,
+/// `"interactionMarkup": ""` / `"…"`,
+/// `"interactionMarkupType": "HTML"` / `"MARKDOWN"`,
+/// `"pact:matcher:type": ""` / `"…"`,
+/// `"pact:generator:type": ""` / `"…"`.
+/// Optional trailing `,` and `//` / `/*` comment. Incomplete quotes /
+/// missing `:` stay out. Generic `"$schema"` / `"request": {` /
+/// `"response": {` / `"description"` / `"method"` / `"path"` /
+/// `"headers": {` / `"body"` / `"status"` / `"metadata": {` /
+/// `"generators": {` (Nx) / `"pending"` / `"messages": [` /
+/// MockServer `"httpRequest"` / `"httpResponse"` / `"dropConnection"` /
+/// Hoverfly `"hoverflyVersion"` / `"schemaVersion"` / `"fixedDelay"` /
+/// `"bodyFile"` / Mountebank `"imposters"` / `"predicates"` /
+/// `"deepEquals"` / WireMock `"scenarioName"` /
+/// `"requiredScenarioState"` / `"fault"` / `"postServeActions"` /
+/// `"bodyFileName"` / `"fixedDelayMilliseconds"` / Mockoon
+/// `"lastMigration"` / `"endpointPrefix"` / `"bodyType"` / Hoppscotch
+/// `"preRequestScript"` / `"authType"` / Yaak `"yaakVersion"` /
+/// `"httpRequests"` / Bruno `"brunoConfig"` / Thunder Client
+/// `"client"` / `"collectionName"` / Postman `"_postman_id"` /
+/// Insomnia `"__export_format"` / `"_type"` / ReDoc `"disableSearch"` /
+/// RapiDoc `"specUrl"` / swagger `"dom_id"` / scalar
+/// `"layout": "modern"` / Elements `"layout": "sidebar"` /
+/// mintlify `"topbarLinks"` / Compodoc `"theme": "material"` /
+/// redocly `"apis"` / spectral `"functionsDir"` / openapitools
+/// `"generator-cli"` / docfx `"metadata": [` / typedoc
+/// `"entryPoints"` / api-extractor `"mainEntryPointFilePath"` /
+/// prettier `"printWidth"` / package.json `"bin"` / karma
+/// `"basePath"` stay out. `"interactionMarkupType"` only matches
+/// Pact HTML / MARKDOWN enums.
+fn is_pact_json_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    let Some(rest) = s.strip_prefix('"') else {
+        return false;
+    };
+    let Some(end) = rest.find('"') else {
+        return false;
+    };
+    let key = &rest[..end];
+    if !pact_json_key_ok(key) {
+        return false;
+    }
+    let after_key = rest[end + 1..].trim_start();
+    let Some(after_colon) = after_key.strip_prefix(':') else {
+        return false;
+    };
+    let after_colon = after_colon.trim_start();
+    pact_json_value_and_tail_ok(key, after_colon)
+}
+
+fn pact_json_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "consumer"
+            | "provider"
+            | "interactions"
+            | "matchingRules"
+            | "providerStates"
+            | "providerState"
+            | "pactSpecification"
+            | "interactionMarkup"
+            | "interactionMarkupType"
+            | "pact:matcher:type"
+            | "pact:generator:type"
+    )
+}
+
+fn pact_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool {
+    let bytes = after_colon.as_bytes();
+    let Some(first) = bytes.first().copied() else {
+        return false;
+    };
+    match first {
+        b'{' => {
+            if !matches!(
+                key,
+                "consumer" | "provider" | "matchingRules" | "pactSpecification"
+            ) {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[1..])
+        }
+        b'[' => {
+            if !matches!(key, "interactions" | "providerStates") {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[1..])
+        }
+        b'"' => {
+            if !matches!(
+                key,
+                "providerState"
+                    | "interactionMarkup"
+                    | "interactionMarkupType"
+                    | "pact:matcher:type"
+                    | "pact:generator:type"
+            ) {
+                return false;
+            }
+            let rest = &after_colon[1..];
+            let Some(end) = rest.find('"') else {
+                return false;
+            };
+            let value = &rest[..end];
+            if key == "interactionMarkupType" {
+                if !matches!(value, "HTML" | "MARKDOWN") {
+                    return false;
+                }
+            } else if !pact_json_free_string_ok(value) {
+                return false;
+            }
+            package_json_tail_ok(&rest[end + 1..])
+        }
+        _ => false,
+    }
+}
+
+fn pact_json_free_string_ok(value: &str) -> bool {
+    !value.contains('\n') && value.len() <= 8192
 }
 
 /// go.mod / go.work directives: `module example.com/foo`, `go 1.22`,
@@ -90455,21 +90581,22 @@ mod func_like_line_tests {
         is_nginx_conf_decl, is_nightwatch_json_decl, is_nixpacks_toml_decl, is_nm_connection_decl,
         is_npmrc_decl, is_nsswitch_conf_decl, is_nx_json_decl, is_nyc_json_decl,
         is_openapitools_json_decl, is_openvpn_decl, is_os_release_decl, is_oxlint_json_decl,
-        is_package_json_decl, is_pacman_conf_decl, is_pam_conf_decl, is_parcel_json_decl,
-        is_paru_conf_decl, is_passwd_group_file_decl, is_pdm_toml_decl, is_php_ini_decl,
-        is_pip_conf_decl, is_pipfile_decl, is_pixi_toml_decl, is_playwright_json_decl,
-        is_podfile_decl, is_poetry_toml_decl, is_postcss_json_decl, is_postman_json_decl,
-        is_premake_decl, is_prettier_json_decl, is_protocols_file_decl, is_pycln_ini_decl,
-        is_pycodestyle_ini_decl, is_pydoclint_ini_decl, is_pydocstyle_ini_decl, is_pylama_ini_decl,
-        is_pylint_ini_decl, is_pypirc_ini_decl, is_pyproject_toml_decl, is_pyre_configuration_decl,
-        is_pyright_toml_decl, is_pyrightconfig_json_decl, is_pytest_ini_decl, is_pytype_ini_decl,
-        is_pyupgrade_ini_decl, is_radon_ini_decl, is_railway_toml_decl, is_rake_decl,
-        is_rapidoc_json_decl, is_redoc_json_decl, is_redocly_json_decl, is_refurb_toml_decl,
-        is_release_it_json_decl, is_release_please_json_decl, is_release_toml_decl,
-        is_renovate_json_decl, is_resolv_conf_decl, is_rpc_file_decl, is_rstcheck_ini_decl,
-        is_rsyslog_decl, is_ruff_toml_decl, is_rush_json_decl, is_rust_toolchain_toml_decl,
-        is_rustfmt_toml_decl, is_samba_conf_decl, is_samconfig_toml_decl, is_scalar_json_decl,
-        is_scons_decl, is_scriv_ini_decl, is_sddm_conf_decl, is_semantic_release_ini_decl,
+        is_package_json_decl, is_pacman_conf_decl, is_pact_json_decl, is_pam_conf_decl,
+        is_parcel_json_decl, is_paru_conf_decl, is_passwd_group_file_decl, is_pdm_toml_decl,
+        is_php_ini_decl, is_pip_conf_decl, is_pipfile_decl, is_pixi_toml_decl,
+        is_playwright_json_decl, is_podfile_decl, is_poetry_toml_decl, is_postcss_json_decl,
+        is_postman_json_decl, is_premake_decl, is_prettier_json_decl, is_protocols_file_decl,
+        is_pycln_ini_decl, is_pycodestyle_ini_decl, is_pydoclint_ini_decl, is_pydocstyle_ini_decl,
+        is_pylama_ini_decl, is_pylint_ini_decl, is_pypirc_ini_decl, is_pyproject_toml_decl,
+        is_pyre_configuration_decl, is_pyright_toml_decl, is_pyrightconfig_json_decl,
+        is_pytest_ini_decl, is_pytype_ini_decl, is_pyupgrade_ini_decl, is_radon_ini_decl,
+        is_railway_toml_decl, is_rake_decl, is_rapidoc_json_decl, is_redoc_json_decl,
+        is_redocly_json_decl, is_refurb_toml_decl, is_release_it_json_decl,
+        is_release_please_json_decl, is_release_toml_decl, is_renovate_json_decl,
+        is_resolv_conf_decl, is_rpc_file_decl, is_rstcheck_ini_decl, is_rsyslog_decl,
+        is_ruff_toml_decl, is_rush_json_decl, is_rust_toolchain_toml_decl, is_rustfmt_toml_decl,
+        is_samba_conf_decl, is_samconfig_toml_decl, is_scalar_json_decl, is_scons_decl,
+        is_scriv_ini_decl, is_sddm_conf_decl, is_semantic_release_ini_decl,
         is_semantic_release_json_decl, is_services_file_decl, is_setup_cfg_decl,
         is_setuptools_scm_ini_decl, is_simple_git_hooks_json_decl, is_spectral_json_decl,
         is_sqlfluff_ini_decl, is_ssh_config_decl, is_sssd_conf_decl,
@@ -118782,6 +118909,12 @@ mod func_like_line_tests {
         assert!(is_prettier_json_decl(r#""printWidth": 80"#));
         assert!(!is_mockserver_json_decl(r#""basePath": ".""#));
         assert!(is_karma_json_decl(r#""basePath": ".""#));
+        assert!(!is_mockserver_json_decl(r#""interactions": ["#));
+        assert!(is_pact_json_decl(r#""interactions": ["#));
+        assert!(!is_mockserver_json_decl(r#""matchingRules": {"#));
+        assert!(is_pact_json_decl(r#""matchingRules": {"#));
+        assert!(!is_mockserver_json_decl(r#""pactSpecification": {"#));
+        assert!(is_pact_json_decl(r#""pactSpecification": {"#));
     }
 
     #[test]
@@ -118958,6 +119091,14 @@ mod func_like_line_tests {
         assert!(is_prettier_json_decl(r#""printWidth": 80"#));
         assert!(!is_mockserver_json_decl(r#""basePath": ".""#));
         assert!(is_karma_json_decl(r#""basePath": ".""#));
+        assert!(!is_mockserver_json_decl(r#""interactions": ["#));
+        assert!(is_pact_json_decl(r#""interactions": ["#));
+        assert!(!is_mockserver_json_decl(r#""matchingRules": {"#));
+        assert!(is_pact_json_decl(r#""matchingRules": {"#));
+        assert!(!is_mockserver_json_decl(r#""providerStates": ["#));
+        assert!(is_pact_json_decl(r#""providerStates": ["#));
+        assert!(!is_mockserver_json_decl(r#""pactSpecification": {"#));
+        assert!(is_pact_json_decl(r#""pactSpecification": {"#));
         // line_is_func_like wires the scanner.
         assert!(line_is_func_like(r#""httpRequest": {"#));
         assert!(line_is_func_like(r#""httpResponse": {"#));
@@ -118976,6 +119117,177 @@ mod func_like_line_tests {
         assert!(line_is_func_like(r#""dropConnection": true"#));
         assert!(line_is_func_like(r#""responseBytes": "QQ==""#));
         assert!(line_is_func_like(r#""remainingTimes": 1"#));
+    }
+
+    #[test]
+    fn pact_json_keys_smoke() {
+        assert!(is_pact_json_decl(r#""consumer": {"#));
+        assert!(is_pact_json_decl(r#""provider": {"#));
+        assert!(is_pact_json_decl(r#""interactions": ["#));
+        assert!(is_pact_json_decl(r#""matchingRules": {"#));
+        assert!(is_pact_json_decl(r#""providerStates": ["#));
+        assert!(is_pact_json_decl(r#""providerState": "foo exists""#));
+        assert!(is_pact_json_decl(r#""pactSpecification": {"#));
+        assert!(is_pact_json_decl(r#""interactionMarkup": "<div/>""#));
+        assert!(is_pact_json_decl(r#""interactionMarkupType": "HTML""#));
+        assert!(is_pact_json_decl(r#""interactionMarkupType": "MARKDOWN""#));
+        assert!(is_pact_json_decl(r#""pact:matcher:type": "type""#));
+        assert!(is_pact_json_decl(r#""pact:generator:type": "RandomInt""#));
+        // Distinctive neighbours stay out of this scanner.
+        assert!(!is_pact_json_decl(r#""httpRequest": {"#));
+        assert!(is_mockserver_json_decl(r#""httpRequest": {"#));
+        assert!(!is_pact_json_decl(r#""httpResponse": {"#));
+        assert!(is_mockserver_json_decl(r#""httpResponse": {"#));
+        assert!(!is_pact_json_decl(r#""dropConnection": true"#));
+        assert!(is_mockserver_json_decl(r#""dropConnection": true"#));
+        assert!(!is_pact_json_decl(r#""hoverflyVersion": "v1.2.0""#));
+        assert!(is_hoverfly_json_decl(r#""hoverflyVersion": "v1.2.0""#));
+        assert!(!is_pact_json_decl(r#""imposters": ["#));
+        assert!(is_mountebank_json_decl(r#""imposters": ["#));
+        assert!(!is_pact_json_decl(r#""scenarioName": "checkout""#));
+        assert!(is_wiremock_json_decl(r#""scenarioName": "checkout""#));
+        assert!(!is_pact_json_decl(r#""lastMigration": 33"#));
+        assert!(is_mockoon_json_decl(r#""lastMigration": 33"#));
+        assert!(!is_pact_json_decl(r#""preRequestScript": """#));
+        assert!(is_hoppscotch_json_decl(r#""preRequestScript": """#));
+        assert!(!is_pact_json_decl(r#""yaakVersion": "2025.1.0""#));
+        assert!(is_yaak_json_decl(r#""yaakVersion": "2025.1.0""#));
+        assert!(!is_pact_json_decl(r#""brunoConfig": {"#));
+        assert!(is_bruno_json_decl(r#""brunoConfig": {"#));
+        assert!(!is_pact_json_decl(r#""client": "Thunder Client""#));
+        assert!(is_thunder_client_json_decl(r#""client": "Thunder Client""#));
+        assert!(!is_pact_json_decl(
+            r#""_postman_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890""#
+        ));
+        assert!(is_postman_json_decl(
+            r#""_postman_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890""#
+        ));
+        assert!(!is_pact_json_decl(r#""__export_format": 4"#));
+        assert!(is_insomnia_json_decl(r#""__export_format": 4"#));
+        assert!(!is_pact_json_decl(r#""generators": {"#));
+        assert!(is_nx_json_decl(r#""generators": {"#));
+        assert!(!is_pact_json_decl(r#""printWidth": 80"#));
+        assert!(is_prettier_json_decl(r#""printWidth": 80"#));
+        assert!(!is_pact_json_decl(r#""basePath": ".""#));
+        assert!(is_karma_json_decl(r#""basePath": ".""#));
+    }
+
+    #[test]
+    fn pact_json_keys_count() {
+        assert!(is_pact_json_decl(r#""consumer": {"#));
+        assert!(is_pact_json_decl(r#""consumer": {,"#));
+        assert!(is_pact_json_decl(r#""consumer": { // party"#));
+        assert!(!is_pact_json_decl(r#""consumer": ["#));
+        assert!(!is_pact_json_decl(r#""consumer": true"#));
+        assert!(is_pact_json_decl(r#""provider": {"#));
+        assert!(is_pact_json_decl(r#""provider": {,"#));
+        assert!(!is_pact_json_decl(r#""provider": ["#));
+        assert!(is_pact_json_decl(r#""interactions": ["#));
+        assert!(is_pact_json_decl(r#""interactions": [,"#));
+        assert!(is_pact_json_decl(r#""interactions": [ // list"#));
+        assert!(!is_pact_json_decl(r#""interactions": {"#));
+        assert!(!is_pact_json_decl(r#""interactions": true"#));
+        assert!(is_pact_json_decl(r#""matchingRules": {"#));
+        assert!(is_pact_json_decl(r#""matchingRules": {,"#));
+        assert!(!is_pact_json_decl(r#""matchingRules": ["#));
+        assert!(is_pact_json_decl(r#""providerStates": ["#));
+        assert!(is_pact_json_decl(r#""providerStates": [,"#));
+        assert!(!is_pact_json_decl(r#""providerStates": {"#));
+        assert!(is_pact_json_decl(r#""providerState": """#));
+        assert!(is_pact_json_decl(r#""providerState": "foo exists""#));
+        assert!(is_pact_json_decl(r#""providerState": "foo exists","#));
+        assert!(is_pact_json_decl(
+            r#""providerState": "foo exists" // state"#
+        ));
+        assert!(!is_pact_json_decl(r#""providerState": {"#));
+        assert!(!is_pact_json_decl(r#""providerState": true"#));
+        assert!(is_pact_json_decl(r#""pactSpecification": {"#));
+        assert!(is_pact_json_decl(r#""pactSpecification": {,"#));
+        assert!(!is_pact_json_decl(r#""pactSpecification": ["#));
+        assert!(!is_pact_json_decl(r#""pactSpecification": "3.0.0""#));
+        assert!(is_pact_json_decl(r#""interactionMarkup": """#));
+        assert!(is_pact_json_decl(r#""interactionMarkup": "<div/>""#));
+        assert!(is_pact_json_decl(r#""interactionMarkup": "<div/>","#));
+        assert!(!is_pact_json_decl(r#""interactionMarkup": {"#));
+        assert!(is_pact_json_decl(r#""interactionMarkupType": "HTML""#));
+        assert!(is_pact_json_decl(r#""interactionMarkupType": "MARKDOWN""#));
+        assert!(is_pact_json_decl(r#""interactionMarkupType": "HTML","#));
+        assert!(is_pact_json_decl(
+            r#""interactionMarkupType": "MARKDOWN" // kind"#
+        ));
+        assert!(!is_pact_json_decl(r#""interactionMarkupType": "TEXT""#));
+        assert!(!is_pact_json_decl(r#""interactionMarkupType": "html""#));
+        assert!(!is_pact_json_decl(r#""interactionMarkupType": {"#));
+        assert!(is_pact_json_decl(r#""pact:matcher:type": "type""#));
+        assert!(is_pact_json_decl(r#""pact:matcher:type": "regex""#));
+        assert!(is_pact_json_decl(r#""pact:matcher:type": "type","#));
+        assert!(!is_pact_json_decl(r#""pact:matcher:type": {"#));
+        assert!(is_pact_json_decl(r#""pact:generator:type": "RandomInt""#));
+        assert!(is_pact_json_decl(r#""pact:generator:type": "Uuid""#));
+        assert!(!is_pact_json_decl(r#""pact:generator:type": {"#));
+        // Incomplete / wrong shapes stay out.
+        assert!(!is_pact_json_decl(r#""consumer""#));
+        assert!(!is_pact_json_decl(r#""consumer":"#));
+        assert!(!is_pact_json_decl(r#""interactions""#));
+        assert!(!is_pact_json_decl(r#""matchingRules""#));
+        assert!(!is_pact_json_decl(r#""providerState""#));
+        // Generic / neighbouring stay out.
+        assert!(!is_pact_json_decl(r#""$schema": "https://example.com""#));
+        assert!(!is_pact_json_decl(r#""request": {"#));
+        assert!(!is_pact_json_decl(r#""response": {"#));
+        assert!(!is_pact_json_decl(r#""description": "a request""#));
+        assert!(!is_pact_json_decl(r#""method": "GET""#));
+        assert!(!is_pact_json_decl(r#""path": "/foo""#));
+        assert!(!is_pact_json_decl(r#""headers": {"#));
+        assert!(!is_pact_json_decl(r#""body": {"#));
+        assert!(!is_pact_json_decl(r#""status": 200"#));
+        assert!(!is_pact_json_decl(r#""metadata": {"#));
+        assert!(!is_pact_json_decl(r#""pending": true"#));
+        assert!(!is_pact_json_decl(r#""messages": ["#));
+        assert!(!is_pact_json_decl(r#""generators": {"#));
+        assert!(is_nx_json_decl(r#""generators": {"#));
+        assert!(!is_pact_json_decl(r#""httpRequest": {"#));
+        assert!(is_mockserver_json_decl(r#""httpRequest": {"#));
+        assert!(!is_pact_json_decl(r#""hoverflyVersion": "v1.2.0""#));
+        assert!(is_hoverfly_json_decl(r#""hoverflyVersion": "v1.2.0""#));
+        assert!(!is_pact_json_decl(r#""imposters": ["#));
+        assert!(is_mountebank_json_decl(r#""imposters": ["#));
+        assert!(!is_pact_json_decl(r#""scenarioName": "checkout""#));
+        assert!(is_wiremock_json_decl(r#""scenarioName": "checkout""#));
+        assert!(!is_pact_json_decl(r#""lastMigration": 33"#));
+        assert!(is_mockoon_json_decl(r#""lastMigration": 33"#));
+        assert!(!is_pact_json_decl(r#""preRequestScript": """#));
+        assert!(is_hoppscotch_json_decl(r#""preRequestScript": """#));
+        assert!(!is_pact_json_decl(r#""yaakVersion": "2025.1.0""#));
+        assert!(is_yaak_json_decl(r#""yaakVersion": "2025.1.0""#));
+        assert!(!is_pact_json_decl(r#""brunoConfig": {"#));
+        assert!(is_bruno_json_decl(r#""brunoConfig": {"#));
+        assert!(!is_pact_json_decl(r#""client": "Thunder Client""#));
+        assert!(is_thunder_client_json_decl(r#""client": "Thunder Client""#));
+        assert!(!is_pact_json_decl(
+            r#""_postman_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890""#
+        ));
+        assert!(is_postman_json_decl(
+            r#""_postman_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890""#
+        ));
+        assert!(!is_pact_json_decl(r#""__export_format": 4"#));
+        assert!(is_insomnia_json_decl(r#""__export_format": 4"#));
+        assert!(!is_pact_json_decl(r#""printWidth": 80"#));
+        assert!(is_prettier_json_decl(r#""printWidth": 80"#));
+        assert!(!is_pact_json_decl(r#""basePath": ".""#));
+        assert!(is_karma_json_decl(r#""basePath": ".""#));
+        // line_is_func_like wires the scanner.
+        assert!(line_is_func_like(r#""consumer": {"#));
+        assert!(line_is_func_like(r#""provider": {"#));
+        assert!(line_is_func_like(r#""interactions": ["#));
+        assert!(line_is_func_like(r#""matchingRules": {"#));
+        assert!(line_is_func_like(r#""providerStates": ["#));
+        assert!(line_is_func_like(r#""providerState": "foo exists""#));
+        assert!(line_is_func_like(r#""pactSpecification": {"#));
+        assert!(line_is_func_like(r#""interactionMarkup": "<div/>""#));
+        assert!(line_is_func_like(r#""interactionMarkupType": "HTML""#));
+        assert!(line_is_func_like(r#""pact:matcher:type": "type""#));
+        assert!(line_is_func_like(r#""pact:generator:type": "RandomInt""#));
     }
 
     #[test]

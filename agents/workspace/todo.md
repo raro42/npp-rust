@@ -1,3 +1,5 @@
+009 keep: Function List Pact consumer/provider/interactions/matchingRules/providerStates/providerState/pactSpecification/interactionMarkup/interactionMarkupType/pact:matcher:type/pact:generator:type (v0.3.789)
+
 009 keep: Function List MockServer httpRequest/httpResponse/httpResponseTemplate/httpResponseClassCallback/httpResponseObjectCallback/httpForward/httpForwardTemplate/httpForwardClassCallback/httpForwardObjectCallback/httpOverrideForwardedRequest/httpError/times/timeToLive/socketAddress/dropConnection/responseBytes/remainingTimes (v0.3.788)
 
 009 keep: Function List Hoverfly hoverflyVersion/schemaVersion/timeExported/globalActions/delaysLogNormal/encodedBody/fixedDelay/logNormalDelay/postServeAction/removesState/transitionsState/requiresState/templated/bodyFile (v0.3.787)
