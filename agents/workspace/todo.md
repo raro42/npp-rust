@@ -1230,3 +1230,5 @@
 009 keep: Function List Yaak yaakVersion/yaakSchema/httpRequests/grpcRequests/websocketRequests (v0.3.782)
 
 009 keep: Function List Hoppscotch preRequestScript/testScript/requestVariables/_ref_id/authType/authActive/responseMeta (v0.3.783)
+
+009 keep: Function List Mockoon lastMigration/endpointPrefix/proxyMode/proxyHost/proxyRemovePrefix/rootChildren/proxyReqHeaders/proxyResHeaders/headersCaseInsensitive/enableRandomLatency/tlsOptions/bodyType/rulesOperator/databucketID (v0.3.784)

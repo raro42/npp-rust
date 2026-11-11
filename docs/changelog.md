@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.784] — 2026-11-11
+
+View:
+
+- **Function List** lists Mockoon environment / route-response JSON keys: `"lastMigration": 33`, `"endpointPrefix": ""` / `"api"`, `"proxyMode": true` / `false`, `"proxyHost": ""` / `"…"`, `"proxyRemovePrefix": true` / `false`, `"rootChildren": [`, `"proxyReqHeaders": [`, `"proxyResHeaders": [`, `"headersCaseInsensitive": true` / `false`, `"enableRandomLatency": true` / `false`, `"tlsOptions": {`, `"bodyType": "INLINE"` / `"FILE"` / `"DATABUCKET"`, `"rulesOperator": "OR"` / `"AND"`, `"databucketID": ""` / `"…"`. Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing `:` stay out. Generic `"$schema"` / `"name"` / `"version"` / `"uuid"` / `"hostname"` / `"port"` / `"latency"` / `"cors"` / `"folders": [` / `"routes": [` / `"headers": [` / `"data": [` / `"callbacks": [` / Hoppscotch `"preRequestScript"` / `"authType"` / Yaak `"yaakVersion"` / Bruno `"brunoConfig"` / Thunder Client `"client"` / `"collectionName"` / Postman `"_postman_id"` / `"protocolProfileBehavior"` / Insomnia `"__export_format"` / `"_type"` / ReDoc `"disableSearch"` / RapiDoc `"specUrl"` / swagger `"dom_id"` / scalar `"layout": "modern"` / Elements `"layout": "sidebar"` / mintlify `"topbarLinks"` / Compodoc `"theme": "material"` / redocly `"apis"` / spectral `"functionsDir"` / openapitools `"generator-cli"` / docfx `"metadata": [` / typedoc `"entryPoints"` / api-extractor `"mainEntryPointFilePath"` / prettier `"printWidth"` / package.json `"bin"` / karma `"basePath"` stay out. `"bodyType"` / `"rulesOperator"` only match Mockoon enums.
+
 ## [0.3.783] — 2026-11-11
 
 View:
