@@ -1,3 +1,5 @@
+009 keep: Function List Thunder Client client/collectionName/environmentName/dateExported/colId/containerId/sortNum (v0.3.780)
+
 009 keep: Function List Swagger UI swagger-config dom_id/urls/spec/layout BaseLayout|StandaloneLayout/docExpansion/deepLinking/validatorUrl/defaultModelsExpandDepth (v0.3.775)
 
 009 keep: Function List Stoplight Elements apiDescriptionUrl/apiDescriptionDocument/layout sidebar|stacked|responsive/router/hideTryIt/tryItCredentialsPolicy/maxRefDepth (v0.3.774)

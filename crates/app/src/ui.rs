@@ -32447,6 +32447,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_redoc_json_decl(s)
             || is_postman_json_decl(s)
             || is_insomnia_json_decl(s)
+            || is_thunder_client_json_decl(s)
             || is_gomod_decl(s)
             || is_gemfile_decl(s)
             || is_brewfile_decl(s)
@@ -32804,6 +32805,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_redoc_json_decl(s)
         || is_postman_json_decl(s)
         || is_insomnia_json_decl(s)
+        || is_thunder_client_json_decl(s)
         || is_gomod_decl(s)
         || is_gemfile_decl(s)
         || is_brewfile_decl(s)
@@ -58473,6 +58475,141 @@ fn insomnia_json_number_and_tail_ok(key: &str, after_colon: &str) -> bool {
         }
     }
     package_json_tail_ok(&rest[digits..])
+}
+
+/// Thunder Client collection / environment / request export JSON keys:
+/// `"client": "Thunder Client"`, `"collectionName": "…"`,
+/// `"environmentName": "…"`, `"dateExported": "…"`, `"colId": "…"`,
+/// `"containerId": ""` / `"…"`, `"sortNum": 10000`. Optional trailing `,`
+/// and `//` / `/*` comment. Incomplete quotes / missing `:` stay out.
+/// Generic `"$schema"` / `"name"` / `"version"` / `"url"` / `"method"` /
+/// `"folders": [` / `"requests": [` / `"variables": [` / Postman
+/// `"_postman_id"` / `"protocolProfileBehavior"` / Insomnia
+/// `"__export_format"` / `"_type"` / ReDoc `"disableSearch"` / RapiDoc
+/// `"specUrl"` / swagger `"dom_id"` / scalar `"layout": "modern"` /
+/// Elements `"layout": "sidebar"` / mintlify `"topbarLinks"` / Compodoc
+/// `"theme": "material"` / redocly `"apis"` / spectral `"functionsDir"` /
+/// openapitools `"generator-cli"` / docfx `"metadata": [` / typedoc
+/// `"entryPoints"` / api-extractor `"mainEntryPointFilePath"` / prettier
+/// `"printWidth"` / package.json `"bin"` / karma `"basePath"` stay out.
+/// `"client"` only matches the exact Thunder Client product string.
+fn is_thunder_client_json_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    let Some(rest) = s.strip_prefix('"') else {
+        return false;
+    };
+    let Some(end) = rest.find('"') else {
+        return false;
+    };
+    let key = &rest[..end];
+    if !thunder_client_json_key_ok(key) {
+        return false;
+    }
+    let after_key = rest[end + 1..].trim_start();
+    let Some(after_colon) = after_key.strip_prefix(':') else {
+        return false;
+    };
+    let after_colon = after_colon.trim_start();
+    thunder_client_json_value_and_tail_ok(key, after_colon)
+}
+
+fn thunder_client_json_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "client"
+            | "collectionName"
+            | "environmentName"
+            | "dateExported"
+            | "colId"
+            | "containerId"
+            | "sortNum"
+    )
+}
+
+fn thunder_client_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool {
+    let bytes = after_colon.as_bytes();
+    let Some(first) = bytes.first().copied() else {
+        return false;
+    };
+    match first {
+        b'"' => {
+            if !thunder_client_json_string_key_ok(key) {
+                return false;
+            }
+            let rest = &after_colon[1..];
+            let Some(end) = rest.find('"') else {
+                return false;
+            };
+            let value = &rest[..end];
+            if !thunder_client_json_string_ok(key, value) {
+                return false;
+            }
+            package_json_tail_ok(&rest[end + 1..])
+        }
+        b'0'..=b'9' => thunder_client_json_number_and_tail_ok(key, after_colon),
+        _ => false,
+    }
+}
+
+fn thunder_client_json_string_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "client" | "collectionName" | "environmentName" | "dateExported" | "colId" | "containerId"
+    )
+}
+
+fn thunder_client_json_string_ok(key: &str, value: &str) -> bool {
+    if value.contains('\n') {
+        return false;
+    }
+    match key {
+        "client" => value == "Thunder Client",
+        "collectionName" | "environmentName" => thunder_client_json_name_ok(value),
+        "dateExported" => postman_json_exported_at_ok(value),
+        "colId" => thunder_client_json_id_ok(value),
+        "containerId" => value.is_empty() || thunder_client_json_id_ok(value),
+        _ => false,
+    }
+}
+
+fn thunder_client_json_name_ok(value: &str) -> bool {
+    if value.is_empty() || value.len() > 256 {
+        return false;
+    }
+    value.bytes().all(|b| {
+        b.is_ascii_alphanumeric()
+            || matches!(
+                b,
+                b' ' | b'.' | b'-' | b'_' | b'/' | b':' | b'(' | b')' | b'+' | b'&' | b'\''
+            )
+    }) && value.bytes().any(|b| b.is_ascii_alphanumeric())
+}
+
+fn thunder_client_json_id_ok(value: &str) -> bool {
+    if value.is_empty() || value.len() > 128 {
+        return false;
+    }
+    value
+        .bytes()
+        .all(|b| b.is_ascii_hexdigit() || matches!(b, b'-' | b'_'))
+        && value.bytes().any(|b| b.is_ascii_alphanumeric())
+}
+
+fn thunder_client_json_number_and_tail_ok(key: &str, after_colon: &str) -> bool {
+    if key != "sortNum" {
+        return false;
+    }
+    let digits = after_colon
+        .bytes()
+        .take_while(|b| b.is_ascii_digit())
+        .count();
+    if digits == 0 || digits > 12 {
+        return false;
+    }
+    if digits > 1 && after_colon.as_bytes()[0] == b'0' {
+        return false;
+    }
+    package_json_tail_ok(&after_colon[digits..])
 }
 
 /// go.mod / go.work directives: `module example.com/foo`, `go 1.22`,
@@ -89144,16 +89281,17 @@ mod func_like_line_tests {
         is_swagger_ui_json_decl, is_swc_json_decl, is_syncpack_json_decl, is_sysctl_conf_decl,
         is_syslog_ng_decl, is_systemd_networkd_decl, is_systemd_unit_decl, is_sysusers_d_decl,
         is_tap_json_decl, is_taplo_toml_decl, is_tauri_json_decl, is_telegraf_toml_decl,
-        is_testcafe_json_decl, is_tmpfiles_d_decl, is_towncrier_ini_decl, is_tox_ini_decl,
-        is_trunk_toml_decl, is_tsconfig_json_decl, is_turbo_json_decl, is_ty_toml_decl,
-        is_typedoc_json_decl, is_typos_toml_decl, is_udev_rule_decl, is_unbound_nsd_conf_decl,
-        is_uniffi_toml_decl, is_unimport_ini_decl, is_uv_toml_decl, is_vconsole_conf_decl,
-        is_vector_toml_decl, is_vercel_json_decl, is_versioneer_ini_decl, is_versionrc_json_decl,
-        is_vitest_json_decl, is_vscode_launch_json_decl, is_vscode_tasks_json_decl,
-        is_vulture_ini_decl, is_wails_json_decl, is_wdio_json_decl,
-        is_webextension_manifest_json_decl, is_wireguard_config_decl, is_wrangler_toml_decl,
-        is_xmake_decl, is_xorg_conf_decl, is_yapf_ini_decl, is_yarnrc_yml_decl, is_yum_repo_decl,
-        is_zest_releaser_ini_decl, line_is_func_like,
+        is_testcafe_json_decl, is_thunder_client_json_decl, is_tmpfiles_d_decl,
+        is_towncrier_ini_decl, is_tox_ini_decl, is_trunk_toml_decl, is_tsconfig_json_decl,
+        is_turbo_json_decl, is_ty_toml_decl, is_typedoc_json_decl, is_typos_toml_decl,
+        is_udev_rule_decl, is_unbound_nsd_conf_decl, is_uniffi_toml_decl, is_unimport_ini_decl,
+        is_uv_toml_decl, is_vconsole_conf_decl, is_vector_toml_decl, is_vercel_json_decl,
+        is_versioneer_ini_decl, is_versionrc_json_decl, is_vitest_json_decl,
+        is_vscode_launch_json_decl, is_vscode_tasks_json_decl, is_vulture_ini_decl,
+        is_wails_json_decl, is_wdio_json_decl, is_webextension_manifest_json_decl,
+        is_wireguard_config_decl, is_wrangler_toml_decl, is_xmake_decl, is_xorg_conf_decl,
+        is_yapf_ini_decl, is_yarnrc_yml_decl, is_yum_repo_decl, is_zest_releaser_ini_decl,
+        line_is_func_like,
     };
 
     #[test]
@@ -115688,6 +115826,214 @@ mod func_like_line_tests {
         assert!(line_is_func_like(r#""metaSortKey": -100"#));
         assert!(line_is_func_like(r#""settingFollowRedirects": "global""#));
         assert!(line_is_func_like(r#""settingStoreCookies": true"#));
+    }
+
+    #[test]
+    fn thunder_client_json_keys_smoke() {
+        assert!(is_thunder_client_json_decl(r#""client": "Thunder Client""#));
+        assert!(is_thunder_client_json_decl(
+            r#""collectionName": "Petstore API""#
+        ));
+        assert!(is_thunder_client_json_decl(
+            r#""environmentName": "Local Dev""#
+        ));
+        assert!(is_thunder_client_json_decl(
+            r#""dateExported": "2023-12-12T08:01:33.110Z""#
+        ));
+        assert!(is_thunder_client_json_decl(
+            r#""colId": "c010c0c0-0000-0000-0000-000000000001""#
+        ));
+        assert!(is_thunder_client_json_decl(r#""containerId": """#));
+        assert!(is_thunder_client_json_decl(
+            r#""containerId": "f1a2b3c4-0001-0000-0000-000000000001""#
+        ));
+        assert!(is_thunder_client_json_decl(r#""sortNum": 10000"#));
+        // Distinctive neighbours stay out of this scanner.
+        assert!(!is_thunder_client_json_decl(
+            r#""_postman_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890""#
+        ));
+        assert!(is_postman_json_decl(
+            r#""_postman_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890""#
+        ));
+        assert!(!is_thunder_client_json_decl(r#""__export_format": 4"#));
+        assert!(is_insomnia_json_decl(r#""__export_format": 4"#));
+        assert!(!is_thunder_client_json_decl(r#""disableSearch": true"#));
+        assert!(is_redoc_json_decl(r#""disableSearch": true"#));
+        assert!(!is_thunder_client_json_decl(
+            r#""specUrl": "./openapi.yaml""#
+        ));
+        assert!(is_rapidoc_json_decl(r#""specUrl": "./openapi.yaml""#));
+        assert!(!is_thunder_client_json_decl(r##""dom_id": "#swagger-ui""##));
+        assert!(is_swagger_ui_json_decl(r##""dom_id": "#swagger-ui""##));
+        assert!(!is_thunder_client_json_decl(r#""layout": "modern""#));
+        assert!(is_scalar_json_decl(r#""layout": "modern""#));
+        assert!(!is_thunder_client_json_decl(r#""layout": "sidebar""#));
+        assert!(is_stoplight_elements_json_decl(r#""layout": "sidebar""#));
+        assert!(!is_thunder_client_json_decl(r#""topbarLinks": ["#));
+        assert!(is_mintlify_json_decl(r#""topbarLinks": ["#));
+        assert!(!is_thunder_client_json_decl(r#""apis": {"#));
+        assert!(is_redocly_json_decl(r#""apis": {"#));
+        assert!(!is_thunder_client_json_decl(
+            r#""functionsDir": "./functions""#
+        ));
+        assert!(is_spectral_json_decl(r#""functionsDir": "./functions""#));
+        assert!(!is_thunder_client_json_decl(r#""printWidth": 80"#));
+        assert!(is_prettier_json_decl(r#""printWidth": 80"#));
+        assert!(!is_thunder_client_json_decl(r#""basePath": ".""#));
+        assert!(is_karma_json_decl(r#""basePath": ".""#));
+    }
+
+    #[test]
+    fn thunder_client_json_keys_count() {
+        assert!(is_thunder_client_json_decl(r#""client": "Thunder Client""#));
+        assert!(is_thunder_client_json_decl(
+            r#""client": "Thunder Client","#
+        ));
+        assert!(is_thunder_client_json_decl(
+            r#""client": "Thunder Client" // tc"#
+        ));
+        assert!(!is_thunder_client_json_decl(r#""client": "Postman""#));
+        assert!(!is_thunder_client_json_decl(r#""client": "Insomnia""#));
+        assert!(!is_thunder_client_json_decl(r#""client": true"#));
+        assert!(is_thunder_client_json_decl(
+            r#""collectionName": "Petstore API""#
+        ));
+        assert!(is_thunder_client_json_decl(
+            r#""collectionName": "My Collection","#
+        ));
+        assert!(!is_thunder_client_json_decl(r#""collectionName": """#));
+        assert!(!is_thunder_client_json_decl(r#""collectionName": true"#));
+        assert!(is_thunder_client_json_decl(
+            r#""environmentName": "Local Dev""#
+        ));
+        assert!(!is_thunder_client_json_decl(r#""environmentName": """#));
+        assert!(is_thunder_client_json_decl(
+            r#""dateExported": "2023-12-12T08:01:33.110Z""#
+        ));
+        assert!(is_thunder_client_json_decl(
+            r#""dateExported": "2024-01-15T12:34:56+00:00","#
+        ));
+        assert!(!is_thunder_client_json_decl(
+            r#""dateExported": "2023-12-12""#
+        ));
+        assert!(!is_thunder_client_json_decl(r#""dateExported": true"#));
+        assert!(is_thunder_client_json_decl(
+            r#""colId": "c010c0c0-0000-0000-0000-000000000001""#
+        ));
+        assert!(!is_thunder_client_json_decl(r#""colId": """#));
+        assert!(!is_thunder_client_json_decl(r#""colId": true"#));
+        assert!(is_thunder_client_json_decl(r#""containerId": """#));
+        assert!(is_thunder_client_json_decl(
+            r#""containerId": "f1a2b3c4-0001-0000-0000-000000000001""#
+        ));
+        assert!(!is_thunder_client_json_decl(r#""containerId": true"#));
+        assert!(is_thunder_client_json_decl(r#""sortNum": 10000"#));
+        assert!(is_thunder_client_json_decl(r#""sortNum": 1,"#));
+        assert!(is_thunder_client_json_decl(r#""sortNum": 0"#));
+        assert!(!is_thunder_client_json_decl(r#""sortNum": 01"#));
+        assert!(!is_thunder_client_json_decl(r#""sortNum": -1"#));
+        assert!(!is_thunder_client_json_decl(r#""sortNum": true"#));
+        assert!(!is_thunder_client_json_decl(r#""sortNum": "10000""#));
+        // Incomplete / wrong shapes stay out.
+        assert!(!is_thunder_client_json_decl(r#""client""#));
+        assert!(!is_thunder_client_json_decl(r#""client":"#));
+        assert!(!is_thunder_client_json_decl(r#""collectionName""#));
+        assert!(!is_thunder_client_json_decl(r#""sortNum""#));
+        // Generic / neighbouring stay out.
+        assert!(!is_thunder_client_json_decl(
+            r#""$schema": "https://example.com""#
+        ));
+        assert!(!is_thunder_client_json_decl(r#""name": "Petstore""#));
+        assert!(!is_thunder_client_json_decl(r#""version": "1.1""#));
+        assert!(!is_thunder_client_json_decl(
+            r#""url": "https://api.example.com""#
+        ));
+        assert!(!is_thunder_client_json_decl(r#""method": "GET""#));
+        assert!(!is_thunder_client_json_decl(r#""folders": ["#));
+        assert!(!is_thunder_client_json_decl(r#""requests": ["#));
+        assert!(!is_thunder_client_json_decl(r#""variables": ["#));
+        assert!(!is_thunder_client_json_decl(
+            r#""_postman_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890""#
+        ));
+        assert!(is_postman_json_decl(
+            r#""_postman_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890""#
+        ));
+        assert!(!is_thunder_client_json_decl(
+            r#""protocolProfileBehavior": {"#
+        ));
+        assert!(is_postman_json_decl(r#""protocolProfileBehavior": {"#));
+        assert!(!is_thunder_client_json_decl(r#""__export_format": 4"#));
+        assert!(is_insomnia_json_decl(r#""__export_format": 4"#));
+        assert!(!is_thunder_client_json_decl(r#""_type": "request""#));
+        assert!(is_insomnia_json_decl(r#""_type": "request""#));
+        assert!(!is_thunder_client_json_decl(r#""disableSearch": true"#));
+        assert!(is_redoc_json_decl(r#""disableSearch": true"#));
+        assert!(!is_thunder_client_json_decl(
+            r#""specUrl": "./openapi.yaml""#
+        ));
+        assert!(is_rapidoc_json_decl(r#""specUrl": "./openapi.yaml""#));
+        assert!(!is_thunder_client_json_decl(r##""dom_id": "#swagger-ui""##));
+        assert!(is_swagger_ui_json_decl(r##""dom_id": "#swagger-ui""##));
+        assert!(!is_thunder_client_json_decl(r#""layout": "BaseLayout""#));
+        assert!(is_swagger_ui_json_decl(r#""layout": "BaseLayout""#));
+        assert!(!is_thunder_client_json_decl(r#""layout": "modern""#));
+        assert!(is_scalar_json_decl(r#""layout": "modern""#));
+        assert!(!is_thunder_client_json_decl(r#""layout": "sidebar""#));
+        assert!(is_stoplight_elements_json_decl(r#""layout": "sidebar""#));
+        assert!(!is_thunder_client_json_decl(
+            r#""apiDescriptionUrl": "./o.yaml""#
+        ));
+        assert!(is_stoplight_elements_json_decl(
+            r#""apiDescriptionUrl": "./o.yaml""#
+        ));
+        assert!(!is_thunder_client_json_decl(
+            r#""proxyUrl": "https://proxy.scalar.com""#
+        ));
+        assert!(is_scalar_json_decl(
+            r#""proxyUrl": "https://proxy.scalar.com""#
+        ));
+        assert!(!is_thunder_client_json_decl(r#""topbarLinks": ["#));
+        assert!(is_mintlify_json_decl(r#""topbarLinks": ["#));
+        assert!(!is_thunder_client_json_decl(r#""apis": {"#));
+        assert!(is_redocly_json_decl(r#""apis": {"#));
+        assert!(!is_thunder_client_json_decl(
+            r#""licenseKey": "public_key""#
+        ));
+        assert!(is_redocly_json_decl(r#""licenseKey": "public_key""#));
+        assert!(!is_thunder_client_json_decl(
+            r#""functionsDir": "./functions""#
+        ));
+        assert!(is_spectral_json_decl(r#""functionsDir": "./functions""#));
+        assert!(!is_thunder_client_json_decl(r#""generator-cli": {"#));
+        assert!(is_openapitools_json_decl(r#""generator-cli": {"#));
+        assert!(!is_thunder_client_json_decl(r#""metadata": ["#));
+        assert!(is_docfx_json_decl(r#""metadata": ["#));
+        assert!(!is_thunder_client_json_decl(r#""entryPoints": ["#));
+        assert!(is_typedoc_json_decl(r#""entryPoints": ["#));
+        assert!(!is_thunder_client_json_decl(
+            r#""mainEntryPointFilePath": "<projectFolder>/lib/index.d.ts""#
+        ));
+        assert!(is_api_extractor_json_decl(
+            r#""mainEntryPointFilePath": "<projectFolder>/lib/index.d.ts""#
+        ));
+        assert!(!is_thunder_client_json_decl(r#""printWidth": 80"#));
+        assert!(is_prettier_json_decl(r#""printWidth": 80"#));
+        assert!(!is_thunder_client_json_decl(r#""bin": {"#));
+        assert!(is_package_json_decl(r#""bin": {"#));
+        assert!(!is_thunder_client_json_decl(r#""basePath": ".""#));
+        assert!(is_karma_json_decl(r#""basePath": ".""#));
+        // line_is_func_like wires the scanner.
+        assert!(line_is_func_like(r#""client": "Thunder Client""#));
+        assert!(line_is_func_like(r#""collectionName": "Petstore API""#));
+        assert!(line_is_func_like(r#""environmentName": "Local Dev""#));
+        assert!(line_is_func_like(
+            r#""dateExported": "2023-12-12T08:01:33.110Z""#
+        ));
+        assert!(line_is_func_like(
+            r#""colId": "c010c0c0-0000-0000-0000-000000000001""#
+        ));
+        assert!(line_is_func_like(r#""containerId": """#));
+        assert!(line_is_func_like(r#""sortNum": 10000"#));
     }
 
     #[test]

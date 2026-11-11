@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.780] — 2026-11-11
+
+View:
+
+- **Function List** lists Thunder Client collection / environment / request export JSON keys: `"client": "Thunder Client"`, `"collectionName": "…"`, `"environmentName": "…"`, `"dateExported": "…"`, `"colId": "…"`, `"containerId": ""` / `"…"`, `"sortNum": 10000`. Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing `:` stay out. Generic `"$schema"` / `"name"` / `"version"` / `"url"` / `"method"` / `"folders": [` / `"requests": [` / `"variables": [` / Postman `"_postman_id"` / `"protocolProfileBehavior"` / Insomnia `"__export_format"` / `"_type"` / ReDoc `"disableSearch"` / RapiDoc `"specUrl"` / swagger `"dom_id"` / scalar `"layout": "modern"` / Elements `"layout": "sidebar"` / mintlify `"topbarLinks"` / Compodoc `"theme": "material"` / redocly `"apis"` / spectral `"functionsDir"` / openapitools `"generator-cli"` / docfx `"metadata": [` / typedoc `"entryPoints"` / api-extractor `"mainEntryPointFilePath"` / prettier `"printWidth"` / package.json `"bin"` / karma `"basePath"` stay out. `"client"` only matches the exact Thunder Client product string.
+
 ## [0.3.779] — 2026-11-11
 
 View:
