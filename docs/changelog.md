@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.776] — 2026-11-11
+
+View:
+
+- **Function List** lists RapiDoc config JSON keys: `"specUrl": "…"`, `"theme": "light"` / `"dark"`, `"renderStyle": "read"` / `"view"` / `"focused"`, `"schemaStyle": "tree"` / `"table"`, `"defaultSchemaTab": "model"` / `"example"`, `"responseAreaHeight": "400px"` / `"50vh"` / `"30%"` / `"2.5em"`, `"apiKeyName": "…"`, `"apiKeyLocation": "header"` / `"query"` / `"cookie"`, `"apiKeyValue": "…"`, `"serverUrl": "…"`, `"navItemSpacing": "default"` / `"compact"` / `"relaxed"`, `"fontSize": "default"` / `"large"` / `"largest"`, `"sortEndpointsBy": "path"` / `"method"` / `"summary"` / `"none"`, `"goToPath": "…"`, `"matchPaths": "…"`, `"matchType": "includes"` / `"equals"` / `"starts-with"` / `"regex"`, `"headingText": "…"`, `"showMethodInNavBar": "as-plain-text"` / `"as-colored-text"` / `"as-colored-block"` / `false`, `"routePrefix": "…"`, `"monoFont": "…"`, `"regularFont": "…"`, colors `"bgColor"` / `"textColor"` / `"headerColor"` / `"primaryColor"` / `"navBgColor"` / `"navTextColor"` / `"navHoverBgColor"` / `"navHoverTextColor"` / `"navAccentColor"`, bools `"showHeader"` / `"showInfo"` / `"allowAuthentication"` / `"allowTry"` / `"allowServerSelection"` / `"allowApiListStyleSelection"` / `"fillRequestFieldsWithExample"` / `"usePathInNavBar"` / `"sortTags"` / `"regexPathFiltering"` / `"infoDescriptionHeadingsInNavBar"` / `"showComponents"` / `"updateRoute"` / `"resolveRelativePaths"` / `"loadFonts"` / `"showCurlBeforeTry"` / `"persistAuth"`. Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing `:` stay out. Generic `"$schema"` / `"name"` / `"version"` / `"url"` / swagger `"dom_id"` / `"layout": "BaseLayout"` / Elements `"layout": "sidebar"` / `"apiDescriptionUrl"` / scalar `"proxyUrl"` / `"layout": "modern"` / mintlify `"topbarLinks"` / `"theme": "mint"` / Compodoc `"theme": "material"` / redocly `"apis"` / spectral `"functionsDir"` / openapitools `"generator-cli"` / docfx `"metadata": [` / typedoc `"entryPoints"` / api-extractor `"mainEntryPointFilePath"` / prettier `"printWidth"` / package.json `"bin"` / karma `"basePath"` stay out. Shared `"persistAuth": true` also matches Scalar when shapes overlap. RapiDoc `"theme": "light"` / `"dark"` stays here; Mintlify / Compodoc / Scalar theme enums stay on theirs.
+
 ## [0.3.775] — 2026-11-11
 
 View:

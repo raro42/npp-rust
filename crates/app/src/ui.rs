@@ -32443,6 +32443,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_scalar_json_decl(s)
             || is_stoplight_elements_json_decl(s)
             || is_swagger_ui_json_decl(s)
+            || is_rapidoc_json_decl(s)
             || is_gomod_decl(s)
             || is_gemfile_decl(s)
             || is_brewfile_decl(s)
@@ -32796,6 +32797,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_scalar_json_decl(s)
         || is_stoplight_elements_json_decl(s)
         || is_swagger_ui_json_decl(s)
+        || is_rapidoc_json_decl(s)
         || is_gomod_decl(s)
         || is_gemfile_decl(s)
         || is_brewfile_decl(s)
@@ -57435,6 +57437,316 @@ fn swagger_ui_json_number_and_tail_ok(key: &str, after_colon: &str) -> bool {
         return false;
     }
     package_json_tail_ok(&rest[digits..])
+}
+
+/// RapiDoc `rapidoc-config` / HTML-attr JSON keys (camelCase):
+/// `"specUrl": "…"`, `"theme": "light"` / `"dark"`, `"renderStyle": "read"` /
+/// `"view"` / `"focused"`, `"schemaStyle": "tree"` / `"table"`,
+/// `"defaultSchemaTab": "model"` / `"example"`, `"responseAreaHeight": "400px"`,
+/// `"apiKeyName": "…"`, `"apiKeyLocation": "header"` / `"query"` / `"cookie"`,
+/// `"apiKeyValue": "…"`, `"serverUrl": "…"`, `"navItemSpacing": "default"` /
+/// `"compact"` / `"relaxed"`, `"fontSize": "default"` / `"large"` /
+/// `"largest"`, `"sortEndpointsBy": "path"` / `"method"` / `"summary"` /
+/// `"none"`, `"goToPath": "…"`, `"matchPaths": "…"`, `"matchType":
+/// `"includes"` / `"equals"` / `"starts-with"` / `"regex"`,
+/// `"headingText": "…"`, `"showMethodInNavBar": "as-plain-text"` /
+/// `"as-colored-text"` / `"as-colored-block"`, `"routePrefix": "…"`,
+/// `"monoFont": "…"`, `"regularFont": "…"`, colors `"bgColor"` /
+/// `"textColor"` / `"headerColor"` / `"primaryColor"` / `"navBgColor"` /
+/// `"navTextColor"` / `"navHoverBgColor"` / `"navHoverTextColor"` /
+/// `"navAccentColor"`, bools `"showHeader"` / `"showInfo"` /
+/// `"allowAuthentication"` / `"allowTry"` / `"allowServerSelection"` /
+/// `"allowApiListStyleSelection"` / `"fillRequestFieldsWithExample"` /
+/// `"usePathInNavBar"` / `"sortTags"` / `"regexPathFiltering"` /
+/// `"infoDescriptionHeadingsInNavBar"` / `"showComponents"` /
+/// `"updateRoute"` / `"resolveRelativePaths"` / `"loadFonts"` /
+/// `"showCurlBeforeTry"` / `"persistAuth"`, plus bool form of
+/// `"showMethodInNavBar": false`. Optional trailing `,` and `//` / `/*`
+/// comment. Incomplete quotes / missing `:` stay out. Generic `"$schema"` /
+/// `"name"` / `"version"` / `"url"` / swagger `"dom_id"` / `"layout":
+/// "BaseLayout"` / Elements `"layout": "sidebar"` / `"apiDescriptionUrl"` /
+/// scalar `"proxyUrl"` / `"layout": "modern"` / mintlify `"topbarLinks"` /
+/// `"theme": "mint"` / Compodoc `"theme": "material"` / redocly `"apis"` /
+/// spectral `"functionsDir"` / openapitools `"generator-cli"` / docfx
+/// `"metadata": [` / typedoc `"entryPoints"` / api-extractor
+/// `"mainEntryPointFilePath"` / prettier `"printWidth"` / package.json
+/// `"bin"` / karma `"basePath"` stay out. Shared `"persistAuth": true` also
+/// matches Scalar when shapes overlap. RapiDoc `"theme": "light"` / `"dark"`
+/// stays here; Mintlify / Compodoc / Scalar theme enums stay on theirs.
+fn is_rapidoc_json_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    let Some(rest) = s.strip_prefix('"') else {
+        return false;
+    };
+    let Some(end) = rest.find('"') else {
+        return false;
+    };
+    let key = &rest[..end];
+    if !rapidoc_json_key_ok(key) {
+        return false;
+    }
+    let after_key = rest[end + 1..].trim_start();
+    let Some(after_colon) = after_key.strip_prefix(':') else {
+        return false;
+    };
+    let after_colon = after_colon.trim_start();
+    rapidoc_json_value_and_tail_ok(key, after_colon)
+}
+
+fn rapidoc_json_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "specUrl"
+            | "theme"
+            | "renderStyle"
+            | "schemaStyle"
+            | "defaultSchemaTab"
+            | "responseAreaHeight"
+            | "apiKeyName"
+            | "apiKeyLocation"
+            | "apiKeyValue"
+            | "serverUrl"
+            | "navItemSpacing"
+            | "fontSize"
+            | "sortEndpointsBy"
+            | "goToPath"
+            | "matchPaths"
+            | "matchType"
+            | "headingText"
+            | "showMethodInNavBar"
+            | "routePrefix"
+            | "monoFont"
+            | "regularFont"
+            | "bgColor"
+            | "textColor"
+            | "headerColor"
+            | "primaryColor"
+            | "navBgColor"
+            | "navTextColor"
+            | "navHoverBgColor"
+            | "navHoverTextColor"
+            | "navAccentColor"
+            | "showHeader"
+            | "showInfo"
+            | "allowAuthentication"
+            | "allowTry"
+            | "allowServerSelection"
+            | "allowApiListStyleSelection"
+            | "fillRequestFieldsWithExample"
+            | "usePathInNavBar"
+            | "sortTags"
+            | "regexPathFiltering"
+            | "infoDescriptionHeadingsInNavBar"
+            | "showComponents"
+            | "updateRoute"
+            | "resolveRelativePaths"
+            | "loadFonts"
+            | "showCurlBeforeTry"
+            | "persistAuth"
+    )
+}
+
+fn rapidoc_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool {
+    let bytes = after_colon.as_bytes();
+    let Some(first) = bytes.first().copied() else {
+        return false;
+    };
+    match first {
+        b'"' => {
+            if !rapidoc_json_string_key_ok(key) {
+                return false;
+            }
+            let rest = &after_colon[1..];
+            let Some(end) = rest.find('"') else {
+                return false;
+            };
+            let value = &rest[..end];
+            if !rapidoc_json_string_ok(key, value) {
+                return false;
+            }
+            package_json_tail_ok(&rest[end + 1..])
+        }
+        b't' | b'f' => {
+            let (is_true, rest) = if let Some(rest) = after_colon.strip_prefix("true") {
+                (true, rest)
+            } else if let Some(rest) = after_colon.strip_prefix("false") {
+                (false, rest)
+            } else {
+                return false;
+            };
+            if !rapidoc_json_bool_key_ok(key) {
+                return false;
+            }
+            // RapiDoc only documents boolean `false` for showMethodInNavBar;
+            // enabled forms are the as-*-text / as-*-block strings.
+            if key == "showMethodInNavBar" && is_true {
+                return false;
+            }
+            package_json_tail_ok(rest)
+        }
+        _ => false,
+    }
+}
+
+fn rapidoc_json_string_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "specUrl"
+            | "theme"
+            | "renderStyle"
+            | "schemaStyle"
+            | "defaultSchemaTab"
+            | "responseAreaHeight"
+            | "apiKeyName"
+            | "apiKeyLocation"
+            | "apiKeyValue"
+            | "serverUrl"
+            | "navItemSpacing"
+            | "fontSize"
+            | "sortEndpointsBy"
+            | "goToPath"
+            | "matchPaths"
+            | "matchType"
+            | "headingText"
+            | "showMethodInNavBar"
+            | "routePrefix"
+            | "monoFont"
+            | "regularFont"
+            | "bgColor"
+            | "textColor"
+            | "headerColor"
+            | "primaryColor"
+            | "navBgColor"
+            | "navTextColor"
+            | "navHoverBgColor"
+            | "navHoverTextColor"
+            | "navAccentColor"
+    )
+}
+
+fn rapidoc_json_bool_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "showHeader"
+            | "showInfo"
+            | "allowAuthentication"
+            | "allowTry"
+            | "allowServerSelection"
+            | "allowApiListStyleSelection"
+            | "fillRequestFieldsWithExample"
+            | "usePathInNavBar"
+            | "sortTags"
+            | "regexPathFiltering"
+            | "infoDescriptionHeadingsInNavBar"
+            | "showComponents"
+            | "updateRoute"
+            | "resolveRelativePaths"
+            | "loadFonts"
+            | "showCurlBeforeTry"
+            | "persistAuth"
+            | "showMethodInNavBar"
+    )
+}
+
+fn rapidoc_json_string_ok(key: &str, value: &str) -> bool {
+    if value.contains('\n') {
+        return false;
+    }
+    match key {
+        "theme" => matches!(value, "light" | "dark"),
+        "renderStyle" => matches!(value, "read" | "view" | "focused"),
+        "schemaStyle" => matches!(value, "tree" | "table"),
+        "defaultSchemaTab" => matches!(value, "model" | "example"),
+        "apiKeyLocation" => matches!(value, "header" | "query" | "cookie"),
+        "navItemSpacing" => matches!(value, "default" | "compact" | "relaxed"),
+        "fontSize" => matches!(value, "default" | "large" | "largest"),
+        "sortEndpointsBy" => matches!(value, "path" | "method" | "summary" | "none"),
+        "matchType" => matches!(value, "includes" | "equals" | "starts-with" | "regex"),
+        "showMethodInNavBar" => {
+            matches!(
+                value,
+                "as-plain-text" | "as-colored-text" | "as-colored-block"
+            )
+        }
+        "specUrl" | "serverUrl" => mintlify_json_path_ok(value),
+        "responseAreaHeight" => rapidoc_json_height_ok(value),
+        "apiKeyName" | "apiKeyValue" | "headingText" | "monoFont" | "regularFont" | "goToPath"
+        | "matchPaths" | "routePrefix" => rapidoc_json_token_ok(value),
+        "bgColor" | "textColor" | "headerColor" | "primaryColor" | "navBgColor"
+        | "navTextColor" | "navHoverBgColor" | "navHoverTextColor" | "navAccentColor" => {
+            rapidoc_json_color_ok(value)
+        }
+        _ => false,
+    }
+}
+
+fn rapidoc_json_height_ok(value: &str) -> bool {
+    if value.is_empty() || value.len() > 32 {
+        return false;
+    }
+    // CSS length: 400px / 50vh / 30% / 20em
+    let bytes = value.as_bytes();
+    let mut i = 0;
+    while i < bytes.len() && bytes[i].is_ascii_digit() {
+        i += 1;
+    }
+    if i == 0 || i > 4 {
+        return false;
+    }
+    if i < bytes.len() && bytes[i] == b'.' {
+        i += 1;
+        let start = i;
+        while i < bytes.len() && bytes[i].is_ascii_digit() {
+            i += 1;
+        }
+        if i == start || i - start > 2 {
+            return false;
+        }
+    }
+    let unit = &value[i..];
+    matches!(unit, "px" | "vh" | "vw" | "%" | "em" | "rem")
+}
+
+fn rapidoc_json_token_ok(value: &str) -> bool {
+    if value.is_empty() || value.len() > 128 {
+        return false;
+    }
+    value.bytes().all(|b| {
+        b.is_ascii_alphanumeric()
+            || matches!(
+                b,
+                b' ' | b'.'
+                    | b'-'
+                    | b'_'
+                    | b'/'
+                    | b':'
+                    | b'*'
+                    | b'?'
+                    | b'+'
+                    | b'#'
+                    | b'='
+                    | b'&'
+                    | b'%'
+                    | b'~'
+                    | b'@'
+                    | b'{'
+                    | b'}'
+            )
+    })
+}
+
+fn rapidoc_json_color_ok(value: &str) -> bool {
+    if value.is_empty() || value.len() > 64 {
+        return false;
+    }
+    if let Some(hex) = value.strip_prefix('#') {
+        return matches!(hex.len(), 3 | 4 | 6 | 8) && hex.bytes().all(|b| b.is_ascii_hexdigit());
+    }
+    // Named / css-function-lite: orange / rgb(…) not needed; keep simple tokens.
+    value
+        .bytes()
+        .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'-' | b' '))
+        && value.bytes().any(|b| b.is_ascii_alphabetic())
 }
 
 /// go.mod / go.work directives: `module example.com/foo`, `go 1.22`,
@@ -88091,7 +88403,7 @@ mod func_like_line_tests {
         is_pylint_ini_decl, is_pypirc_ini_decl, is_pyproject_toml_decl, is_pyre_configuration_decl,
         is_pyright_toml_decl, is_pyrightconfig_json_decl, is_pytest_ini_decl, is_pytype_ini_decl,
         is_pyupgrade_ini_decl, is_radon_ini_decl, is_railway_toml_decl, is_rake_decl,
-        is_redocly_json_decl, is_refurb_toml_decl, is_release_it_json_decl,
+        is_rapidoc_json_decl, is_redocly_json_decl, is_refurb_toml_decl, is_release_it_json_decl,
         is_release_please_json_decl, is_release_toml_decl, is_renovate_json_decl,
         is_resolv_conf_decl, is_rpc_file_decl, is_rstcheck_ini_decl, is_rsyslog_decl,
         is_ruff_toml_decl, is_rush_json_decl, is_rust_toolchain_toml_decl, is_rustfmt_toml_decl,
@@ -113743,6 +114055,236 @@ mod func_like_line_tests {
         assert!(line_is_func_like(
             r#""oauth2RedirectUrl": "./oauth2-redirect.html""#
         ));
+    }
+
+    #[test]
+    fn rapidoc_json_keys_smoke() {
+        assert!(is_rapidoc_json_decl(r#""specUrl": "./openapi.yaml""#));
+        assert!(is_rapidoc_json_decl(r#""theme": "light""#));
+        assert!(is_rapidoc_json_decl(r#""theme": "dark""#));
+        assert!(is_rapidoc_json_decl(r#""renderStyle": "read""#));
+        assert!(is_rapidoc_json_decl(r#""renderStyle": "view""#));
+        assert!(is_rapidoc_json_decl(r#""renderStyle": "focused""#));
+        assert!(is_rapidoc_json_decl(r#""schemaStyle": "tree""#));
+        assert!(is_rapidoc_json_decl(r#""schemaStyle": "table""#));
+        assert!(is_rapidoc_json_decl(r#""defaultSchemaTab": "model""#));
+        assert!(is_rapidoc_json_decl(r#""defaultSchemaTab": "example""#));
+        assert!(is_rapidoc_json_decl(r#""responseAreaHeight": "400px""#));
+        assert!(is_rapidoc_json_decl(r#""apiKeyName": "X-API-Key""#));
+        assert!(is_rapidoc_json_decl(r#""apiKeyLocation": "header""#));
+        assert!(is_rapidoc_json_decl(r#""apiKeyLocation": "query""#));
+        assert!(is_rapidoc_json_decl(r#""apiKeyLocation": "cookie""#));
+        assert!(is_rapidoc_json_decl(r#""apiKeyValue": "demo""#));
+        assert!(is_rapidoc_json_decl(
+            r#""serverUrl": "https://api.example.com""#
+        ));
+        assert!(is_rapidoc_json_decl(r#""navItemSpacing": "compact""#));
+        assert!(is_rapidoc_json_decl(r#""fontSize": "large""#));
+        assert!(is_rapidoc_json_decl(r#""sortEndpointsBy": "method""#));
+        assert!(is_rapidoc_json_decl(r#""goToPath": "/pets/{id}""#));
+        assert!(is_rapidoc_json_decl(r#""matchPaths": "/pets*""#));
+        assert!(is_rapidoc_json_decl(r#""matchType": "includes""#));
+        assert!(is_rapidoc_json_decl(r#""headingText": "Petstore API""#));
+        assert!(is_rapidoc_json_decl(
+            r#""showMethodInNavBar": "as-colored-text""#
+        ));
+        assert!(is_rapidoc_json_decl(r##""routePrefix": "#""##));
+        assert!(is_rapidoc_json_decl(r#""monoFont": "Consolas""#));
+        assert!(is_rapidoc_json_decl(r#""regularFont": "Open Sans""#));
+        assert!(is_rapidoc_json_decl(r##""bgColor": "#ffffff""##));
+        assert!(is_rapidoc_json_decl(r##""primaryColor": "#FF791A""##));
+        assert!(is_rapidoc_json_decl(r##""navBgColor": "#333""##));
+        assert!(is_rapidoc_json_decl(r#""showHeader": true"#));
+        assert!(is_rapidoc_json_decl(r#""allowTry": false"#));
+        assert!(is_rapidoc_json_decl(r#""allowAuthentication": true"#));
+        assert!(is_rapidoc_json_decl(
+            r#""fillRequestFieldsWithExample": true"#
+        ));
+        assert!(is_rapidoc_json_decl(r#""usePathInNavBar": true"#));
+        assert!(is_rapidoc_json_decl(r#""showCurlBeforeTry": true"#));
+        assert!(is_rapidoc_json_decl(r#""persistAuth": true"#));
+        assert!(is_rapidoc_json_decl(r#""showMethodInNavBar": false"#));
+        // Distinctive neighbours stay out of this scanner.
+        assert!(!is_rapidoc_json_decl(r##""dom_id": "#swagger-ui""##));
+        assert!(is_swagger_ui_json_decl(r##""dom_id": "#swagger-ui""##));
+        assert!(!is_rapidoc_json_decl(r#""layout": "BaseLayout""#));
+        assert!(is_swagger_ui_json_decl(r#""layout": "BaseLayout""#));
+        assert!(!is_rapidoc_json_decl(r#""layout": "modern""#));
+        assert!(is_scalar_json_decl(r#""layout": "modern""#));
+        assert!(!is_rapidoc_json_decl(r#""layout": "sidebar""#));
+        assert!(is_stoplight_elements_json_decl(r#""layout": "sidebar""#));
+        assert!(!is_rapidoc_json_decl(
+            r#""proxyUrl": "https://proxy.scalar.com""#
+        ));
+        assert!(is_scalar_json_decl(
+            r#""proxyUrl": "https://proxy.scalar.com""#
+        ));
+        assert!(!is_rapidoc_json_decl(r#""topbarLinks": ["#));
+        assert!(is_mintlify_json_decl(r#""topbarLinks": ["#));
+        assert!(!is_rapidoc_json_decl(r#""apis": {"#));
+        assert!(is_redocly_json_decl(r#""apis": {"#));
+        assert!(!is_rapidoc_json_decl(r#""functionsDir": "./functions""#));
+        assert!(is_spectral_json_decl(r#""functionsDir": "./functions""#));
+        assert!(!is_rapidoc_json_decl(r#""basePath": ".""#));
+        assert!(is_karma_json_decl(r#""basePath": ".""#));
+        assert!(!is_rapidoc_json_decl(r#""printWidth": 80"#));
+        assert!(is_prettier_json_decl(r#""printWidth": 80"#));
+    }
+
+    #[test]
+    fn rapidoc_json_keys_count() {
+        assert!(is_rapidoc_json_decl(
+            r#""specUrl": "https://example.com/o.yaml""#
+        ));
+        assert!(is_rapidoc_json_decl(r#""specUrl": "./openapi.yaml","#));
+        assert!(is_rapidoc_json_decl(
+            r#""specUrl": "./openapi.yaml" // spec"#
+        ));
+        assert!(!is_rapidoc_json_decl(r#""specUrl": {"#));
+        assert!(!is_rapidoc_json_decl(r#""specUrl": true"#));
+        assert!(is_rapidoc_json_decl(r#""theme": "light""#));
+        assert!(is_rapidoc_json_decl(r#""theme": "dark","#));
+        assert!(is_rapidoc_json_decl(r#""theme": "light" // theme"#));
+        assert!(!is_rapidoc_json_decl(r#""theme": "mint""#));
+        assert!(is_mintlify_json_decl(r#""theme": "mint""#));
+        assert!(!is_rapidoc_json_decl(r#""theme": "material""#));
+        assert!(is_compodoc_json_decl(r#""theme": "material""#));
+        assert!(!is_rapidoc_json_decl(r#""theme": "default""#));
+        assert!(is_scalar_json_decl(r#""theme": "default""#));
+        assert!(!is_rapidoc_json_decl(r#""theme": true"#));
+        assert!(is_rapidoc_json_decl(r#""renderStyle": "focused""#));
+        assert!(!is_rapidoc_json_decl(r#""renderStyle": "classic""#));
+        assert!(!is_rapidoc_json_decl(r#""renderStyle": true"#));
+        assert!(is_rapidoc_json_decl(r#""schemaStyle": "tree""#));
+        assert!(!is_rapidoc_json_decl(r#""schemaStyle": "list""#));
+        assert!(is_rapidoc_json_decl(r#""defaultSchemaTab": "example""#));
+        assert!(!is_rapidoc_json_decl(r#""defaultSchemaTab": "schema""#));
+        assert!(is_rapidoc_json_decl(r#""responseAreaHeight": "50vh""#));
+        assert!(is_rapidoc_json_decl(r#""responseAreaHeight": "30%""#));
+        assert!(is_rapidoc_json_decl(r#""responseAreaHeight": "2.5em""#));
+        assert!(!is_rapidoc_json_decl(r#""responseAreaHeight": "400""#));
+        assert!(!is_rapidoc_json_decl(r#""responseAreaHeight": true"#));
+        assert!(is_rapidoc_json_decl(r#""apiKeyLocation": "header""#));
+        assert!(!is_rapidoc_json_decl(r#""apiKeyLocation": "body""#));
+        assert!(is_rapidoc_json_decl(r#""navItemSpacing": "relaxed""#));
+        assert!(!is_rapidoc_json_decl(r#""navItemSpacing": "tight""#));
+        assert!(is_rapidoc_json_decl(r#""fontSize": "largest""#));
+        assert!(!is_rapidoc_json_decl(r#""fontSize": "small""#));
+        assert!(is_rapidoc_json_decl(r#""sortEndpointsBy": "path""#));
+        assert!(is_rapidoc_json_decl(r#""sortEndpointsBy": "none""#));
+        assert!(!is_rapidoc_json_decl(r#""sortEndpointsBy": "alpha""#));
+        assert!(is_rapidoc_json_decl(r#""matchType": "starts-with""#));
+        assert!(is_rapidoc_json_decl(r#""matchType": "regex""#));
+        assert!(!is_rapidoc_json_decl(r#""matchType": "glob""#));
+        assert!(is_rapidoc_json_decl(
+            r#""showMethodInNavBar": "as-plain-text""#
+        ));
+        assert!(is_rapidoc_json_decl(
+            r#""showMethodInNavBar": "as-colored-block""#
+        ));
+        assert!(is_rapidoc_json_decl(r#""showMethodInNavBar": false,"#));
+        assert!(!is_rapidoc_json_decl(r#""showMethodInNavBar": true"#));
+        assert!(!is_rapidoc_json_decl(r#""showMethodInNavBar": "true""#));
+        assert!(is_rapidoc_json_decl(r##""bgColor": "#fff""##));
+        assert!(is_rapidoc_json_decl(r#""textColor": "orange""#));
+        assert!(is_rapidoc_json_decl(r##""headerColor": "#11223344""##));
+        assert!(!is_rapidoc_json_decl(r##""bgColor": "#gg0000""##));
+        assert!(!is_rapidoc_json_decl(r#""bgColor": true"#));
+        assert!(is_rapidoc_json_decl(r#""showHeader": true"#));
+        assert!(is_rapidoc_json_decl(r#""showHeader": false,"#));
+        assert!(is_rapidoc_json_decl(r#""showHeader": true // hdr"#));
+        assert!(!is_rapidoc_json_decl(r#""showHeader": "true""#));
+        assert!(!is_rapidoc_json_decl(r#""showHeader": {"#));
+        assert!(is_rapidoc_json_decl(r#""showInfo": true"#));
+        assert!(is_rapidoc_json_decl(r#""allowServerSelection": false"#));
+        assert!(is_rapidoc_json_decl(
+            r#""allowApiListStyleSelection": true"#
+        ));
+        assert!(is_rapidoc_json_decl(r#""sortTags": true"#));
+        assert!(is_rapidoc_json_decl(r#""regexPathFiltering": false"#));
+        assert!(is_rapidoc_json_decl(
+            r#""infoDescriptionHeadingsInNavBar": true"#
+        ));
+        assert!(is_rapidoc_json_decl(r#""showComponents": true"#));
+        assert!(is_rapidoc_json_decl(r#""updateRoute": false"#));
+        assert!(is_rapidoc_json_decl(r#""resolveRelativePaths": true"#));
+        assert!(is_rapidoc_json_decl(r#""loadFonts": false"#));
+        assert!(is_rapidoc_json_decl(r#""persistAuth": false"#));
+        // Incomplete / wrong shapes stay out.
+        assert!(!is_rapidoc_json_decl(r#""specUrl""#));
+        assert!(!is_rapidoc_json_decl(r#""specUrl":"#));
+        assert!(!is_rapidoc_json_decl(r#""renderStyle""#));
+        assert!(!is_rapidoc_json_decl(r#""allowTry""#));
+        // Generic / neighbouring stay out.
+        assert!(!is_rapidoc_json_decl(
+            r#""$schema": "https://example.com/rapidoc.schema.json""#
+        ));
+        assert!(!is_rapidoc_json_decl(r#""name": "Petstore""#));
+        assert!(!is_rapidoc_json_decl(r#""version": "1.0.0""#));
+        assert!(!is_rapidoc_json_decl(
+            r#""url": "https://petstore.swagger.io/v2/swagger.json""#
+        ));
+        assert!(!is_rapidoc_json_decl(r##""dom_id": "#swagger-ui""##));
+        assert!(is_swagger_ui_json_decl(r##""dom_id": "#swagger-ui""##));
+        assert!(!is_rapidoc_json_decl(r#""layout": "BaseLayout""#));
+        assert!(is_swagger_ui_json_decl(r#""layout": "BaseLayout""#));
+        assert!(!is_rapidoc_json_decl(r#""layout": "modern""#));
+        assert!(is_scalar_json_decl(r#""layout": "modern""#));
+        assert!(!is_rapidoc_json_decl(r#""layout": "sidebar""#));
+        assert!(is_stoplight_elements_json_decl(r#""layout": "sidebar""#));
+        assert!(!is_rapidoc_json_decl(r#""apiDescriptionUrl": "./o.yaml""#));
+        assert!(is_stoplight_elements_json_decl(
+            r#""apiDescriptionUrl": "./o.yaml""#
+        ));
+        assert!(!is_rapidoc_json_decl(
+            r#""proxyUrl": "https://proxy.scalar.com""#
+        ));
+        assert!(is_scalar_json_decl(
+            r#""proxyUrl": "https://proxy.scalar.com""#
+        ));
+        assert!(!is_rapidoc_json_decl(r#""topbarLinks": ["#));
+        assert!(is_mintlify_json_decl(r#""topbarLinks": ["#));
+        assert!(!is_rapidoc_json_decl(r#""theme": "mint""#));
+        assert!(is_mintlify_json_decl(r#""theme": "mint""#));
+        assert!(!is_rapidoc_json_decl(r#""theme": "material""#));
+        assert!(is_compodoc_json_decl(r#""theme": "material""#));
+        assert!(!is_rapidoc_json_decl(r#""apis": {"#));
+        assert!(is_redocly_json_decl(r#""apis": {"#));
+        assert!(!is_rapidoc_json_decl(r#""licenseKey": "public_key""#));
+        assert!(is_redocly_json_decl(r#""licenseKey": "public_key""#));
+        assert!(!is_rapidoc_json_decl(r#""functionsDir": "./functions""#));
+        assert!(is_spectral_json_decl(r#""functionsDir": "./functions""#));
+        assert!(!is_rapidoc_json_decl(r#""generator-cli": {"#));
+        assert!(is_openapitools_json_decl(r#""generator-cli": {"#));
+        assert!(!is_rapidoc_json_decl(r#""metadata": ["#));
+        assert!(is_docfx_json_decl(r#""metadata": ["#));
+        assert!(!is_rapidoc_json_decl(r#""entryPoints": ["#));
+        assert!(is_typedoc_json_decl(r#""entryPoints": ["#));
+        assert!(!is_rapidoc_json_decl(
+            r#""mainEntryPointFilePath": "<projectFolder>/lib/index.d.ts""#
+        ));
+        assert!(is_api_extractor_json_decl(
+            r#""mainEntryPointFilePath": "<projectFolder>/lib/index.d.ts""#
+        ));
+        assert!(!is_rapidoc_json_decl(r#""printWidth": 80"#));
+        assert!(is_prettier_json_decl(r#""printWidth": 80"#));
+        assert!(!is_rapidoc_json_decl(r#""bin": {"#));
+        assert!(is_package_json_decl(r#""bin": {"#));
+        assert!(!is_rapidoc_json_decl(r#""basePath": ".""#));
+        assert!(is_karma_json_decl(r#""basePath": ".""#));
+        // line_is_func_like wires the scanner.
+        assert!(line_is_func_like(r#""specUrl": "./openapi.yaml""#));
+        assert!(line_is_func_like(r#""renderStyle": "focused""#));
+        assert!(line_is_func_like(r#""schemaStyle": "tree""#));
+        assert!(line_is_func_like(r#""theme": "dark""#));
+        assert!(line_is_func_like(r#""allowTry": true"#));
+        assert!(line_is_func_like(r##""primaryColor": "#FF791A""##));
+        assert!(line_is_func_like(
+            r#""showMethodInNavBar": "as-colored-text""#
+        ));
+        assert!(line_is_func_like(r#""responseAreaHeight": "400px""#));
+        assert!(line_is_func_like(r#""sortEndpointsBy": "method""#));
+        assert!(line_is_func_like(r#""matchType": "includes""#));
     }
 
     #[test]
