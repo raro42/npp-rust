@@ -1266,3 +1266,5 @@
 009 keep: Function List Prometheus totalQueryableSamples/peakSamples/numSeries/numLabelPairs/chunkCount/headStats/seriesCountByMetricName/labelValueCountByLabelName/memoryInBytesByLabelName (v0.3.798)
 
 009 keep: Function List Alertmanager groupKey/groupLabels/commonLabels/commonAnnotations/inhibitedBy/silencedBy/generatorURL/externalURL/truncatedAlerts (v0.3.799)
+
+009 keep: Function List Grafana alerting noDataState/execErrState/datasourceUid/folderUID/relativeTimeRange/grafana_alert/contactPoints/muteTimes/isPaused (v0.3.802)

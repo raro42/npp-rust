@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.802] — 2026-11-12
+
+View:
+
+- **Function List** lists Grafana unified alerting / provisioning JSON keys: `"noDataState": "NoData"` / `"Alerting"` / `"OK"` / `"KeepLast"`, `"execErrState": "Alerting"` / `"OK"` / `"Error"` / `"KeepLast"`, `"datasourceUid": "…"`, `"folderUID": "…"`, `"relativeTimeRange": {`, `"grafana_alert": {`, `"contactPoints": [`, `"muteTimes": [`, `"isPaused": true` / `false`. Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing `:` stay out. Generic `"$schema"` / `"name"` / `"id"` / `"uid"` / `"title"` / `"condition"` / `"for"` / `"annotations"` / `"labels"` / `"data": [` / `"orgId"` / `"folder"` / `"interval"` / `"rules": [` / `"groups": [` / `"apiVersion"` / `"receiver"` / `"policies": [` / `"provenance"` / `"ruleGroup"` / Grafana dashboard `"schemaVersion"` / `"graphTooltip"` / `"templating"` / `"gnetId"` / Grafana datasource `"access"` / `"basicAuth"` / `"jsonData"` / `"deleteDatasources"` / Alertmanager `"groupKey"` / `"truncatedAlerts"` / Prometheus `"totalQueryableSamples"` / Loki `"bytesProcessedPerSecond"` / Tempo `"rootServiceName"` / Jaeger `"traceID"` / Zipkin `"localEndpoint"` / OTLP `"resourceSpans"` / HAR `"startedDateTime"` / OpenAPI `"openapi"` / AsyncAPI `"asyncapi"` / `"channels": {` / Pact `"consumer"` / MockServer `"httpRequest"` / Hoverfly `"hoverflyVersion"` / Mountebank `"imposters"` / WireMock `"scenarioName"` / Mockoon `"lastMigration"` / Hoppscotch `"preRequestScript"` / Yaak `"yaakVersion"` / Bruno `"brunoConfig"` / Thunder Client `"client"` / Postman `"_postman_id"` / Insomnia `"__export_format"` / ReDoc `"disableSearch"` / RapiDoc `"specUrl"` / swagger-ui `"dom_id"` / scalar `"layout": "modern"` / Elements `"layout": "sidebar"` / mintlify `"topbarLinks"` / Compodoc `"theme": "material"` / redocly `"apis"` / spectral `"functionsDir"` / openapitools `"generator-cli"` / Knip `"entry"` / prettier `"printWidth"` / package.json `"bin"` / karma `"basePath"` stay out. `"noDataState"` / `"execErrState"` only match their Grafana enums. `"datasourceUid"` / `"folderUID"` need a non-empty value.
+
 ## [0.3.801] — 2026-11-12
 
 View:
