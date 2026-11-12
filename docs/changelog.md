@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.819] — 2026-11-12
+
+View:
+
+- **Function List** lists Bloomreach Discovery (brsm) search / suggest / widget JSON keys: `"domain_key": "…"`, `"_br_uid_2": "…"`, `"request_id": "…"`, `"request_type": "search"` / `"suggest"` / `"category"` / `"widget"`, `"search_type": "keyword"` / `"category"` / `"bestseller"` / `"personalized"`, `"autoCorrectQuery": "…"`, `"keywordRedirect": {`, `"did_you_mean": [`, `"category_map": {`, `"efq": "…"`, `"widget_id": "…"`, `"widget_type": "…"`, `"view_id": "…"`, `"cat_id": "…"`, `"ref_url": "…"`. Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing `:` stay out. Generic `"$schema"` / `"name"` / `"id"` / `"q"` / `"query"` / `"filter"` / `"filters"` / `"limit"` / `"offset"` / `"page"` / `"results"` / `"facets"` / `"rows"` / `"start"` / `"url"` / `"account_id"` / Constructor.io `"result_sources"` / `"num_results_per_page"` / Coveo `"searchHub"` / `"organizationId"` / Azure AI Search `"@odata.count"` / `"searchMode"` / Vespa `"yql"` / `"searchChain"` / Marqo `"searchableAttributes"` / `"searchMethod"` / LanceDB `"vector_column_name"` / `"nprobes"` / Milvus `"annsField"` / Chroma `"n_results"` / Pinecone `"topK"` / Weaviate `"nearVector"` / Qdrant `"vectors_count"` / Algolia `"processingTimeMS"` / Meilisearch `"processingTimeMs"` / Typesense `"search_time_ms"` / Solr `"responseHeader"` / Elasticsearch `"track_total_hits"` / prettier `"printWidth"` / karma `"basePath"` stay out. `"request_type"` / `"search_type"` only match their Bloomreach enums. String keys require a non-empty quoted string.
+
 ## [0.3.818] — 2026-11-12
 
 View:

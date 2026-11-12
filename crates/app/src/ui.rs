@@ -32486,6 +32486,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_azure_search_json_decl(s)
             || is_coveo_json_decl(s)
             || is_constructor_io_json_decl(s)
+            || is_bloomreach_json_decl(s)
             || is_gomod_decl(s)
             || is_gemfile_decl(s)
             || is_brewfile_decl(s)
@@ -32882,6 +32883,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_azure_search_json_decl(s)
         || is_coveo_json_decl(s)
         || is_constructor_io_json_decl(s)
+        || is_bloomreach_json_decl(s)
         || is_gomod_decl(s)
         || is_gemfile_decl(s)
         || is_brewfile_decl(s)
@@ -64728,8 +64730,9 @@ fn azure_search_json_decimal_and_tail_ok(after_colon: &str) -> bool {
 /// Qdrant `"vectors_count"` / Algolia `"processingTimeMS"` / Meilisearch
 /// `"processingTimeMs"` / Typesense `"search_time_ms"` / Solr
 /// `"responseHeader"` / Elasticsearch `"track_total_hits"` / Constructor.io
-/// `"result_sources"` / `"num_results_per_page"` / prettier `"printWidth"` /
-/// karma `"basePath"` stay out.
+/// `"result_sources"` / `"num_results_per_page"` / Bloomreach Discovery
+/// `"domain_key"` / `"_br_uid_2"` / `"request_type"` / prettier
+/// `"printWidth"` / karma `"basePath"` stay out.
 fn is_coveo_json_decl(s: &str) -> bool {
     let s = s.trim_start();
     let Some(rest) = s.strip_prefix('"') else {
@@ -64871,7 +64874,8 @@ fn coveo_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool {
 /// Chroma `"n_results"` / Pinecone `"topK"` / Weaviate `"nearVector"` /
 /// Qdrant `"vectors_count"` / Algolia `"processingTimeMS"` / Meilisearch
 /// `"processingTimeMs"` / Typesense `"search_time_ms"` / Solr
-/// `"responseHeader"` / Elasticsearch `"track_total_hits"` / prettier
+/// `"responseHeader"` / Elasticsearch `"track_total_hits"` / Bloomreach
+/// Discovery `"domain_key"` / `"_br_uid_2"` / `"request_type"` / prettier
 /// `"printWidth"` / karma `"basePath"` stay out.
 fn is_constructor_io_json_decl(s: &str) -> bool {
     let s = s.trim_start();
@@ -64997,6 +65001,139 @@ fn constructor_io_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool {
         }
     }
     package_json_tail_ok(&after_colon[i..])
+}
+
+/// Bloomreach Discovery (brsm) search / suggest / widget JSON keys:
+/// `"domain_key": "…"`, `"_br_uid_2": "…"`, `"request_id": "…"`,
+/// `"request_type": "search"` / `"suggest"` / `"category"` / `"widget"`,
+/// `"search_type": "keyword"` / `"category"` / `"bestseller"` /
+/// `"personalized"`, `"autoCorrectQuery": "…"`, `"keywordRedirect": {`,
+/// `"did_you_mean": [`, `"category_map": {`, `"efq": "…"`,
+/// `"widget_id": "…"`, `"widget_type": "…"`, `"view_id": "…"`,
+/// `"cat_id": "…"`, `"ref_url": "…"`. Optional trailing `,` and `//` /
+/// `/*` comment. Incomplete quotes / missing `:` stay out. Generic
+/// `"$schema"` / `"name"` / `"id"` / `"q"` / `"query"` / `"filter"` /
+/// `"filters"` / `"limit"` / `"offset"` / `"page"` / `"results"` /
+/// `"facets"` / `"rows"` / `"start"` / `"url"` / `"account_id"` /
+/// Constructor.io `"result_sources"` / `"num_results_per_page"` / Coveo
+/// `"searchHub"` / `"organizationId"` / Azure AI Search `"@odata.count"` /
+/// `"searchMode"` / Vespa `"yql"` / `"searchChain"` / Marqo
+/// `"searchableAttributes"` / `"searchMethod"` / LanceDB
+/// `"vector_column_name"` / `"nprobes"` / Milvus `"annsField"` / Chroma
+/// `"n_results"` / Pinecone `"topK"` / Weaviate `"nearVector"` / Qdrant
+/// `"vectors_count"` / Algolia `"processingTimeMS"` / Meilisearch
+/// `"processingTimeMs"` / Typesense `"search_time_ms"` / Solr
+/// `"responseHeader"` / Elasticsearch `"track_total_hits"` / prettier
+/// `"printWidth"` / karma `"basePath"` stay out.
+fn is_bloomreach_json_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    let Some(rest) = s.strip_prefix('"') else {
+        return false;
+    };
+    let Some(end) = rest.find('"') else {
+        return false;
+    };
+    let key = &rest[..end];
+    if !bloomreach_json_key_ok(key) {
+        return false;
+    }
+    let after_key = rest[end + 1..].trim_start();
+    let Some(after_colon) = after_key.strip_prefix(':') else {
+        return false;
+    };
+    let after_colon = after_colon.trim_start();
+    bloomreach_json_value_and_tail_ok(key, after_colon)
+}
+
+fn bloomreach_json_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "domain_key"
+            | "_br_uid_2"
+            | "request_id"
+            | "request_type"
+            | "search_type"
+            | "autoCorrectQuery"
+            | "keywordRedirect"
+            | "did_you_mean"
+            | "category_map"
+            | "efq"
+            | "widget_id"
+            | "widget_type"
+            | "view_id"
+            | "cat_id"
+            | "ref_url"
+    )
+}
+
+fn bloomreach_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool {
+    let bytes = after_colon.as_bytes();
+    let Some(first) = bytes.first().copied() else {
+        return false;
+    };
+    match first {
+        b'{' => {
+            if !matches!(key, "keywordRedirect" | "category_map") {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[1..])
+        }
+        b'[' => {
+            if key != "did_you_mean" {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[1..])
+        }
+        b'"' => match key {
+            "domain_key" | "_br_uid_2" | "request_id" | "autoCorrectQuery" | "efq"
+            | "widget_id" | "widget_type" | "view_id" | "cat_id" | "ref_url" => {
+                bloomreach_json_nonempty_string_and_tail_ok(after_colon)
+            }
+            "request_type" => bloomreach_json_request_type_and_tail_ok(after_colon),
+            "search_type" => bloomreach_json_search_type_and_tail_ok(after_colon),
+            _ => false,
+        },
+        _ => false,
+    }
+}
+
+fn bloomreach_json_nonempty_string_and_tail_ok(after_colon: &str) -> bool {
+    let rest = &after_colon[1..];
+    let Some(end) = rest.find('"') else {
+        return false;
+    };
+    let value = &rest[..end];
+    if value.is_empty() || value.contains('\n') {
+        return false;
+    }
+    package_json_tail_ok(&rest[end + 1..])
+}
+
+fn bloomreach_json_request_type_and_tail_ok(after_colon: &str) -> bool {
+    let rest = &after_colon[1..];
+    let Some(end) = rest.find('"') else {
+        return false;
+    };
+    let value = &rest[..end];
+    if !matches!(value, "search" | "suggest" | "category" | "widget") {
+        return false;
+    }
+    package_json_tail_ok(&rest[end + 1..])
+}
+
+fn bloomreach_json_search_type_and_tail_ok(after_colon: &str) -> bool {
+    let rest = &after_colon[1..];
+    let Some(end) = rest.find('"') else {
+        return false;
+    };
+    let value = &rest[..end];
+    if !matches!(
+        value,
+        "keyword" | "category" | "bestseller" | "personalized"
+    ) {
+        return false;
+    }
+    package_json_tail_ok(&rest[end + 1..])
 }
 
 /// go.mod / go.work directives: `module example.com/foo`, `go 1.22`,
@@ -95615,9 +95752,9 @@ mod func_like_line_tests {
         is_audit_rules_decl, is_audit_toml_decl, is_autoflake_ini_decl, is_autopep8_ini_decl,
         is_ava_json_decl, is_aws_config_decl, is_azure_search_json_decl, is_babel_json_decl,
         is_bacon_toml_decl, is_bandit_ini_decl, is_binfmt_d_decl, is_biome_json_decl,
-        is_bitbake_decl, is_black_ini_decl, is_brewfile_decl, is_bruno_json_decl,
-        is_bumpversion_ini_decl, is_bunfig_toml_decl, is_c8_json_decl, is_cabal_decl,
-        is_capacitor_json_decl, is_cargo_config_toml_decl, is_cargo_make_toml_decl,
+        is_bitbake_decl, is_black_ini_decl, is_bloomreach_json_decl, is_brewfile_decl,
+        is_bruno_json_decl, is_bumpversion_ini_decl, is_bunfig_toml_decl, is_c8_json_decl,
+        is_cabal_decl, is_capacitor_json_decl, is_cargo_config_toml_decl, is_cargo_make_toml_decl,
         is_cargo_toml_decl, is_cbindgen_toml_decl, is_changesets_json_decl,
         is_check_manifest_ini_decl, is_check_wheel_contents_ini_decl, is_chroma_json_decl,
         is_cibuildwheel_ini_decl, is_cliff_toml_decl, is_clippy_toml_decl, is_codecept_json_decl,
@@ -132296,6 +132433,14 @@ mod func_like_line_tests {
         assert!(is_solr_json_decl(r#""responseHeader": {"#));
         assert!(!is_constructor_io_json_decl(r#""track_total_hits": true"#));
         assert!(is_elasticsearch_json_decl(r#""track_total_hits": true"#));
+        assert!(!is_constructor_io_json_decl(
+            r#""domain_key": "example_com""#
+        ));
+        assert!(is_bloomreach_json_decl(r#""domain_key": "example_com""#));
+        assert!(!is_constructor_io_json_decl(r#""_br_uid_2": "uid=123""#));
+        assert!(is_bloomreach_json_decl(r#""_br_uid_2": "uid=123""#));
+        assert!(!is_constructor_io_json_decl(r#""request_type": "search""#));
+        assert!(is_bloomreach_json_decl(r#""request_type": "search""#));
         assert!(!is_constructor_io_json_decl(r#""printWidth": 80"#));
         assert!(is_prettier_json_decl(r#""printWidth": 80"#));
         assert!(!is_constructor_io_json_decl(r#""basePath": ".""#));
@@ -132493,6 +132638,14 @@ mod func_like_line_tests {
         assert!(is_solr_json_decl(r#""responseHeader": {"#));
         assert!(!is_constructor_io_json_decl(r#""track_total_hits": true"#));
         assert!(is_elasticsearch_json_decl(r#""track_total_hits": true"#));
+        assert!(!is_constructor_io_json_decl(
+            r#""domain_key": "example_com""#
+        ));
+        assert!(is_bloomreach_json_decl(r#""domain_key": "example_com""#));
+        assert!(!is_constructor_io_json_decl(r#""_br_uid_2": "uid=123""#));
+        assert!(is_bloomreach_json_decl(r#""_br_uid_2": "uid=123""#));
+        assert!(!is_constructor_io_json_decl(r#""request_type": "search""#));
+        assert!(is_bloomreach_json_decl(r#""request_type": "search""#));
         assert!(!is_constructor_io_json_decl(r#""printWidth": 80"#));
         assert!(is_prettier_json_decl(r#""printWidth": 80"#));
         assert!(!is_constructor_io_json_decl(r#""basePath": ".""#));
@@ -132511,6 +132664,275 @@ mod func_like_line_tests {
         assert!(line_is_func_like(r#""collection_id": "all""#));
         assert!(line_is_func_like(r#""sort_order": "ascending""#));
         assert!(line_is_func_like(r#""section": "Products""#));
+    }
+
+    #[test]
+    fn bloomreach_json_keys_smoke() {
+        assert!(is_bloomreach_json_decl(r#""domain_key": "example_com""#));
+        assert!(is_bloomreach_json_decl(r#""_br_uid_2": "uid=123:v=1""#));
+        assert!(is_bloomreach_json_decl(r#""request_id": "req-1""#));
+        assert!(is_bloomreach_json_decl(r#""request_type": "search""#));
+        assert!(is_bloomreach_json_decl(r#""request_type": "suggest""#));
+        assert!(is_bloomreach_json_decl(r#""request_type": "category""#));
+        assert!(is_bloomreach_json_decl(r#""request_type": "widget""#));
+        assert!(is_bloomreach_json_decl(r#""search_type": "keyword""#));
+        assert!(is_bloomreach_json_decl(r#""search_type": "category""#));
+        assert!(is_bloomreach_json_decl(r#""search_type": "bestseller""#));
+        assert!(is_bloomreach_json_decl(r#""search_type": "personalized""#));
+        assert!(is_bloomreach_json_decl(r#""autoCorrectQuery": "shoes""#));
+        assert!(is_bloomreach_json_decl(r#""keywordRedirect": {"#));
+        assert!(is_bloomreach_json_decl(r#""did_you_mean": ["#));
+        assert!(is_bloomreach_json_decl(r#""category_map": {"#));
+        assert!(is_bloomreach_json_decl(r#""efq": "color:red""#));
+        assert!(is_bloomreach_json_decl(r#""widget_id": "abc123""#));
+        assert!(is_bloomreach_json_decl(r#""widget_type": "default""#));
+        assert!(is_bloomreach_json_decl(r#""view_id": "desktop""#));
+        assert!(is_bloomreach_json_decl(r#""cat_id": "cat1""#));
+        assert!(is_bloomreach_json_decl(
+            r#""ref_url": "https://example.com/""#
+        ));
+        assert!(!is_bloomreach_json_decl(r#""result_sources": {"#));
+        assert!(is_constructor_io_json_decl(r#""result_sources": {"#));
+        assert!(!is_bloomreach_json_decl(r#""num_results_per_page": 30"#));
+        assert!(is_constructor_io_json_decl(r#""num_results_per_page": 30"#));
+        assert!(!is_bloomreach_json_decl(r#""searchHub": "default""#));
+        assert!(is_coveo_json_decl(r#""searchHub": "default""#));
+        assert!(!is_bloomreach_json_decl(r#""organizationId": "org""#));
+        assert!(is_coveo_json_decl(r#""organizationId": "org""#));
+        assert!(!is_bloomreach_json_decl(r#""@odata.count": 10"#));
+        assert!(is_azure_search_json_decl(r#""@odata.count": 10"#));
+        assert!(!is_bloomreach_json_decl(r#""searchMode": "any""#));
+        assert!(is_azure_search_json_decl(r#""searchMode": "any""#));
+        assert!(!is_bloomreach_json_decl(
+            r#""yql": "select * from sources * where true""#
+        ));
+        assert!(is_vespa_json_decl(
+            r#""yql": "select * from sources * where true""#
+        ));
+        assert!(!is_bloomreach_json_decl(r#""searchableAttributes": ["#));
+        assert!(is_marqo_json_decl(r#""searchableAttributes": ["#));
+        assert!(!is_bloomreach_json_decl(r#""vector_column_name": "vec""#));
+        assert!(is_lancedb_json_decl(r#""vector_column_name": "vec""#));
+        assert!(!is_bloomreach_json_decl(r#""annsField": "vec""#));
+        assert!(is_milvus_json_decl(r#""annsField": "vec""#));
+        assert!(!is_bloomreach_json_decl(r#""n_results": 10"#));
+        assert!(is_chroma_json_decl(r#""n_results": 10"#));
+        assert!(!is_bloomreach_json_decl(r#""topK": 10"#));
+        assert!(is_pinecone_json_decl(r#""topK": 10"#));
+        assert!(!is_bloomreach_json_decl(r#""nearVector": {"#));
+        assert!(is_weaviate_json_decl(r#""nearVector": {"#));
+        assert!(!is_bloomreach_json_decl(r#""vectors_count": 100"#));
+        assert!(is_qdrant_json_decl(r#""vectors_count": 100"#));
+        assert!(!is_bloomreach_json_decl(r#""processingTimeMS": 12"#));
+        assert!(is_algolia_json_decl(r#""processingTimeMS": 12"#));
+        assert!(!is_bloomreach_json_decl(r#""processingTimeMs": 12"#));
+        assert!(is_meilisearch_json_decl(r#""processingTimeMs": 12"#));
+        assert!(!is_bloomreach_json_decl(r#""search_time_ms": 12"#));
+        assert!(is_typesense_json_decl(r#""search_time_ms": 12"#));
+        assert!(!is_bloomreach_json_decl(r#""responseHeader": {"#));
+        assert!(is_solr_json_decl(r#""responseHeader": {"#));
+        assert!(!is_bloomreach_json_decl(r#""track_total_hits": true"#));
+        assert!(is_elasticsearch_json_decl(r#""track_total_hits": true"#));
+        assert!(!is_bloomreach_json_decl(r#""printWidth": 80"#));
+        assert!(is_prettier_json_decl(r#""printWidth": 80"#));
+        assert!(!is_bloomreach_json_decl(r#""basePath": ".""#));
+        assert!(is_karma_json_decl(r#""basePath": ".""#));
+        assert!(line_is_func_like(r#""domain_key": "example_com""#));
+        assert!(line_is_func_like(r#""_br_uid_2": "uid=123:v=1""#));
+        assert!(line_is_func_like(r#""request_id": "req-1""#));
+        assert!(line_is_func_like(r#""request_type": "search""#));
+        assert!(line_is_func_like(r#""search_type": "keyword""#));
+        assert!(line_is_func_like(r#""autoCorrectQuery": "shoes""#));
+        assert!(line_is_func_like(r#""keywordRedirect": {"#));
+        assert!(line_is_func_like(r#""did_you_mean": ["#));
+        assert!(line_is_func_like(r#""category_map": {"#));
+        assert!(line_is_func_like(r#""efq": "color:red""#));
+        assert!(line_is_func_like(r#""widget_id": "abc123""#));
+        assert!(line_is_func_like(r#""widget_type": "default""#));
+        assert!(line_is_func_like(r#""view_id": "desktop""#));
+        assert!(line_is_func_like(r#""cat_id": "cat1""#));
+        assert!(line_is_func_like(r#""ref_url": "https://example.com/""#));
+    }
+
+    #[test]
+    fn bloomreach_json_keys_count() {
+        assert!(is_bloomreach_json_decl(r#""domain_key": "example_com""#));
+        assert!(is_bloomreach_json_decl(r#""domain_key": "example_com","#));
+        assert!(is_bloomreach_json_decl(
+            r#""domain_key": "example_com" // d"#
+        ));
+        assert!(!is_bloomreach_json_decl(r#""domain_key": {"#));
+        assert!(!is_bloomreach_json_decl(r#""domain_key": """#));
+        assert!(!is_bloomreach_json_decl(r#""domain_key": true"#));
+        assert!(is_bloomreach_json_decl(r#""_br_uid_2": "uid=123""#));
+        assert!(is_bloomreach_json_decl(r#""_br_uid_2": "uid=123","#));
+        assert!(!is_bloomreach_json_decl(r#""_br_uid_2": {"#));
+        assert!(!is_bloomreach_json_decl(r#""_br_uid_2": """#));
+        assert!(is_bloomreach_json_decl(r#""request_id": "req-1""#));
+        assert!(is_bloomreach_json_decl(r#""request_id": "req-1","#));
+        assert!(!is_bloomreach_json_decl(r#""request_id": {"#));
+        assert!(!is_bloomreach_json_decl(r#""request_id": """#));
+        assert!(is_bloomreach_json_decl(r#""request_type": "search""#));
+        assert!(is_bloomreach_json_decl(r#""request_type": "suggest""#));
+        assert!(is_bloomreach_json_decl(r#""request_type": "category""#));
+        assert!(is_bloomreach_json_decl(r#""request_type": "widget""#));
+        assert!(is_bloomreach_json_decl(r#""request_type": "search","#));
+        assert!(is_bloomreach_json_decl(r#""request_type": "search" // r"#));
+        assert!(!is_bloomreach_json_decl(r#""request_type": "Search""#));
+        assert!(!is_bloomreach_json_decl(r#""request_type": "query""#));
+        assert!(!is_bloomreach_json_decl(r#""request_type": {"#));
+        assert!(!is_bloomreach_json_decl(r#""request_type": """#));
+        assert!(is_bloomreach_json_decl(r#""search_type": "keyword""#));
+        assert!(is_bloomreach_json_decl(r#""search_type": "category""#));
+        assert!(is_bloomreach_json_decl(r#""search_type": "bestseller""#));
+        assert!(is_bloomreach_json_decl(r#""search_type": "personalized""#));
+        assert!(is_bloomreach_json_decl(r#""search_type": "keyword","#));
+        assert!(!is_bloomreach_json_decl(r#""search_type": "Keyword""#));
+        assert!(!is_bloomreach_json_decl(r#""search_type": "semantic""#));
+        assert!(!is_bloomreach_json_decl(r#""search_type": {"#));
+        assert!(!is_bloomreach_json_decl(r#""search_type": """#));
+        assert!(is_bloomreach_json_decl(r#""autoCorrectQuery": "shoes""#));
+        assert!(is_bloomreach_json_decl(r#""autoCorrectQuery": "shoes","#));
+        assert!(!is_bloomreach_json_decl(r#""autoCorrectQuery": {"#));
+        assert!(!is_bloomreach_json_decl(r#""autoCorrectQuery": """#));
+        assert!(is_bloomreach_json_decl(r#""keywordRedirect": {"#));
+        assert!(is_bloomreach_json_decl(r#""keywordRedirect": {,"#));
+        assert!(is_bloomreach_json_decl(r#""keywordRedirect": { // k"#));
+        assert!(!is_bloomreach_json_decl(r#""keywordRedirect": ["#));
+        assert!(!is_bloomreach_json_decl(r#""keywordRedirect": true"#));
+        assert!(!is_bloomreach_json_decl(r#""keywordRedirect": "x""#));
+        assert!(is_bloomreach_json_decl(r#""did_you_mean": ["#));
+        assert!(is_bloomreach_json_decl(r#""did_you_mean": [,"#));
+        assert!(is_bloomreach_json_decl(r#""did_you_mean": [ // d"#));
+        assert!(!is_bloomreach_json_decl(r#""did_you_mean": {"#));
+        assert!(!is_bloomreach_json_decl(r#""did_you_mean": true"#));
+        assert!(!is_bloomreach_json_decl(r#""did_you_mean": "x""#));
+        assert!(is_bloomreach_json_decl(r#""category_map": {"#));
+        assert!(is_bloomreach_json_decl(r#""category_map": {,"#));
+        assert!(!is_bloomreach_json_decl(r#""category_map": ["#));
+        assert!(!is_bloomreach_json_decl(r#""category_map": true"#));
+        assert!(is_bloomreach_json_decl(r#""efq": "color:red""#));
+        assert!(is_bloomreach_json_decl(r#""efq": "color:red","#));
+        assert!(!is_bloomreach_json_decl(r#""efq": {"#));
+        assert!(!is_bloomreach_json_decl(r#""efq": """#));
+        assert!(is_bloomreach_json_decl(r#""widget_id": "abc123""#));
+        assert!(is_bloomreach_json_decl(r#""widget_id": "abc123","#));
+        assert!(!is_bloomreach_json_decl(r#""widget_id": {"#));
+        assert!(!is_bloomreach_json_decl(r#""widget_id": """#));
+        assert!(is_bloomreach_json_decl(r#""widget_type": "default""#));
+        assert!(is_bloomreach_json_decl(r#""widget_type": "default","#));
+        assert!(!is_bloomreach_json_decl(r#""widget_type": {"#));
+        assert!(!is_bloomreach_json_decl(r#""widget_type": """#));
+        assert!(is_bloomreach_json_decl(r#""view_id": "desktop""#));
+        assert!(is_bloomreach_json_decl(r#""view_id": "desktop","#));
+        assert!(!is_bloomreach_json_decl(r#""view_id": {"#));
+        assert!(!is_bloomreach_json_decl(r#""view_id": """#));
+        assert!(is_bloomreach_json_decl(r#""cat_id": "cat1""#));
+        assert!(is_bloomreach_json_decl(r#""cat_id": "cat1","#));
+        assert!(!is_bloomreach_json_decl(r#""cat_id": {"#));
+        assert!(!is_bloomreach_json_decl(r#""cat_id": """#));
+        assert!(is_bloomreach_json_decl(
+            r#""ref_url": "https://example.com/""#
+        ));
+        assert!(is_bloomreach_json_decl(
+            r#""ref_url": "https://example.com/","#
+        ));
+        assert!(!is_bloomreach_json_decl(r#""ref_url": {"#));
+        assert!(!is_bloomreach_json_decl(r#""ref_url": """#));
+        assert!(!is_bloomreach_json_decl(r#""domain_key""#));
+        assert!(!is_bloomreach_json_decl(r#""_br_uid_2""#));
+        assert!(!is_bloomreach_json_decl(r#""request_id""#));
+        assert!(!is_bloomreach_json_decl(r#""request_type""#));
+        assert!(!is_bloomreach_json_decl(r#""search_type""#));
+        assert!(!is_bloomreach_json_decl(r#""autoCorrectQuery""#));
+        assert!(!is_bloomreach_json_decl(r#""keywordRedirect""#));
+        assert!(!is_bloomreach_json_decl(r#""did_you_mean""#));
+        assert!(!is_bloomreach_json_decl(r#""category_map""#));
+        assert!(!is_bloomreach_json_decl(r#""efq""#));
+        assert!(!is_bloomreach_json_decl(r#""widget_id""#));
+        assert!(!is_bloomreach_json_decl(r#""widget_type""#));
+        assert!(!is_bloomreach_json_decl(r#""view_id""#));
+        assert!(!is_bloomreach_json_decl(r#""cat_id""#));
+        assert!(!is_bloomreach_json_decl(r#""ref_url""#));
+        assert!(!is_bloomreach_json_decl(
+            r#""$schema": "https://json-schema.org/draft/2020-12/schema""#
+        ));
+        assert!(!is_bloomreach_json_decl(r#""name": "docs""#));
+        assert!(!is_bloomreach_json_decl(r#""id": "idx-1""#));
+        assert!(!is_bloomreach_json_decl(r#""q": "shoes""#));
+        assert!(!is_bloomreach_json_decl(r#""query": "shoes""#));
+        assert!(!is_bloomreach_json_decl(r#""filter": "type eq 'a'""#));
+        assert!(!is_bloomreach_json_decl(r#""filters": {"#));
+        assert!(!is_bloomreach_json_decl(r#""limit": 10"#));
+        assert!(!is_bloomreach_json_decl(r#""offset": 0"#));
+        assert!(!is_bloomreach_json_decl(r#""page": 1"#));
+        assert!(!is_bloomreach_json_decl(r#""results": ["#));
+        assert!(!is_bloomreach_json_decl(r#""facets": ["#));
+        assert!(!is_bloomreach_json_decl(r#""rows": 10"#));
+        assert!(!is_bloomreach_json_decl(r#""start": 0"#));
+        assert!(!is_bloomreach_json_decl(r#""url": "https://example.com/""#));
+        assert!(!is_bloomreach_json_decl(r#""account_id": "12345678""#));
+        assert!(!is_bloomreach_json_decl(r#""result_sources": {"#));
+        assert!(is_constructor_io_json_decl(r#""result_sources": {"#));
+        assert!(!is_bloomreach_json_decl(r#""num_results_per_page": 30"#));
+        assert!(is_constructor_io_json_decl(r#""num_results_per_page": 30"#));
+        assert!(!is_bloomreach_json_decl(r#""searchHub": "default""#));
+        assert!(is_coveo_json_decl(r#""searchHub": "default""#));
+        assert!(!is_bloomreach_json_decl(r#""organizationId": "org""#));
+        assert!(is_coveo_json_decl(r#""organizationId": "org""#));
+        assert!(!is_bloomreach_json_decl(r#""@odata.count": 10"#));
+        assert!(is_azure_search_json_decl(r#""@odata.count": 10"#));
+        assert!(!is_bloomreach_json_decl(r#""searchMode": "any""#));
+        assert!(is_azure_search_json_decl(r#""searchMode": "any""#));
+        assert!(!is_bloomreach_json_decl(
+            r#""yql": "select * from sources * where true""#
+        ));
+        assert!(is_vespa_json_decl(
+            r#""yql": "select * from sources * where true""#
+        ));
+        assert!(!is_bloomreach_json_decl(r#""searchableAttributes": ["#));
+        assert!(is_marqo_json_decl(r#""searchableAttributes": ["#));
+        assert!(!is_bloomreach_json_decl(r#""vector_column_name": "vec""#));
+        assert!(is_lancedb_json_decl(r#""vector_column_name": "vec""#));
+        assert!(!is_bloomreach_json_decl(r#""annsField": "vec""#));
+        assert!(is_milvus_json_decl(r#""annsField": "vec""#));
+        assert!(!is_bloomreach_json_decl(r#""n_results": 10"#));
+        assert!(is_chroma_json_decl(r#""n_results": 10"#));
+        assert!(!is_bloomreach_json_decl(r#""topK": 10"#));
+        assert!(is_pinecone_json_decl(r#""topK": 10"#));
+        assert!(!is_bloomreach_json_decl(r#""nearVector": {"#));
+        assert!(is_weaviate_json_decl(r#""nearVector": {"#));
+        assert!(!is_bloomreach_json_decl(r#""vectors_count": 100"#));
+        assert!(is_qdrant_json_decl(r#""vectors_count": 100"#));
+        assert!(!is_bloomreach_json_decl(r#""processingTimeMS": 12"#));
+        assert!(is_algolia_json_decl(r#""processingTimeMS": 12"#));
+        assert!(!is_bloomreach_json_decl(r#""processingTimeMs": 12"#));
+        assert!(is_meilisearch_json_decl(r#""processingTimeMs": 12"#));
+        assert!(!is_bloomreach_json_decl(r#""search_time_ms": 12"#));
+        assert!(is_typesense_json_decl(r#""search_time_ms": 12"#));
+        assert!(!is_bloomreach_json_decl(r#""responseHeader": {"#));
+        assert!(is_solr_json_decl(r#""responseHeader": {"#));
+        assert!(!is_bloomreach_json_decl(r#""track_total_hits": true"#));
+        assert!(is_elasticsearch_json_decl(r#""track_total_hits": true"#));
+        assert!(!is_bloomreach_json_decl(r#""printWidth": 80"#));
+        assert!(is_prettier_json_decl(r#""printWidth": 80"#));
+        assert!(!is_bloomreach_json_decl(r#""basePath": ".""#));
+        assert!(is_karma_json_decl(r#""basePath": ".""#));
+        assert!(line_is_func_like(r#""domain_key": "example_com""#));
+        assert!(line_is_func_like(r#""_br_uid_2": "uid=123""#));
+        assert!(line_is_func_like(r#""request_id": "req-1""#));
+        assert!(line_is_func_like(r#""request_type": "search""#));
+        assert!(line_is_func_like(r#""search_type": "keyword""#));
+        assert!(line_is_func_like(r#""autoCorrectQuery": "shoes""#));
+        assert!(line_is_func_like(r#""keywordRedirect": {"#));
+        assert!(line_is_func_like(r#""did_you_mean": ["#));
+        assert!(line_is_func_like(r#""category_map": {"#));
+        assert!(line_is_func_like(r#""efq": "color:red""#));
+        assert!(line_is_func_like(r#""widget_id": "abc123""#));
+        assert!(line_is_func_like(r#""widget_type": "default""#));
+        assert!(line_is_func_like(r#""view_id": "desktop""#));
+        assert!(line_is_func_like(r#""cat_id": "cat1""#));
+        assert!(line_is_func_like(r#""ref_url": "https://example.com/""#));
     }
 
     #[test]
