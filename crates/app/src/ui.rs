@@ -32479,6 +32479,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_weaviate_json_decl(s)
             || is_pinecone_json_decl(s)
             || is_chroma_json_decl(s)
+            || is_milvus_json_decl(s)
             || is_gomod_decl(s)
             || is_gemfile_decl(s)
             || is_brewfile_decl(s)
@@ -32868,6 +32869,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_weaviate_json_decl(s)
         || is_pinecone_json_decl(s)
         || is_chroma_json_decl(s)
+        || is_milvus_json_decl(s)
         || is_gomod_decl(s)
         || is_gemfile_decl(s)
         || is_brewfile_decl(s)
@@ -63322,7 +63324,12 @@ fn weaviate_json_bool_and_tail_ok(after_colon: &str) -> bool {
 /// package.json `"bin"` / karma `"basePath"` / Chroma `"n_results"` /
 /// `"where_document"` / `"query_embeddings"` / `"query_texts"` /
 /// `"metadatas"` / `"distances"` / `"include"` / `"included"` /
-/// `"get_or_create"` / `"configuration_json"` / `"log_position"` stay out.
+/// `"get_or_create"` / `"configuration_json"` / `"log_position"` / Milvus
+/// `"annsField"` / `"searchParams"` / `"outputFields"` /
+/// `"consistencyLevel"` / `"metricType"` / `"indexType"` / `"nlist"` /
+/// `"nprobe"` / `"efConstruction"` / `"shardsNum"` /
+/// `"enableDynamicField"` / `"autoID"` / `"numEntities"` /
+/// `"partitionNames"` / `"elementTypeParams"` stay out.
 /// `"deletion_protection"` only matches `enabled` / `disabled`.
 /// `"vector_type"` only matches `dense` / `sparse`. Numeric
 /// `"topK"` / `"totalVectorCount"` / `"vectorCount"` / `"upsertedCount"` /
@@ -63559,7 +63566,12 @@ fn pinecone_json_bool_and_tail_ok(after_colon: &str) -> bool {
 /// mintlify `"topbarLinks"` / Compodoc `"theme": "material"` / redocly
 /// `"apis"` / spectral `"functionsDir"` / openapitools
 /// `"generator-cli"` / Knip `"entry"` / prettier `"printWidth"` /
-/// package.json `"bin"` / karma `"basePath"` stay out.
+/// package.json `"bin"` / karma `"basePath"` / Milvus `"annsField"` /
+/// `"searchParams"` / `"outputFields"` / `"consistencyLevel"` /
+/// `"metricType"` / `"indexType"` / `"nlist"` / `"nprobe"` /
+/// `"efConstruction"` / `"shardsNum"` / `"enableDynamicField"` /
+/// `"autoID"` / `"numEntities"` / `"partitionNames"` /
+/// `"elementTypeParams"` stay out.
 /// Numeric `"n_results"` / `"log_position"` reject leading zeros beyond `0`.
 fn is_chroma_json_decl(s: &str) -> bool {
     let s = s.trim_start();
@@ -63662,6 +63674,277 @@ fn chroma_json_uint_and_tail_ok(after_colon: &str) -> bool {
 }
 
 fn chroma_json_bool_and_tail_ok(after_colon: &str) -> bool {
+    if let Some(rest) = after_colon.strip_prefix("true") {
+        return package_json_tail_ok(rest);
+    }
+    if let Some(rest) = after_colon.strip_prefix("false") {
+        return package_json_tail_ok(rest);
+    }
+    false
+}
+
+/// Milvus search / collection / index JSON keys:
+/// `"annsField": "vec"`,
+/// `"searchParams": {`,
+/// `"outputFields": [`,
+/// `"consistencyLevel": "Strong"` / `"Session"` / `"Bounded"` /
+/// `"Eventually"` / `"ConsistentPrefix"`,
+/// `"metricType": "L2"` / `"IP"` / `"COSINE"` / `"HAMMING"` / `"JACCARD"`,
+/// `"indexType": "FLAT"` / `"IVF_FLAT"` / `"IVF_SQ8"` / `"IVF_PQ"` /
+/// `"HNSW"` / `"DISKANN"` / `"AUTOINDEX"` / `"SCANN"` / `"BIN_FLAT"` /
+/// `"BIN_IVF_FLAT"` / `"GPU_IVF_FLAT"` / `"GPU_IVF_PQ"` / `"GPU_CAGRA"` /
+/// `"SPARSE_INVERTED_INDEX"`,
+/// `"nlist": 0` / `128`,
+/// `"nprobe": 0` / `10`,
+/// `"efConstruction": 0` / `200`,
+/// `"shardsNum": 0` / `2`,
+/// `"enableDynamicField": true` / `false`,
+/// `"autoID": true` / `false`,
+/// `"numEntities": 0` / `1000`,
+/// `"partitionNames": [`,
+/// `"elementTypeParams": {`.
+/// Optional trailing `,` and `//` / `/*` comment. Incomplete quotes /
+/// missing `:` stay out. Generic `"$schema"` / `"name"` / `"id"` /
+/// `"collectionName"` / `"partitionName"` / `"dbName"` / `"data"` /
+/// `"filter"` / `"limit"` / `"offset"` / `"vector"` / `"vectors"` /
+/// `"expr"` / `"params"` / `"dim"` / `"fields"` / `"schema"` /
+/// Chroma `"n_results"` / `"where_document"` / `"query_embeddings"` /
+/// `"query_texts"` / `"metadatas"` / `"distances"` / `"include"` /
+/// `"included"` / `"get_or_create"` / `"configuration_json"` /
+/// `"log_position"` / Pinecone `"topK"` / `"includeMetadata"` /
+/// `"includeValues"` / `"sparseValues"` / `"sparseVector"` /
+/// `"namespaces"` / `"usage"` / `"totalVectorCount"` / `"vectorCount"` /
+/// `"upsertedCount"` / `"readUnits"` / `"indexFullness"` /
+/// `"deletion_protection"` / `"vector_type"` / Weaviate `"nearVector"` /
+/// `"nearObject"` / `"nearText"` / `"invertedIndexConfig"` /
+/// `"vectorIndexConfig"` / `"vectorIndexType"` / `"shardingConfig"` /
+/// `"multiTenancyConfig"` / `"replicationConfig"` / `"moduleConfig"` /
+/// `"creationTimeUnix"` / `"lastUpdateTimeUnix"` / `"indexFilterable"` /
+/// `"indexSearchable"` / `"tokenization"` / Qdrant `"vectors_count"` /
+/// `"indexed_vectors_count"` / `"points_count"` / `"segments_count"` /
+/// `"optimizer_status"` / `"payload_schema"` / `"hnsw_config"` /
+/// `"wal_config"` / `"optimizer_config"` / `"quantization_config"` /
+/// `"score_threshold"` / `"with_payload"` / `"with_vector"` / `"hnsw_ef"` /
+/// `"indexed_only"` / Algolia `"processingTimeMS"` / `"nbPages"` /
+/// `"serverTimeMS"` / `"queryID"` / `"indexUsed"` / `"aroundLatLng"` /
+/// `"highlightPreTag"` / `"facets_stats"` / `"renderingContent"` /
+/// `"appliedRules"` / `"attributesToHighlight"` / `"getRankingInfo"` /
+/// `"clickAnalytics"` / `"enablePersonalization"` /
+/// `"removeWordsIfNoResults"` / Meilisearch `"processingTimeMs"` /
+/// `"estimatedTotalHits"` / `"exhaustiveNbHits"` / `"nbHits"` /
+/// `"hitsPerPage"` / `"facetDistribution"` / `"facetStats"` /
+/// `"exhaustiveFacetsCount"` / `"rankingScoreThreshold"` /
+/// `"showRankingScore"` / `"matchingStrategy"` / `"attributesToSearchOn"` /
+/// Typesense `"search_time_ms"` / `"out_of"` / `"search_cutoff"` /
+/// `"grouped_hits"` / `"facet_counts": [` / `"default_sorting_field"` /
+/// `"enable_nested_fields"` / `"token_separators"` / `"symbols_to_index"` /
+/// `"drop_tokens_threshold"` / `"typo_tokens_threshold"` /
+/// `"prioritize_exact_match"` / `"exhaustive_search"` / Solr
+/// `"responseHeader"` / `"numFound"` / `"numFoundExact"` / `"QTime"` /
+/// `"zkConnected"` / `"facet_counts": {` / `"highlighting"` /
+/// `"spellcheck"` / `"grouped"` / `"nextCursorMark"` / Elasticsearch
+/// `"track_total_hits"` / `"min_score"` / `"post_filter"` /
+/// `"runtime_mappings"` / `"script_fields"` / `"docvalue_fields"` /
+/// `"seq_no_primary_term"` / `"_scroll_id"` / `"_shards"` / Grafana
+/// alerting `"noDataState"` / `"execErrState"` / `"datasourceUid"` /
+/// `"folderUID"` / `"relativeTimeRange"` / `"grafana_alert"` /
+/// `"contactPoints"` / `"muteTimes"` / `"isPaused"` / Grafana
+/// dashboard `"schemaVersion"` / `"graphTooltip"` / `"templating"` /
+/// `"gnetId"` / Grafana datasource `"access"` / `"basicAuth"` /
+/// `"jsonData"` / `"deleteDatasources"` / Alertmanager `"groupKey"` /
+/// `"truncatedAlerts"` / Prometheus `"totalQueryableSamples"` / Loki
+/// `"bytesProcessedPerSecond"` / Tempo `"rootServiceName"` / Jaeger
+/// `"traceID"` / Zipkin `"localEndpoint"` / OTLP `"resourceSpans"` /
+/// HAR `"startedDateTime"` / OpenAPI `"openapi"` / AsyncAPI
+/// `"asyncapi"` / `"channels": {` / Pact `"consumer"` / MockServer
+/// `"httpRequest"` / Hoverfly `"hoverflyVersion"` / Mountebank
+/// `"imposters"` / WireMock `"scenarioName"` / Mockoon
+/// `"lastMigration"` / Hoppscotch `"preRequestScript"` / Yaak
+/// `"yaakVersion"` / Bruno `"brunoConfig"` / Thunder Client `"client"` /
+/// Postman `"_postman_id"` / Insomnia `"__export_format"` / ReDoc
+/// `"disableSearch"` / RapiDoc `"specUrl"` / swagger-ui `"dom_id"` /
+/// scalar `"layout": "modern"` / Elements `"layout": "sidebar"` /
+/// mintlify `"topbarLinks"` / Compodoc `"theme": "material"` / redocly
+/// `"apis"` / spectral `"functionsDir"` / openapitools
+/// `"generator-cli"` / Knip `"entry"` / prettier `"printWidth"` /
+/// package.json `"bin"` / karma `"basePath"` stay out.
+/// `"consistencyLevel"` / `"metricType"` / `"indexType"` only match their
+/// Milvus enums. `"annsField"` requires a non-empty quoted string.
+/// Numeric `"nlist"` / `"nprobe"` / `"efConstruction"` / `"shardsNum"` /
+/// `"numEntities"` reject leading zeros beyond `0`.
+fn is_milvus_json_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    let Some(rest) = s.strip_prefix('"') else {
+        return false;
+    };
+    let Some(end) = rest.find('"') else {
+        return false;
+    };
+    let key = &rest[..end];
+    if !milvus_json_key_ok(key) {
+        return false;
+    }
+    let after_key = rest[end + 1..].trim_start();
+    let Some(after_colon) = after_key.strip_prefix(':') else {
+        return false;
+    };
+    let after_colon = after_colon.trim_start();
+    milvus_json_value_and_tail_ok(key, after_colon)
+}
+
+fn milvus_json_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "annsField"
+            | "searchParams"
+            | "outputFields"
+            | "consistencyLevel"
+            | "metricType"
+            | "indexType"
+            | "nlist"
+            | "nprobe"
+            | "efConstruction"
+            | "shardsNum"
+            | "enableDynamicField"
+            | "autoID"
+            | "numEntities"
+            | "partitionNames"
+            | "elementTypeParams"
+    )
+}
+
+fn milvus_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool {
+    let bytes = after_colon.as_bytes();
+    let Some(first) = bytes.first().copied() else {
+        return false;
+    };
+    match first {
+        b'{' => {
+            if !matches!(key, "searchParams" | "elementTypeParams") {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[1..])
+        }
+        b'[' => {
+            if !matches!(key, "outputFields" | "partitionNames") {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[1..])
+        }
+        b'"' => match key {
+            "annsField" => milvus_json_anns_field_and_tail_ok(after_colon),
+            "consistencyLevel" => milvus_json_consistency_level_and_tail_ok(after_colon),
+            "metricType" => milvus_json_metric_type_and_tail_ok(after_colon),
+            "indexType" => milvus_json_index_type_and_tail_ok(after_colon),
+            _ => false,
+        },
+        b't' | b'f' => {
+            if !matches!(key, "enableDynamicField" | "autoID") {
+                return false;
+            }
+            milvus_json_bool_and_tail_ok(after_colon)
+        }
+        b'0'..=b'9' => milvus_json_number_and_tail_ok(key, after_colon),
+        _ => false,
+    }
+}
+
+fn milvus_json_anns_field_and_tail_ok(after_colon: &str) -> bool {
+    let rest = &after_colon[1..];
+    let Some(end) = rest.find('"') else {
+        return false;
+    };
+    let value = &rest[..end];
+    if value.is_empty() || value.contains('\n') {
+        return false;
+    }
+    package_json_tail_ok(&rest[end + 1..])
+}
+
+fn milvus_json_consistency_level_and_tail_ok(after_colon: &str) -> bool {
+    let rest = &after_colon[1..];
+    let Some(end) = rest.find('"') else {
+        return false;
+    };
+    let value = &rest[..end];
+    if !matches!(
+        value,
+        "Strong" | "Session" | "Bounded" | "Eventually" | "ConsistentPrefix"
+    ) {
+        return false;
+    }
+    package_json_tail_ok(&rest[end + 1..])
+}
+
+fn milvus_json_metric_type_and_tail_ok(after_colon: &str) -> bool {
+    let rest = &after_colon[1..];
+    let Some(end) = rest.find('"') else {
+        return false;
+    };
+    let value = &rest[..end];
+    if !matches!(value, "L2" | "IP" | "COSINE" | "HAMMING" | "JACCARD") {
+        return false;
+    }
+    package_json_tail_ok(&rest[end + 1..])
+}
+
+fn milvus_json_index_type_and_tail_ok(after_colon: &str) -> bool {
+    let rest = &after_colon[1..];
+    let Some(end) = rest.find('"') else {
+        return false;
+    };
+    let value = &rest[..end];
+    if !matches!(
+        value,
+        "FLAT"
+            | "IVF_FLAT"
+            | "IVF_SQ8"
+            | "IVF_PQ"
+            | "HNSW"
+            | "DISKANN"
+            | "AUTOINDEX"
+            | "SCANN"
+            | "BIN_FLAT"
+            | "BIN_IVF_FLAT"
+            | "GPU_IVF_FLAT"
+            | "GPU_IVF_PQ"
+            | "GPU_CAGRA"
+            | "SPARSE_INVERTED_INDEX"
+    ) {
+        return false;
+    }
+    package_json_tail_ok(&rest[end + 1..])
+}
+
+fn milvus_json_number_and_tail_ok(key: &str, after_colon: &str) -> bool {
+    match key {
+        "nlist" | "nprobe" | "efConstruction" | "shardsNum" | "numEntities" => {
+            milvus_json_uint_and_tail_ok(after_colon)
+        }
+        _ => false,
+    }
+}
+
+fn milvus_json_uint_and_tail_ok(after_colon: &str) -> bool {
+    let bytes = after_colon.as_bytes();
+    let mut i = 0usize;
+    if i >= bytes.len() || !bytes[i].is_ascii_digit() {
+        return false;
+    }
+    if bytes[i] == b'0' {
+        i += 1;
+        if i < bytes.len() && bytes[i].is_ascii_digit() {
+            return false;
+        }
+    } else {
+        while i < bytes.len() && bytes[i].is_ascii_digit() {
+            i += 1;
+        }
+    }
+    package_json_tail_ok(&after_colon[i..])
+}
+
+fn milvus_json_bool_and_tail_ok(after_colon: &str) -> bool {
     if let Some(rest) = after_colon.strip_prefix("true") {
         return package_json_tail_ok(rest);
     }
@@ -94315,7 +94598,7 @@ mod func_like_line_tests {
         is_krb5_conf_decl, is_lerna_json_decl, is_lightdm_conf_decl, is_limits_conf_decl,
         is_lint_staged_json_decl, is_locale_conf_decl, is_login_defs_decl, is_logrotate_decl,
         is_loki_json_decl, is_machine_info_decl, is_makepkg_conf_decl, is_mdbook_toml_decl,
-        is_meilisearch_json_decl, is_mintlify_json_decl, is_mise_toml_decl,
+        is_meilisearch_json_decl, is_milvus_json_decl, is_mintlify_json_decl, is_mise_toml_decl,
         is_mkinitcpio_conf_decl, is_mocha_json_decl, is_mockoon_json_decl, is_mockserver_json_decl,
         is_modprobe_conf_decl, is_mountebank_json_decl, is_mutants_toml_decl, is_mypy_ini_decl,
         is_mysql_cnf_decl, is_named_conf_decl, is_nest_cli_json_decl, is_netlify_toml_decl,
@@ -128948,6 +129231,16 @@ mod func_like_line_tests {
         assert!(is_prettier_json_decl(r#""printWidth": 80"#));
         assert!(!is_chroma_json_decl(r#""basePath": ".""#));
         assert!(is_karma_json_decl(r#""basePath": ".""#));
+        assert!(!is_chroma_json_decl(r#""annsField": "vec""#));
+        assert!(is_milvus_json_decl(r#""annsField": "vec""#));
+        assert!(!is_chroma_json_decl(r#""searchParams": {"#));
+        assert!(is_milvus_json_decl(r#""searchParams": {"#));
+        assert!(!is_chroma_json_decl(r#""consistencyLevel": "Strong""#));
+        assert!(is_milvus_json_decl(r#""consistencyLevel": "Strong""#));
+        assert!(!is_chroma_json_decl(r#""metricType": "L2""#));
+        assert!(is_milvus_json_decl(r#""metricType": "L2""#));
+        assert!(!is_chroma_json_decl(r#""nprobe": 10"#));
+        assert!(is_milvus_json_decl(r#""nprobe": 10"#));
         assert!(line_is_func_like(r#""n_results": 10"#));
         assert!(line_is_func_like(r#""where_document": {"#));
         assert!(line_is_func_like(r#""query_embeddings": ["#));
@@ -129105,6 +129398,36 @@ mod func_like_line_tests {
         assert!(is_prettier_json_decl(r#""printWidth": 80"#));
         assert!(!is_chroma_json_decl(r#""basePath": ".""#));
         assert!(is_karma_json_decl(r#""basePath": ".""#));
+        assert!(!is_chroma_json_decl(r#""annsField": "vec""#));
+        assert!(is_milvus_json_decl(r#""annsField": "vec""#));
+        assert!(!is_chroma_json_decl(r#""searchParams": {"#));
+        assert!(is_milvus_json_decl(r#""searchParams": {"#));
+        assert!(!is_chroma_json_decl(r#""outputFields": ["#));
+        assert!(is_milvus_json_decl(r#""outputFields": ["#));
+        assert!(!is_chroma_json_decl(r#""consistencyLevel": "Strong""#));
+        assert!(is_milvus_json_decl(r#""consistencyLevel": "Strong""#));
+        assert!(!is_chroma_json_decl(r#""metricType": "L2""#));
+        assert!(is_milvus_json_decl(r#""metricType": "L2""#));
+        assert!(!is_chroma_json_decl(r#""indexType": "HNSW""#));
+        assert!(is_milvus_json_decl(r#""indexType": "HNSW""#));
+        assert!(!is_chroma_json_decl(r#""nlist": 128"#));
+        assert!(is_milvus_json_decl(r#""nlist": 128"#));
+        assert!(!is_chroma_json_decl(r#""nprobe": 10"#));
+        assert!(is_milvus_json_decl(r#""nprobe": 10"#));
+        assert!(!is_chroma_json_decl(r#""efConstruction": 200"#));
+        assert!(is_milvus_json_decl(r#""efConstruction": 200"#));
+        assert!(!is_chroma_json_decl(r#""shardsNum": 2"#));
+        assert!(is_milvus_json_decl(r#""shardsNum": 2"#));
+        assert!(!is_chroma_json_decl(r#""enableDynamicField": true"#));
+        assert!(is_milvus_json_decl(r#""enableDynamicField": true"#));
+        assert!(!is_chroma_json_decl(r#""autoID": false"#));
+        assert!(is_milvus_json_decl(r#""autoID": false"#));
+        assert!(!is_chroma_json_decl(r#""numEntities": 1000"#));
+        assert!(is_milvus_json_decl(r#""numEntities": 1000"#));
+        assert!(!is_chroma_json_decl(r#""partitionNames": ["#));
+        assert!(is_milvus_json_decl(r#""partitionNames": ["#));
+        assert!(!is_chroma_json_decl(r#""elementTypeParams": {"#));
+        assert!(is_milvus_json_decl(r#""elementTypeParams": {"#));
         assert!(line_is_func_like(r#""n_results": 10"#));
         assert!(line_is_func_like(r#""where_document": {"#));
         assert!(line_is_func_like(r#""query_embeddings": ["#));
@@ -129116,6 +129439,302 @@ mod func_like_line_tests {
         assert!(line_is_func_like(r#""get_or_create": false"#));
         assert!(line_is_func_like(r#""configuration_json": {"#));
         assert!(line_is_func_like(r#""log_position": 3"#));
+    }
+
+    #[test]
+    fn milvus_json_keys_smoke() {
+        assert!(is_milvus_json_decl(r#""annsField": "vec""#));
+        assert!(is_milvus_json_decl(r#""searchParams": {"#));
+        assert!(is_milvus_json_decl(r#""outputFields": ["#));
+        assert!(is_milvus_json_decl(r#""consistencyLevel": "Strong""#));
+        assert!(is_milvus_json_decl(r#""consistencyLevel": "Session""#));
+        assert!(is_milvus_json_decl(r#""consistencyLevel": "Bounded""#));
+        assert!(is_milvus_json_decl(r#""consistencyLevel": "Eventually""#));
+        assert!(is_milvus_json_decl(
+            r#""consistencyLevel": "ConsistentPrefix""#
+        ));
+        assert!(is_milvus_json_decl(r#""metricType": "L2""#));
+        assert!(is_milvus_json_decl(r#""metricType": "IP""#));
+        assert!(is_milvus_json_decl(r#""metricType": "COSINE""#));
+        assert!(is_milvus_json_decl(r#""metricType": "HAMMING""#));
+        assert!(is_milvus_json_decl(r#""metricType": "JACCARD""#));
+        assert!(is_milvus_json_decl(r#""indexType": "FLAT""#));
+        assert!(is_milvus_json_decl(r#""indexType": "IVF_FLAT""#));
+        assert!(is_milvus_json_decl(r#""indexType": "HNSW""#));
+        assert!(is_milvus_json_decl(r#""indexType": "DISKANN""#));
+        assert!(is_milvus_json_decl(r#""indexType": "AUTOINDEX""#));
+        assert!(is_milvus_json_decl(
+            r#""indexType": "SPARSE_INVERTED_INDEX""#
+        ));
+        assert!(is_milvus_json_decl(r#""nlist": 0"#));
+        assert!(is_milvus_json_decl(r#""nlist": 128"#));
+        assert!(is_milvus_json_decl(r#""nprobe": 0"#));
+        assert!(is_milvus_json_decl(r#""nprobe": 10"#));
+        assert!(is_milvus_json_decl(r#""efConstruction": 0"#));
+        assert!(is_milvus_json_decl(r#""efConstruction": 200"#));
+        assert!(is_milvus_json_decl(r#""shardsNum": 0"#));
+        assert!(is_milvus_json_decl(r#""shardsNum": 2"#));
+        assert!(is_milvus_json_decl(r#""enableDynamicField": true"#));
+        assert!(is_milvus_json_decl(r#""enableDynamicField": false"#));
+        assert!(is_milvus_json_decl(r#""autoID": true"#));
+        assert!(is_milvus_json_decl(r#""autoID": false"#));
+        assert!(is_milvus_json_decl(r#""numEntities": 0"#));
+        assert!(is_milvus_json_decl(r#""numEntities": 1000"#));
+        assert!(is_milvus_json_decl(r#""partitionNames": ["#));
+        assert!(is_milvus_json_decl(r#""elementTypeParams": {"#));
+        // Distinctive neighbours stay out of this scanner.
+        assert!(!is_milvus_json_decl(r#""n_results": 10"#));
+        assert!(is_chroma_json_decl(r#""n_results": 10"#));
+        assert!(!is_milvus_json_decl(r#""where_document": {"#));
+        assert!(is_chroma_json_decl(r#""where_document": {"#));
+        assert!(!is_milvus_json_decl(r#""topK": 10"#));
+        assert!(is_pinecone_json_decl(r#""topK": 10"#));
+        assert!(!is_milvus_json_decl(r#""nearVector": {"#));
+        assert!(is_weaviate_json_decl(r#""nearVector": {"#));
+        assert!(!is_milvus_json_decl(r#""vectors_count": 100"#));
+        assert!(is_qdrant_json_decl(r#""vectors_count": 100"#));
+        assert!(!is_milvus_json_decl(r#""processingTimeMS": 12"#));
+        assert!(is_algolia_json_decl(r#""processingTimeMS": 12"#));
+        assert!(!is_milvus_json_decl(r#""processingTimeMs": 12"#));
+        assert!(is_meilisearch_json_decl(r#""processingTimeMs": 12"#));
+        assert!(!is_milvus_json_decl(r#""search_time_ms": 12"#));
+        assert!(is_typesense_json_decl(r#""search_time_ms": 12"#));
+        assert!(!is_milvus_json_decl(r#""responseHeader": {"#));
+        assert!(is_solr_json_decl(r#""responseHeader": {"#));
+        assert!(!is_milvus_json_decl(r#""track_total_hits": true"#));
+        assert!(is_elasticsearch_json_decl(r#""track_total_hits": true"#));
+        assert!(!is_milvus_json_decl(r#""printWidth": 80"#));
+        assert!(is_prettier_json_decl(r#""printWidth": 80"#));
+        assert!(!is_milvus_json_decl(r#""basePath": ".""#));
+        assert!(is_karma_json_decl(r#""basePath": ".""#));
+        assert!(line_is_func_like(r#""annsField": "vec""#));
+        assert!(line_is_func_like(r#""searchParams": {"#));
+        assert!(line_is_func_like(r#""outputFields": ["#));
+        assert!(line_is_func_like(r#""consistencyLevel": "Strong""#));
+        assert!(line_is_func_like(r#""metricType": "L2""#));
+        assert!(line_is_func_like(r#""indexType": "HNSW""#));
+        assert!(line_is_func_like(r#""nlist": 128"#));
+        assert!(line_is_func_like(r#""nprobe": 10"#));
+        assert!(line_is_func_like(r#""efConstruction": 200"#));
+        assert!(line_is_func_like(r#""shardsNum": 2"#));
+        assert!(line_is_func_like(r#""enableDynamicField": true"#));
+        assert!(line_is_func_like(r#""autoID": false"#));
+        assert!(line_is_func_like(r#""numEntities": 1000"#));
+        assert!(line_is_func_like(r#""partitionNames": ["#));
+        assert!(line_is_func_like(r#""elementTypeParams": {"#));
+    }
+
+    #[test]
+    fn milvus_json_keys_count() {
+        assert!(is_milvus_json_decl(r#""annsField": "vec""#));
+        assert!(is_milvus_json_decl(r#""annsField": "book_intro""#));
+        assert!(is_milvus_json_decl(r#""annsField": "vec","#));
+        assert!(is_milvus_json_decl(r#""annsField": "vec" // a"#));
+        assert!(!is_milvus_json_decl(r#""annsField": """#));
+        assert!(!is_milvus_json_decl(r#""annsField": {"#));
+        assert!(!is_milvus_json_decl(r#""annsField": ["#));
+        assert!(!is_milvus_json_decl(r#""annsField": true"#));
+        assert!(is_milvus_json_decl(r#""searchParams": {"#));
+        assert!(is_milvus_json_decl(r#""searchParams": {,"#));
+        assert!(is_milvus_json_decl(r#""searchParams": { // s"#));
+        assert!(!is_milvus_json_decl(r#""searchParams": ["#));
+        assert!(!is_milvus_json_decl(r#""searchParams": true"#));
+        assert!(is_milvus_json_decl(r#""outputFields": ["#));
+        assert!(is_milvus_json_decl(r#""outputFields": [,"#));
+        assert!(is_milvus_json_decl(r#""outputFields": [ // o"#));
+        assert!(!is_milvus_json_decl(r#""outputFields": {"#));
+        assert!(!is_milvus_json_decl(r#""outputFields": true"#));
+        assert!(is_milvus_json_decl(r#""consistencyLevel": "Strong""#));
+        assert!(is_milvus_json_decl(r#""consistencyLevel": "Session""#));
+        assert!(is_milvus_json_decl(r#""consistencyLevel": "Bounded""#));
+        assert!(is_milvus_json_decl(r#""consistencyLevel": "Eventually""#));
+        assert!(is_milvus_json_decl(
+            r#""consistencyLevel": "ConsistentPrefix""#
+        ));
+        assert!(is_milvus_json_decl(r#""consistencyLevel": "Strong","#));
+        assert!(is_milvus_json_decl(r#""consistencyLevel": "Strong" // c"#));
+        assert!(!is_milvus_json_decl(r#""consistencyLevel": "weak""#));
+        assert!(!is_milvus_json_decl(r#""consistencyLevel": {"#));
+        assert!(!is_milvus_json_decl(r#""consistencyLevel": true"#));
+        assert!(is_milvus_json_decl(r#""metricType": "L2""#));
+        assert!(is_milvus_json_decl(r#""metricType": "IP""#));
+        assert!(is_milvus_json_decl(r#""metricType": "COSINE""#));
+        assert!(is_milvus_json_decl(r#""metricType": "HAMMING""#));
+        assert!(is_milvus_json_decl(r#""metricType": "JACCARD""#));
+        assert!(is_milvus_json_decl(r#""metricType": "L2","#));
+        assert!(!is_milvus_json_decl(r#""metricType": "Euclidean""#));
+        assert!(!is_milvus_json_decl(r#""metricType": {"#));
+        assert!(is_milvus_json_decl(r#""indexType": "FLAT""#));
+        assert!(is_milvus_json_decl(r#""indexType": "IVF_FLAT""#));
+        assert!(is_milvus_json_decl(r#""indexType": "IVF_SQ8""#));
+        assert!(is_milvus_json_decl(r#""indexType": "IVF_PQ""#));
+        assert!(is_milvus_json_decl(r#""indexType": "HNSW""#));
+        assert!(is_milvus_json_decl(r#""indexType": "DISKANN""#));
+        assert!(is_milvus_json_decl(r#""indexType": "AUTOINDEX""#));
+        assert!(is_milvus_json_decl(r#""indexType": "SCANN""#));
+        assert!(is_milvus_json_decl(r#""indexType": "BIN_FLAT""#));
+        assert!(is_milvus_json_decl(r#""indexType": "BIN_IVF_FLAT""#));
+        assert!(is_milvus_json_decl(r#""indexType": "GPU_IVF_FLAT""#));
+        assert!(is_milvus_json_decl(r#""indexType": "GPU_IVF_PQ""#));
+        assert!(is_milvus_json_decl(r#""indexType": "GPU_CAGRA""#));
+        assert!(is_milvus_json_decl(
+            r#""indexType": "SPARSE_INVERTED_INDEX""#
+        ));
+        assert!(is_milvus_json_decl(r#""indexType": "HNSW","#));
+        assert!(!is_milvus_json_decl(r#""indexType": "hnsw""#));
+        assert!(!is_milvus_json_decl(r#""indexType": {"#));
+        assert!(is_milvus_json_decl(r#""nlist": 0"#));
+        assert!(is_milvus_json_decl(r#""nlist": 128"#));
+        assert!(is_milvus_json_decl(r#""nlist": 128,"#));
+        assert!(is_milvus_json_decl(r#""nlist": 128 // n"#));
+        assert!(!is_milvus_json_decl(r#""nlist": 00"#));
+        assert!(!is_milvus_json_decl(r#""nlist": 01"#));
+        assert!(!is_milvus_json_decl(r#""nlist": true"#));
+        assert!(!is_milvus_json_decl(r#""nlist": {"#));
+        assert!(is_milvus_json_decl(r#""nprobe": 0"#));
+        assert!(is_milvus_json_decl(r#""nprobe": 10"#));
+        assert!(is_milvus_json_decl(r#""nprobe": 10,"#));
+        assert!(!is_milvus_json_decl(r#""nprobe": 00"#));
+        assert!(!is_milvus_json_decl(r#""nprobe": 01"#));
+        assert!(!is_milvus_json_decl(r#""nprobe": true"#));
+        assert!(is_milvus_json_decl(r#""efConstruction": 0"#));
+        assert!(is_milvus_json_decl(r#""efConstruction": 200"#));
+        assert!(is_milvus_json_decl(r#""efConstruction": 200,"#));
+        assert!(!is_milvus_json_decl(r#""efConstruction": 00"#));
+        assert!(!is_milvus_json_decl(r#""efConstruction": 0200"#));
+        assert!(!is_milvus_json_decl(r#""efConstruction": true"#));
+        assert!(is_milvus_json_decl(r#""shardsNum": 0"#));
+        assert!(is_milvus_json_decl(r#""shardsNum": 2"#));
+        assert!(is_milvus_json_decl(r#""shardsNum": 2,"#));
+        assert!(!is_milvus_json_decl(r#""shardsNum": 00"#));
+        assert!(!is_milvus_json_decl(r#""shardsNum": 02"#));
+        assert!(!is_milvus_json_decl(r#""shardsNum": true"#));
+        assert!(is_milvus_json_decl(r#""enableDynamicField": true"#));
+        assert!(is_milvus_json_decl(r#""enableDynamicField": false"#));
+        assert!(is_milvus_json_decl(r#""enableDynamicField": true,"#));
+        assert!(is_milvus_json_decl(r#""enableDynamicField": false // e"#));
+        assert!(!is_milvus_json_decl(r#""enableDynamicField": {"#));
+        assert!(!is_milvus_json_decl(r#""enableDynamicField": 1"#));
+        assert!(is_milvus_json_decl(r#""autoID": true"#));
+        assert!(is_milvus_json_decl(r#""autoID": false"#));
+        assert!(is_milvus_json_decl(r#""autoID": true,"#));
+        assert!(!is_milvus_json_decl(r#""autoID": {"#));
+        assert!(!is_milvus_json_decl(r#""autoID": 1"#));
+        assert!(is_milvus_json_decl(r#""numEntities": 0"#));
+        assert!(is_milvus_json_decl(r#""numEntities": 1000"#));
+        assert!(is_milvus_json_decl(r#""numEntities": 1000,"#));
+        assert!(is_milvus_json_decl(r#""numEntities": 1000 // n"#));
+        assert!(!is_milvus_json_decl(r#""numEntities": 00"#));
+        assert!(!is_milvus_json_decl(r#""numEntities": 01000"#));
+        assert!(!is_milvus_json_decl(r#""numEntities": true"#));
+        assert!(!is_milvus_json_decl(r#""numEntities": {"#));
+        assert!(is_milvus_json_decl(r#""partitionNames": ["#));
+        assert!(is_milvus_json_decl(r#""partitionNames": [,"#));
+        assert!(is_milvus_json_decl(r#""partitionNames": [ // p"#));
+        assert!(!is_milvus_json_decl(r#""partitionNames": {"#));
+        assert!(!is_milvus_json_decl(r#""partitionNames": true"#));
+        assert!(is_milvus_json_decl(r#""elementTypeParams": {"#));
+        assert!(is_milvus_json_decl(r#""elementTypeParams": {,"#));
+        assert!(is_milvus_json_decl(r#""elementTypeParams": { // e"#));
+        assert!(!is_milvus_json_decl(r#""elementTypeParams": ["#));
+        assert!(!is_milvus_json_decl(r#""elementTypeParams": true"#));
+        // Incomplete / bare keys stay out.
+        assert!(!is_milvus_json_decl(r#""annsField""#));
+        assert!(!is_milvus_json_decl(r#""searchParams""#));
+        assert!(!is_milvus_json_decl(r#""outputFields""#));
+        assert!(!is_milvus_json_decl(r#""consistencyLevel""#));
+        assert!(!is_milvus_json_decl(r#""metricType""#));
+        assert!(!is_milvus_json_decl(r#""indexType""#));
+        assert!(!is_milvus_json_decl(r#""nlist""#));
+        assert!(!is_milvus_json_decl(r#""nprobe""#));
+        assert!(!is_milvus_json_decl(r#""efConstruction""#));
+        assert!(!is_milvus_json_decl(r#""shardsNum""#));
+        assert!(!is_milvus_json_decl(r#""enableDynamicField""#));
+        assert!(!is_milvus_json_decl(r#""autoID""#));
+        assert!(!is_milvus_json_decl(r#""numEntities""#));
+        assert!(!is_milvus_json_decl(r#""partitionNames""#));
+        assert!(!is_milvus_json_decl(r#""elementTypeParams""#));
+        // Generic / neighbouring stay out.
+        assert!(!is_milvus_json_decl(
+            r#""$schema": "https://json-schema.org/draft/2020-12/schema""#
+        ));
+        assert!(!is_milvus_json_decl(r#""name": "docs""#));
+        assert!(!is_milvus_json_decl(r#""id": "col-1""#));
+        assert!(!is_milvus_json_decl(r#""collectionName": "book""#));
+        assert!(!is_milvus_json_decl(r#""partitionName": "p0""#));
+        assert!(!is_milvus_json_decl(r#""dbName": "default""#));
+        assert!(!is_milvus_json_decl(r#""data": ["#));
+        assert!(!is_milvus_json_decl(r#""filter": "id > 0""#));
+        assert!(!is_milvus_json_decl(r#""limit": 10"#));
+        assert!(!is_milvus_json_decl(r#""offset": 0"#));
+        assert!(!is_milvus_json_decl(r#""vector": ["#));
+        assert!(!is_milvus_json_decl(r#""vectors": ["#));
+        assert!(!is_milvus_json_decl(r#""expr": "x > 0""#));
+        assert!(!is_milvus_json_decl(r#""params": {"#));
+        assert!(!is_milvus_json_decl(r#""dim": 128"#));
+        assert!(!is_milvus_json_decl(r#""fields": ["#));
+        assert!(!is_milvus_json_decl(r#""schema": {"#));
+        assert!(!is_milvus_json_decl(r#""n_results": 10"#));
+        assert!(is_chroma_json_decl(r#""n_results": 10"#));
+        assert!(!is_milvus_json_decl(r#""where_document": {"#));
+        assert!(is_chroma_json_decl(r#""where_document": {"#));
+        assert!(!is_milvus_json_decl(r#""query_embeddings": ["#));
+        assert!(is_chroma_json_decl(r#""query_embeddings": ["#));
+        assert!(!is_milvus_json_decl(r#""get_or_create": true"#));
+        assert!(is_chroma_json_decl(r#""get_or_create": true"#));
+        assert!(!is_milvus_json_decl(r#""topK": 10"#));
+        assert!(is_pinecone_json_decl(r#""topK": 10"#));
+        assert!(!is_milvus_json_decl(r#""includeMetadata": true"#));
+        assert!(is_pinecone_json_decl(r#""includeMetadata": true"#));
+        assert!(!is_milvus_json_decl(r#""sparseValues": {"#));
+        assert!(is_pinecone_json_decl(r#""sparseValues": {"#));
+        assert!(!is_milvus_json_decl(r#""nearVector": {"#));
+        assert!(is_weaviate_json_decl(r#""nearVector": {"#));
+        assert!(!is_milvus_json_decl(r#""vectorIndexType": "hnsw""#));
+        assert!(is_weaviate_json_decl(r#""vectorIndexType": "hnsw""#));
+        assert!(!is_milvus_json_decl(r#""vectors_count": 100"#));
+        assert!(is_qdrant_json_decl(r#""vectors_count": 100"#));
+        assert!(!is_milvus_json_decl(r#""hnsw_config": {"#));
+        assert!(is_qdrant_json_decl(r#""hnsw_config": {"#));
+        assert!(!is_milvus_json_decl(r#""processingTimeMS": 12"#));
+        assert!(is_algolia_json_decl(r#""processingTimeMS": 12"#));
+        assert!(!is_milvus_json_decl(r#""nbPages": 20"#));
+        assert!(is_algolia_json_decl(r#""nbPages": 20"#));
+        assert!(!is_milvus_json_decl(r#""processingTimeMs": 12"#));
+        assert!(is_meilisearch_json_decl(r#""processingTimeMs": 12"#));
+        assert!(!is_milvus_json_decl(r#""facetDistribution": {"#));
+        assert!(is_meilisearch_json_decl(r#""facetDistribution": {"#));
+        assert!(!is_milvus_json_decl(r#""search_time_ms": 12"#));
+        assert!(is_typesense_json_decl(r#""search_time_ms": 12"#));
+        assert!(!is_milvus_json_decl(r#""out_of": 100"#));
+        assert!(is_typesense_json_decl(r#""out_of": 100"#));
+        assert!(!is_milvus_json_decl(r#""responseHeader": {"#));
+        assert!(is_solr_json_decl(r#""responseHeader": {"#));
+        assert!(!is_milvus_json_decl(r#""numFound": 10"#));
+        assert!(is_solr_json_decl(r#""numFound": 10"#));
+        assert!(!is_milvus_json_decl(r#""track_total_hits": true"#));
+        assert!(is_elasticsearch_json_decl(r#""track_total_hits": true"#));
+        assert!(!is_milvus_json_decl(r#""min_score": 0.5"#));
+        assert!(is_elasticsearch_json_decl(r#""min_score": 0.5"#));
+        assert!(!is_milvus_json_decl(r#""printWidth": 80"#));
+        assert!(is_prettier_json_decl(r#""printWidth": 80"#));
+        assert!(!is_milvus_json_decl(r#""basePath": ".""#));
+        assert!(is_karma_json_decl(r#""basePath": ".""#));
+        assert!(line_is_func_like(r#""annsField": "vec""#));
+        assert!(line_is_func_like(r#""searchParams": {"#));
+        assert!(line_is_func_like(r#""outputFields": ["#));
+        assert!(line_is_func_like(r#""consistencyLevel": "Bounded""#));
+        assert!(line_is_func_like(r#""metricType": "COSINE""#));
+        assert!(line_is_func_like(r#""indexType": "IVF_FLAT""#));
+        assert!(line_is_func_like(r#""nlist": 128"#));
+        assert!(line_is_func_like(r#""nprobe": 10"#));
+        assert!(line_is_func_like(r#""efConstruction": 200"#));
+        assert!(line_is_func_like(r#""shardsNum": 2"#));
+        assert!(line_is_func_like(r#""enableDynamicField": false"#));
+        assert!(line_is_func_like(r#""autoID": true"#));
+        assert!(line_is_func_like(r#""numEntities": 1000"#));
+        assert!(line_is_func_like(r#""partitionNames": ["#));
+        assert!(line_is_func_like(r#""elementTypeParams": {"#));
     }
 
     #[test]
