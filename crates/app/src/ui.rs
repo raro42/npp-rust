@@ -32471,6 +32471,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_grafana_datasource_json_decl(s)
             || is_grafana_alerting_json_decl(s)
             || is_elasticsearch_json_decl(s)
+            || is_solr_json_decl(s)
             || is_gomod_decl(s)
             || is_gemfile_decl(s)
             || is_brewfile_decl(s)
@@ -32852,6 +32853,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_grafana_datasource_json_decl(s)
         || is_grafana_alerting_json_decl(s)
         || is_elasticsearch_json_decl(s)
+        || is_solr_json_decl(s)
         || is_gomod_decl(s)
         || is_gemfile_decl(s)
         || is_brewfile_decl(s)
@@ -61867,29 +61869,31 @@ fn grafana_alerting_json_bool_and_tail_ok(after_colon: &str) -> bool {
 /// `"from"` / `"sort": [` / `"_source"` / `"highlight": {` /
 /// `"suggest": {` / `"timeout"` / `"version"` / `"took"` /
 /// `"timed_out"` / `"hits": {` / `"total"` / `"max_score"` /
-/// `"_index"` / `"_id"` / `"_score"` / Grafana alerting
-/// `"noDataState"` / `"execErrState"` / `"datasourceUid"` /
-/// `"folderUID"` / `"relativeTimeRange"` / `"grafana_alert"` /
-/// `"contactPoints"` / `"muteTimes"` / `"isPaused"` / Grafana
-/// dashboard `"schemaVersion"` / `"graphTooltip"` / `"templating"` /
-/// `"gnetId"` / Grafana datasource `"access"` / `"basicAuth"` /
-/// `"jsonData"` / `"deleteDatasources"` / Alertmanager `"groupKey"` /
-/// `"truncatedAlerts"` / Prometheus `"totalQueryableSamples"` / Loki
-/// `"bytesProcessedPerSecond"` / Tempo `"rootServiceName"` / Jaeger
-/// `"traceID"` / Zipkin `"localEndpoint"` / OTLP `"resourceSpans"` /
-/// HAR `"startedDateTime"` / OpenAPI `"openapi"` / AsyncAPI
-/// `"asyncapi"` / `"channels": {` / Pact `"consumer"` / MockServer
-/// `"httpRequest"` / Hoverfly `"hoverflyVersion"` / Mountebank
-/// `"imposters"` / WireMock `"scenarioName"` / Mockoon
-/// `"lastMigration"` / Hoppscotch `"preRequestScript"` / Yaak
-/// `"yaakVersion"` / Bruno `"brunoConfig"` / Thunder Client `"client"` /
-/// Postman `"_postman_id"` / Insomnia `"__export_format"` / ReDoc
-/// `"disableSearch"` / RapiDoc `"specUrl"` / swagger-ui `"dom_id"` /
-/// scalar `"layout": "modern"` / Elements `"layout": "sidebar"` /
-/// mintlify `"topbarLinks"` / Compodoc `"theme": "material"` / redocly
-/// `"apis"` / spectral `"functionsDir"` / openapitools
-/// `"generator-cli"` / Knip `"entry"` / prettier `"printWidth"` /
-/// package.json `"bin"` / karma `"basePath"` stay out.
+/// `"_index"` / `"_id"` / `"_score"` / Solr `"responseHeader"` /
+/// `"numFound"` / `"numFoundExact"` / `"QTime"` / `"zkConnected"` /
+/// `"facet_counts"` / `"highlighting"` / `"spellcheck"` / `"grouped"` /
+/// `"nextCursorMark"` / Grafana alerting `"noDataState"` /
+/// `"execErrState"` / `"datasourceUid"` / `"folderUID"` /
+/// `"relativeTimeRange"` / `"grafana_alert"` / `"contactPoints"` /
+/// `"muteTimes"` / `"isPaused"` / Grafana dashboard `"schemaVersion"` /
+/// `"graphTooltip"` / `"templating"` / `"gnetId"` / Grafana datasource
+/// `"access"` / `"basicAuth"` / `"jsonData"` / `"deleteDatasources"` /
+/// Alertmanager `"groupKey"` / `"truncatedAlerts"` / Prometheus
+/// `"totalQueryableSamples"` / Loki `"bytesProcessedPerSecond"` / Tempo
+/// `"rootServiceName"` / Jaeger `"traceID"` / Zipkin `"localEndpoint"` /
+/// OTLP `"resourceSpans"` / HAR `"startedDateTime"` / OpenAPI
+/// `"openapi"` / AsyncAPI `"asyncapi"` / `"channels": {` / Pact
+/// `"consumer"` / MockServer `"httpRequest"` / Hoverfly
+/// `"hoverflyVersion"` / Mountebank `"imposters"` / WireMock
+/// `"scenarioName"` / Mockoon `"lastMigration"` / Hoppscotch
+/// `"preRequestScript"` / Yaak `"yaakVersion"` / Bruno `"brunoConfig"` /
+/// Thunder Client `"client"` / Postman `"_postman_id"` / Insomnia
+/// `"__export_format"` / ReDoc `"disableSearch"` / RapiDoc `"specUrl"` /
+/// swagger-ui `"dom_id"` / scalar `"layout": "modern"` / Elements
+/// `"layout": "sidebar"` / mintlify `"topbarLinks"` / Compodoc
+/// `"theme": "material"` / redocly `"apis"` / spectral `"functionsDir"` /
+/// openapitools `"generator-cli"` / Knip `"entry"` / prettier
+/// `"printWidth"` / package.json `"bin"` / karma `"basePath"` stay out.
 /// `"_scroll_id"` needs a non-empty value. Numeric `"track_total_hits"`
 /// rejects leading zeros beyond `0`. `"min_score"` allows a simple
 /// decimal (no exponent).
@@ -62020,6 +62024,152 @@ fn elasticsearch_json_min_score_and_tail_ok(after_colon: &str) -> bool {
 }
 
 fn elasticsearch_json_bool_and_tail_ok(after_colon: &str) -> bool {
+    if let Some(rest) = after_colon.strip_prefix("true") {
+        return package_json_tail_ok(rest);
+    }
+    if let Some(rest) = after_colon.strip_prefix("false") {
+        return package_json_tail_ok(rest);
+    }
+    false
+}
+
+/// Apache Solr search response / request JSON keys:
+/// `"responseHeader": {`,
+/// `"numFound": 0` / `10`,
+/// `"numFoundExact": true` / `false`,
+/// `"QTime": 0` / `12`,
+/// `"zkConnected": true` / `false`,
+/// `"facet_counts": {`,
+/// `"highlighting": {`,
+/// `"spellcheck": {`,
+/// `"grouped": {`,
+/// `"nextCursorMark": "…"`.
+/// Optional trailing `,` and `//` / `/*` comment. Incomplete quotes /
+/// missing `:` stay out. Generic `"$schema"` / `"name"` / `"id"` /
+/// `"response": {` / `"docs": [` / `"start"` / `"maxScore"` /
+/// `"params": {` / `"status"` / `"version"` / `"query": {` /
+/// `"filter": [` / `"fields": [` / Elasticsearch
+/// `"track_total_hits"` / `"min_score"` / `"post_filter"` /
+/// `"runtime_mappings"` / `"script_fields"` / `"docvalue_fields"` /
+/// `"seq_no_primary_term"` / `"_scroll_id"` / `"_shards"` / Grafana
+/// alerting `"noDataState"` / `"execErrState"` / `"datasourceUid"` /
+/// `"folderUID"` / `"relativeTimeRange"` / `"grafana_alert"` /
+/// `"contactPoints"` / `"muteTimes"` / `"isPaused"` / Grafana
+/// dashboard `"schemaVersion"` / `"graphTooltip"` / `"templating"` /
+/// `"gnetId"` / Grafana datasource `"access"` / `"basicAuth"` /
+/// `"jsonData"` / `"deleteDatasources"` / Alertmanager `"groupKey"` /
+/// `"truncatedAlerts"` / Prometheus `"totalQueryableSamples"` / Loki
+/// `"bytesProcessedPerSecond"` / Tempo `"rootServiceName"` / Jaeger
+/// `"traceID"` / Zipkin `"localEndpoint"` / OTLP `"resourceSpans"` /
+/// HAR `"startedDateTime"` / OpenAPI `"openapi"` / AsyncAPI
+/// `"asyncapi"` / `"channels": {` / Pact `"consumer"` / MockServer
+/// `"httpRequest"` / Hoverfly `"hoverflyVersion"` / Mountebank
+/// `"imposters"` / WireMock `"scenarioName"` / Mockoon
+/// `"lastMigration"` / Hoppscotch `"preRequestScript"` / Yaak
+/// `"yaakVersion"` / Bruno `"brunoConfig"` / Thunder Client `"client"` /
+/// Postman `"_postman_id"` / Insomnia `"__export_format"` / ReDoc
+/// `"disableSearch"` / RapiDoc `"specUrl"` / swagger-ui `"dom_id"` /
+/// scalar `"layout": "modern"` / Elements `"layout": "sidebar"` /
+/// mintlify `"topbarLinks"` / Compodoc `"theme": "material"` / redocly
+/// `"apis"` / spectral `"functionsDir"` / openapitools
+/// `"generator-cli"` / Knip `"entry"` / prettier `"printWidth"` /
+/// package.json `"bin"` / karma `"basePath"` stay out.
+/// `"nextCursorMark"` needs a non-empty value. Numeric `"numFound"` /
+/// `"QTime"` reject leading zeros beyond `0`.
+fn is_solr_json_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    let Some(rest) = s.strip_prefix('"') else {
+        return false;
+    };
+    let Some(end) = rest.find('"') else {
+        return false;
+    };
+    let key = &rest[..end];
+    if !solr_json_key_ok(key) {
+        return false;
+    }
+    let after_key = rest[end + 1..].trim_start();
+    let Some(after_colon) = after_key.strip_prefix(':') else {
+        return false;
+    };
+    let after_colon = after_colon.trim_start();
+    solr_json_value_and_tail_ok(key, after_colon)
+}
+
+fn solr_json_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "responseHeader"
+            | "numFound"
+            | "numFoundExact"
+            | "QTime"
+            | "zkConnected"
+            | "facet_counts"
+            | "highlighting"
+            | "spellcheck"
+            | "grouped"
+            | "nextCursorMark"
+    )
+}
+
+fn solr_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool {
+    let bytes = after_colon.as_bytes();
+    let Some(first) = bytes.first().copied() else {
+        return false;
+    };
+    match first {
+        b'{' => {
+            if !matches!(
+                key,
+                "responseHeader" | "facet_counts" | "highlighting" | "spellcheck" | "grouped"
+            ) {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[1..])
+        }
+        b'"' => {
+            if key != "nextCursorMark" {
+                return false;
+            }
+            let rest = &after_colon[1..];
+            let Some(end) = rest.find('"') else {
+                return false;
+            };
+            let value = &rest[..end];
+            if value.is_empty() || value.contains('\n') {
+                return false;
+            }
+            package_json_tail_ok(&rest[end + 1..])
+        }
+        b't' | b'f' => {
+            if !matches!(key, "numFoundExact" | "zkConnected") {
+                return false;
+            }
+            solr_json_bool_and_tail_ok(after_colon)
+        }
+        b'0'..=b'9' => solr_json_number_and_tail_ok(key, after_colon),
+        _ => false,
+    }
+}
+
+fn solr_json_number_and_tail_ok(key: &str, after_colon: &str) -> bool {
+    if !matches!(key, "numFound" | "QTime") {
+        return false;
+    }
+    let digits = after_colon
+        .bytes()
+        .take_while(|b| b.is_ascii_digit())
+        .count();
+    if digits == 0 || digits > 12 {
+        return false;
+    }
+    if digits > 1 && after_colon.as_bytes()[0] == b'0' {
+        return false;
+    }
+    package_json_tail_ok(&after_colon[digits..])
+}
+
+fn solr_json_bool_and_tail_ok(after_colon: &str) -> bool {
     if let Some(rest) = after_colon.strip_prefix("true") {
         return package_json_tail_ok(rest);
     }
@@ -92697,8 +92847,8 @@ mod func_like_line_tests {
         is_samba_conf_decl, is_samconfig_toml_decl, is_scalar_json_decl, is_scons_decl,
         is_scriv_ini_decl, is_sddm_conf_decl, is_semantic_release_ini_decl,
         is_semantic_release_json_decl, is_services_file_decl, is_setup_cfg_decl,
-        is_setuptools_scm_ini_decl, is_simple_git_hooks_json_decl, is_spectral_json_decl,
-        is_sqlfluff_ini_decl, is_ssh_config_decl, is_sssd_conf_decl,
+        is_setuptools_scm_ini_decl, is_simple_git_hooks_json_decl, is_solr_json_decl,
+        is_spectral_json_decl, is_sqlfluff_ini_decl, is_ssh_config_decl, is_sssd_conf_decl,
         is_stoplight_elements_json_decl, is_stryker_json_decl, is_stylelint_json_decl,
         is_subuid_subgid_decl, is_sudoers_decl, is_supabase_toml_decl, is_supervisord_conf_decl,
         is_swagger_ui_json_decl, is_swc_json_decl, is_syncpack_json_decl, is_sysctl_conf_decl,
@@ -125033,6 +125183,12 @@ mod func_like_line_tests {
         assert!(is_prettier_json_decl(r#""printWidth": 80"#));
         assert!(!is_elasticsearch_json_decl(r#""basePath": ".""#));
         assert!(is_karma_json_decl(r#""basePath": ".""#));
+        assert!(!is_elasticsearch_json_decl(r#""responseHeader": {"#));
+        assert!(is_solr_json_decl(r#""responseHeader": {"#));
+        assert!(!is_elasticsearch_json_decl(r#""numFound": 10"#));
+        assert!(is_solr_json_decl(r#""numFound": 10"#));
+        assert!(!is_elasticsearch_json_decl(r#""facet_counts": {"#));
+        assert!(is_solr_json_decl(r#""facet_counts": {"#));
         assert!(line_is_func_like(r#""track_total_hits": true"#));
         assert!(line_is_func_like(r#""min_score": 0.5"#));
         assert!(line_is_func_like(r#""post_filter": {"#));
@@ -125209,6 +125365,26 @@ mod func_like_line_tests {
         assert!(is_prettier_json_decl(r#""printWidth": 80"#));
         assert!(!is_elasticsearch_json_decl(r#""basePath": ".""#));
         assert!(is_karma_json_decl(r#""basePath": ".""#));
+        assert!(!is_elasticsearch_json_decl(r#""responseHeader": {"#));
+        assert!(is_solr_json_decl(r#""responseHeader": {"#));
+        assert!(!is_elasticsearch_json_decl(r#""numFound": 10"#));
+        assert!(is_solr_json_decl(r#""numFound": 10"#));
+        assert!(!is_elasticsearch_json_decl(r#""numFoundExact": true"#));
+        assert!(is_solr_json_decl(r#""numFoundExact": true"#));
+        assert!(!is_elasticsearch_json_decl(r#""QTime": 12"#));
+        assert!(is_solr_json_decl(r#""QTime": 12"#));
+        assert!(!is_elasticsearch_json_decl(r#""zkConnected": true"#));
+        assert!(is_solr_json_decl(r#""zkConnected": true"#));
+        assert!(!is_elasticsearch_json_decl(r#""facet_counts": {"#));
+        assert!(is_solr_json_decl(r#""facet_counts": {"#));
+        assert!(!is_elasticsearch_json_decl(r#""highlighting": {"#));
+        assert!(is_solr_json_decl(r#""highlighting": {"#));
+        assert!(!is_elasticsearch_json_decl(r#""spellcheck": {"#));
+        assert!(is_solr_json_decl(r#""spellcheck": {"#));
+        assert!(!is_elasticsearch_json_decl(r#""grouped": {"#));
+        assert!(is_solr_json_decl(r#""grouped": {"#));
+        assert!(!is_elasticsearch_json_decl(r#""nextCursorMark": "*""#));
+        assert!(is_solr_json_decl(r#""nextCursorMark": "*""#));
         assert!(line_is_func_like(r#""track_total_hits": 10000"#));
         assert!(line_is_func_like(r#""min_score": 0"#));
         assert!(line_is_func_like(r#""post_filter": {"#));
@@ -125218,6 +125394,237 @@ mod func_like_line_tests {
         assert!(line_is_func_like(r#""seq_no_primary_term": true"#));
         assert!(line_is_func_like(r#""_scroll_id": "abc""#));
         assert!(line_is_func_like(r#""_shards": {"#));
+    }
+
+    #[test]
+    fn solr_json_keys_smoke() {
+        assert!(is_solr_json_decl(r#""responseHeader": {"#));
+        assert!(is_solr_json_decl(r#""numFound": 0"#));
+        assert!(is_solr_json_decl(r#""numFound": 10"#));
+        assert!(is_solr_json_decl(r#""numFoundExact": true"#));
+        assert!(is_solr_json_decl(r#""numFoundExact": false"#));
+        assert!(is_solr_json_decl(r#""QTime": 0"#));
+        assert!(is_solr_json_decl(r#""QTime": 12"#));
+        assert!(is_solr_json_decl(r#""zkConnected": true"#));
+        assert!(is_solr_json_decl(r#""zkConnected": false"#));
+        assert!(is_solr_json_decl(r#""facet_counts": {"#));
+        assert!(is_solr_json_decl(r#""highlighting": {"#));
+        assert!(is_solr_json_decl(r#""spellcheck": {"#));
+        assert!(is_solr_json_decl(r#""grouped": {"#));
+        assert!(is_solr_json_decl(r#""nextCursorMark": "*""#));
+        // Distinctive neighbours stay out of this scanner.
+        assert!(!is_solr_json_decl(r#""track_total_hits": true"#));
+        assert!(is_elasticsearch_json_decl(r#""track_total_hits": true"#));
+        assert!(!is_solr_json_decl(r#""min_score": 0.5"#));
+        assert!(is_elasticsearch_json_decl(r#""min_score": 0.5"#));
+        assert!(!is_solr_json_decl(r#""_shards": {"#));
+        assert!(is_elasticsearch_json_decl(r#""_shards": {"#));
+        assert!(!is_solr_json_decl(r#""noDataState": "NoData""#));
+        assert!(is_grafana_alerting_json_decl(r#""noDataState": "NoData""#));
+        assert!(!is_solr_json_decl(r#""schemaVersion": 42"#));
+        assert!(is_grafana_dashboard_json_decl(r#""schemaVersion": 42"#));
+        assert!(!is_solr_json_decl(r#""access": "proxy""#));
+        assert!(is_grafana_datasource_json_decl(r#""access": "proxy""#));
+        assert!(!is_solr_json_decl(r#""truncatedAlerts": 1"#));
+        assert!(is_alertmanager_json_decl(r#""truncatedAlerts": 1"#));
+        assert!(!is_solr_json_decl(r#""totalQueryableSamples": 100"#));
+        assert!(is_prometheus_json_decl(r#""totalQueryableSamples": 100"#));
+        assert!(!is_solr_json_decl(r#""bytesProcessedPerSecond": 1234"#));
+        assert!(is_loki_json_decl(r#""bytesProcessedPerSecond": 1234"#));
+        assert!(!is_solr_json_decl(r#""rootServiceName": "frontend""#));
+        assert!(is_tempo_json_decl(r#""rootServiceName": "frontend""#));
+        assert!(!is_solr_json_decl(
+            r#""traceID": "0123456789abcdef0123456789abcdef""#
+        ));
+        assert!(is_jaeger_json_decl(
+            r#""traceID": "0123456789abcdef0123456789abcdef""#
+        ));
+        assert!(!is_solr_json_decl(r#""localEndpoint": {"#));
+        assert!(is_zipkin_json_decl(r#""localEndpoint": {"#));
+        assert!(!is_solr_json_decl(r#""resourceSpans": ["#));
+        assert!(is_otlp_json_decl(r#""resourceSpans": ["#));
+        assert!(!is_solr_json_decl(
+            r#""startedDateTime": "2009-04-16T15:53:27.373Z""#
+        ));
+        assert!(is_har_json_decl(
+            r#""startedDateTime": "2009-04-16T15:53:27.373Z""#
+        ));
+        assert!(!is_solr_json_decl(r#""openapi": "3.0.3""#));
+        assert!(is_openapi_json_decl(r#""openapi": "3.0.3""#));
+        assert!(!is_solr_json_decl(r#""asyncapi": "2.6.0""#));
+        assert!(is_asyncapi_json_decl(r#""asyncapi": "2.6.0""#));
+        assert!(!is_solr_json_decl(r#""printWidth": 80"#));
+        assert!(is_prettier_json_decl(r#""printWidth": 80"#));
+        assert!(!is_solr_json_decl(r#""basePath": ".""#));
+        assert!(is_karma_json_decl(r#""basePath": ".""#));
+        assert!(line_is_func_like(r#""responseHeader": {"#));
+        assert!(line_is_func_like(r#""numFound": 10"#));
+        assert!(line_is_func_like(r#""numFoundExact": true"#));
+        assert!(line_is_func_like(r#""QTime": 12"#));
+        assert!(line_is_func_like(r#""zkConnected": false"#));
+        assert!(line_is_func_like(r#""facet_counts": {"#));
+        assert!(line_is_func_like(r#""highlighting": {"#));
+        assert!(line_is_func_like(r#""spellcheck": {"#));
+        assert!(line_is_func_like(r#""grouped": {"#));
+        assert!(line_is_func_like(r#""nextCursorMark": "*""#));
+    }
+
+    #[test]
+    fn solr_json_keys_count() {
+        assert!(is_solr_json_decl(r#""responseHeader": {"#));
+        assert!(is_solr_json_decl(r#""responseHeader": {,"#));
+        assert!(is_solr_json_decl(r#""responseHeader": { // rh"#));
+        assert!(!is_solr_json_decl(r#""responseHeader": ["#));
+        assert!(!is_solr_json_decl(r#""responseHeader": true"#));
+        assert!(!is_solr_json_decl(r#""responseHeader": """#));
+        assert!(is_solr_json_decl(r#""numFound": 0"#));
+        assert!(is_solr_json_decl(r#""numFound": 10"#));
+        assert!(is_solr_json_decl(r#""numFound": 10,"#));
+        assert!(is_solr_json_decl(r#""numFound": 10 // n"#));
+        assert!(!is_solr_json_decl(r#""numFound": 00"#));
+        assert!(!is_solr_json_decl(r#""numFound": 01"#));
+        assert!(!is_solr_json_decl(r#""numFound": true"#));
+        assert!(!is_solr_json_decl(r#""numFound": {"#));
+        assert!(!is_solr_json_decl(r#""numFound": "10""#));
+        assert!(is_solr_json_decl(r#""numFoundExact": true"#));
+        assert!(is_solr_json_decl(r#""numFoundExact": false"#));
+        assert!(is_solr_json_decl(r#""numFoundExact": true,"#));
+        assert!(is_solr_json_decl(r#""numFoundExact": false // e"#));
+        assert!(!is_solr_json_decl(r#""numFoundExact": 1"#));
+        assert!(!is_solr_json_decl(r#""numFoundExact": "true""#));
+        assert!(!is_solr_json_decl(r#""numFoundExact": {"#));
+        assert!(is_solr_json_decl(r#""QTime": 0"#));
+        assert!(is_solr_json_decl(r#""QTime": 12"#));
+        assert!(is_solr_json_decl(r#""QTime": 12,"#));
+        assert!(is_solr_json_decl(r#""QTime": 12 // q"#));
+        assert!(!is_solr_json_decl(r#""QTime": 00"#));
+        assert!(!is_solr_json_decl(r#""QTime": 01"#));
+        assert!(!is_solr_json_decl(r#""QTime": true"#));
+        assert!(!is_solr_json_decl(r#""QTime": {"#));
+        assert!(!is_solr_json_decl(r#""QTime": "12""#));
+        assert!(is_solr_json_decl(r#""zkConnected": true"#));
+        assert!(is_solr_json_decl(r#""zkConnected": false"#));
+        assert!(is_solr_json_decl(r#""zkConnected": true,"#));
+        assert!(is_solr_json_decl(r#""zkConnected": false // z"#));
+        assert!(!is_solr_json_decl(r#""zkConnected": 1"#));
+        assert!(!is_solr_json_decl(r#""zkConnected": "true""#));
+        assert!(!is_solr_json_decl(r#""zkConnected": {"#));
+        assert!(is_solr_json_decl(r#""facet_counts": {"#));
+        assert!(is_solr_json_decl(r#""facet_counts": {,"#));
+        assert!(is_solr_json_decl(r#""facet_counts": { // f"#));
+        assert!(!is_solr_json_decl(r#""facet_counts": ["#));
+        assert!(!is_solr_json_decl(r#""facet_counts": true"#));
+        assert!(!is_solr_json_decl(r#""facet_counts": """#));
+        assert!(is_solr_json_decl(r#""highlighting": {"#));
+        assert!(is_solr_json_decl(r#""highlighting": {,"#));
+        assert!(is_solr_json_decl(r#""highlighting": { // h"#));
+        assert!(!is_solr_json_decl(r#""highlighting": ["#));
+        assert!(!is_solr_json_decl(r#""highlighting": true"#));
+        assert!(!is_solr_json_decl(r#""highlighting": """#));
+        assert!(is_solr_json_decl(r#""spellcheck": {"#));
+        assert!(is_solr_json_decl(r#""spellcheck": {,"#));
+        assert!(is_solr_json_decl(r#""spellcheck": { // s"#));
+        assert!(!is_solr_json_decl(r#""spellcheck": ["#));
+        assert!(!is_solr_json_decl(r#""spellcheck": true"#));
+        assert!(!is_solr_json_decl(r#""spellcheck": """#));
+        assert!(is_solr_json_decl(r#""grouped": {"#));
+        assert!(is_solr_json_decl(r#""grouped": {,"#));
+        assert!(is_solr_json_decl(r#""grouped": { // g"#));
+        assert!(!is_solr_json_decl(r#""grouped": ["#));
+        assert!(!is_solr_json_decl(r#""grouped": true"#));
+        assert!(!is_solr_json_decl(r#""grouped": """#));
+        assert!(is_solr_json_decl(r#""nextCursorMark": "*""#));
+        assert!(is_solr_json_decl(r#""nextCursorMark": "AoIIP4AAA""#));
+        assert!(is_solr_json_decl(r#""nextCursorMark": "*","#));
+        assert!(is_solr_json_decl(r#""nextCursorMark": "*" // c"#));
+        assert!(!is_solr_json_decl(r#""nextCursorMark": """#));
+        assert!(!is_solr_json_decl(r#""nextCursorMark": {"#));
+        assert!(!is_solr_json_decl(r#""nextCursorMark": true"#));
+        assert!(!is_solr_json_decl(r#""nextCursorMark": ["#));
+        // Incomplete / wrong shapes stay out.
+        assert!(!is_solr_json_decl(r#""responseHeader""#));
+        assert!(!is_solr_json_decl(r#""responseHeader":"#));
+        assert!(!is_solr_json_decl(r#""numFound""#));
+        assert!(!is_solr_json_decl(r#""numFoundExact""#));
+        assert!(!is_solr_json_decl(r#""QTime""#));
+        assert!(!is_solr_json_decl(r#""zkConnected""#));
+        assert!(!is_solr_json_decl(r#""facet_counts""#));
+        assert!(!is_solr_json_decl(r#""highlighting""#));
+        assert!(!is_solr_json_decl(r#""spellcheck""#));
+        assert!(!is_solr_json_decl(r#""grouped""#));
+        assert!(!is_solr_json_decl(r#""nextCursorMark""#));
+        // Generic / neighbouring stay out.
+        assert!(!is_solr_json_decl(
+            r#""$schema": "https://json-schema.org/draft/2020-12/schema""#
+        ));
+        assert!(!is_solr_json_decl(r#""name": "search""#));
+        assert!(!is_solr_json_decl(r#""response": {"#));
+        assert!(!is_solr_json_decl(r#""docs": ["#));
+        assert!(!is_solr_json_decl(r#""start": 0"#));
+        assert!(!is_solr_json_decl(r#""maxScore": 1.0"#));
+        assert!(!is_solr_json_decl(r#""params": {"#));
+        assert!(!is_solr_json_decl(r#""status": 0"#));
+        assert!(!is_solr_json_decl(r#""version": 2"#));
+        assert!(!is_solr_json_decl(r#""query": {"#));
+        assert!(!is_solr_json_decl(r#""filter": ["#));
+        assert!(!is_solr_json_decl(r#""fields": ["#));
+        assert!(!is_solr_json_decl(r#""highlight": {"#));
+        assert!(!is_solr_json_decl(r#""track_total_hits": true"#));
+        assert!(is_elasticsearch_json_decl(r#""track_total_hits": true"#));
+        assert!(!is_solr_json_decl(r#""min_score": 0.5"#));
+        assert!(is_elasticsearch_json_decl(r#""min_score": 0.5"#));
+        assert!(!is_solr_json_decl(r#""_shards": {"#));
+        assert!(is_elasticsearch_json_decl(r#""_shards": {"#));
+        assert!(!is_solr_json_decl(r#""noDataState": "NoData""#));
+        assert!(is_grafana_alerting_json_decl(r#""noDataState": "NoData""#));
+        assert!(!is_solr_json_decl(r#""schemaVersion": 42"#));
+        assert!(is_grafana_dashboard_json_decl(r#""schemaVersion": 42"#));
+        assert!(!is_solr_json_decl(r#""access": "proxy""#));
+        assert!(is_grafana_datasource_json_decl(r#""access": "proxy""#));
+        assert!(!is_solr_json_decl(r#""truncatedAlerts": 1"#));
+        assert!(is_alertmanager_json_decl(r#""truncatedAlerts": 1"#));
+        assert!(!is_solr_json_decl(r#""totalQueryableSamples": 100"#));
+        assert!(is_prometheus_json_decl(r#""totalQueryableSamples": 100"#));
+        assert!(!is_solr_json_decl(r#""bytesProcessedPerSecond": 1234"#));
+        assert!(is_loki_json_decl(r#""bytesProcessedPerSecond": 1234"#));
+        assert!(!is_solr_json_decl(r#""rootServiceName": "frontend""#));
+        assert!(is_tempo_json_decl(r#""rootServiceName": "frontend""#));
+        assert!(!is_solr_json_decl(
+            r#""traceID": "0123456789abcdef0123456789abcdef""#
+        ));
+        assert!(is_jaeger_json_decl(
+            r#""traceID": "0123456789abcdef0123456789abcdef""#
+        ));
+        assert!(!is_solr_json_decl(r#""localEndpoint": {"#));
+        assert!(is_zipkin_json_decl(r#""localEndpoint": {"#));
+        assert!(!is_solr_json_decl(r#""resourceSpans": ["#));
+        assert!(is_otlp_json_decl(r#""resourceSpans": ["#));
+        assert!(!is_solr_json_decl(
+            r#""startedDateTime": "2009-04-16T15:53:27.373Z""#
+        ));
+        assert!(is_har_json_decl(
+            r#""startedDateTime": "2009-04-16T15:53:27.373Z""#
+        ));
+        assert!(!is_solr_json_decl(r#""openapi": "3.0.3""#));
+        assert!(is_openapi_json_decl(r#""openapi": "3.0.3""#));
+        assert!(!is_solr_json_decl(r#""asyncapi": "2.6.0""#));
+        assert!(is_asyncapi_json_decl(r#""asyncapi": "2.6.0""#));
+        assert!(!is_solr_json_decl(r#""schemaVersion": "v5""#));
+        assert!(is_hoverfly_json_decl(r#""schemaVersion": "v5""#));
+        assert!(!is_solr_json_decl(r#""printWidth": 80"#));
+        assert!(is_prettier_json_decl(r#""printWidth": 80"#));
+        assert!(!is_solr_json_decl(r#""basePath": ".""#));
+        assert!(is_karma_json_decl(r#""basePath": ".""#));
+        assert!(line_is_func_like(r#""responseHeader": {"#));
+        assert!(line_is_func_like(r#""numFound": 0"#));
+        assert!(line_is_func_like(r#""numFoundExact": false"#));
+        assert!(line_is_func_like(r#""QTime": 0"#));
+        assert!(line_is_func_like(r#""zkConnected": true"#));
+        assert!(line_is_func_like(r#""facet_counts": {"#));
+        assert!(line_is_func_like(r#""highlighting": {"#));
+        assert!(line_is_func_like(r#""spellcheck": {"#));
+        assert!(line_is_func_like(r#""grouped": {"#));
+        assert!(line_is_func_like(r#""nextCursorMark": "*""#));
     }
 
     #[test]

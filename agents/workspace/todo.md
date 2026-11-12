@@ -1270,3 +1270,5 @@
 009 keep: Function List Grafana alerting noDataState/execErrState/datasourceUid/folderUID/relativeTimeRange/grafana_alert/contactPoints/muteTimes/isPaused (v0.3.802)
 
 009 keep: Function List Elasticsearch/OpenSearch track_total_hits/min_score/post_filter/runtime_mappings/script_fields/docvalue_fields/seq_no_primary_term/_scroll_id/_shards (v0.3.803)
+
+009 keep: Function List Solr responseHeader/numFound/numFoundExact/QTime/zkConnected/facet_counts/highlighting/spellcheck/grouped/nextCursorMark (v0.3.804)

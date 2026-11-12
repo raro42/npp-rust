@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.804] — 2026-11-12
+
+View:
+
+- **Function List** lists Apache Solr search response / request JSON keys: `"responseHeader": {`, `"numFound": 0` / `10`, `"numFoundExact": true` / `false`, `"QTime": 0` / `12`, `"zkConnected": true` / `false`, `"facet_counts": {`, `"highlighting": {`, `"spellcheck": {`, `"grouped": {`, `"nextCursorMark": "…"`. Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing `:` stay out. Generic `"$schema"` / `"name"` / `"id"` / `"response": {` / `"docs": [` / `"start"` / `"maxScore"` / `"params": {` / `"status"` / `"version"` / `"query": {` / `"filter": [` / `"fields": [` / Elasticsearch `"track_total_hits"` / `"min_score"` / `"post_filter"` / `"runtime_mappings"` / `"script_fields"` / `"docvalue_fields"` / `"seq_no_primary_term"` / `"_scroll_id"` / `"_shards"` / Grafana alerting `"noDataState"` / `"execErrState"` / `"datasourceUid"` / `"folderUID"` / `"relativeTimeRange"` / `"grafana_alert"` / `"contactPoints"` / `"muteTimes"` / `"isPaused"` / Grafana dashboard `"schemaVersion"` / `"graphTooltip"` / `"templating"` / `"gnetId"` / Grafana datasource `"access"` / `"basicAuth"` / `"jsonData"` / `"deleteDatasources"` / Alertmanager `"groupKey"` / `"truncatedAlerts"` / Prometheus `"totalQueryableSamples"` / Loki `"bytesProcessedPerSecond"` / Tempo `"rootServiceName"` / Jaeger `"traceID"` / Zipkin `"localEndpoint"` / OTLP `"resourceSpans"` / HAR `"startedDateTime"` / OpenAPI `"openapi"` / AsyncAPI `"asyncapi"` / `"channels": {` / Pact `"consumer"` / MockServer `"httpRequest"` / Hoverfly `"hoverflyVersion"` / Mountebank `"imposters"` / WireMock `"scenarioName"` / Mockoon `"lastMigration"` / Hoppscotch `"preRequestScript"` / Yaak `"yaakVersion"` / Bruno `"brunoConfig"` / Thunder Client `"client"` / Postman `"_postman_id"` / Insomnia `"__export_format"` / ReDoc `"disableSearch"` / RapiDoc `"specUrl"` / swagger-ui `"dom_id"` / scalar `"layout": "modern"` / Elements `"layout": "sidebar"` / mintlify `"topbarLinks"` / Compodoc `"theme": "material"` / redocly `"apis"` / spectral `"functionsDir"` / openapitools `"generator-cli"` / Knip `"entry"` / prettier `"printWidth"` / package.json `"bin"` / karma `"basePath"` stay out. `"nextCursorMark"` needs a non-empty value. Numeric `"numFound"` / `"QTime"` reject leading zeros beyond `0`.
+
 ## [0.3.803] — 2026-11-12
 
 View:
