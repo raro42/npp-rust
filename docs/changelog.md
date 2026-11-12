@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.818] — 2026-11-12
+
+View:
+
+- **Function List** lists Constructor.io search / autocomplete JSON keys: `"result_sources": {`, `"fmt_options": {`, `"variations_map": {`, `"pre_filter_expression": {`, `"filter_match_types": {`, `"hidden_fields": [`, `"hidden_facets": [`, `"sort_options": [`, `"num_results_per_page": 0` / `30`, `"total_num_results": 0` / `100`, `"filtered_items_count": 0` / `12`, `"collection_id": "…"`, `"sort_order": "ascending"` / `"descending"`, `"section": "…"`. Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing `:` stay out. Generic `"$schema"` / `"name"` / `"id"` / `"q"` / `"query"` / `"filter"` / `"filters"` / `"limit"` / `"offset"` / `"page"` / `"results"` / `"facets"` / `"groups"` / Coveo `"searchHub"` / `"organizationId"` / `"totalCountFiltered"` / Azure AI Search `"@odata.count"` / `"@search.score"` / `"searchMode"` / Vespa `"yql"` / `"searchChain"` / Marqo `"searchableAttributes"` / `"searchMethod"` / LanceDB `"vector_column_name"` / `"nprobes"` / Milvus `"annsField"` / Chroma `"n_results"` / Pinecone `"topK"` / Weaviate `"nearVector"` / Qdrant `"vectors_count"` / Algolia `"processingTimeMS"` / Meilisearch `"processingTimeMs"` / Typesense `"search_time_ms"` / Solr `"responseHeader"` / Elasticsearch `"track_total_hits"` / prettier `"printWidth"` / karma `"basePath"` stay out. `"sort_order"` only matches `ascending` / `descending`. `"collection_id"` / `"section"` require a non-empty quoted string. Numeric `"num_results_per_page"` / `"total_num_results"` / `"filtered_items_count"` reject leading zeros beyond `0`.
+
 ## [0.3.817] — 2026-11-12
 
 View:

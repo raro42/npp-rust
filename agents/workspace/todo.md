@@ -1298,3 +1298,5 @@
 009 keep: Function List Azure AI Search @odata.count/@odata.nextLink/@search.score/@search.rerankerScore/@search.highlights/@search.captions/@search.answers/@search.features/searchMode/queryType/semanticConfiguration/vectorQueries/vectorFilterMode/semanticErrorHandling/semanticMaxWaitInMilliseconds (v0.3.816)
 
 009 keep: Function List Coveo searchHub/pipeline/organizationId/numberOfResults/firstResult/enableQuerySyntax/excerptLength/enableDidYouMean/enableDuplicateFiltering/aq/cq/dq/lq/partialMatch/totalCountFiltered/indexDuration/searchUid/queryPipeline (v0.3.817)
+
+009 keep: Function List Constructor.io result_sources/fmt_options/variations_map/pre_filter_expression/filter_match_types/hidden_fields/hidden_facets/sort_options/num_results_per_page/total_num_results/filtered_items_count/collection_id/sort_order/section (v0.3.818)

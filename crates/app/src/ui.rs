@@ -32485,6 +32485,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_vespa_json_decl(s)
             || is_azure_search_json_decl(s)
             || is_coveo_json_decl(s)
+            || is_constructor_io_json_decl(s)
             || is_gomod_decl(s)
             || is_gemfile_decl(s)
             || is_brewfile_decl(s)
@@ -32880,6 +32881,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_vespa_json_decl(s)
         || is_azure_search_json_decl(s)
         || is_coveo_json_decl(s)
+        || is_constructor_io_json_decl(s)
         || is_gomod_decl(s)
         || is_gemfile_decl(s)
         || is_brewfile_decl(s)
@@ -64507,8 +64509,9 @@ fn vespa_json_bool_and_tail_ok(after_colon: &str) -> bool {
 /// `"vectors_count"` / Algolia `"processingTimeMS"` / Meilisearch
 /// `"processingTimeMs"` / Typesense `"search_time_ms"` / Solr
 /// `"responseHeader"` / Elasticsearch `"track_total_hits"` / Coveo
-/// `"searchHub"` / `"organizationId"` / prettier `"printWidth"` / karma
-/// `"basePath"` stay out.
+/// `"searchHub"` / `"organizationId"` / Constructor.io `"result_sources"` /
+/// `"num_results_per_page"` / prettier `"printWidth"` / karma `"basePath"`
+/// stay out.
 fn is_azure_search_json_decl(s: &str) -> bool {
     let s = s.trim_start();
     let Some(rest) = s.strip_prefix('"') else {
@@ -64724,8 +64727,9 @@ fn azure_search_json_decimal_and_tail_ok(after_colon: &str) -> bool {
 /// Chroma `"n_results"` / Pinecone `"topK"` / Weaviate `"nearVector"` /
 /// Qdrant `"vectors_count"` / Algolia `"processingTimeMS"` / Meilisearch
 /// `"processingTimeMs"` / Typesense `"search_time_ms"` / Solr
-/// `"responseHeader"` / Elasticsearch `"track_total_hits"` / prettier
-/// `"printWidth"` / karma `"basePath"` stay out.
+/// `"responseHeader"` / Elasticsearch `"track_total_hits"` / Constructor.io
+/// `"result_sources"` / `"num_results_per_page"` / prettier `"printWidth"` /
+/// karma `"basePath"` stay out.
 fn is_coveo_json_decl(s: &str) -> bool {
     let s = s.trim_start();
     let Some(rest) = s.strip_prefix('"') else {
@@ -64828,6 +64832,152 @@ fn coveo_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool {
             | "excerptLength"
             | "totalCountFiltered"
             | "indexDuration"
+    ) {
+        return false;
+    }
+    let bytes = after_colon.as_bytes();
+    let mut i = 0usize;
+    if i >= bytes.len() || !bytes[i].is_ascii_digit() {
+        return false;
+    }
+    if bytes[i] == b'0' {
+        i += 1;
+        if i < bytes.len() && bytes[i].is_ascii_digit() {
+            return false;
+        }
+    } else {
+        while i < bytes.len() && bytes[i].is_ascii_digit() {
+            i += 1;
+        }
+    }
+    package_json_tail_ok(&after_colon[i..])
+}
+
+/// Constructor.io search / autocomplete JSON keys:
+/// `"result_sources": {`, `"fmt_options": {`, `"variations_map": {`,
+/// `"pre_filter_expression": {`, `"filter_match_types": {`,
+/// `"hidden_fields": [`, `"hidden_facets": [`, `"sort_options": [`,
+/// `"num_results_per_page": 0` / `30`, `"total_num_results": 0` / `100`,
+/// `"filtered_items_count": 0` / `12`, `"collection_id": "…"`,
+/// `"sort_order": "ascending"` / `"descending"`, `"section": "…"`.
+/// Optional trailing `,` and `//` / `/*` comment. Incomplete quotes /
+/// missing `:` stay out. Generic `"$schema"` / `"name"` / `"id"` / `"q"` /
+/// `"query"` / `"filter"` / `"filters"` / `"limit"` / `"offset"` / `"page"` /
+/// `"results"` / `"facets"` / `"groups"` / Coveo `"searchHub"` /
+/// `"organizationId"` / `"totalCountFiltered"` / Azure AI Search
+/// `"@odata.count"` / `"@search.score"` / `"searchMode"` / Vespa `"yql"` /
+/// `"searchChain"` / Marqo `"searchableAttributes"` / `"searchMethod"` /
+/// LanceDB `"vector_column_name"` / `"nprobes"` / Milvus `"annsField"` /
+/// Chroma `"n_results"` / Pinecone `"topK"` / Weaviate `"nearVector"` /
+/// Qdrant `"vectors_count"` / Algolia `"processingTimeMS"` / Meilisearch
+/// `"processingTimeMs"` / Typesense `"search_time_ms"` / Solr
+/// `"responseHeader"` / Elasticsearch `"track_total_hits"` / prettier
+/// `"printWidth"` / karma `"basePath"` stay out.
+fn is_constructor_io_json_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    let Some(rest) = s.strip_prefix('"') else {
+        return false;
+    };
+    let Some(end) = rest.find('"') else {
+        return false;
+    };
+    let key = &rest[..end];
+    if !constructor_io_json_key_ok(key) {
+        return false;
+    }
+    let after_key = rest[end + 1..].trim_start();
+    let Some(after_colon) = after_key.strip_prefix(':') else {
+        return false;
+    };
+    let after_colon = after_colon.trim_start();
+    constructor_io_json_value_and_tail_ok(key, after_colon)
+}
+
+fn constructor_io_json_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "result_sources"
+            | "fmt_options"
+            | "variations_map"
+            | "pre_filter_expression"
+            | "filter_match_types"
+            | "hidden_fields"
+            | "hidden_facets"
+            | "sort_options"
+            | "num_results_per_page"
+            | "total_num_results"
+            | "filtered_items_count"
+            | "collection_id"
+            | "sort_order"
+            | "section"
+    )
+}
+
+fn constructor_io_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool {
+    let bytes = after_colon.as_bytes();
+    let Some(first) = bytes.first().copied() else {
+        return false;
+    };
+    match first {
+        b'{' => {
+            if !matches!(
+                key,
+                "result_sources"
+                    | "fmt_options"
+                    | "variations_map"
+                    | "pre_filter_expression"
+                    | "filter_match_types"
+            ) {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[1..])
+        }
+        b'[' => {
+            if !matches!(key, "hidden_fields" | "hidden_facets" | "sort_options") {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[1..])
+        }
+        b'"' => match key {
+            "collection_id" | "section" => {
+                constructor_io_json_nonempty_string_and_tail_ok(after_colon)
+            }
+            "sort_order" => constructor_io_json_sort_order_and_tail_ok(after_colon),
+            _ => false,
+        },
+        b'0'..=b'9' => constructor_io_json_uint_and_tail_ok(key, after_colon),
+        _ => false,
+    }
+}
+
+fn constructor_io_json_nonempty_string_and_tail_ok(after_colon: &str) -> bool {
+    let rest = &after_colon[1..];
+    let Some(end) = rest.find('"') else {
+        return false;
+    };
+    let value = &rest[..end];
+    if value.is_empty() || value.contains('\n') {
+        return false;
+    }
+    package_json_tail_ok(&rest[end + 1..])
+}
+
+fn constructor_io_json_sort_order_and_tail_ok(after_colon: &str) -> bool {
+    let rest = &after_colon[1..];
+    let Some(end) = rest.find('"') else {
+        return false;
+    };
+    let value = &rest[..end];
+    if !matches!(value, "ascending" | "descending") {
+        return false;
+    }
+    package_json_tail_ok(&rest[end + 1..])
+}
+
+fn constructor_io_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool {
+    if !matches!(
+        key,
+        "num_results_per_page" | "total_num_results" | "filtered_items_count"
     ) {
         return false;
     }
@@ -95472,56 +95622,57 @@ mod func_like_line_tests {
         is_check_manifest_ini_decl, is_check_wheel_contents_ini_decl, is_chroma_json_decl,
         is_cibuildwheel_ini_decl, is_cliff_toml_decl, is_clippy_toml_decl, is_codecept_json_decl,
         is_codespell_ini_decl, is_commitizen_ini_decl, is_commitlint_json_decl,
-        is_compodoc_json_decl, is_composer_json_decl, is_coveo_json_decl, is_coverage_ini_decl,
-        is_cross_toml_decl, is_crypttab_decl, is_cspell_json_decl, is_cucumber_json_decl,
-        is_cypress_json_decl, is_darglint_ini_decl, is_default_grub_decl, is_deno_json_decl,
-        is_deny_toml_decl, is_desktop_entry_decl, is_detox_json_decl, is_devcontainer_json_decl,
-        is_dhcpd_decl, is_dioxus_toml_decl, is_dist_toml_decl, is_doc8_ini_decl,
-        is_docformatter_ini_decl, is_docfx_json_decl, is_dovecot_decl, is_dprint_json_decl,
-        is_dracut_conf_decl, is_eas_json_decl, is_editorconfig_decl, is_elasticsearch_json_decl,
-        is_electron_builder_json_decl, is_electron_forge_json_decl, is_esdoc_json_decl,
-        is_eslint_json_decl, is_ethers_file_decl, is_expo_json_decl, is_fail2ban_conf_decl,
-        is_firebase_json_decl, is_flake8_ini_decl, is_fluent_bit_decl, is_fly_toml_decl,
-        is_flynt_ini_decl, is_freeradius_decl, is_fstab_decl, is_gdm_conf_decl, is_gemfile_decl,
-        is_gitconfig_decl, is_gomod_decl, is_grafana_alerting_json_decl,
-        is_grafana_dashboard_json_decl, is_grafana_datasource_json_decl, is_grafana_ini_decl,
-        is_haproxy_decl, is_har_json_decl, is_hatch_toml_decl, is_hoppscotch_json_decl,
-        is_hosts_access_decl, is_hosts_file_decl, is_hoverfly_json_decl, is_hypothesis_ini_decl,
-        is_importlinter_ini_decl, is_insomnia_json_decl, is_interrogate_ini_decl,
-        is_ionic_json_decl, is_ipsec_conf_decl, is_isort_ini_decl, is_jaeger_json_decl,
-        is_jasmine_json_decl, is_jest_json_decl, is_jsdoc_json_decl, is_karma_json_decl,
-        is_keepalived_decl, is_knip_json_decl, is_krb5_conf_decl, is_lancedb_json_decl,
-        is_lerna_json_decl, is_lightdm_conf_decl, is_limits_conf_decl, is_lint_staged_json_decl,
-        is_locale_conf_decl, is_login_defs_decl, is_logrotate_decl, is_loki_json_decl,
-        is_machine_info_decl, is_makepkg_conf_decl, is_marqo_json_decl, is_mdbook_toml_decl,
-        is_meilisearch_json_decl, is_milvus_json_decl, is_mintlify_json_decl, is_mise_toml_decl,
-        is_mkinitcpio_conf_decl, is_mocha_json_decl, is_mockoon_json_decl, is_mockserver_json_decl,
-        is_modprobe_conf_decl, is_mountebank_json_decl, is_mutants_toml_decl, is_mypy_ini_decl,
-        is_mysql_cnf_decl, is_named_conf_decl, is_nest_cli_json_decl, is_netlify_toml_decl,
-        is_networks_file_decl, is_neutralino_json_decl, is_nextest_toml_decl, is_nftables_decl,
-        is_nginx_conf_decl, is_nightwatch_json_decl, is_nixpacks_toml_decl, is_nm_connection_decl,
-        is_npmrc_decl, is_nsswitch_conf_decl, is_nx_json_decl, is_nyc_json_decl,
-        is_openapi_json_decl, is_openapitools_json_decl, is_openvpn_decl, is_os_release_decl,
-        is_otlp_json_decl, is_oxlint_json_decl, is_package_json_decl, is_pacman_conf_decl,
-        is_pact_json_decl, is_pam_conf_decl, is_parcel_json_decl, is_paru_conf_decl,
-        is_passwd_group_file_decl, is_pdm_toml_decl, is_php_ini_decl, is_pinecone_json_decl,
-        is_pip_conf_decl, is_pipfile_decl, is_pixi_toml_decl, is_playwright_json_decl,
-        is_podfile_decl, is_poetry_toml_decl, is_postcss_json_decl, is_postman_json_decl,
-        is_premake_decl, is_prettier_json_decl, is_prometheus_json_decl, is_protocols_file_decl,
-        is_pycln_ini_decl, is_pycodestyle_ini_decl, is_pydoclint_ini_decl, is_pydocstyle_ini_decl,
-        is_pylama_ini_decl, is_pylint_ini_decl, is_pypirc_ini_decl, is_pyproject_toml_decl,
-        is_pyre_configuration_decl, is_pyright_toml_decl, is_pyrightconfig_json_decl,
-        is_pytest_ini_decl, is_pytype_ini_decl, is_pyupgrade_ini_decl, is_qdrant_json_decl,
-        is_radon_ini_decl, is_railway_toml_decl, is_rake_decl, is_rapidoc_json_decl,
-        is_redoc_json_decl, is_redocly_json_decl, is_refurb_toml_decl, is_release_it_json_decl,
-        is_release_please_json_decl, is_release_toml_decl, is_renovate_json_decl,
-        is_resolv_conf_decl, is_rpc_file_decl, is_rstcheck_ini_decl, is_rsyslog_decl,
-        is_ruff_toml_decl, is_rush_json_decl, is_rust_toolchain_toml_decl, is_rustfmt_toml_decl,
-        is_samba_conf_decl, is_samconfig_toml_decl, is_scalar_json_decl, is_scons_decl,
-        is_scriv_ini_decl, is_sddm_conf_decl, is_semantic_release_ini_decl,
-        is_semantic_release_json_decl, is_services_file_decl, is_setup_cfg_decl,
-        is_setuptools_scm_ini_decl, is_simple_git_hooks_json_decl, is_solr_json_decl,
-        is_spectral_json_decl, is_sqlfluff_ini_decl, is_ssh_config_decl, is_sssd_conf_decl,
+        is_compodoc_json_decl, is_composer_json_decl, is_constructor_io_json_decl,
+        is_coveo_json_decl, is_coverage_ini_decl, is_cross_toml_decl, is_crypttab_decl,
+        is_cspell_json_decl, is_cucumber_json_decl, is_cypress_json_decl, is_darglint_ini_decl,
+        is_default_grub_decl, is_deno_json_decl, is_deny_toml_decl, is_desktop_entry_decl,
+        is_detox_json_decl, is_devcontainer_json_decl, is_dhcpd_decl, is_dioxus_toml_decl,
+        is_dist_toml_decl, is_doc8_ini_decl, is_docformatter_ini_decl, is_docfx_json_decl,
+        is_dovecot_decl, is_dprint_json_decl, is_dracut_conf_decl, is_eas_json_decl,
+        is_editorconfig_decl, is_elasticsearch_json_decl, is_electron_builder_json_decl,
+        is_electron_forge_json_decl, is_esdoc_json_decl, is_eslint_json_decl, is_ethers_file_decl,
+        is_expo_json_decl, is_fail2ban_conf_decl, is_firebase_json_decl, is_flake8_ini_decl,
+        is_fluent_bit_decl, is_fly_toml_decl, is_flynt_ini_decl, is_freeradius_decl, is_fstab_decl,
+        is_gdm_conf_decl, is_gemfile_decl, is_gitconfig_decl, is_gomod_decl,
+        is_grafana_alerting_json_decl, is_grafana_dashboard_json_decl,
+        is_grafana_datasource_json_decl, is_grafana_ini_decl, is_haproxy_decl, is_har_json_decl,
+        is_hatch_toml_decl, is_hoppscotch_json_decl, is_hosts_access_decl, is_hosts_file_decl,
+        is_hoverfly_json_decl, is_hypothesis_ini_decl, is_importlinter_ini_decl,
+        is_insomnia_json_decl, is_interrogate_ini_decl, is_ionic_json_decl, is_ipsec_conf_decl,
+        is_isort_ini_decl, is_jaeger_json_decl, is_jasmine_json_decl, is_jest_json_decl,
+        is_jsdoc_json_decl, is_karma_json_decl, is_keepalived_decl, is_knip_json_decl,
+        is_krb5_conf_decl, is_lancedb_json_decl, is_lerna_json_decl, is_lightdm_conf_decl,
+        is_limits_conf_decl, is_lint_staged_json_decl, is_locale_conf_decl, is_login_defs_decl,
+        is_logrotate_decl, is_loki_json_decl, is_machine_info_decl, is_makepkg_conf_decl,
+        is_marqo_json_decl, is_mdbook_toml_decl, is_meilisearch_json_decl, is_milvus_json_decl,
+        is_mintlify_json_decl, is_mise_toml_decl, is_mkinitcpio_conf_decl, is_mocha_json_decl,
+        is_mockoon_json_decl, is_mockserver_json_decl, is_modprobe_conf_decl,
+        is_mountebank_json_decl, is_mutants_toml_decl, is_mypy_ini_decl, is_mysql_cnf_decl,
+        is_named_conf_decl, is_nest_cli_json_decl, is_netlify_toml_decl, is_networks_file_decl,
+        is_neutralino_json_decl, is_nextest_toml_decl, is_nftables_decl, is_nginx_conf_decl,
+        is_nightwatch_json_decl, is_nixpacks_toml_decl, is_nm_connection_decl, is_npmrc_decl,
+        is_nsswitch_conf_decl, is_nx_json_decl, is_nyc_json_decl, is_openapi_json_decl,
+        is_openapitools_json_decl, is_openvpn_decl, is_os_release_decl, is_otlp_json_decl,
+        is_oxlint_json_decl, is_package_json_decl, is_pacman_conf_decl, is_pact_json_decl,
+        is_pam_conf_decl, is_parcel_json_decl, is_paru_conf_decl, is_passwd_group_file_decl,
+        is_pdm_toml_decl, is_php_ini_decl, is_pinecone_json_decl, is_pip_conf_decl,
+        is_pipfile_decl, is_pixi_toml_decl, is_playwright_json_decl, is_podfile_decl,
+        is_poetry_toml_decl, is_postcss_json_decl, is_postman_json_decl, is_premake_decl,
+        is_prettier_json_decl, is_prometheus_json_decl, is_protocols_file_decl, is_pycln_ini_decl,
+        is_pycodestyle_ini_decl, is_pydoclint_ini_decl, is_pydocstyle_ini_decl, is_pylama_ini_decl,
+        is_pylint_ini_decl, is_pypirc_ini_decl, is_pyproject_toml_decl, is_pyre_configuration_decl,
+        is_pyright_toml_decl, is_pyrightconfig_json_decl, is_pytest_ini_decl, is_pytype_ini_decl,
+        is_pyupgrade_ini_decl, is_qdrant_json_decl, is_radon_ini_decl, is_railway_toml_decl,
+        is_rake_decl, is_rapidoc_json_decl, is_redoc_json_decl, is_redocly_json_decl,
+        is_refurb_toml_decl, is_release_it_json_decl, is_release_please_json_decl,
+        is_release_toml_decl, is_renovate_json_decl, is_resolv_conf_decl, is_rpc_file_decl,
+        is_rstcheck_ini_decl, is_rsyslog_decl, is_ruff_toml_decl, is_rush_json_decl,
+        is_rust_toolchain_toml_decl, is_rustfmt_toml_decl, is_samba_conf_decl,
+        is_samconfig_toml_decl, is_scalar_json_decl, is_scons_decl, is_scriv_ini_decl,
+        is_sddm_conf_decl, is_semantic_release_ini_decl, is_semantic_release_json_decl,
+        is_services_file_decl, is_setup_cfg_decl, is_setuptools_scm_ini_decl,
+        is_simple_git_hooks_json_decl, is_solr_json_decl, is_spectral_json_decl,
+        is_sqlfluff_ini_decl, is_ssh_config_decl, is_sssd_conf_decl,
         is_stoplight_elements_json_decl, is_stryker_json_decl, is_stylelint_json_decl,
         is_subuid_subgid_decl, is_sudoers_decl, is_supabase_toml_decl, is_supervisord_conf_decl,
         is_swagger_ui_json_decl, is_swc_json_decl, is_syncpack_json_decl, is_sysctl_conf_decl,
@@ -131759,6 +131910,10 @@ mod func_like_line_tests {
         assert!(is_coveo_json_decl(r#""organizationId": "org""#));
         assert!(!is_azure_search_json_decl(r#""totalCountFiltered": 42"#));
         assert!(is_coveo_json_decl(r#""totalCountFiltered": 42"#));
+        assert!(!is_azure_search_json_decl(r#""result_sources": {"#));
+        assert!(is_constructor_io_json_decl(r#""result_sources": {"#));
+        assert!(!is_azure_search_json_decl(r#""num_results_per_page": 30"#));
+        assert!(is_constructor_io_json_decl(r#""num_results_per_page": 30"#));
     }
 
     #[test]
@@ -131835,6 +131990,10 @@ mod func_like_line_tests {
         assert!(is_solr_json_decl(r#""responseHeader": {"#));
         assert!(!is_coveo_json_decl(r#""track_total_hits": true"#));
         assert!(is_elasticsearch_json_decl(r#""track_total_hits": true"#));
+        assert!(!is_coveo_json_decl(r#""result_sources": {"#));
+        assert!(is_constructor_io_json_decl(r#""result_sources": {"#));
+        assert!(!is_coveo_json_decl(r#""num_results_per_page": 30"#));
+        assert!(is_constructor_io_json_decl(r#""num_results_per_page": 30"#));
         assert!(!is_coveo_json_decl(r#""printWidth": 80"#));
         assert!(is_prettier_json_decl(r#""printWidth": 80"#));
         assert!(!is_coveo_json_decl(r#""basePath": ".""#));
@@ -132036,6 +132195,10 @@ mod func_like_line_tests {
         assert!(is_solr_json_decl(r#""responseHeader": {"#));
         assert!(!is_coveo_json_decl(r#""track_total_hits": true"#));
         assert!(is_elasticsearch_json_decl(r#""track_total_hits": true"#));
+        assert!(!is_coveo_json_decl(r#""result_sources": {"#));
+        assert!(is_constructor_io_json_decl(r#""result_sources": {"#));
+        assert!(!is_coveo_json_decl(r#""num_results_per_page": 30"#));
+        assert!(is_constructor_io_json_decl(r#""num_results_per_page": 30"#));
         assert!(!is_coveo_json_decl(r#""printWidth": 80"#));
         assert!(is_prettier_json_decl(r#""printWidth": 80"#));
         assert!(!is_coveo_json_decl(r#""basePath": ".""#));
@@ -132060,6 +132223,294 @@ mod func_like_line_tests {
             r#""searchUid": "a1b2c3d4-e5f6-7890-abcd-ef1234567890""#
         ));
         assert!(line_is_func_like(r#""queryPipeline": "default""#));
+    }
+
+    #[test]
+    fn constructor_io_json_keys_smoke() {
+        assert!(is_constructor_io_json_decl(r#""result_sources": {"#));
+        assert!(is_constructor_io_json_decl(r#""fmt_options": {"#));
+        assert!(is_constructor_io_json_decl(r#""variations_map": {"#));
+        assert!(is_constructor_io_json_decl(r#""pre_filter_expression": {"#));
+        assert!(is_constructor_io_json_decl(r#""filter_match_types": {"#));
+        assert!(is_constructor_io_json_decl(r#""hidden_fields": ["#));
+        assert!(is_constructor_io_json_decl(r#""hidden_facets": ["#));
+        assert!(is_constructor_io_json_decl(r#""sort_options": ["#));
+        assert!(is_constructor_io_json_decl(r#""num_results_per_page": 0"#));
+        assert!(is_constructor_io_json_decl(r#""num_results_per_page": 30"#));
+        assert!(is_constructor_io_json_decl(r#""total_num_results": 0"#));
+        assert!(is_constructor_io_json_decl(r#""total_num_results": 100"#));
+        assert!(is_constructor_io_json_decl(r#""filtered_items_count": 0"#));
+        assert!(is_constructor_io_json_decl(r#""filtered_items_count": 12"#));
+        assert!(is_constructor_io_json_decl(r#""collection_id": "all""#));
+        assert!(is_constructor_io_json_decl(r#""sort_order": "ascending""#));
+        assert!(is_constructor_io_json_decl(r#""sort_order": "descending""#));
+        assert!(is_constructor_io_json_decl(r#""section": "Products""#));
+        // Distinctive neighbours stay out of this scanner.
+        assert!(!is_constructor_io_json_decl(r#""searchHub": "default""#));
+        assert!(is_coveo_json_decl(r#""searchHub": "default""#));
+        assert!(!is_constructor_io_json_decl(r#""organizationId": "org""#));
+        assert!(is_coveo_json_decl(r#""organizationId": "org""#));
+        assert!(!is_constructor_io_json_decl(r#""totalCountFiltered": 42"#));
+        assert!(is_coveo_json_decl(r#""totalCountFiltered": 42"#));
+        assert!(!is_constructor_io_json_decl(r#""@odata.count": 10"#));
+        assert!(is_azure_search_json_decl(r#""@odata.count": 10"#));
+        assert!(!is_constructor_io_json_decl(r#""@search.score": 1.5"#));
+        assert!(is_azure_search_json_decl(r#""@search.score": 1.5"#));
+        assert!(!is_constructor_io_json_decl(r#""searchMode": "any""#));
+        assert!(is_azure_search_json_decl(r#""searchMode": "any""#));
+        assert!(!is_constructor_io_json_decl(
+            r#""yql": "select * from sources * where true""#
+        ));
+        assert!(is_vespa_json_decl(
+            r#""yql": "select * from sources * where true""#
+        ));
+        assert!(!is_constructor_io_json_decl(r#""searchChain": "vespa""#));
+        assert!(is_vespa_json_decl(r#""searchChain": "vespa""#));
+        assert!(!is_constructor_io_json_decl(r#""searchableAttributes": ["#));
+        assert!(is_marqo_json_decl(r#""searchableAttributes": ["#));
+        assert!(!is_constructor_io_json_decl(r#""searchMethod": "TENSOR""#));
+        assert!(is_marqo_json_decl(r#""searchMethod": "TENSOR""#));
+        assert!(!is_constructor_io_json_decl(
+            r#""vector_column_name": "vec""#
+        ));
+        assert!(is_lancedb_json_decl(r#""vector_column_name": "vec""#));
+        assert!(!is_constructor_io_json_decl(r#""nprobes": 20"#));
+        assert!(is_lancedb_json_decl(r#""nprobes": 20"#));
+        assert!(!is_constructor_io_json_decl(r#""annsField": "vec""#));
+        assert!(is_milvus_json_decl(r#""annsField": "vec""#));
+        assert!(!is_constructor_io_json_decl(r#""n_results": 10"#));
+        assert!(is_chroma_json_decl(r#""n_results": 10"#));
+        assert!(!is_constructor_io_json_decl(r#""topK": 10"#));
+        assert!(is_pinecone_json_decl(r#""topK": 10"#));
+        assert!(!is_constructor_io_json_decl(r#""nearVector": {"#));
+        assert!(is_weaviate_json_decl(r#""nearVector": {"#));
+        assert!(!is_constructor_io_json_decl(r#""vectors_count": 100"#));
+        assert!(is_qdrant_json_decl(r#""vectors_count": 100"#));
+        assert!(!is_constructor_io_json_decl(r#""processingTimeMS": 12"#));
+        assert!(is_algolia_json_decl(r#""processingTimeMS": 12"#));
+        assert!(!is_constructor_io_json_decl(r#""processingTimeMs": 12"#));
+        assert!(is_meilisearch_json_decl(r#""processingTimeMs": 12"#));
+        assert!(!is_constructor_io_json_decl(r#""search_time_ms": 12"#));
+        assert!(is_typesense_json_decl(r#""search_time_ms": 12"#));
+        assert!(!is_constructor_io_json_decl(r#""responseHeader": {"#));
+        assert!(is_solr_json_decl(r#""responseHeader": {"#));
+        assert!(!is_constructor_io_json_decl(r#""track_total_hits": true"#));
+        assert!(is_elasticsearch_json_decl(r#""track_total_hits": true"#));
+        assert!(!is_constructor_io_json_decl(r#""printWidth": 80"#));
+        assert!(is_prettier_json_decl(r#""printWidth": 80"#));
+        assert!(!is_constructor_io_json_decl(r#""basePath": ".""#));
+        assert!(is_karma_json_decl(r#""basePath": ".""#));
+        assert!(line_is_func_like(r#""result_sources": {"#));
+        assert!(line_is_func_like(r#""fmt_options": {"#));
+        assert!(line_is_func_like(r#""variations_map": {"#));
+        assert!(line_is_func_like(r#""pre_filter_expression": {"#));
+        assert!(line_is_func_like(r#""filter_match_types": {"#));
+        assert!(line_is_func_like(r#""hidden_fields": ["#));
+        assert!(line_is_func_like(r#""hidden_facets": ["#));
+        assert!(line_is_func_like(r#""sort_options": ["#));
+        assert!(line_is_func_like(r#""num_results_per_page": 30"#));
+        assert!(line_is_func_like(r#""total_num_results": 100"#));
+        assert!(line_is_func_like(r#""filtered_items_count": 12"#));
+        assert!(line_is_func_like(r#""collection_id": "all""#));
+        assert!(line_is_func_like(r#""sort_order": "ascending""#));
+        assert!(line_is_func_like(r#""section": "Products""#));
+    }
+
+    #[test]
+    fn constructor_io_json_keys_count() {
+        assert!(is_constructor_io_json_decl(r#""result_sources": {"#));
+        assert!(is_constructor_io_json_decl(r#""result_sources": {,"#));
+        assert!(is_constructor_io_json_decl(r#""result_sources": { // r"#));
+        assert!(!is_constructor_io_json_decl(r#""result_sources": ["#));
+        assert!(!is_constructor_io_json_decl(r#""result_sources": true"#));
+        assert!(!is_constructor_io_json_decl(r#""result_sources": "x""#));
+        assert!(is_constructor_io_json_decl(r#""fmt_options": {"#));
+        assert!(is_constructor_io_json_decl(r#""fmt_options": {,"#));
+        assert!(!is_constructor_io_json_decl(r#""fmt_options": ["#));
+        assert!(is_constructor_io_json_decl(r#""variations_map": {"#));
+        assert!(is_constructor_io_json_decl(r#""variations_map": {,"#));
+        assert!(!is_constructor_io_json_decl(r#""variations_map": ["#));
+        assert!(is_constructor_io_json_decl(r#""pre_filter_expression": {"#));
+        assert!(is_constructor_io_json_decl(
+            r#""pre_filter_expression": {,"#
+        ));
+        assert!(!is_constructor_io_json_decl(
+            r#""pre_filter_expression": ["#
+        ));
+        assert!(is_constructor_io_json_decl(r#""filter_match_types": {"#));
+        assert!(is_constructor_io_json_decl(r#""filter_match_types": {,"#));
+        assert!(!is_constructor_io_json_decl(r#""filter_match_types": ["#));
+        assert!(is_constructor_io_json_decl(r#""hidden_fields": ["#));
+        assert!(is_constructor_io_json_decl(r#""hidden_fields": [,"#));
+        assert!(is_constructor_io_json_decl(r#""hidden_fields": [ // h"#));
+        assert!(!is_constructor_io_json_decl(r#""hidden_fields": {"#));
+        assert!(!is_constructor_io_json_decl(r#""hidden_fields": true"#));
+        assert!(is_constructor_io_json_decl(r#""hidden_facets": ["#));
+        assert!(is_constructor_io_json_decl(r#""hidden_facets": [,"#));
+        assert!(!is_constructor_io_json_decl(r#""hidden_facets": {"#));
+        assert!(is_constructor_io_json_decl(r#""sort_options": ["#));
+        assert!(is_constructor_io_json_decl(r#""sort_options": [,"#));
+        assert!(!is_constructor_io_json_decl(r#""sort_options": {"#));
+        assert!(is_constructor_io_json_decl(r#""num_results_per_page": 0"#));
+        assert!(is_constructor_io_json_decl(r#""num_results_per_page": 30"#));
+        assert!(is_constructor_io_json_decl(
+            r#""num_results_per_page": 30,"#
+        ));
+        assert!(is_constructor_io_json_decl(
+            r#""num_results_per_page": 30 // n"#
+        ));
+        assert!(!is_constructor_io_json_decl(
+            r#""num_results_per_page": 00"#
+        ));
+        assert!(!is_constructor_io_json_decl(
+            r#""num_results_per_page": 01"#
+        ));
+        assert!(!is_constructor_io_json_decl(
+            r#""num_results_per_page": true"#
+        ));
+        assert!(!is_constructor_io_json_decl(r#""num_results_per_page": {"#));
+        assert!(!is_constructor_io_json_decl(
+            r#""num_results_per_page": "30""#
+        ));
+        assert!(is_constructor_io_json_decl(r#""total_num_results": 0"#));
+        assert!(is_constructor_io_json_decl(r#""total_num_results": 100"#));
+        assert!(is_constructor_io_json_decl(r#""total_num_results": 100,"#));
+        assert!(!is_constructor_io_json_decl(r#""total_num_results": 00"#));
+        assert!(!is_constructor_io_json_decl(r#""total_num_results": true"#));
+        assert!(is_constructor_io_json_decl(r#""filtered_items_count": 0"#));
+        assert!(is_constructor_io_json_decl(r#""filtered_items_count": 12"#));
+        assert!(is_constructor_io_json_decl(
+            r#""filtered_items_count": 12,"#
+        ));
+        assert!(!is_constructor_io_json_decl(
+            r#""filtered_items_count": 00"#
+        ));
+        assert!(!is_constructor_io_json_decl(
+            r#""filtered_items_count": true"#
+        ));
+        assert!(is_constructor_io_json_decl(r#""collection_id": "all""#));
+        assert!(is_constructor_io_json_decl(r#""collection_id": "all","#));
+        assert!(is_constructor_io_json_decl(
+            r#""collection_id": "all" // c"#
+        ));
+        assert!(!is_constructor_io_json_decl(r#""collection_id": {"#));
+        assert!(!is_constructor_io_json_decl(r#""collection_id": """#));
+        assert!(!is_constructor_io_json_decl(r#""collection_id": true"#));
+        assert!(is_constructor_io_json_decl(r#""sort_order": "ascending""#));
+        assert!(is_constructor_io_json_decl(r#""sort_order": "descending""#));
+        assert!(is_constructor_io_json_decl(r#""sort_order": "ascending","#));
+        assert!(is_constructor_io_json_decl(
+            r#""sort_order": "descending" // s"#
+        ));
+        assert!(!is_constructor_io_json_decl(r#""sort_order": "ASC""#));
+        assert!(!is_constructor_io_json_decl(r#""sort_order": "desc""#));
+        assert!(!is_constructor_io_json_decl(r#""sort_order": {"#));
+        assert!(!is_constructor_io_json_decl(r#""sort_order": true"#));
+        assert!(!is_constructor_io_json_decl(r#""sort_order": """#));
+        assert!(is_constructor_io_json_decl(r#""section": "Products""#));
+        assert!(is_constructor_io_json_decl(r#""section": "Products","#));
+        assert!(!is_constructor_io_json_decl(r#""section": {"#));
+        assert!(!is_constructor_io_json_decl(r#""section": """#));
+        assert!(!is_constructor_io_json_decl(r#""section": true"#));
+        // Incomplete / bare keys stay out.
+        assert!(!is_constructor_io_json_decl(r#""result_sources""#));
+        assert!(!is_constructor_io_json_decl(r#""fmt_options""#));
+        assert!(!is_constructor_io_json_decl(r#""variations_map""#));
+        assert!(!is_constructor_io_json_decl(r#""pre_filter_expression""#));
+        assert!(!is_constructor_io_json_decl(r#""filter_match_types""#));
+        assert!(!is_constructor_io_json_decl(r#""hidden_fields""#));
+        assert!(!is_constructor_io_json_decl(r#""hidden_facets""#));
+        assert!(!is_constructor_io_json_decl(r#""sort_options""#));
+        assert!(!is_constructor_io_json_decl(r#""num_results_per_page""#));
+        assert!(!is_constructor_io_json_decl(r#""total_num_results""#));
+        assert!(!is_constructor_io_json_decl(r#""filtered_items_count""#));
+        assert!(!is_constructor_io_json_decl(r#""collection_id""#));
+        assert!(!is_constructor_io_json_decl(r#""sort_order""#));
+        assert!(!is_constructor_io_json_decl(r#""section""#));
+        // Generic / neighbouring stay out.
+        assert!(!is_constructor_io_json_decl(
+            r#""$schema": "https://json-schema.org/draft/2020-12/schema""#
+        ));
+        assert!(!is_constructor_io_json_decl(r#""name": "docs""#));
+        assert!(!is_constructor_io_json_decl(r#""id": "idx-1""#));
+        assert!(!is_constructor_io_json_decl(r#""q": "shoes""#));
+        assert!(!is_constructor_io_json_decl(r#""query": "shoes""#));
+        assert!(!is_constructor_io_json_decl(r#""filter": "type eq 'a'""#));
+        assert!(!is_constructor_io_json_decl(r#""filters": {"#));
+        assert!(!is_constructor_io_json_decl(r#""limit": 10"#));
+        assert!(!is_constructor_io_json_decl(r#""offset": 0"#));
+        assert!(!is_constructor_io_json_decl(r#""page": 1"#));
+        assert!(!is_constructor_io_json_decl(r#""results": ["#));
+        assert!(!is_constructor_io_json_decl(r#""facets": ["#));
+        assert!(!is_constructor_io_json_decl(r#""groups": ["#));
+        assert!(!is_constructor_io_json_decl(r#""searchHub": "default""#));
+        assert!(is_coveo_json_decl(r#""searchHub": "default""#));
+        assert!(!is_constructor_io_json_decl(r#""organizationId": "org""#));
+        assert!(is_coveo_json_decl(r#""organizationId": "org""#));
+        assert!(!is_constructor_io_json_decl(r#""totalCountFiltered": 42"#));
+        assert!(is_coveo_json_decl(r#""totalCountFiltered": 42"#));
+        assert!(!is_constructor_io_json_decl(r#""@odata.count": 10"#));
+        assert!(is_azure_search_json_decl(r#""@odata.count": 10"#));
+        assert!(!is_constructor_io_json_decl(r#""@search.score": 1.5"#));
+        assert!(is_azure_search_json_decl(r#""@search.score": 1.5"#));
+        assert!(!is_constructor_io_json_decl(r#""searchMode": "any""#));
+        assert!(is_azure_search_json_decl(r#""searchMode": "any""#));
+        assert!(!is_constructor_io_json_decl(
+            r#""yql": "select * from sources * where true""#
+        ));
+        assert!(is_vespa_json_decl(
+            r#""yql": "select * from sources * where true""#
+        ));
+        assert!(!is_constructor_io_json_decl(r#""searchChain": "vespa""#));
+        assert!(is_vespa_json_decl(r#""searchChain": "vespa""#));
+        assert!(!is_constructor_io_json_decl(r#""searchableAttributes": ["#));
+        assert!(is_marqo_json_decl(r#""searchableAttributes": ["#));
+        assert!(!is_constructor_io_json_decl(r#""searchMethod": "TENSOR""#));
+        assert!(is_marqo_json_decl(r#""searchMethod": "TENSOR""#));
+        assert!(!is_constructor_io_json_decl(
+            r#""vector_column_name": "vec""#
+        ));
+        assert!(is_lancedb_json_decl(r#""vector_column_name": "vec""#));
+        assert!(!is_constructor_io_json_decl(r#""nprobes": 20"#));
+        assert!(is_lancedb_json_decl(r#""nprobes": 20"#));
+        assert!(!is_constructor_io_json_decl(r#""annsField": "vec""#));
+        assert!(is_milvus_json_decl(r#""annsField": "vec""#));
+        assert!(!is_constructor_io_json_decl(r#""n_results": 10"#));
+        assert!(is_chroma_json_decl(r#""n_results": 10"#));
+        assert!(!is_constructor_io_json_decl(r#""topK": 10"#));
+        assert!(is_pinecone_json_decl(r#""topK": 10"#));
+        assert!(!is_constructor_io_json_decl(r#""nearVector": {"#));
+        assert!(is_weaviate_json_decl(r#""nearVector": {"#));
+        assert!(!is_constructor_io_json_decl(r#""vectors_count": 100"#));
+        assert!(is_qdrant_json_decl(r#""vectors_count": 100"#));
+        assert!(!is_constructor_io_json_decl(r#""processingTimeMS": 12"#));
+        assert!(is_algolia_json_decl(r#""processingTimeMS": 12"#));
+        assert!(!is_constructor_io_json_decl(r#""processingTimeMs": 12"#));
+        assert!(is_meilisearch_json_decl(r#""processingTimeMs": 12"#));
+        assert!(!is_constructor_io_json_decl(r#""search_time_ms": 12"#));
+        assert!(is_typesense_json_decl(r#""search_time_ms": 12"#));
+        assert!(!is_constructor_io_json_decl(r#""responseHeader": {"#));
+        assert!(is_solr_json_decl(r#""responseHeader": {"#));
+        assert!(!is_constructor_io_json_decl(r#""track_total_hits": true"#));
+        assert!(is_elasticsearch_json_decl(r#""track_total_hits": true"#));
+        assert!(!is_constructor_io_json_decl(r#""printWidth": 80"#));
+        assert!(is_prettier_json_decl(r#""printWidth": 80"#));
+        assert!(!is_constructor_io_json_decl(r#""basePath": ".""#));
+        assert!(is_karma_json_decl(r#""basePath": ".""#));
+        assert!(line_is_func_like(r#""result_sources": {"#));
+        assert!(line_is_func_like(r#""fmt_options": {"#));
+        assert!(line_is_func_like(r#""variations_map": {"#));
+        assert!(line_is_func_like(r#""pre_filter_expression": {"#));
+        assert!(line_is_func_like(r#""filter_match_types": {"#));
+        assert!(line_is_func_like(r#""hidden_fields": ["#));
+        assert!(line_is_func_like(r#""hidden_facets": ["#));
+        assert!(line_is_func_like(r#""sort_options": ["#));
+        assert!(line_is_func_like(r#""num_results_per_page": 30"#));
+        assert!(line_is_func_like(r#""total_num_results": 100"#));
+        assert!(line_is_func_like(r#""filtered_items_count": 12"#));
+        assert!(line_is_func_like(r#""collection_id": "all""#));
+        assert!(line_is_func_like(r#""sort_order": "ascending""#));
+        assert!(line_is_func_like(r#""section": "Products""#));
     }
 
     #[test]
