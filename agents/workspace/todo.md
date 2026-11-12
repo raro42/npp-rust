@@ -1294,3 +1294,5 @@
 009 keep: Function List Marqo searchableAttributes/attributesToRetrieve/tensorFields/scoreModifiers/hybridParameters/imageDownloadHeaders/mediaDownloadHeaders/searchMethod/interpolationMethod/showHighlights/excludeInputDocuments/allowMissingDocuments/allowMissingEmbeddings/approximate/efSearch/approximateThreshold (v0.3.814)
 
 009 keep: Function List Vespa yql/searchChain/recall/restrict/ranking/presentation/collapse/grouping/trace/streaming/nocache/groupingSessionCache/tracelevel/timeout (v0.3.815)
+
+009 keep: Function List Azure AI Search @odata.count/@odata.nextLink/@search.score/@search.rerankerScore/@search.highlights/@search.captions/@search.answers/@search.features/searchMode/queryType/semanticConfiguration/vectorQueries/vectorFilterMode/semanticErrorHandling/semanticMaxWaitInMilliseconds (v0.3.816)

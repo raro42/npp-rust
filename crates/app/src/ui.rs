@@ -32483,6 +32483,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_lancedb_json_decl(s)
             || is_marqo_json_decl(s)
             || is_vespa_json_decl(s)
+            || is_azure_search_json_decl(s)
             || is_gomod_decl(s)
             || is_gemfile_decl(s)
             || is_brewfile_decl(s)
@@ -32876,6 +32877,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_lancedb_json_decl(s)
         || is_marqo_json_decl(s)
         || is_vespa_json_decl(s)
+        || is_azure_search_json_decl(s)
         || is_gomod_decl(s)
         || is_gemfile_decl(s)
         || is_brewfile_decl(s)
@@ -64483,6 +64485,222 @@ fn vespa_json_bool_and_tail_ok(after_colon: &str) -> bool {
     false
 }
 
+/// Azure AI Search (Cognitive Search) request / response JSON keys:
+/// `"@odata.count": 0` / `10`, `"@odata.nextLink": "…"`,
+/// `"@search.score": 0` / `1.5` / `1`, `"@search.rerankerScore": 0` / `2.5`,
+/// `"@search.highlights": {`, `"@search.captions": [`, `"@search.answers": [`,
+/// `"@search.features": {`, `"searchMode": "any"` / `"all"`,
+/// `"queryType": "simple"` / `"full"` / `"semantic"`,
+/// `"semanticConfiguration": "…"`, `"vectorQueries": [`,
+/// `"vectorFilterMode": "preFilter"` / `"postFilter"`,
+/// `"semanticErrorHandling": "partial"` / `"fail"`,
+/// `"semanticMaxWaitInMilliseconds": 0` / `500`.
+/// Optional trailing `,` and `//` / `/*` comment. Incomplete quotes /
+/// missing `:` stay out. Generic `"$schema"` / `"name"` / `"id"` / `"search"` /
+/// `"filter"` / `"select"` / `"count"` / `"top"` / `"skip"` / `"orderby"` /
+/// `"facets"` / `"value"` / Vespa `"yql"` / `"searchChain"` / Marqo
+/// `"searchableAttributes"` / `"searchMethod"` / LanceDB
+/// `"vector_column_name"` / `"nprobes"` / Milvus `"annsField"` / Chroma
+/// `"n_results"` / Pinecone `"topK"` / Weaviate `"nearVector"` / Qdrant
+/// `"vectors_count"` / Algolia `"processingTimeMS"` / Meilisearch
+/// `"processingTimeMs"` / Typesense `"search_time_ms"` / Solr
+/// `"responseHeader"` / Elasticsearch `"track_total_hits"` / prettier
+/// `"printWidth"` / karma `"basePath"` stay out.
+fn is_azure_search_json_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    let Some(rest) = s.strip_prefix('"') else {
+        return false;
+    };
+    let Some(end) = rest.find('"') else {
+        return false;
+    };
+    let key = &rest[..end];
+    if !azure_search_json_key_ok(key) {
+        return false;
+    }
+    let after_key = rest[end + 1..].trim_start();
+    let Some(after_colon) = after_key.strip_prefix(':') else {
+        return false;
+    };
+    let after_colon = after_colon.trim_start();
+    azure_search_json_value_and_tail_ok(key, after_colon)
+}
+
+fn azure_search_json_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "@odata.count"
+            | "@odata.nextLink"
+            | "@search.score"
+            | "@search.rerankerScore"
+            | "@search.highlights"
+            | "@search.captions"
+            | "@search.answers"
+            | "@search.features"
+            | "searchMode"
+            | "queryType"
+            | "semanticConfiguration"
+            | "vectorQueries"
+            | "vectorFilterMode"
+            | "semanticErrorHandling"
+            | "semanticMaxWaitInMilliseconds"
+    )
+}
+
+fn azure_search_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool {
+    let bytes = after_colon.as_bytes();
+    let Some(first) = bytes.first().copied() else {
+        return false;
+    };
+    match first {
+        b'{' => {
+            if !matches!(key, "@search.highlights" | "@search.features") {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[1..])
+        }
+        b'[' => {
+            if !matches!(
+                key,
+                "@search.captions" | "@search.answers" | "vectorQueries"
+            ) {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[1..])
+        }
+        b'"' => match key {
+            "@odata.nextLink" | "semanticConfiguration" => {
+                azure_search_json_nonempty_string_and_tail_ok(after_colon)
+            }
+            "searchMode" => azure_search_json_search_mode_and_tail_ok(after_colon),
+            "queryType" => azure_search_json_query_type_and_tail_ok(after_colon),
+            "vectorFilterMode" => azure_search_json_vector_filter_mode_and_tail_ok(after_colon),
+            "semanticErrorHandling" => {
+                azure_search_json_semantic_error_handling_and_tail_ok(after_colon)
+            }
+            _ => false,
+        },
+        b'0'..=b'9' => azure_search_json_number_and_tail_ok(key, after_colon),
+        _ => false,
+    }
+}
+
+fn azure_search_json_nonempty_string_and_tail_ok(after_colon: &str) -> bool {
+    let rest = &after_colon[1..];
+    let Some(end) = rest.find('"') else {
+        return false;
+    };
+    let value = &rest[..end];
+    if value.is_empty() || value.contains('\n') {
+        return false;
+    }
+    package_json_tail_ok(&rest[end + 1..])
+}
+
+fn azure_search_json_search_mode_and_tail_ok(after_colon: &str) -> bool {
+    let rest = &after_colon[1..];
+    let Some(end) = rest.find('"') else {
+        return false;
+    };
+    let value = &rest[..end];
+    if !matches!(value, "any" | "all") {
+        return false;
+    }
+    package_json_tail_ok(&rest[end + 1..])
+}
+
+fn azure_search_json_query_type_and_tail_ok(after_colon: &str) -> bool {
+    let rest = &after_colon[1..];
+    let Some(end) = rest.find('"') else {
+        return false;
+    };
+    let value = &rest[..end];
+    if !matches!(value, "simple" | "full" | "semantic") {
+        return false;
+    }
+    package_json_tail_ok(&rest[end + 1..])
+}
+
+fn azure_search_json_vector_filter_mode_and_tail_ok(after_colon: &str) -> bool {
+    let rest = &after_colon[1..];
+    let Some(end) = rest.find('"') else {
+        return false;
+    };
+    let value = &rest[..end];
+    if !matches!(value, "preFilter" | "postFilter") {
+        return false;
+    }
+    package_json_tail_ok(&rest[end + 1..])
+}
+
+fn azure_search_json_semantic_error_handling_and_tail_ok(after_colon: &str) -> bool {
+    let rest = &after_colon[1..];
+    let Some(end) = rest.find('"') else {
+        return false;
+    };
+    let value = &rest[..end];
+    if !matches!(value, "partial" | "fail") {
+        return false;
+    }
+    package_json_tail_ok(&rest[end + 1..])
+}
+
+fn azure_search_json_number_and_tail_ok(key: &str, after_colon: &str) -> bool {
+    match key {
+        "@odata.count" | "semanticMaxWaitInMilliseconds" => {
+            azure_search_json_uint_and_tail_ok(after_colon)
+        }
+        "@search.score" | "@search.rerankerScore" => {
+            azure_search_json_decimal_and_tail_ok(after_colon)
+        }
+        _ => false,
+    }
+}
+
+fn azure_search_json_uint_and_tail_ok(after_colon: &str) -> bool {
+    let bytes = after_colon.as_bytes();
+    let mut i = 0usize;
+    if i >= bytes.len() || !bytes[i].is_ascii_digit() {
+        return false;
+    }
+    if bytes[i] == b'0' {
+        i += 1;
+        if i < bytes.len() && bytes[i].is_ascii_digit() {
+            return false;
+        }
+    } else {
+        while i < bytes.len() && bytes[i].is_ascii_digit() {
+            i += 1;
+        }
+    }
+    package_json_tail_ok(&after_colon[i..])
+}
+
+fn azure_search_json_decimal_and_tail_ok(after_colon: &str) -> bool {
+    let bytes = after_colon.as_bytes();
+    let mut i = 0;
+    while i < bytes.len() && bytes[i].is_ascii_digit() {
+        i += 1;
+    }
+    if i == 0 || i > 12 {
+        return false;
+    }
+    if i > 1 && bytes[0] == b'0' {
+        return false;
+    }
+    if i < bytes.len() && bytes[i] == b'.' {
+        i += 1;
+        let frac_start = i;
+        while i < bytes.len() && bytes[i].is_ascii_digit() {
+            i += 1;
+        }
+        if i == frac_start || i - frac_start > 12 {
+            return false;
+        }
+    }
+    package_json_tail_ok(&after_colon[i..])
+}
+
 /// go.mod / go.work directives: `module example.com/foo`, `go 1.22`,
 /// `toolchain go1.22.1`, `require (` / `require path v1.2.3`,
 /// `exclude (` / single-line, `replace (` / `replace old => new`,
@@ -95097,65 +95315,65 @@ mod func_like_line_tests {
         is_angular_json_decl, is_ant_msbuild_decl, is_apache_httpd_decl,
         is_api_extractor_json_decl, is_apt_sources_decl, is_asyncapi_json_decl,
         is_audit_rules_decl, is_audit_toml_decl, is_autoflake_ini_decl, is_autopep8_ini_decl,
-        is_ava_json_decl, is_aws_config_decl, is_babel_json_decl, is_bacon_toml_decl,
-        is_bandit_ini_decl, is_binfmt_d_decl, is_biome_json_decl, is_bitbake_decl,
-        is_black_ini_decl, is_brewfile_decl, is_bruno_json_decl, is_bumpversion_ini_decl,
-        is_bunfig_toml_decl, is_c8_json_decl, is_cabal_decl, is_capacitor_json_decl,
-        is_cargo_config_toml_decl, is_cargo_make_toml_decl, is_cargo_toml_decl,
-        is_cbindgen_toml_decl, is_changesets_json_decl, is_check_manifest_ini_decl,
-        is_check_wheel_contents_ini_decl, is_chroma_json_decl, is_cibuildwheel_ini_decl,
-        is_cliff_toml_decl, is_clippy_toml_decl, is_codecept_json_decl, is_codespell_ini_decl,
-        is_commitizen_ini_decl, is_commitlint_json_decl, is_compodoc_json_decl,
-        is_composer_json_decl, is_coverage_ini_decl, is_cross_toml_decl, is_crypttab_decl,
-        is_cspell_json_decl, is_cucumber_json_decl, is_cypress_json_decl, is_darglint_ini_decl,
-        is_default_grub_decl, is_deno_json_decl, is_deny_toml_decl, is_desktop_entry_decl,
-        is_detox_json_decl, is_devcontainer_json_decl, is_dhcpd_decl, is_dioxus_toml_decl,
-        is_dist_toml_decl, is_doc8_ini_decl, is_docformatter_ini_decl, is_docfx_json_decl,
-        is_dovecot_decl, is_dprint_json_decl, is_dracut_conf_decl, is_eas_json_decl,
-        is_editorconfig_decl, is_elasticsearch_json_decl, is_electron_builder_json_decl,
-        is_electron_forge_json_decl, is_esdoc_json_decl, is_eslint_json_decl, is_ethers_file_decl,
-        is_expo_json_decl, is_fail2ban_conf_decl, is_firebase_json_decl, is_flake8_ini_decl,
-        is_fluent_bit_decl, is_fly_toml_decl, is_flynt_ini_decl, is_freeradius_decl, is_fstab_decl,
-        is_gdm_conf_decl, is_gemfile_decl, is_gitconfig_decl, is_gomod_decl,
-        is_grafana_alerting_json_decl, is_grafana_dashboard_json_decl,
-        is_grafana_datasource_json_decl, is_grafana_ini_decl, is_haproxy_decl, is_har_json_decl,
-        is_hatch_toml_decl, is_hoppscotch_json_decl, is_hosts_access_decl, is_hosts_file_decl,
-        is_hoverfly_json_decl, is_hypothesis_ini_decl, is_importlinter_ini_decl,
-        is_insomnia_json_decl, is_interrogate_ini_decl, is_ionic_json_decl, is_ipsec_conf_decl,
-        is_isort_ini_decl, is_jaeger_json_decl, is_jasmine_json_decl, is_jest_json_decl,
-        is_jsdoc_json_decl, is_karma_json_decl, is_keepalived_decl, is_knip_json_decl,
-        is_krb5_conf_decl, is_lancedb_json_decl, is_lerna_json_decl, is_lightdm_conf_decl,
-        is_limits_conf_decl, is_lint_staged_json_decl, is_locale_conf_decl, is_login_defs_decl,
-        is_logrotate_decl, is_loki_json_decl, is_machine_info_decl, is_makepkg_conf_decl,
-        is_marqo_json_decl, is_mdbook_toml_decl, is_meilisearch_json_decl, is_milvus_json_decl,
-        is_mintlify_json_decl, is_mise_toml_decl, is_mkinitcpio_conf_decl, is_mocha_json_decl,
-        is_mockoon_json_decl, is_mockserver_json_decl, is_modprobe_conf_decl,
-        is_mountebank_json_decl, is_mutants_toml_decl, is_mypy_ini_decl, is_mysql_cnf_decl,
-        is_named_conf_decl, is_nest_cli_json_decl, is_netlify_toml_decl, is_networks_file_decl,
-        is_neutralino_json_decl, is_nextest_toml_decl, is_nftables_decl, is_nginx_conf_decl,
-        is_nightwatch_json_decl, is_nixpacks_toml_decl, is_nm_connection_decl, is_npmrc_decl,
-        is_nsswitch_conf_decl, is_nx_json_decl, is_nyc_json_decl, is_openapi_json_decl,
-        is_openapitools_json_decl, is_openvpn_decl, is_os_release_decl, is_otlp_json_decl,
-        is_oxlint_json_decl, is_package_json_decl, is_pacman_conf_decl, is_pact_json_decl,
-        is_pam_conf_decl, is_parcel_json_decl, is_paru_conf_decl, is_passwd_group_file_decl,
-        is_pdm_toml_decl, is_php_ini_decl, is_pinecone_json_decl, is_pip_conf_decl,
-        is_pipfile_decl, is_pixi_toml_decl, is_playwright_json_decl, is_podfile_decl,
-        is_poetry_toml_decl, is_postcss_json_decl, is_postman_json_decl, is_premake_decl,
-        is_prettier_json_decl, is_prometheus_json_decl, is_protocols_file_decl, is_pycln_ini_decl,
-        is_pycodestyle_ini_decl, is_pydoclint_ini_decl, is_pydocstyle_ini_decl, is_pylama_ini_decl,
-        is_pylint_ini_decl, is_pypirc_ini_decl, is_pyproject_toml_decl, is_pyre_configuration_decl,
-        is_pyright_toml_decl, is_pyrightconfig_json_decl, is_pytest_ini_decl, is_pytype_ini_decl,
-        is_pyupgrade_ini_decl, is_qdrant_json_decl, is_radon_ini_decl, is_railway_toml_decl,
-        is_rake_decl, is_rapidoc_json_decl, is_redoc_json_decl, is_redocly_json_decl,
-        is_refurb_toml_decl, is_release_it_json_decl, is_release_please_json_decl,
-        is_release_toml_decl, is_renovate_json_decl, is_resolv_conf_decl, is_rpc_file_decl,
-        is_rstcheck_ini_decl, is_rsyslog_decl, is_ruff_toml_decl, is_rush_json_decl,
-        is_rust_toolchain_toml_decl, is_rustfmt_toml_decl, is_samba_conf_decl,
-        is_samconfig_toml_decl, is_scalar_json_decl, is_scons_decl, is_scriv_ini_decl,
-        is_sddm_conf_decl, is_semantic_release_ini_decl, is_semantic_release_json_decl,
-        is_services_file_decl, is_setup_cfg_decl, is_setuptools_scm_ini_decl,
-        is_simple_git_hooks_json_decl, is_solr_json_decl, is_spectral_json_decl,
-        is_sqlfluff_ini_decl, is_ssh_config_decl, is_sssd_conf_decl,
+        is_ava_json_decl, is_aws_config_decl, is_azure_search_json_decl, is_babel_json_decl,
+        is_bacon_toml_decl, is_bandit_ini_decl, is_binfmt_d_decl, is_biome_json_decl,
+        is_bitbake_decl, is_black_ini_decl, is_brewfile_decl, is_bruno_json_decl,
+        is_bumpversion_ini_decl, is_bunfig_toml_decl, is_c8_json_decl, is_cabal_decl,
+        is_capacitor_json_decl, is_cargo_config_toml_decl, is_cargo_make_toml_decl,
+        is_cargo_toml_decl, is_cbindgen_toml_decl, is_changesets_json_decl,
+        is_check_manifest_ini_decl, is_check_wheel_contents_ini_decl, is_chroma_json_decl,
+        is_cibuildwheel_ini_decl, is_cliff_toml_decl, is_clippy_toml_decl, is_codecept_json_decl,
+        is_codespell_ini_decl, is_commitizen_ini_decl, is_commitlint_json_decl,
+        is_compodoc_json_decl, is_composer_json_decl, is_coverage_ini_decl, is_cross_toml_decl,
+        is_crypttab_decl, is_cspell_json_decl, is_cucumber_json_decl, is_cypress_json_decl,
+        is_darglint_ini_decl, is_default_grub_decl, is_deno_json_decl, is_deny_toml_decl,
+        is_desktop_entry_decl, is_detox_json_decl, is_devcontainer_json_decl, is_dhcpd_decl,
+        is_dioxus_toml_decl, is_dist_toml_decl, is_doc8_ini_decl, is_docformatter_ini_decl,
+        is_docfx_json_decl, is_dovecot_decl, is_dprint_json_decl, is_dracut_conf_decl,
+        is_eas_json_decl, is_editorconfig_decl, is_elasticsearch_json_decl,
+        is_electron_builder_json_decl, is_electron_forge_json_decl, is_esdoc_json_decl,
+        is_eslint_json_decl, is_ethers_file_decl, is_expo_json_decl, is_fail2ban_conf_decl,
+        is_firebase_json_decl, is_flake8_ini_decl, is_fluent_bit_decl, is_fly_toml_decl,
+        is_flynt_ini_decl, is_freeradius_decl, is_fstab_decl, is_gdm_conf_decl, is_gemfile_decl,
+        is_gitconfig_decl, is_gomod_decl, is_grafana_alerting_json_decl,
+        is_grafana_dashboard_json_decl, is_grafana_datasource_json_decl, is_grafana_ini_decl,
+        is_haproxy_decl, is_har_json_decl, is_hatch_toml_decl, is_hoppscotch_json_decl,
+        is_hosts_access_decl, is_hosts_file_decl, is_hoverfly_json_decl, is_hypothesis_ini_decl,
+        is_importlinter_ini_decl, is_insomnia_json_decl, is_interrogate_ini_decl,
+        is_ionic_json_decl, is_ipsec_conf_decl, is_isort_ini_decl, is_jaeger_json_decl,
+        is_jasmine_json_decl, is_jest_json_decl, is_jsdoc_json_decl, is_karma_json_decl,
+        is_keepalived_decl, is_knip_json_decl, is_krb5_conf_decl, is_lancedb_json_decl,
+        is_lerna_json_decl, is_lightdm_conf_decl, is_limits_conf_decl, is_lint_staged_json_decl,
+        is_locale_conf_decl, is_login_defs_decl, is_logrotate_decl, is_loki_json_decl,
+        is_machine_info_decl, is_makepkg_conf_decl, is_marqo_json_decl, is_mdbook_toml_decl,
+        is_meilisearch_json_decl, is_milvus_json_decl, is_mintlify_json_decl, is_mise_toml_decl,
+        is_mkinitcpio_conf_decl, is_mocha_json_decl, is_mockoon_json_decl, is_mockserver_json_decl,
+        is_modprobe_conf_decl, is_mountebank_json_decl, is_mutants_toml_decl, is_mypy_ini_decl,
+        is_mysql_cnf_decl, is_named_conf_decl, is_nest_cli_json_decl, is_netlify_toml_decl,
+        is_networks_file_decl, is_neutralino_json_decl, is_nextest_toml_decl, is_nftables_decl,
+        is_nginx_conf_decl, is_nightwatch_json_decl, is_nixpacks_toml_decl, is_nm_connection_decl,
+        is_npmrc_decl, is_nsswitch_conf_decl, is_nx_json_decl, is_nyc_json_decl,
+        is_openapi_json_decl, is_openapitools_json_decl, is_openvpn_decl, is_os_release_decl,
+        is_otlp_json_decl, is_oxlint_json_decl, is_package_json_decl, is_pacman_conf_decl,
+        is_pact_json_decl, is_pam_conf_decl, is_parcel_json_decl, is_paru_conf_decl,
+        is_passwd_group_file_decl, is_pdm_toml_decl, is_php_ini_decl, is_pinecone_json_decl,
+        is_pip_conf_decl, is_pipfile_decl, is_pixi_toml_decl, is_playwright_json_decl,
+        is_podfile_decl, is_poetry_toml_decl, is_postcss_json_decl, is_postman_json_decl,
+        is_premake_decl, is_prettier_json_decl, is_prometheus_json_decl, is_protocols_file_decl,
+        is_pycln_ini_decl, is_pycodestyle_ini_decl, is_pydoclint_ini_decl, is_pydocstyle_ini_decl,
+        is_pylama_ini_decl, is_pylint_ini_decl, is_pypirc_ini_decl, is_pyproject_toml_decl,
+        is_pyre_configuration_decl, is_pyright_toml_decl, is_pyrightconfig_json_decl,
+        is_pytest_ini_decl, is_pytype_ini_decl, is_pyupgrade_ini_decl, is_qdrant_json_decl,
+        is_radon_ini_decl, is_railway_toml_decl, is_rake_decl, is_rapidoc_json_decl,
+        is_redoc_json_decl, is_redocly_json_decl, is_refurb_toml_decl, is_release_it_json_decl,
+        is_release_please_json_decl, is_release_toml_decl, is_renovate_json_decl,
+        is_resolv_conf_decl, is_rpc_file_decl, is_rstcheck_ini_decl, is_rsyslog_decl,
+        is_ruff_toml_decl, is_rush_json_decl, is_rust_toolchain_toml_decl, is_rustfmt_toml_decl,
+        is_samba_conf_decl, is_samconfig_toml_decl, is_scalar_json_decl, is_scons_decl,
+        is_scriv_ini_decl, is_sddm_conf_decl, is_semantic_release_ini_decl,
+        is_semantic_release_json_decl, is_services_file_decl, is_setup_cfg_decl,
+        is_setuptools_scm_ini_decl, is_simple_git_hooks_json_decl, is_solr_json_decl,
+        is_spectral_json_decl, is_sqlfluff_ini_decl, is_ssh_config_decl, is_sssd_conf_decl,
         is_stoplight_elements_json_decl, is_stryker_json_decl, is_stylelint_json_decl,
         is_subuid_subgid_decl, is_sudoers_decl, is_supabase_toml_decl, is_supervisord_conf_decl,
         is_swagger_ui_json_decl, is_swc_json_decl, is_syncpack_json_decl, is_sysctl_conf_decl,
@@ -130871,6 +131089,12 @@ mod func_like_line_tests {
         assert!(is_prettier_json_decl(r#""printWidth": 80"#));
         assert!(!is_vespa_json_decl(r#""basePath": ".""#));
         assert!(is_karma_json_decl(r#""basePath": ".""#));
+        assert!(!is_vespa_json_decl(r#""@odata.count": 10"#));
+        assert!(is_azure_search_json_decl(r#""@odata.count": 10"#));
+        assert!(!is_vespa_json_decl(r#""@search.score": 1.5"#));
+        assert!(is_azure_search_json_decl(r#""@search.score": 1.5"#));
+        assert!(!is_vespa_json_decl(r#""searchMode": "any""#));
+        assert!(is_azure_search_json_decl(r#""searchMode": "any""#));
         assert!(line_is_func_like(
             r#""yql": "select * from sources * where true""#
         ));
@@ -131027,6 +131251,12 @@ mod func_like_line_tests {
         assert!(is_prettier_json_decl(r#""printWidth": 80"#));
         assert!(!is_vespa_json_decl(r#""basePath": ".""#));
         assert!(is_karma_json_decl(r#""basePath": ".""#));
+        assert!(!is_vespa_json_decl(r#""@odata.count": 10"#));
+        assert!(is_azure_search_json_decl(r#""@odata.count": 10"#));
+        assert!(!is_vespa_json_decl(r#""@search.score": 1.5"#));
+        assert!(is_azure_search_json_decl(r#""@search.score": 1.5"#));
+        assert!(!is_vespa_json_decl(r#""searchMode": "any""#));
+        assert!(is_azure_search_json_decl(r#""searchMode": "any""#));
         assert!(line_is_func_like(
             r#""yql": "select * from sources * where true""#
         ));
@@ -131044,6 +131274,337 @@ mod func_like_line_tests {
         assert!(line_is_func_like(r#""tracelevel": 0"#));
         assert!(line_is_func_like(r#""timeout": 1.5"#));
         assert!(line_is_func_like(r#""timeout": "500ms""#));
+    }
+
+    #[test]
+    fn azure_search_json_keys_smoke() {
+        assert!(is_azure_search_json_decl(r#""@odata.count": 0"#));
+        assert!(is_azure_search_json_decl(r#""@odata.count": 10"#));
+        assert!(is_azure_search_json_decl(
+            r#""@odata.nextLink": "https://example.search.windows.net/indexes/docs/docs?api-version=2024-07-01&$skip=50""#
+        ));
+        assert!(is_azure_search_json_decl(r#""@search.score": 0"#));
+        assert!(is_azure_search_json_decl(r#""@search.score": 1.5"#));
+        assert!(is_azure_search_json_decl(r#""@search.rerankerScore": 2.5"#));
+        assert!(is_azure_search_json_decl(r#""@search.highlights": {"#));
+        assert!(is_azure_search_json_decl(r#""@search.captions": ["#));
+        assert!(is_azure_search_json_decl(r#""@search.answers": ["#));
+        assert!(is_azure_search_json_decl(r#""@search.features": {"#));
+        assert!(is_azure_search_json_decl(r#""searchMode": "any""#));
+        assert!(is_azure_search_json_decl(r#""searchMode": "all""#));
+        assert!(is_azure_search_json_decl(r#""queryType": "simple""#));
+        assert!(is_azure_search_json_decl(r#""queryType": "full""#));
+        assert!(is_azure_search_json_decl(r#""queryType": "semantic""#));
+        assert!(is_azure_search_json_decl(
+            r#""semanticConfiguration": "default""#
+        ));
+        assert!(is_azure_search_json_decl(r#""vectorQueries": ["#));
+        assert!(is_azure_search_json_decl(
+            r#""vectorFilterMode": "preFilter""#
+        ));
+        assert!(is_azure_search_json_decl(
+            r#""vectorFilterMode": "postFilter""#
+        ));
+        assert!(is_azure_search_json_decl(
+            r#""semanticErrorHandling": "partial""#
+        ));
+        assert!(is_azure_search_json_decl(
+            r#""semanticErrorHandling": "fail""#
+        ));
+        assert!(is_azure_search_json_decl(
+            r#""semanticMaxWaitInMilliseconds": 0"#
+        ));
+        assert!(is_azure_search_json_decl(
+            r#""semanticMaxWaitInMilliseconds": 500"#
+        ));
+        // Distinctive neighbours stay out of this scanner.
+        assert!(!is_azure_search_json_decl(
+            r#""yql": "select * from sources * where true""#
+        ));
+        assert!(is_vespa_json_decl(
+            r#""yql": "select * from sources * where true""#
+        ));
+        assert!(!is_azure_search_json_decl(r#""searchChain": "vespa""#));
+        assert!(is_vespa_json_decl(r#""searchChain": "vespa""#));
+        assert!(!is_azure_search_json_decl(r#""searchableAttributes": ["#));
+        assert!(is_marqo_json_decl(r#""searchableAttributes": ["#));
+        assert!(!is_azure_search_json_decl(r#""searchMethod": "TENSOR""#));
+        assert!(is_marqo_json_decl(r#""searchMethod": "TENSOR""#));
+        assert!(!is_azure_search_json_decl(r#""vector_column_name": "vec""#));
+        assert!(is_lancedb_json_decl(r#""vector_column_name": "vec""#));
+        assert!(!is_azure_search_json_decl(r#""nprobes": 20"#));
+        assert!(is_lancedb_json_decl(r#""nprobes": 20"#));
+        assert!(!is_azure_search_json_decl(r#""annsField": "vec""#));
+        assert!(is_milvus_json_decl(r#""annsField": "vec""#));
+        assert!(!is_azure_search_json_decl(r#""n_results": 10"#));
+        assert!(is_chroma_json_decl(r#""n_results": 10"#));
+        assert!(!is_azure_search_json_decl(r#""topK": 10"#));
+        assert!(is_pinecone_json_decl(r#""topK": 10"#));
+        assert!(!is_azure_search_json_decl(r#""nearVector": {"#));
+        assert!(is_weaviate_json_decl(r#""nearVector": {"#));
+        assert!(!is_azure_search_json_decl(r#""vectors_count": 100"#));
+        assert!(is_qdrant_json_decl(r#""vectors_count": 100"#));
+        assert!(!is_azure_search_json_decl(r#""processingTimeMS": 12"#));
+        assert!(is_algolia_json_decl(r#""processingTimeMS": 12"#));
+        assert!(!is_azure_search_json_decl(r#""processingTimeMs": 12"#));
+        assert!(is_meilisearch_json_decl(r#""processingTimeMs": 12"#));
+        assert!(!is_azure_search_json_decl(r#""search_time_ms": 12"#));
+        assert!(is_typesense_json_decl(r#""search_time_ms": 12"#));
+        assert!(!is_azure_search_json_decl(r#""responseHeader": {"#));
+        assert!(is_solr_json_decl(r#""responseHeader": {"#));
+        assert!(!is_azure_search_json_decl(r#""track_total_hits": true"#));
+        assert!(is_elasticsearch_json_decl(r#""track_total_hits": true"#));
+        assert!(!is_azure_search_json_decl(r#""printWidth": 80"#));
+        assert!(is_prettier_json_decl(r#""printWidth": 80"#));
+        assert!(!is_azure_search_json_decl(r#""basePath": ".""#));
+        assert!(is_karma_json_decl(r#""basePath": ".""#));
+        assert!(line_is_func_like(r#""@odata.count": 10"#));
+        assert!(line_is_func_like(
+            r#""@odata.nextLink": "https://example.search.windows.net/indexes/docs/docs?api-version=2024-07-01&$skip=50""#
+        ));
+        assert!(line_is_func_like(r#""@search.score": 1.5"#));
+        assert!(line_is_func_like(r#""@search.rerankerScore": 2.5"#));
+        assert!(line_is_func_like(r#""@search.highlights": {"#));
+        assert!(line_is_func_like(r#""@search.captions": ["#));
+        assert!(line_is_func_like(r#""@search.answers": ["#));
+        assert!(line_is_func_like(r#""@search.features": {"#));
+        assert!(line_is_func_like(r#""searchMode": "all""#));
+        assert!(line_is_func_like(r#""queryType": "semantic""#));
+        assert!(line_is_func_like(r#""semanticConfiguration": "default""#));
+        assert!(line_is_func_like(r#""vectorQueries": ["#));
+        assert!(line_is_func_like(r#""vectorFilterMode": "postFilter""#));
+        assert!(line_is_func_like(r#""semanticErrorHandling": "fail""#));
+        assert!(line_is_func_like(r#""semanticMaxWaitInMilliseconds": 500"#));
+    }
+
+    #[test]
+    fn azure_search_json_keys_count() {
+        assert!(is_azure_search_json_decl(r#""@odata.count": 0"#));
+        assert!(is_azure_search_json_decl(r#""@odata.count": 10"#));
+        assert!(is_azure_search_json_decl(r#""@odata.count": 10,"#));
+        assert!(is_azure_search_json_decl(r#""@odata.count": 10 // c"#));
+        assert!(!is_azure_search_json_decl(r#""@odata.count": 00"#));
+        assert!(!is_azure_search_json_decl(r#""@odata.count": 01"#));
+        assert!(!is_azure_search_json_decl(r#""@odata.count": true"#));
+        assert!(!is_azure_search_json_decl(r#""@odata.count": {"#));
+        assert!(!is_azure_search_json_decl(r#""@odata.count": "10""#));
+        assert!(is_azure_search_json_decl(
+            r#""@odata.nextLink": "https://example.search.windows.net/indexes/docs/docs?api-version=2024-07-01&$skip=50""#
+        ));
+        assert!(is_azure_search_json_decl(
+            r#""@odata.nextLink": "https://example.search.windows.net/indexes/docs/docs?api-version=2024-07-01&$skip=50","#
+        ));
+        assert!(!is_azure_search_json_decl(r#""@odata.nextLink": {"#));
+        assert!(!is_azure_search_json_decl(r#""@odata.nextLink": """#));
+        assert!(!is_azure_search_json_decl(r#""@odata.nextLink": true"#));
+        assert!(is_azure_search_json_decl(r#""@search.score": 0"#));
+        assert!(is_azure_search_json_decl(r#""@search.score": 1"#));
+        assert!(is_azure_search_json_decl(r#""@search.score": 1.5"#));
+        assert!(is_azure_search_json_decl(r#""@search.score": 1.5,"#));
+        assert!(is_azure_search_json_decl(r#""@search.score": 1.5 // s"#));
+        assert!(!is_azure_search_json_decl(r#""@search.score": 00"#));
+        assert!(!is_azure_search_json_decl(r#""@search.score": 01"#));
+        assert!(!is_azure_search_json_decl(r#""@search.score": 0."#));
+        assert!(!is_azure_search_json_decl(r#""@search.score": true"#));
+        assert!(!is_azure_search_json_decl(r#""@search.score": {"#));
+        assert!(!is_azure_search_json_decl(r#""@search.score": "1.5""#));
+        assert!(is_azure_search_json_decl(r#""@search.rerankerScore": 0"#));
+        assert!(is_azure_search_json_decl(r#""@search.rerankerScore": 2.5"#));
+        assert!(is_azure_search_json_decl(
+            r#""@search.rerankerScore": 2.5,"#
+        ));
+        assert!(!is_azure_search_json_decl(r#""@search.rerankerScore": 00"#));
+        assert!(!is_azure_search_json_decl(
+            r#""@search.rerankerScore": true"#
+        ));
+        assert!(!is_azure_search_json_decl(r#""@search.rerankerScore": {"#));
+        assert!(is_azure_search_json_decl(r#""@search.highlights": {"#));
+        assert!(is_azure_search_json_decl(r#""@search.highlights": {,"#));
+        assert!(is_azure_search_json_decl(r#""@search.highlights": { // h"#));
+        assert!(!is_azure_search_json_decl(r#""@search.highlights": ["#));
+        assert!(!is_azure_search_json_decl(r#""@search.highlights": true"#));
+        assert!(is_azure_search_json_decl(r#""@search.captions": ["#));
+        assert!(is_azure_search_json_decl(r#""@search.captions": [,"#));
+        assert!(!is_azure_search_json_decl(r#""@search.captions": {"#));
+        assert!(!is_azure_search_json_decl(r#""@search.captions": true"#));
+        assert!(is_azure_search_json_decl(r#""@search.answers": ["#));
+        assert!(is_azure_search_json_decl(r#""@search.answers": [,"#));
+        assert!(!is_azure_search_json_decl(r#""@search.answers": {"#));
+        assert!(is_azure_search_json_decl(r#""@search.features": {"#));
+        assert!(is_azure_search_json_decl(r#""@search.features": {,"#));
+        assert!(!is_azure_search_json_decl(r#""@search.features": ["#));
+        assert!(is_azure_search_json_decl(r#""searchMode": "any""#));
+        assert!(is_azure_search_json_decl(r#""searchMode": "all""#));
+        assert!(is_azure_search_json_decl(r#""searchMode": "any","#));
+        assert!(is_azure_search_json_decl(r#""searchMode": "all" // m"#));
+        assert!(!is_azure_search_json_decl(r#""searchMode": "ANY""#));
+        assert!(!is_azure_search_json_decl(r#""searchMode": "or""#));
+        assert!(!is_azure_search_json_decl(r#""searchMode": {"#));
+        assert!(!is_azure_search_json_decl(r#""searchMode": """#));
+        assert!(is_azure_search_json_decl(r#""queryType": "simple""#));
+        assert!(is_azure_search_json_decl(r#""queryType": "full""#));
+        assert!(is_azure_search_json_decl(r#""queryType": "semantic""#));
+        assert!(is_azure_search_json_decl(r#""queryType": "semantic","#));
+        assert!(!is_azure_search_json_decl(r#""queryType": "lucene""#));
+        assert!(!is_azure_search_json_decl(r#""queryType": {"#));
+        assert!(!is_azure_search_json_decl(r#""queryType": """#));
+        assert!(is_azure_search_json_decl(
+            r#""semanticConfiguration": "default""#
+        ));
+        assert!(is_azure_search_json_decl(
+            r#""semanticConfiguration": "default","#
+        ));
+        assert!(!is_azure_search_json_decl(r#""semanticConfiguration": {"#));
+        assert!(!is_azure_search_json_decl(r#""semanticConfiguration": """#));
+        assert!(is_azure_search_json_decl(r#""vectorQueries": ["#));
+        assert!(is_azure_search_json_decl(r#""vectorQueries": [,"#));
+        assert!(!is_azure_search_json_decl(r#""vectorQueries": {"#));
+        assert!(!is_azure_search_json_decl(r#""vectorQueries": true"#));
+        assert!(is_azure_search_json_decl(
+            r#""vectorFilterMode": "preFilter""#
+        ));
+        assert!(is_azure_search_json_decl(
+            r#""vectorFilterMode": "postFilter""#
+        ));
+        assert!(is_azure_search_json_decl(
+            r#""vectorFilterMode": "preFilter","#
+        ));
+        assert!(!is_azure_search_json_decl(
+            r#""vectorFilterMode": "strict""#
+        ));
+        assert!(!is_azure_search_json_decl(r#""vectorFilterMode": {"#));
+        assert!(!is_azure_search_json_decl(r#""vectorFilterMode": """#));
+        assert!(is_azure_search_json_decl(
+            r#""semanticErrorHandling": "partial""#
+        ));
+        assert!(is_azure_search_json_decl(
+            r#""semanticErrorHandling": "fail""#
+        ));
+        assert!(is_azure_search_json_decl(
+            r#""semanticErrorHandling": "fail","#
+        ));
+        assert!(!is_azure_search_json_decl(
+            r#""semanticErrorHandling": "ignore""#
+        ));
+        assert!(!is_azure_search_json_decl(r#""semanticErrorHandling": {"#));
+        assert!(!is_azure_search_json_decl(r#""semanticErrorHandling": """#));
+        assert!(is_azure_search_json_decl(
+            r#""semanticMaxWaitInMilliseconds": 0"#
+        ));
+        assert!(is_azure_search_json_decl(
+            r#""semanticMaxWaitInMilliseconds": 500"#
+        ));
+        assert!(is_azure_search_json_decl(
+            r#""semanticMaxWaitInMilliseconds": 500,"#
+        ));
+        assert!(is_azure_search_json_decl(
+            r#""semanticMaxWaitInMilliseconds": 500 // w"#
+        ));
+        assert!(!is_azure_search_json_decl(
+            r#""semanticMaxWaitInMilliseconds": 00"#
+        ));
+        assert!(!is_azure_search_json_decl(
+            r#""semanticMaxWaitInMilliseconds": 0500"#
+        ));
+        assert!(!is_azure_search_json_decl(
+            r#""semanticMaxWaitInMilliseconds": true"#
+        ));
+        assert!(!is_azure_search_json_decl(
+            r#""semanticMaxWaitInMilliseconds": {"#
+        ));
+        assert!(!is_azure_search_json_decl(
+            r#""semanticMaxWaitInMilliseconds": "500""#
+        ));
+        // Incomplete / bare keys stay out.
+        assert!(!is_azure_search_json_decl(r#""@odata.count""#));
+        assert!(!is_azure_search_json_decl(r#""@odata.nextLink""#));
+        assert!(!is_azure_search_json_decl(r#""@search.score""#));
+        assert!(!is_azure_search_json_decl(r#""@search.rerankerScore""#));
+        assert!(!is_azure_search_json_decl(r#""@search.highlights""#));
+        assert!(!is_azure_search_json_decl(r#""@search.captions""#));
+        assert!(!is_azure_search_json_decl(r#""@search.answers""#));
+        assert!(!is_azure_search_json_decl(r#""@search.features""#));
+        assert!(!is_azure_search_json_decl(r#""searchMode""#));
+        assert!(!is_azure_search_json_decl(r#""queryType""#));
+        assert!(!is_azure_search_json_decl(r#""semanticConfiguration""#));
+        assert!(!is_azure_search_json_decl(r#""vectorQueries""#));
+        assert!(!is_azure_search_json_decl(r#""vectorFilterMode""#));
+        assert!(!is_azure_search_json_decl(r#""semanticErrorHandling""#));
+        assert!(!is_azure_search_json_decl(
+            r#""semanticMaxWaitInMilliseconds""#
+        ));
+        // Generic / neighbouring stay out.
+        assert!(!is_azure_search_json_decl(
+            r#""$schema": "https://json-schema.org/draft/2020-12/schema""#
+        ));
+        assert!(!is_azure_search_json_decl(r#""name": "docs""#));
+        assert!(!is_azure_search_json_decl(r#""id": "idx-1""#));
+        assert!(!is_azure_search_json_decl(r#""search": "shoes""#));
+        assert!(!is_azure_search_json_decl(r#""filter": "type eq 'a'""#));
+        assert!(!is_azure_search_json_decl(r#""select": "id,title""#));
+        assert!(!is_azure_search_json_decl(r#""count": true"#));
+        assert!(!is_azure_search_json_decl(r#""top": 10"#));
+        assert!(!is_azure_search_json_decl(r#""skip": 0"#));
+        assert!(!is_azure_search_json_decl(r#""orderby": "rating desc""#));
+        assert!(!is_azure_search_json_decl(r#""facets": ["#));
+        assert!(!is_azure_search_json_decl(r#""value": ["#));
+        assert!(!is_azure_search_json_decl(
+            r#""yql": "select * from sources * where true""#
+        ));
+        assert!(is_vespa_json_decl(
+            r#""yql": "select * from sources * where true""#
+        ));
+        assert!(!is_azure_search_json_decl(r#""searchChain": "vespa""#));
+        assert!(is_vespa_json_decl(r#""searchChain": "vespa""#));
+        assert!(!is_azure_search_json_decl(r#""searchableAttributes": ["#));
+        assert!(is_marqo_json_decl(r#""searchableAttributes": ["#));
+        assert!(!is_azure_search_json_decl(r#""searchMethod": "TENSOR""#));
+        assert!(is_marqo_json_decl(r#""searchMethod": "TENSOR""#));
+        assert!(!is_azure_search_json_decl(r#""vector_column_name": "vec""#));
+        assert!(is_lancedb_json_decl(r#""vector_column_name": "vec""#));
+        assert!(!is_azure_search_json_decl(r#""nprobes": 20"#));
+        assert!(is_lancedb_json_decl(r#""nprobes": 20"#));
+        assert!(!is_azure_search_json_decl(r#""annsField": "vec""#));
+        assert!(is_milvus_json_decl(r#""annsField": "vec""#));
+        assert!(!is_azure_search_json_decl(r#""n_results": 10"#));
+        assert!(is_chroma_json_decl(r#""n_results": 10"#));
+        assert!(!is_azure_search_json_decl(r#""topK": 10"#));
+        assert!(is_pinecone_json_decl(r#""topK": 10"#));
+        assert!(!is_azure_search_json_decl(r#""nearVector": {"#));
+        assert!(is_weaviate_json_decl(r#""nearVector": {"#));
+        assert!(!is_azure_search_json_decl(r#""vectors_count": 100"#));
+        assert!(is_qdrant_json_decl(r#""vectors_count": 100"#));
+        assert!(!is_azure_search_json_decl(r#""processingTimeMS": 12"#));
+        assert!(is_algolia_json_decl(r#""processingTimeMS": 12"#));
+        assert!(!is_azure_search_json_decl(r#""processingTimeMs": 12"#));
+        assert!(is_meilisearch_json_decl(r#""processingTimeMs": 12"#));
+        assert!(!is_azure_search_json_decl(r#""search_time_ms": 12"#));
+        assert!(is_typesense_json_decl(r#""search_time_ms": 12"#));
+        assert!(!is_azure_search_json_decl(r#""responseHeader": {"#));
+        assert!(is_solr_json_decl(r#""responseHeader": {"#));
+        assert!(!is_azure_search_json_decl(r#""track_total_hits": true"#));
+        assert!(is_elasticsearch_json_decl(r#""track_total_hits": true"#));
+        assert!(!is_azure_search_json_decl(r#""printWidth": 80"#));
+        assert!(is_prettier_json_decl(r#""printWidth": 80"#));
+        assert!(!is_azure_search_json_decl(r#""basePath": ".""#));
+        assert!(is_karma_json_decl(r#""basePath": ".""#));
+        assert!(line_is_func_like(r#""@odata.count": 10"#));
+        assert!(line_is_func_like(
+            r#""@odata.nextLink": "https://example.search.windows.net/indexes/docs/docs?api-version=2024-07-01&$skip=50""#
+        ));
+        assert!(line_is_func_like(r#""@search.score": 1.5"#));
+        assert!(line_is_func_like(r#""@search.rerankerScore": 2.5"#));
+        assert!(line_is_func_like(r#""@search.highlights": {"#));
+        assert!(line_is_func_like(r#""@search.captions": ["#));
+        assert!(line_is_func_like(r#""@search.answers": ["#));
+        assert!(line_is_func_like(r#""@search.features": {"#));
+        assert!(line_is_func_like(r#""searchMode": "any""#));
+        assert!(line_is_func_like(r#""queryType": "full""#));
+        assert!(line_is_func_like(r#""semanticConfiguration": "default""#));
+        assert!(line_is_func_like(r#""vectorQueries": ["#));
+        assert!(line_is_func_like(r#""vectorFilterMode": "preFilter""#));
+        assert!(line_is_func_like(r#""semanticErrorHandling": "partial""#));
+        assert!(line_is_func_like(r#""semanticMaxWaitInMilliseconds": 0"#));
     }
 
     #[test]

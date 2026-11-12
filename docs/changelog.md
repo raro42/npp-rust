@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.816] — 2026-11-12
+
+View:
+
+- **Function List** lists Azure AI Search (Cognitive Search) request / response JSON keys: `"@odata.count": 0` / `10`, `"@odata.nextLink": "…"`, `"@search.score": 0` / `1.5` / `1`, `"@search.rerankerScore": 0` / `2.5`, `"@search.highlights": {`, `"@search.captions": [`, `"@search.answers": [`, `"@search.features": {`, `"searchMode": "any"` / `"all"`, `"queryType": "simple"` / `"full"` / `"semantic"`, `"semanticConfiguration": "…"`, `"vectorQueries": [`, `"vectorFilterMode": "preFilter"` / `"postFilter"`, `"semanticErrorHandling": "partial"` / `"fail"`, `"semanticMaxWaitInMilliseconds": 0` / `500`. Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing `:` stay out. Generic `"$schema"` / `"name"` / `"id"` / `"search"` / `"filter"` / `"select"` / `"count"` / `"top"` / `"skip"` / `"orderby"` / `"facets"` / `"value"` / Vespa `"yql"` / `"searchChain"` / Marqo `"searchableAttributes"` / `"searchMethod"` / LanceDB `"vector_column_name"` / `"nprobes"` / Milvus `"annsField"` / Chroma `"n_results"` / Pinecone `"topK"` / Weaviate `"nearVector"` / Qdrant `"vectors_count"` / Algolia `"processingTimeMS"` / Meilisearch `"processingTimeMs"` / Typesense `"search_time_ms"` / Solr `"responseHeader"` / Elasticsearch `"track_total_hits"` / prettier `"printWidth"` / karma `"basePath"` stay out. `"searchMode"` / `"queryType"` / `"vectorFilterMode"` / `"semanticErrorHandling"` only match their Azure enums. `"@odata.nextLink"` / `"semanticConfiguration"` require a non-empty quoted string. Numeric `"@odata.count"` / `"semanticMaxWaitInMilliseconds"` reject leading zeros beyond `0`. `"@search.score"` / `"@search.rerankerScore"` allow a simple decimal (no exponent).
+
 ## [0.3.815] — 2026-11-12
 
 View:
