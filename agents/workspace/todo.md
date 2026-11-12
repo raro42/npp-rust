@@ -1268,3 +1268,5 @@
 009 keep: Function List Alertmanager groupKey/groupLabels/commonLabels/commonAnnotations/inhibitedBy/silencedBy/generatorURL/externalURL/truncatedAlerts (v0.3.799)
 
 009 keep: Function List Grafana alerting noDataState/execErrState/datasourceUid/folderUID/relativeTimeRange/grafana_alert/contactPoints/muteTimes/isPaused (v0.3.802)
+
+009 keep: Function List Elasticsearch/OpenSearch track_total_hits/min_score/post_filter/runtime_mappings/script_fields/docvalue_fields/seq_no_primary_term/_scroll_id/_shards (v0.3.803)

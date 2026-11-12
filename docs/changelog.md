@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.803] — 2026-11-12
+
+View:
+
+- **Function List** lists Elasticsearch / OpenSearch search request / response JSON keys: `"track_total_hits": true` / `false` / `10000`, `"min_score": 0` / `1` / `0.5`, `"post_filter": {`, `"runtime_mappings": {`, `"script_fields": {`, `"docvalue_fields": [`, `"seq_no_primary_term": true` / `false`, `"_scroll_id": "…"`, `"_shards": {`. Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing `:` stay out. Generic `"$schema"` / `"name"` / `"id"` / `"query": {` / `"aggs": {` / `"aggregations": {` / `"size"` / `"from"` / `"sort": [` / `"_source"` / `"highlight": {` / `"suggest": {` / `"timeout"` / `"version"` / `"took"` / `"timed_out"` / `"hits": {` / `"total"` / `"max_score"` / `"_index"` / `"_id"` / `"_score"` / Grafana alerting `"noDataState"` / `"execErrState"` / `"datasourceUid"` / `"folderUID"` / `"relativeTimeRange"` / `"grafana_alert"` / `"contactPoints"` / `"muteTimes"` / `"isPaused"` / Grafana dashboard `"schemaVersion"` / `"graphTooltip"` / `"templating"` / `"gnetId"` / Grafana datasource `"access"` / `"basicAuth"` / `"jsonData"` / `"deleteDatasources"` / Alertmanager `"groupKey"` / `"truncatedAlerts"` / Prometheus `"totalQueryableSamples"` / Loki `"bytesProcessedPerSecond"` / Tempo `"rootServiceName"` / Jaeger `"traceID"` / Zipkin `"localEndpoint"` / OTLP `"resourceSpans"` / HAR `"startedDateTime"` / OpenAPI `"openapi"` / AsyncAPI `"asyncapi"` / `"channels": {` / Pact `"consumer"` / MockServer `"httpRequest"` / Hoverfly `"hoverflyVersion"` / Mountebank `"imposters"` / WireMock `"scenarioName"` / Mockoon `"lastMigration"` / Hoppscotch `"preRequestScript"` / Yaak `"yaakVersion"` / Bruno `"brunoConfig"` / Thunder Client `"client"` / Postman `"_postman_id"` / Insomnia `"__export_format"` / ReDoc `"disableSearch"` / RapiDoc `"specUrl"` / swagger-ui `"dom_id"` / scalar `"layout": "modern"` / Elements `"layout": "sidebar"` / mintlify `"topbarLinks"` / Compodoc `"theme": "material"` / redocly `"apis"` / spectral `"functionsDir"` / openapitools `"generator-cli"` / Knip `"entry"` / prettier `"printWidth"` / package.json `"bin"` / karma `"basePath"` stay out. `"_scroll_id"` needs a non-empty value. Numeric `"track_total_hits"` rejects leading zeros beyond `0`. `"min_score"` allows a simple decimal (no exponent).
+
 ## [0.3.802] — 2026-11-12
 
 View:
