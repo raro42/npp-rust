@@ -1,3 +1,5 @@
+009 keep: Function List Algolia processingTimeMS/nbPages/serverTimeMS/queryID/indexUsed/aroundLatLng/highlightPreTag/facets_stats/renderingContent/appliedRules/attributesToHighlight/getRankingInfo/clickAnalytics/enablePersonalization/removeWordsIfNoResults (v0.3.807)
+
 009 keep: Function List Typesense search_time_ms/out_of/search_cutoff/grouped_hits/facet_counts[]/default_sorting_field/enable_nested_fields/token_separators/symbols_to_index/drop_tokens_threshold/typo_tokens_threshold/prioritize_exact_match/exhaustive_search (v0.3.806)
 
 009 keep: Function List Grafana datasource access/basicAuth/basicAuthUser/isDefault/jsonData/secureJsonData/secureJsonFields/typeLogoUrl/deleteDatasources (v0.3.801)

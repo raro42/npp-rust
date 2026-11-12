@@ -32474,6 +32474,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_solr_json_decl(s)
             || is_meilisearch_json_decl(s)
             || is_typesense_json_decl(s)
+            || is_algolia_json_decl(s)
             || is_gomod_decl(s)
             || is_gemfile_decl(s)
             || is_brewfile_decl(s)
@@ -32858,6 +32859,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_solr_json_decl(s)
         || is_meilisearch_json_decl(s)
         || is_typesense_json_decl(s)
+        || is_algolia_json_decl(s)
         || is_gomod_decl(s)
         || is_gemfile_decl(s)
         || is_brewfile_decl(s)
@@ -62209,7 +62211,12 @@ fn solr_json_bool_and_tail_ok(after_colon: &str) -> bool {
 /// `"default_sorting_field"` / `"enable_nested_fields"` /
 /// `"token_separators"` / `"symbols_to_index"` /
 /// `"drop_tokens_threshold"` / `"typo_tokens_threshold"` /
-/// `"prioritize_exact_match"` / `"exhaustive_search"` / Solr
+/// `"prioritize_exact_match"` / `"exhaustive_search"` / Algolia
+/// `"processingTimeMS"` / `"nbPages"` / `"serverTimeMS"` / `"queryID"` /
+/// `"indexUsed"` / `"aroundLatLng"` / `"highlightPreTag"` /
+/// `"facets_stats"` / `"renderingContent"` / `"appliedRules"` /
+/// `"attributesToHighlight"` / `"getRankingInfo"` / `"clickAnalytics"` /
+/// `"enablePersonalization"` / `"removeWordsIfNoResults"` / Solr
 /// `"responseHeader"` / `"numFound"` / `"numFoundExact"` / `"QTime"` /
 /// `"zkConnected"` / `"facet_counts": {` / `"highlighting"` /
 /// `"spellcheck"` / `"grouped"` / `"nextCursorMark"` / Elasticsearch
@@ -62408,10 +62415,15 @@ fn meilisearch_json_bool_and_tail_ok(after_colon: &str) -> bool {
 /// `"hitsPerPage"` / `"facetDistribution"` / `"facetStats"` /
 /// `"exhaustiveFacetsCount"` / `"rankingScoreThreshold"` /
 /// `"showRankingScore"` / `"matchingStrategy"` /
-/// `"attributesToSearchOn"` / Solr `"responseHeader"` / `"numFound"` /
-/// `"numFoundExact"` / `"QTime"` / `"zkConnected"` /
-/// `"facet_counts": {` / `"highlighting"` / `"spellcheck"` /
-/// `"grouped"` / `"nextCursorMark"` / Elasticsearch
+/// `"attributesToSearchOn"` / Algolia `"processingTimeMS"` /
+/// `"nbPages"` / `"serverTimeMS"` / `"queryID"` / `"indexUsed"` /
+/// `"aroundLatLng"` / `"highlightPreTag"` / `"facets_stats"` /
+/// `"renderingContent"` / `"appliedRules"` /
+/// `"attributesToHighlight"` / `"getRankingInfo"` / `"clickAnalytics"` /
+/// `"enablePersonalization"` / `"removeWordsIfNoResults"` / Solr
+/// `"responseHeader"` / `"numFound"` / `"numFoundExact"` / `"QTime"` /
+/// `"zkConnected"` / `"facet_counts": {` / `"highlighting"` /
+/// `"spellcheck"` / `"grouped"` / `"nextCursorMark"` / Elasticsearch
 /// `"track_total_hits"` / `"min_score"` / `"post_filter"` /
 /// `"runtime_mappings"` / `"script_fields"` / `"docvalue_fields"` /
 /// `"seq_no_primary_term"` / `"_scroll_id"` / `"_shards"` / Grafana
@@ -62546,6 +62558,194 @@ fn typesense_json_number_and_tail_ok(key: &str, after_colon: &str) -> bool {
 }
 
 fn typesense_json_bool_and_tail_ok(after_colon: &str) -> bool {
+    if let Some(rest) = after_colon.strip_prefix("true") {
+        return package_json_tail_ok(rest);
+    }
+    if let Some(rest) = after_colon.strip_prefix("false") {
+        return package_json_tail_ok(rest);
+    }
+    false
+}
+
+/// Algolia search response / request JSON keys:
+/// `"processingTimeMS": 0` / `12`,
+/// `"nbPages": 0` / `20`,
+/// `"serverTimeMS": 0` / `5`,
+/// `"queryID": "…"`,
+/// `"indexUsed": "…"`,
+/// `"aroundLatLng": "…"`,
+/// `"highlightPreTag": "…"`,
+/// `"facets_stats": {`,
+/// `"renderingContent": {`,
+/// `"appliedRules": [`,
+/// `"attributesToHighlight": [`,
+/// `"getRankingInfo": true` / `false`,
+/// `"clickAnalytics": true` / `false`,
+/// `"enablePersonalization": true` / `false`,
+/// `"removeWordsIfNoResults": "none"` / `"lastWords"` / `"firstWords"` /
+/// `"allOptional"`.
+/// Optional trailing `,` and `//` / `/*` comment. Incomplete quotes /
+/// missing `:` stay out. Generic `"$schema"` / `"name"` / `"id"` /
+/// `"hits": [` / `"query"` / `"page"` / `"params"` / `"nbHits"` /
+/// `"hitsPerPage"` / Meilisearch `"processingTimeMs"` /
+/// `"estimatedTotalHits"` / `"exhaustiveNbHits"` / `"facetDistribution"` /
+/// `"facetStats"` / `"exhaustiveFacetsCount"` / `"rankingScoreThreshold"` /
+/// `"showRankingScore"` / `"matchingStrategy"` / `"attributesToSearchOn"` /
+/// Typesense `"search_time_ms"` / `"out_of"` / `"search_cutoff"` /
+/// `"grouped_hits"` / `"facet_counts": [` / `"default_sorting_field"` /
+/// `"enable_nested_fields"` / `"token_separators"` / `"symbols_to_index"` /
+/// `"drop_tokens_threshold"` / `"typo_tokens_threshold"` /
+/// `"prioritize_exact_match"` / `"exhaustive_search"` / Solr
+/// `"responseHeader"` / `"numFound"` / `"numFoundExact"` / `"QTime"` /
+/// `"zkConnected"` / `"facet_counts": {` / `"highlighting"` /
+/// `"spellcheck"` / `"grouped"` / `"nextCursorMark"` / Elasticsearch
+/// `"track_total_hits"` / `"min_score"` / `"post_filter"` /
+/// `"runtime_mappings"` / `"script_fields"` / `"docvalue_fields"` /
+/// `"seq_no_primary_term"` / `"_scroll_id"` / `"_shards"` / Grafana
+/// alerting `"noDataState"` / `"execErrState"` / `"datasourceUid"` /
+/// `"folderUID"` / `"relativeTimeRange"` / `"grafana_alert"` /
+/// `"contactPoints"` / `"muteTimes"` / `"isPaused"` / Grafana
+/// dashboard `"schemaVersion"` / `"graphTooltip"` / `"templating"` /
+/// `"gnetId"` / Grafana datasource `"access"` / `"basicAuth"` /
+/// `"jsonData"` / `"deleteDatasources"` / Alertmanager `"groupKey"` /
+/// `"truncatedAlerts"` / Prometheus `"totalQueryableSamples"` / Loki
+/// `"bytesProcessedPerSecond"` / Tempo `"rootServiceName"` / Jaeger
+/// `"traceID"` / Zipkin `"localEndpoint"` / OTLP `"resourceSpans"` /
+/// HAR `"startedDateTime"` / OpenAPI `"openapi"` / AsyncAPI
+/// `"asyncapi"` / `"channels": {` / Pact `"consumer"` / MockServer
+/// `"httpRequest"` / Hoverfly `"hoverflyVersion"` / Mountebank
+/// `"imposters"` / WireMock `"scenarioName"` / Mockoon
+/// `"lastMigration"` / Hoppscotch `"preRequestScript"` / Yaak
+/// `"yaakVersion"` / Bruno `"brunoConfig"` / Thunder Client `"client"` /
+/// Postman `"_postman_id"` / Insomnia `"__export_format"` / ReDoc
+/// `"disableSearch"` / RapiDoc `"specUrl"` / swagger-ui `"dom_id"` /
+/// scalar `"layout": "modern"` / Elements `"layout": "sidebar"` /
+/// mintlify `"topbarLinks"` / Compodoc `"theme": "material"` / redocly
+/// `"apis"` / spectral `"functionsDir"` / openapitools
+/// `"generator-cli"` / Knip `"entry"` / prettier `"printWidth"` /
+/// package.json `"bin"` / karma `"basePath"` stay out.
+/// `"removeWordsIfNoResults"` only matches its Algolia enums.
+/// `"queryID"` / `"indexUsed"` / `"aroundLatLng"` / `"highlightPreTag"`
+/// need a non-empty value. Numeric `"processingTimeMS"` / `"nbPages"` /
+/// `"serverTimeMS"` reject leading zeros beyond `0`.
+fn is_algolia_json_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    let Some(rest) = s.strip_prefix('"') else {
+        return false;
+    };
+    let Some(end) = rest.find('"') else {
+        return false;
+    };
+    let key = &rest[..end];
+    if !algolia_json_key_ok(key) {
+        return false;
+    }
+    let after_key = rest[end + 1..].trim_start();
+    let Some(after_colon) = after_key.strip_prefix(':') else {
+        return false;
+    };
+    let after_colon = after_colon.trim_start();
+    algolia_json_value_and_tail_ok(key, after_colon)
+}
+
+fn algolia_json_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "processingTimeMS"
+            | "nbPages"
+            | "serverTimeMS"
+            | "queryID"
+            | "indexUsed"
+            | "aroundLatLng"
+            | "highlightPreTag"
+            | "facets_stats"
+            | "renderingContent"
+            | "appliedRules"
+            | "attributesToHighlight"
+            | "getRankingInfo"
+            | "clickAnalytics"
+            | "enablePersonalization"
+            | "removeWordsIfNoResults"
+    )
+}
+
+fn algolia_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool {
+    let bytes = after_colon.as_bytes();
+    let Some(first) = bytes.first().copied() else {
+        return false;
+    };
+    match first {
+        b'[' => {
+            if !matches!(key, "appliedRules" | "attributesToHighlight") {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[1..])
+        }
+        b'{' => {
+            if !matches!(key, "facets_stats" | "renderingContent") {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[1..])
+        }
+        b'"' => match key {
+            "removeWordsIfNoResults" => algolia_json_remove_words_and_tail_ok(after_colon),
+            "queryID" | "indexUsed" | "aroundLatLng" | "highlightPreTag" => {
+                let rest = &after_colon[1..];
+                let Some(end) = rest.find('"') else {
+                    return false;
+                };
+                let value = &rest[..end];
+                if value.is_empty() || value.contains('\n') {
+                    return false;
+                }
+                package_json_tail_ok(&rest[end + 1..])
+            }
+            _ => false,
+        },
+        b't' | b'f' => {
+            if !matches!(
+                key,
+                "getRankingInfo" | "clickAnalytics" | "enablePersonalization"
+            ) {
+                return false;
+            }
+            algolia_json_bool_and_tail_ok(after_colon)
+        }
+        b'0'..=b'9' => algolia_json_number_and_tail_ok(key, after_colon),
+        _ => false,
+    }
+}
+
+fn algolia_json_remove_words_and_tail_ok(after_colon: &str) -> bool {
+    let rest = &after_colon[1..];
+    let Some(end) = rest.find('"') else {
+        return false;
+    };
+    let value = &rest[..end];
+    if !matches!(value, "none" | "lastWords" | "firstWords" | "allOptional") {
+        return false;
+    }
+    package_json_tail_ok(&rest[end + 1..])
+}
+
+fn algolia_json_number_and_tail_ok(key: &str, after_colon: &str) -> bool {
+    if !matches!(key, "processingTimeMS" | "nbPages" | "serverTimeMS") {
+        return false;
+    }
+    let digits = after_colon
+        .bytes()
+        .take_while(|b| b.is_ascii_digit())
+        .count();
+    if digits == 0 || digits > 12 {
+        return false;
+    }
+    if digits > 1 && after_colon.as_bytes()[0] == b'0' {
+        return false;
+    }
+    package_json_tail_ok(&after_colon[digits..])
+}
+
+fn algolia_json_bool_and_tail_ok(after_colon: &str) -> bool {
     if let Some(rest) = after_colon.strip_prefix("true") {
         return package_json_tail_ok(rest);
     }
@@ -93165,63 +93365,64 @@ fn is_compare_saved_snapshot(doc: &doc::Document) -> bool {
 #[cfg(test)]
 mod func_like_line_tests {
     use super::{
-        is_access_conf_decl, is_alertmanager_json_decl, is_android_bp_decl, is_angular_json_decl,
-        is_ant_msbuild_decl, is_apache_httpd_decl, is_api_extractor_json_decl, is_apt_sources_decl,
-        is_asyncapi_json_decl, is_audit_rules_decl, is_audit_toml_decl, is_autoflake_ini_decl,
-        is_autopep8_ini_decl, is_ava_json_decl, is_aws_config_decl, is_babel_json_decl,
-        is_bacon_toml_decl, is_bandit_ini_decl, is_binfmt_d_decl, is_biome_json_decl,
-        is_bitbake_decl, is_black_ini_decl, is_brewfile_decl, is_bruno_json_decl,
-        is_bumpversion_ini_decl, is_bunfig_toml_decl, is_c8_json_decl, is_cabal_decl,
-        is_capacitor_json_decl, is_cargo_config_toml_decl, is_cargo_make_toml_decl,
-        is_cargo_toml_decl, is_cbindgen_toml_decl, is_changesets_json_decl,
-        is_check_manifest_ini_decl, is_check_wheel_contents_ini_decl, is_cibuildwheel_ini_decl,
-        is_cliff_toml_decl, is_clippy_toml_decl, is_codecept_json_decl, is_codespell_ini_decl,
-        is_commitizen_ini_decl, is_commitlint_json_decl, is_compodoc_json_decl,
-        is_composer_json_decl, is_coverage_ini_decl, is_cross_toml_decl, is_crypttab_decl,
-        is_cspell_json_decl, is_cucumber_json_decl, is_cypress_json_decl, is_darglint_ini_decl,
-        is_default_grub_decl, is_deno_json_decl, is_deny_toml_decl, is_desktop_entry_decl,
-        is_detox_json_decl, is_devcontainer_json_decl, is_dhcpd_decl, is_dioxus_toml_decl,
-        is_dist_toml_decl, is_doc8_ini_decl, is_docformatter_ini_decl, is_docfx_json_decl,
-        is_dovecot_decl, is_dprint_json_decl, is_dracut_conf_decl, is_eas_json_decl,
-        is_editorconfig_decl, is_elasticsearch_json_decl, is_electron_builder_json_decl,
-        is_electron_forge_json_decl, is_esdoc_json_decl, is_eslint_json_decl, is_ethers_file_decl,
-        is_expo_json_decl, is_fail2ban_conf_decl, is_firebase_json_decl, is_flake8_ini_decl,
-        is_fluent_bit_decl, is_fly_toml_decl, is_flynt_ini_decl, is_freeradius_decl, is_fstab_decl,
-        is_gdm_conf_decl, is_gemfile_decl, is_gitconfig_decl, is_gomod_decl,
-        is_grafana_alerting_json_decl, is_grafana_dashboard_json_decl,
-        is_grafana_datasource_json_decl, is_grafana_ini_decl, is_haproxy_decl, is_har_json_decl,
-        is_hatch_toml_decl, is_hoppscotch_json_decl, is_hosts_access_decl, is_hosts_file_decl,
-        is_hoverfly_json_decl, is_hypothesis_ini_decl, is_importlinter_ini_decl,
-        is_insomnia_json_decl, is_interrogate_ini_decl, is_ionic_json_decl, is_ipsec_conf_decl,
-        is_isort_ini_decl, is_jaeger_json_decl, is_jasmine_json_decl, is_jest_json_decl,
-        is_jsdoc_json_decl, is_karma_json_decl, is_keepalived_decl, is_knip_json_decl,
-        is_krb5_conf_decl, is_lerna_json_decl, is_lightdm_conf_decl, is_limits_conf_decl,
-        is_lint_staged_json_decl, is_locale_conf_decl, is_login_defs_decl, is_logrotate_decl,
-        is_loki_json_decl, is_machine_info_decl, is_makepkg_conf_decl, is_mdbook_toml_decl,
-        is_meilisearch_json_decl, is_mintlify_json_decl, is_mise_toml_decl,
-        is_mkinitcpio_conf_decl, is_mocha_json_decl, is_mockoon_json_decl, is_mockserver_json_decl,
-        is_modprobe_conf_decl, is_mountebank_json_decl, is_mutants_toml_decl, is_mypy_ini_decl,
-        is_mysql_cnf_decl, is_named_conf_decl, is_nest_cli_json_decl, is_netlify_toml_decl,
-        is_networks_file_decl, is_neutralino_json_decl, is_nextest_toml_decl, is_nftables_decl,
-        is_nginx_conf_decl, is_nightwatch_json_decl, is_nixpacks_toml_decl, is_nm_connection_decl,
-        is_npmrc_decl, is_nsswitch_conf_decl, is_nx_json_decl, is_nyc_json_decl,
-        is_openapi_json_decl, is_openapitools_json_decl, is_openvpn_decl, is_os_release_decl,
-        is_otlp_json_decl, is_oxlint_json_decl, is_package_json_decl, is_pacman_conf_decl,
-        is_pact_json_decl, is_pam_conf_decl, is_parcel_json_decl, is_paru_conf_decl,
-        is_passwd_group_file_decl, is_pdm_toml_decl, is_php_ini_decl, is_pip_conf_decl,
-        is_pipfile_decl, is_pixi_toml_decl, is_playwright_json_decl, is_podfile_decl,
-        is_poetry_toml_decl, is_postcss_json_decl, is_postman_json_decl, is_premake_decl,
-        is_prettier_json_decl, is_prometheus_json_decl, is_protocols_file_decl, is_pycln_ini_decl,
-        is_pycodestyle_ini_decl, is_pydoclint_ini_decl, is_pydocstyle_ini_decl, is_pylama_ini_decl,
-        is_pylint_ini_decl, is_pypirc_ini_decl, is_pyproject_toml_decl, is_pyre_configuration_decl,
-        is_pyright_toml_decl, is_pyrightconfig_json_decl, is_pytest_ini_decl, is_pytype_ini_decl,
-        is_pyupgrade_ini_decl, is_radon_ini_decl, is_railway_toml_decl, is_rake_decl,
-        is_rapidoc_json_decl, is_redoc_json_decl, is_redocly_json_decl, is_refurb_toml_decl,
-        is_release_it_json_decl, is_release_please_json_decl, is_release_toml_decl,
-        is_renovate_json_decl, is_resolv_conf_decl, is_rpc_file_decl, is_rstcheck_ini_decl,
-        is_rsyslog_decl, is_ruff_toml_decl, is_rush_json_decl, is_rust_toolchain_toml_decl,
-        is_rustfmt_toml_decl, is_samba_conf_decl, is_samconfig_toml_decl, is_scalar_json_decl,
-        is_scons_decl, is_scriv_ini_decl, is_sddm_conf_decl, is_semantic_release_ini_decl,
+        is_access_conf_decl, is_alertmanager_json_decl, is_algolia_json_decl, is_android_bp_decl,
+        is_angular_json_decl, is_ant_msbuild_decl, is_apache_httpd_decl,
+        is_api_extractor_json_decl, is_apt_sources_decl, is_asyncapi_json_decl,
+        is_audit_rules_decl, is_audit_toml_decl, is_autoflake_ini_decl, is_autopep8_ini_decl,
+        is_ava_json_decl, is_aws_config_decl, is_babel_json_decl, is_bacon_toml_decl,
+        is_bandit_ini_decl, is_binfmt_d_decl, is_biome_json_decl, is_bitbake_decl,
+        is_black_ini_decl, is_brewfile_decl, is_bruno_json_decl, is_bumpversion_ini_decl,
+        is_bunfig_toml_decl, is_c8_json_decl, is_cabal_decl, is_capacitor_json_decl,
+        is_cargo_config_toml_decl, is_cargo_make_toml_decl, is_cargo_toml_decl,
+        is_cbindgen_toml_decl, is_changesets_json_decl, is_check_manifest_ini_decl,
+        is_check_wheel_contents_ini_decl, is_cibuildwheel_ini_decl, is_cliff_toml_decl,
+        is_clippy_toml_decl, is_codecept_json_decl, is_codespell_ini_decl, is_commitizen_ini_decl,
+        is_commitlint_json_decl, is_compodoc_json_decl, is_composer_json_decl,
+        is_coverage_ini_decl, is_cross_toml_decl, is_crypttab_decl, is_cspell_json_decl,
+        is_cucumber_json_decl, is_cypress_json_decl, is_darglint_ini_decl, is_default_grub_decl,
+        is_deno_json_decl, is_deny_toml_decl, is_desktop_entry_decl, is_detox_json_decl,
+        is_devcontainer_json_decl, is_dhcpd_decl, is_dioxus_toml_decl, is_dist_toml_decl,
+        is_doc8_ini_decl, is_docformatter_ini_decl, is_docfx_json_decl, is_dovecot_decl,
+        is_dprint_json_decl, is_dracut_conf_decl, is_eas_json_decl, is_editorconfig_decl,
+        is_elasticsearch_json_decl, is_electron_builder_json_decl, is_electron_forge_json_decl,
+        is_esdoc_json_decl, is_eslint_json_decl, is_ethers_file_decl, is_expo_json_decl,
+        is_fail2ban_conf_decl, is_firebase_json_decl, is_flake8_ini_decl, is_fluent_bit_decl,
+        is_fly_toml_decl, is_flynt_ini_decl, is_freeradius_decl, is_fstab_decl, is_gdm_conf_decl,
+        is_gemfile_decl, is_gitconfig_decl, is_gomod_decl, is_grafana_alerting_json_decl,
+        is_grafana_dashboard_json_decl, is_grafana_datasource_json_decl, is_grafana_ini_decl,
+        is_haproxy_decl, is_har_json_decl, is_hatch_toml_decl, is_hoppscotch_json_decl,
+        is_hosts_access_decl, is_hosts_file_decl, is_hoverfly_json_decl, is_hypothesis_ini_decl,
+        is_importlinter_ini_decl, is_insomnia_json_decl, is_interrogate_ini_decl,
+        is_ionic_json_decl, is_ipsec_conf_decl, is_isort_ini_decl, is_jaeger_json_decl,
+        is_jasmine_json_decl, is_jest_json_decl, is_jsdoc_json_decl, is_karma_json_decl,
+        is_keepalived_decl, is_knip_json_decl, is_krb5_conf_decl, is_lerna_json_decl,
+        is_lightdm_conf_decl, is_limits_conf_decl, is_lint_staged_json_decl, is_locale_conf_decl,
+        is_login_defs_decl, is_logrotate_decl, is_loki_json_decl, is_machine_info_decl,
+        is_makepkg_conf_decl, is_mdbook_toml_decl, is_meilisearch_json_decl, is_mintlify_json_decl,
+        is_mise_toml_decl, is_mkinitcpio_conf_decl, is_mocha_json_decl, is_mockoon_json_decl,
+        is_mockserver_json_decl, is_modprobe_conf_decl, is_mountebank_json_decl,
+        is_mutants_toml_decl, is_mypy_ini_decl, is_mysql_cnf_decl, is_named_conf_decl,
+        is_nest_cli_json_decl, is_netlify_toml_decl, is_networks_file_decl,
+        is_neutralino_json_decl, is_nextest_toml_decl, is_nftables_decl, is_nginx_conf_decl,
+        is_nightwatch_json_decl, is_nixpacks_toml_decl, is_nm_connection_decl, is_npmrc_decl,
+        is_nsswitch_conf_decl, is_nx_json_decl, is_nyc_json_decl, is_openapi_json_decl,
+        is_openapitools_json_decl, is_openvpn_decl, is_os_release_decl, is_otlp_json_decl,
+        is_oxlint_json_decl, is_package_json_decl, is_pacman_conf_decl, is_pact_json_decl,
+        is_pam_conf_decl, is_parcel_json_decl, is_paru_conf_decl, is_passwd_group_file_decl,
+        is_pdm_toml_decl, is_php_ini_decl, is_pip_conf_decl, is_pipfile_decl, is_pixi_toml_decl,
+        is_playwright_json_decl, is_podfile_decl, is_poetry_toml_decl, is_postcss_json_decl,
+        is_postman_json_decl, is_premake_decl, is_prettier_json_decl, is_prometheus_json_decl,
+        is_protocols_file_decl, is_pycln_ini_decl, is_pycodestyle_ini_decl, is_pydoclint_ini_decl,
+        is_pydocstyle_ini_decl, is_pylama_ini_decl, is_pylint_ini_decl, is_pypirc_ini_decl,
+        is_pyproject_toml_decl, is_pyre_configuration_decl, is_pyright_toml_decl,
+        is_pyrightconfig_json_decl, is_pytest_ini_decl, is_pytype_ini_decl, is_pyupgrade_ini_decl,
+        is_radon_ini_decl, is_railway_toml_decl, is_rake_decl, is_rapidoc_json_decl,
+        is_redoc_json_decl, is_redocly_json_decl, is_refurb_toml_decl, is_release_it_json_decl,
+        is_release_please_json_decl, is_release_toml_decl, is_renovate_json_decl,
+        is_resolv_conf_decl, is_rpc_file_decl, is_rstcheck_ini_decl, is_rsyslog_decl,
+        is_ruff_toml_decl, is_rush_json_decl, is_rust_toolchain_toml_decl, is_rustfmt_toml_decl,
+        is_samba_conf_decl, is_samconfig_toml_decl, is_scalar_json_decl, is_scons_decl,
+        is_scriv_ini_decl, is_sddm_conf_decl, is_semantic_release_ini_decl,
         is_semantic_release_json_decl, is_services_file_decl, is_setup_cfg_decl,
         is_setuptools_scm_ini_decl, is_simple_git_hooks_json_decl, is_solr_json_decl,
         is_spectral_json_decl, is_sqlfluff_ini_decl, is_ssh_config_decl, is_sssd_conf_decl,
@@ -126641,6 +126842,313 @@ mod func_like_line_tests {
         assert!(line_is_func_like(r#""typo_tokens_threshold": 0"#));
         assert!(line_is_func_like(r#""prioritize_exact_match": true"#));
         assert!(line_is_func_like(r#""exhaustive_search": false"#));
+        assert!(!is_typesense_json_decl(r#""processingTimeMS": 12"#));
+        assert!(is_algolia_json_decl(r#""processingTimeMS": 12"#));
+        assert!(!is_typesense_json_decl(r#""nbPages": 20"#));
+        assert!(is_algolia_json_decl(r#""nbPages": 20"#));
+        assert!(!is_typesense_json_decl(r#""queryID": "abc""#));
+        assert!(is_algolia_json_decl(r#""queryID": "abc""#));
+        assert!(!is_typesense_json_decl(r#""facets_stats": {"#));
+        assert!(is_algolia_json_decl(r#""facets_stats": {"#));
+    }
+
+    #[test]
+    fn algolia_json_keys_smoke() {
+        assert!(is_algolia_json_decl(r#""processingTimeMS": 0"#));
+        assert!(is_algolia_json_decl(r#""processingTimeMS": 12"#));
+        assert!(is_algolia_json_decl(r#""nbPages": 0"#));
+        assert!(is_algolia_json_decl(r#""nbPages": 20"#));
+        assert!(is_algolia_json_decl(r#""serverTimeMS": 0"#));
+        assert!(is_algolia_json_decl(r#""serverTimeMS": 5"#));
+        assert!(is_algolia_json_decl(r#""queryID": "abc123""#));
+        assert!(is_algolia_json_decl(r#""indexUsed": "products""#));
+        assert!(is_algolia_json_decl(r#""aroundLatLng": "48.85,2.35""#));
+        assert!(is_algolia_json_decl(r#""highlightPreTag": "<em>""#));
+        assert!(is_algolia_json_decl(r#""facets_stats": {"#));
+        assert!(is_algolia_json_decl(r#""renderingContent": {"#));
+        assert!(is_algolia_json_decl(r#""appliedRules": ["#));
+        assert!(is_algolia_json_decl(r#""attributesToHighlight": ["#));
+        assert!(is_algolia_json_decl(r#""getRankingInfo": true"#));
+        assert!(is_algolia_json_decl(r#""getRankingInfo": false"#));
+        assert!(is_algolia_json_decl(r#""clickAnalytics": true"#));
+        assert!(is_algolia_json_decl(r#""clickAnalytics": false"#));
+        assert!(is_algolia_json_decl(r#""enablePersonalization": true"#));
+        assert!(is_algolia_json_decl(r#""enablePersonalization": false"#));
+        assert!(is_algolia_json_decl(r#""removeWordsIfNoResults": "none""#));
+        assert!(is_algolia_json_decl(
+            r#""removeWordsIfNoResults": "lastWords""#
+        ));
+        assert!(is_algolia_json_decl(
+            r#""removeWordsIfNoResults": "firstWords""#
+        ));
+        assert!(is_algolia_json_decl(
+            r#""removeWordsIfNoResults": "allOptional""#
+        ));
+        // Distinctive neighbours stay out of this scanner.
+        assert!(!is_algolia_json_decl(r#""processingTimeMs": 12"#));
+        assert!(is_meilisearch_json_decl(r#""processingTimeMs": 12"#));
+        assert!(!is_algolia_json_decl(r#""nbHits": 20"#));
+        assert!(is_meilisearch_json_decl(r#""nbHits": 20"#));
+        assert!(!is_algolia_json_decl(r#""hitsPerPage": 20"#));
+        assert!(is_meilisearch_json_decl(r#""hitsPerPage": 20"#));
+        assert!(!is_algolia_json_decl(r#""facetDistribution": {"#));
+        assert!(is_meilisearch_json_decl(r#""facetDistribution": {"#));
+        assert!(!is_algolia_json_decl(r#""search_time_ms": 12"#));
+        assert!(is_typesense_json_decl(r#""search_time_ms": 12"#));
+        assert!(!is_algolia_json_decl(r#""out_of": 100"#));
+        assert!(is_typesense_json_decl(r#""out_of": 100"#));
+        assert!(!is_algolia_json_decl(r#""facet_counts": ["#));
+        assert!(is_typesense_json_decl(r#""facet_counts": ["#));
+        assert!(!is_algolia_json_decl(r#""responseHeader": {"#));
+        assert!(is_solr_json_decl(r#""responseHeader": {"#));
+        assert!(!is_algolia_json_decl(r#""track_total_hits": true"#));
+        assert!(is_elasticsearch_json_decl(r#""track_total_hits": true"#));
+        assert!(!is_algolia_json_decl(r#""printWidth": 80"#));
+        assert!(is_prettier_json_decl(r#""printWidth": 80"#));
+        assert!(!is_algolia_json_decl(r#""basePath": ".""#));
+        assert!(is_karma_json_decl(r#""basePath": ".""#));
+        assert!(line_is_func_like(r#""processingTimeMS": 12"#));
+        assert!(line_is_func_like(r#""nbPages": 20"#));
+        assert!(line_is_func_like(r#""serverTimeMS": 5"#));
+        assert!(line_is_func_like(r#""queryID": "abc123""#));
+        assert!(line_is_func_like(r#""indexUsed": "products""#));
+        assert!(line_is_func_like(r#""aroundLatLng": "48.85,2.35""#));
+        assert!(line_is_func_like(r#""highlightPreTag": "<em>""#));
+        assert!(line_is_func_like(r#""facets_stats": {"#));
+        assert!(line_is_func_like(r#""renderingContent": {"#));
+        assert!(line_is_func_like(r#""appliedRules": ["#));
+        assert!(line_is_func_like(r#""attributesToHighlight": ["#));
+        assert!(line_is_func_like(r#""getRankingInfo": true"#));
+        assert!(line_is_func_like(r#""clickAnalytics": false"#));
+        assert!(line_is_func_like(r#""enablePersonalization": true"#));
+        assert!(line_is_func_like(
+            r#""removeWordsIfNoResults": "lastWords""#
+        ));
+    }
+
+    #[test]
+    fn algolia_json_keys_count() {
+        assert!(is_algolia_json_decl(r#""processingTimeMS": 0"#));
+        assert!(is_algolia_json_decl(r#""processingTimeMS": 12"#));
+        assert!(is_algolia_json_decl(r#""processingTimeMS": 12,"#));
+        assert!(is_algolia_json_decl(r#""processingTimeMS": 12 // t"#));
+        assert!(!is_algolia_json_decl(r#""processingTimeMS": 00"#));
+        assert!(!is_algolia_json_decl(r#""processingTimeMS": 01"#));
+        assert!(!is_algolia_json_decl(r#""processingTimeMS": true"#));
+        assert!(!is_algolia_json_decl(r#""processingTimeMS": {"#));
+        assert!(!is_algolia_json_decl(r#""processingTimeMS": "12""#));
+        assert!(is_algolia_json_decl(r#""nbPages": 0"#));
+        assert!(is_algolia_json_decl(r#""nbPages": 20"#));
+        assert!(is_algolia_json_decl(r#""nbPages": 20,"#));
+        assert!(is_algolia_json_decl(r#""nbPages": 20 // n"#));
+        assert!(!is_algolia_json_decl(r#""nbPages": 00"#));
+        assert!(!is_algolia_json_decl(r#""nbPages": 01"#));
+        assert!(!is_algolia_json_decl(r#""nbPages": true"#));
+        assert!(!is_algolia_json_decl(r#""nbPages": {"#));
+        assert!(is_algolia_json_decl(r#""serverTimeMS": 0"#));
+        assert!(is_algolia_json_decl(r#""serverTimeMS": 5"#));
+        assert!(is_algolia_json_decl(r#""serverTimeMS": 5,"#));
+        assert!(is_algolia_json_decl(r#""serverTimeMS": 5 // s"#));
+        assert!(!is_algolia_json_decl(r#""serverTimeMS": 00"#));
+        assert!(!is_algolia_json_decl(r#""serverTimeMS": 01"#));
+        assert!(!is_algolia_json_decl(r#""serverTimeMS": true"#));
+        assert!(!is_algolia_json_decl(r#""serverTimeMS": {"#));
+        assert!(is_algolia_json_decl(r#""queryID": "abc123""#));
+        assert!(is_algolia_json_decl(r#""queryID": "abc123","#));
+        assert!(is_algolia_json_decl(r#""queryID": "abc123" // q"#));
+        assert!(!is_algolia_json_decl(r#""queryID": """#));
+        assert!(!is_algolia_json_decl(r#""queryID": {"#));
+        assert!(!is_algolia_json_decl(r#""queryID": true"#));
+        assert!(!is_algolia_json_decl(r#""queryID": 1"#));
+        assert!(is_algolia_json_decl(r#""indexUsed": "products""#));
+        assert!(is_algolia_json_decl(r#""indexUsed": "products","#));
+        assert!(is_algolia_json_decl(r#""indexUsed": "products" // i"#));
+        assert!(!is_algolia_json_decl(r#""indexUsed": """#));
+        assert!(!is_algolia_json_decl(r#""indexUsed": {"#));
+        assert!(!is_algolia_json_decl(r#""indexUsed": true"#));
+        assert!(is_algolia_json_decl(r#""aroundLatLng": "48.85,2.35""#));
+        assert!(is_algolia_json_decl(r#""aroundLatLng": "48.85,2.35","#));
+        assert!(is_algolia_json_decl(r#""aroundLatLng": "48.85,2.35" // a"#));
+        assert!(!is_algolia_json_decl(r#""aroundLatLng": """#));
+        assert!(!is_algolia_json_decl(r#""aroundLatLng": {"#));
+        assert!(!is_algolia_json_decl(r#""aroundLatLng": true"#));
+        assert!(is_algolia_json_decl(r#""highlightPreTag": "<em>""#));
+        assert!(is_algolia_json_decl(r#""highlightPreTag": "<em>","#));
+        assert!(is_algolia_json_decl(r#""highlightPreTag": "<em>" // h"#));
+        assert!(!is_algolia_json_decl(r#""highlightPreTag": """#));
+        assert!(!is_algolia_json_decl(r#""highlightPreTag": {"#));
+        assert!(!is_algolia_json_decl(r#""highlightPreTag": true"#));
+        assert!(is_algolia_json_decl(r#""facets_stats": {"#));
+        assert!(is_algolia_json_decl(r#""facets_stats": {,"#));
+        assert!(is_algolia_json_decl(r#""facets_stats": { // f"#));
+        assert!(!is_algolia_json_decl(r#""facets_stats": ["#));
+        assert!(!is_algolia_json_decl(r#""facets_stats": true"#));
+        assert!(!is_algolia_json_decl(r#""facets_stats": """#));
+        assert!(is_algolia_json_decl(r#""renderingContent": {"#));
+        assert!(is_algolia_json_decl(r#""renderingContent": {,"#));
+        assert!(is_algolia_json_decl(r#""renderingContent": { // r"#));
+        assert!(!is_algolia_json_decl(r#""renderingContent": ["#));
+        assert!(!is_algolia_json_decl(r#""renderingContent": true"#));
+        assert!(!is_algolia_json_decl(r#""renderingContent": """#));
+        assert!(is_algolia_json_decl(r#""appliedRules": ["#));
+        assert!(is_algolia_json_decl(r#""appliedRules": [,"#));
+        assert!(is_algolia_json_decl(r#""appliedRules": [ // a"#));
+        assert!(!is_algolia_json_decl(r#""appliedRules": {"#));
+        assert!(!is_algolia_json_decl(r#""appliedRules": true"#));
+        assert!(!is_algolia_json_decl(r#""appliedRules": """#));
+        assert!(is_algolia_json_decl(r#""attributesToHighlight": ["#));
+        assert!(is_algolia_json_decl(r#""attributesToHighlight": [,"#));
+        assert!(is_algolia_json_decl(r#""attributesToHighlight": [ // a"#));
+        assert!(!is_algolia_json_decl(r#""attributesToHighlight": {"#));
+        assert!(!is_algolia_json_decl(r#""attributesToHighlight": true"#));
+        assert!(!is_algolia_json_decl(r#""attributesToHighlight": """#));
+        assert!(is_algolia_json_decl(r#""getRankingInfo": true"#));
+        assert!(is_algolia_json_decl(r#""getRankingInfo": false"#));
+        assert!(is_algolia_json_decl(r#""getRankingInfo": true,"#));
+        assert!(is_algolia_json_decl(r#""getRankingInfo": false // g"#));
+        assert!(!is_algolia_json_decl(r#""getRankingInfo": 1"#));
+        assert!(!is_algolia_json_decl(r#""getRankingInfo": "true""#));
+        assert!(!is_algolia_json_decl(r#""getRankingInfo": {"#));
+        assert!(is_algolia_json_decl(r#""clickAnalytics": true"#));
+        assert!(is_algolia_json_decl(r#""clickAnalytics": false"#));
+        assert!(is_algolia_json_decl(r#""clickAnalytics": true,"#));
+        assert!(is_algolia_json_decl(r#""clickAnalytics": false // c"#));
+        assert!(!is_algolia_json_decl(r#""clickAnalytics": 1"#));
+        assert!(!is_algolia_json_decl(r#""clickAnalytics": "true""#));
+        assert!(!is_algolia_json_decl(r#""clickAnalytics": {"#));
+        assert!(is_algolia_json_decl(r#""enablePersonalization": true"#));
+        assert!(is_algolia_json_decl(r#""enablePersonalization": false"#));
+        assert!(is_algolia_json_decl(r#""enablePersonalization": true,"#));
+        assert!(is_algolia_json_decl(
+            r#""enablePersonalization": false // e"#
+        ));
+        assert!(!is_algolia_json_decl(r#""enablePersonalization": 1"#));
+        assert!(!is_algolia_json_decl(r#""enablePersonalization": "true""#));
+        assert!(!is_algolia_json_decl(r#""enablePersonalization": {"#));
+        assert!(is_algolia_json_decl(r#""removeWordsIfNoResults": "none""#));
+        assert!(is_algolia_json_decl(
+            r#""removeWordsIfNoResults": "lastWords""#
+        ));
+        assert!(is_algolia_json_decl(
+            r#""removeWordsIfNoResults": "firstWords""#
+        ));
+        assert!(is_algolia_json_decl(
+            r#""removeWordsIfNoResults": "allOptional""#
+        ));
+        assert!(is_algolia_json_decl(r#""removeWordsIfNoResults": "none","#));
+        assert!(is_algolia_json_decl(
+            r#""removeWordsIfNoResults": "lastWords" // r"#
+        ));
+        assert!(!is_algolia_json_decl(r#""removeWordsIfNoResults": "all""#));
+        assert!(!is_algolia_json_decl(r#""removeWordsIfNoResults": """#));
+        assert!(!is_algolia_json_decl(r#""removeWordsIfNoResults": true"#));
+        assert!(!is_algolia_json_decl(r#""removeWordsIfNoResults": {"#));
+        assert!(!is_algolia_json_decl(r#""removeWordsIfNoResults": 1"#));
+        // Incomplete / wrong shapes stay out.
+        assert!(!is_algolia_json_decl(r#""processingTimeMS""#));
+        assert!(!is_algolia_json_decl(r#""processingTimeMS":"#));
+        assert!(!is_algolia_json_decl(r#""nbPages""#));
+        assert!(!is_algolia_json_decl(r#""serverTimeMS""#));
+        assert!(!is_algolia_json_decl(r#""queryID""#));
+        assert!(!is_algolia_json_decl(r#""indexUsed""#));
+        assert!(!is_algolia_json_decl(r#""aroundLatLng""#));
+        assert!(!is_algolia_json_decl(r#""highlightPreTag""#));
+        assert!(!is_algolia_json_decl(r#""facets_stats""#));
+        assert!(!is_algolia_json_decl(r#""renderingContent""#));
+        assert!(!is_algolia_json_decl(r#""appliedRules""#));
+        assert!(!is_algolia_json_decl(r#""attributesToHighlight""#));
+        assert!(!is_algolia_json_decl(r#""getRankingInfo""#));
+        assert!(!is_algolia_json_decl(r#""clickAnalytics""#));
+        assert!(!is_algolia_json_decl(r#""enablePersonalization""#));
+        assert!(!is_algolia_json_decl(r#""removeWordsIfNoResults""#));
+        // Generic / neighbouring stay out.
+        assert!(!is_algolia_json_decl(
+            r#""$schema": "https://json-schema.org/draft/2020-12/schema""#
+        ));
+        assert!(!is_algolia_json_decl(r#""name": "search""#));
+        assert!(!is_algolia_json_decl(r#""hits": ["#));
+        assert!(!is_algolia_json_decl(r#""query": "foo""#));
+        assert!(!is_algolia_json_decl(r#""page": 1"#));
+        assert!(!is_algolia_json_decl(r#""params": "query=foo"#));
+        assert!(!is_algolia_json_decl(r#""nbHits": 20"#));
+        assert!(is_meilisearch_json_decl(r#""nbHits": 20"#));
+        assert!(!is_algolia_json_decl(r#""hitsPerPage": 20"#));
+        assert!(is_meilisearch_json_decl(r#""hitsPerPage": 20"#));
+        assert!(!is_algolia_json_decl(r#""processingTimeMs": 12"#));
+        assert!(is_meilisearch_json_decl(r#""processingTimeMs": 12"#));
+        assert!(!is_algolia_json_decl(r#""facetDistribution": {"#));
+        assert!(is_meilisearch_json_decl(r#""facetDistribution": {"#));
+        assert!(!is_algolia_json_decl(r#""search_time_ms": 12"#));
+        assert!(is_typesense_json_decl(r#""search_time_ms": 12"#));
+        assert!(!is_algolia_json_decl(r#""out_of": 100"#));
+        assert!(is_typesense_json_decl(r#""out_of": 100"#));
+        assert!(!is_algolia_json_decl(r#""facet_counts": ["#));
+        assert!(is_typesense_json_decl(r#""facet_counts": ["#));
+        assert!(!is_algolia_json_decl(r#""responseHeader": {"#));
+        assert!(is_solr_json_decl(r#""responseHeader": {"#));
+        assert!(!is_algolia_json_decl(r#""numFound": 10"#));
+        assert!(is_solr_json_decl(r#""numFound": 10"#));
+        assert!(!is_algolia_json_decl(r#""track_total_hits": true"#));
+        assert!(is_elasticsearch_json_decl(r#""track_total_hits": true"#));
+        assert!(!is_algolia_json_decl(r#""min_score": 0.5"#));
+        assert!(is_elasticsearch_json_decl(r#""min_score": 0.5"#));
+        assert!(!is_algolia_json_decl(r#""_shards": {"#));
+        assert!(is_elasticsearch_json_decl(r#""_shards": {"#));
+        assert!(!is_algolia_json_decl(r#""noDataState": "NoData""#));
+        assert!(is_grafana_alerting_json_decl(r#""noDataState": "NoData""#));
+        assert!(!is_algolia_json_decl(r#""schemaVersion": 42"#));
+        assert!(is_grafana_dashboard_json_decl(r#""schemaVersion": 42"#));
+        assert!(!is_algolia_json_decl(r#""access": "proxy""#));
+        assert!(is_grafana_datasource_json_decl(r#""access": "proxy""#));
+        assert!(!is_algolia_json_decl(r#""truncatedAlerts": 1"#));
+        assert!(is_alertmanager_json_decl(r#""truncatedAlerts": 1"#));
+        assert!(!is_algolia_json_decl(r#""totalQueryableSamples": 100"#));
+        assert!(is_prometheus_json_decl(r#""totalQueryableSamples": 100"#));
+        assert!(!is_algolia_json_decl(r#""bytesProcessedPerSecond": 1234"#));
+        assert!(is_loki_json_decl(r#""bytesProcessedPerSecond": 1234"#));
+        assert!(!is_algolia_json_decl(r#""rootServiceName": "frontend""#));
+        assert!(is_tempo_json_decl(r#""rootServiceName": "frontend""#));
+        assert!(!is_algolia_json_decl(
+            r#""traceID": "0123456789abcdef0123456789abcdef""#
+        ));
+        assert!(is_jaeger_json_decl(
+            r#""traceID": "0123456789abcdef0123456789abcdef""#
+        ));
+        assert!(!is_algolia_json_decl(r#""localEndpoint": {"#));
+        assert!(is_zipkin_json_decl(r#""localEndpoint": {"#));
+        assert!(!is_algolia_json_decl(r#""resourceSpans": ["#));
+        assert!(is_otlp_json_decl(r#""resourceSpans": ["#));
+        assert!(!is_algolia_json_decl(
+            r#""startedDateTime": "2009-04-16T15:53:27.373Z""#
+        ));
+        assert!(is_har_json_decl(
+            r#""startedDateTime": "2009-04-16T15:53:27.373Z""#
+        ));
+        assert!(!is_algolia_json_decl(r#""openapi": "3.0.3""#));
+        assert!(is_openapi_json_decl(r#""openapi": "3.0.3""#));
+        assert!(!is_algolia_json_decl(r#""asyncapi": "2.6.0""#));
+        assert!(is_asyncapi_json_decl(r#""asyncapi": "2.6.0""#));
+        assert!(!is_algolia_json_decl(r#""printWidth": 80"#));
+        assert!(is_prettier_json_decl(r#""printWidth": 80"#));
+        assert!(!is_algolia_json_decl(r#""basePath": ".""#));
+        assert!(is_karma_json_decl(r#""basePath": ".""#));
+        assert!(line_is_func_like(r#""processingTimeMS": 0"#));
+        assert!(line_is_func_like(r#""nbPages": 0"#));
+        assert!(line_is_func_like(r#""serverTimeMS": 0"#));
+        assert!(line_is_func_like(r#""queryID": "abc""#));
+        assert!(line_is_func_like(r#""indexUsed": "products""#));
+        assert!(line_is_func_like(r#""aroundLatLng": "1,2""#));
+        assert!(line_is_func_like(r#""highlightPreTag": "<em>""#));
+        assert!(line_is_func_like(r#""facets_stats": {"#));
+        assert!(line_is_func_like(r#""renderingContent": {"#));
+        assert!(line_is_func_like(r#""appliedRules": ["#));
+        assert!(line_is_func_like(r#""attributesToHighlight": ["#));
+        assert!(line_is_func_like(r#""getRankingInfo": false"#));
+        assert!(line_is_func_like(r#""clickAnalytics": true"#));
+        assert!(line_is_func_like(r#""enablePersonalization": false"#));
+        assert!(line_is_func_like(
+            r#""removeWordsIfNoResults": "allOptional""#
+        ));
     }
 
     #[test]
