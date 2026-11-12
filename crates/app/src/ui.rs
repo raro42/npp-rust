@@ -32466,6 +32466,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_tempo_json_decl(s)
             || is_loki_json_decl(s)
             || is_prometheus_json_decl(s)
+            || is_alertmanager_json_decl(s)
             || is_gomod_decl(s)
             || is_gemfile_decl(s)
             || is_brewfile_decl(s)
@@ -32842,6 +32843,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_tempo_json_decl(s)
         || is_loki_json_decl(s)
         || is_prometheus_json_decl(s)
+        || is_alertmanager_json_decl(s)
         || is_gomod_decl(s)
         || is_gemfile_decl(s)
         || is_brewfile_decl(s)
@@ -61143,7 +61145,10 @@ fn loki_json_number_and_tail_ok(key: &str, after_colon: &str) -> bool {
 /// `"layout": "sidebar"` / mintlify `"topbarLinks"` / Compodoc
 /// `"theme": "material"` / redocly `"apis"` / spectral `"functionsDir"` /
 /// openapitools `"generator-cli"` / Knip `"entry"` / prettier
-/// `"printWidth"` / package.json `"bin"` / karma `"basePath"` stay out.
+/// `"printWidth"` / package.json `"bin"` / karma `"basePath"` /
+/// Alertmanager `"groupKey"` / `"groupLabels"` / `"commonLabels"` /
+/// `"commonAnnotations"` / `"inhibitedBy"` / `"silencedBy"` /
+/// `"generatorURL"` / `"externalURL"` / `"truncatedAlerts"` stay out.
 /// Numeric keys reject leading zeros beyond `0`.
 fn is_prometheus_json_decl(s: &str) -> bool {
     let s = s.trim_start();
@@ -61225,6 +61230,147 @@ fn prometheus_json_number_and_tail_ok(key: &str, after_colon: &str) -> bool {
         12
     };
     if digits == 0 || digits > max_digits {
+        return false;
+    }
+    if digits > 1 && after_colon.as_bytes()[0] == b'0' {
+        return false;
+    }
+    package_json_tail_ok(&after_colon[digits..])
+}
+
+/// Alertmanager webhook / API JSON keys:
+/// `"groupKey": "…"`,
+/// `"groupLabels": {`,
+/// `"commonLabels": {`,
+/// `"commonAnnotations": {`,
+/// `"inhibitedBy": [`,
+/// `"silencedBy": [`,
+/// `"generatorURL": "…"`,
+/// `"externalURL": "…"`,
+/// `"truncatedAlerts": 0` / `1`.
+/// Optional trailing `,` and `//` / `/*` comment. Incomplete quotes /
+/// missing `:` stay out. Generic `"$schema"` / `"name"` / `"id"` /
+/// `"timestamp"` / `"duration"` / `"tags": [` / `"logs": [` /
+/// `"startTime"` / `"spans": [` / `"serviceName"` / `"status"` /
+/// `"receiver"` / `"alerts": [` / `"labels": {` / `"annotations": [` /
+/// `"fingerprint"` / `"startsAt"` / `"endsAt"` / `"matchers": [` /
+/// Prometheus `"totalQueryableSamples"` / `"peakSamples"` /
+/// `"numSeries"` / `"numLabelPairs"` / `"chunkCount"` / `"headStats"` /
+/// `"seriesCountByMetricName"` / `"labelValueCountByLabelName"` /
+/// `"memoryInBytesByLabelName"` / Loki `"bytesProcessedPerSecond"` /
+/// `"linesProcessedPerSecond"` / `"totalBytesProcessed"` /
+/// `"totalLinesProcessed"` / `"totalEntriesReturned"` /
+/// `"totalPostFilterLines"` /
+/// `"totalStructuredMetadataBytesProcessed"` / `"dropped_entries"` /
+/// `"structuredMetadata"` / Tempo `"rootServiceName"` /
+/// `"rootTraceName"` / `"spanSet"` / `"spanSets"` / `"durationMs"` /
+/// `"inspectedTraces"` / `"inspectedBytes"` / `"totalBlocks"` /
+/// `"completedJobs"` / `"totalJobs"` / `"totalBlockBytes"` / Jaeger
+/// `"traceID"` / `"spanID"` / `"operationName"` / `"references"` /
+/// `"processID"` / `"processes"` / `"flags"` / `"startTimeMillis"` /
+/// `"refType"` / Zipkin `"localEndpoint"` / `"remoteEndpoint"` /
+/// `"annotations"` / `"parentId"` / `"kind"` / `"shared"` / `"debug"` /
+/// `"traceId"` / OTLP `"resourceSpans"` / `"parentSpanId"` /
+/// `"startTimeUnixNano"` / HAR `"startedDateTime"` / `"timings"` /
+/// OpenAPI `"openapi"` / AsyncAPI `"asyncapi"` / `"channels": {` /
+/// Pact `"consumer"` / MockServer `"httpRequest"` / Hoverfly
+/// `"hoverflyVersion"` / Mountebank `"imposters"` / WireMock
+/// `"scenarioName"` / Mockoon `"lastMigration"` / Hoppscotch
+/// `"preRequestScript"` / Yaak `"yaakVersion"` / Bruno `"brunoConfig"` /
+/// Thunder Client `"client"` / Postman `"_postman_id"` / Insomnia
+/// `"__export_format"` / ReDoc `"disableSearch"` / RapiDoc `"specUrl"` /
+/// swagger-ui `"dom_id"` / scalar `"layout": "modern"` / Elements
+/// `"layout": "sidebar"` / mintlify `"topbarLinks"` / Compodoc
+/// `"theme": "material"` / redocly `"apis"` / spectral `"functionsDir"` /
+/// openapitools `"generator-cli"` / Knip `"entry"` / prettier
+/// `"printWidth"` / package.json `"bin"` / karma `"basePath"` stay out.
+/// String keys need a non-empty value. Numeric keys reject leading zeros
+/// beyond `0`.
+fn is_alertmanager_json_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    let Some(rest) = s.strip_prefix('"') else {
+        return false;
+    };
+    let Some(end) = rest.find('"') else {
+        return false;
+    };
+    let key = &rest[..end];
+    if !alertmanager_json_key_ok(key) {
+        return false;
+    }
+    let after_key = rest[end + 1..].trim_start();
+    let Some(after_colon) = after_key.strip_prefix(':') else {
+        return false;
+    };
+    let after_colon = after_colon.trim_start();
+    alertmanager_json_value_and_tail_ok(key, after_colon)
+}
+
+fn alertmanager_json_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "groupKey"
+            | "groupLabels"
+            | "commonLabels"
+            | "commonAnnotations"
+            | "inhibitedBy"
+            | "silencedBy"
+            | "generatorURL"
+            | "externalURL"
+            | "truncatedAlerts"
+    )
+}
+
+fn alertmanager_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool {
+    let bytes = after_colon.as_bytes();
+    let Some(first) = bytes.first().copied() else {
+        return false;
+    };
+    match first {
+        b'{' => {
+            if !matches!(key, "groupLabels" | "commonLabels" | "commonAnnotations") {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[1..])
+        }
+        b'[' => {
+            if !matches!(key, "inhibitedBy" | "silencedBy") {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[1..])
+        }
+        b'"' => {
+            if !matches!(key, "groupKey" | "generatorURL" | "externalURL") {
+                return false;
+            }
+            let rest = &after_colon[1..];
+            let Some(end) = rest.find('"') else {
+                return false;
+            };
+            let value = &rest[..end];
+            if !alertmanager_json_string_ok(value) {
+                return false;
+            }
+            package_json_tail_ok(&rest[end + 1..])
+        }
+        b'0'..=b'9' => alertmanager_json_number_and_tail_ok(key, after_colon),
+        _ => false,
+    }
+}
+
+fn alertmanager_json_string_ok(value: &str) -> bool {
+    !value.is_empty() && !value.contains('\n')
+}
+
+fn alertmanager_json_number_and_tail_ok(key: &str, after_colon: &str) -> bool {
+    if key != "truncatedAlerts" {
+        return false;
+    }
+    let digits = after_colon
+        .bytes()
+        .take_while(|b| b.is_ascii_digit())
+        .count();
+    if digits == 0 || digits > 8 {
         return false;
     }
     if digits > 1 && after_colon.as_bytes()[0] == b'0' {
@@ -91843,8 +91989,8 @@ fn is_compare_saved_snapshot(doc: &doc::Document) -> bool {
 #[cfg(test)]
 mod func_like_line_tests {
     use super::{
-        is_access_conf_decl, is_android_bp_decl, is_angular_json_decl, is_ant_msbuild_decl,
-        is_apache_httpd_decl, is_api_extractor_json_decl, is_apt_sources_decl,
+        is_access_conf_decl, is_alertmanager_json_decl, is_android_bp_decl, is_angular_json_decl,
+        is_ant_msbuild_decl, is_apache_httpd_decl, is_api_extractor_json_decl, is_apt_sources_decl,
         is_asyncapi_json_decl, is_audit_rules_decl, is_audit_toml_decl, is_autoflake_ini_decl,
         is_autopep8_ini_decl, is_ava_json_decl, is_aws_config_decl, is_babel_json_decl,
         is_bacon_toml_decl, is_bandit_ini_decl, is_binfmt_d_decl, is_biome_json_decl,
@@ -122753,6 +122899,19 @@ mod func_like_line_tests {
         assert!(line_is_func_like(r#""seriesCountByMetricName": ["#));
         assert!(line_is_func_like(r#""labelValueCountByLabelName": ["#));
         assert!(line_is_func_like(r#""memoryInBytesByLabelName": ["#));
+        // Alertmanager neighbours stay out of Prometheus.
+        assert!(!is_prometheus_json_decl(
+            r#""groupKey": "{}:{alertname=HighCPU}""#
+        ));
+        assert!(is_alertmanager_json_decl(
+            r#""groupKey": "{}:{alertname=HighCPU}""#
+        ));
+        assert!(!is_prometheus_json_decl(r#""groupLabels": {"#));
+        assert!(is_alertmanager_json_decl(r#""groupLabels": {"#));
+        assert!(!is_prometheus_json_decl(r#""inhibitedBy": ["#));
+        assert!(is_alertmanager_json_decl(r#""inhibitedBy": ["#));
+        assert!(!is_prometheus_json_decl(r#""truncatedAlerts": 1"#));
+        assert!(is_alertmanager_json_decl(r#""truncatedAlerts": 1"#));
     }
 
     #[test]
@@ -122956,6 +123115,36 @@ mod func_like_line_tests {
         assert!(is_prettier_json_decl(r#""printWidth": 80"#));
         assert!(!is_prometheus_json_decl(r#""basePath": ".""#));
         assert!(is_karma_json_decl(r#""basePath": ".""#));
+        assert!(!is_prometheus_json_decl(
+            r#""groupKey": "{}:{alertname=HighCPU}""#
+        ));
+        assert!(is_alertmanager_json_decl(
+            r#""groupKey": "{}:{alertname=HighCPU}""#
+        ));
+        assert!(!is_prometheus_json_decl(r#""groupLabels": {"#));
+        assert!(is_alertmanager_json_decl(r#""groupLabels": {"#));
+        assert!(!is_prometheus_json_decl(r#""commonLabels": {"#));
+        assert!(is_alertmanager_json_decl(r#""commonLabels": {"#));
+        assert!(!is_prometheus_json_decl(r#""commonAnnotations": {"#));
+        assert!(is_alertmanager_json_decl(r#""commonAnnotations": {"#));
+        assert!(!is_prometheus_json_decl(r#""inhibitedBy": ["#));
+        assert!(is_alertmanager_json_decl(r#""inhibitedBy": ["#));
+        assert!(!is_prometheus_json_decl(r#""silencedBy": ["#));
+        assert!(is_alertmanager_json_decl(r#""silencedBy": ["#));
+        assert!(!is_prometheus_json_decl(
+            r#""generatorURL": "http://prometheus/graph?g0.expr=up""#
+        ));
+        assert!(is_alertmanager_json_decl(
+            r#""generatorURL": "http://prometheus/graph?g0.expr=up""#
+        ));
+        assert!(!is_prometheus_json_decl(
+            r#""externalURL": "http://alertmanager:9093""#
+        ));
+        assert!(is_alertmanager_json_decl(
+            r#""externalURL": "http://alertmanager:9093""#
+        ));
+        assert!(!is_prometheus_json_decl(r#""truncatedAlerts": 1"#));
+        assert!(is_alertmanager_json_decl(r#""truncatedAlerts": 1"#));
         assert!(line_is_func_like(r#""totalQueryableSamples": 0"#));
         assert!(line_is_func_like(r#""peakSamples": 50"#));
         assert!(line_is_func_like(r#""numSeries": 508"#));
@@ -122965,6 +123154,267 @@ mod func_like_line_tests {
         assert!(line_is_func_like(r#""seriesCountByMetricName": ["#));
         assert!(line_is_func_like(r#""labelValueCountByLabelName": ["#));
         assert!(line_is_func_like(r#""memoryInBytesByLabelName": ["#));
+    }
+
+    #[test]
+    fn alertmanager_json_keys_smoke() {
+        assert!(is_alertmanager_json_decl(
+            r#""groupKey": "{}:{alertname=HighCPU}""#
+        ));
+        assert!(is_alertmanager_json_decl(r#""groupLabels": {"#));
+        assert!(is_alertmanager_json_decl(r#""commonLabels": {"#));
+        assert!(is_alertmanager_json_decl(r#""commonAnnotations": {"#));
+        assert!(is_alertmanager_json_decl(r#""inhibitedBy": ["#));
+        assert!(is_alertmanager_json_decl(r#""silencedBy": ["#));
+        assert!(is_alertmanager_json_decl(
+            r#""generatorURL": "http://prometheus/graph?g0.expr=up""#
+        ));
+        assert!(is_alertmanager_json_decl(
+            r#""externalURL": "http://alertmanager:9093""#
+        ));
+        assert!(is_alertmanager_json_decl(r#""truncatedAlerts": 1"#));
+        // Distinctive neighbours stay out of this scanner.
+        assert!(!is_alertmanager_json_decl(
+            r#""totalQueryableSamples": 100"#
+        ));
+        assert!(is_prometheus_json_decl(r#""totalQueryableSamples": 100"#));
+        assert!(!is_alertmanager_json_decl(r#""peakSamples": 50"#));
+        assert!(is_prometheus_json_decl(r#""peakSamples": 50"#));
+        assert!(!is_alertmanager_json_decl(r#""headStats": {"#));
+        assert!(is_prometheus_json_decl(r#""headStats": {"#));
+        assert!(!is_alertmanager_json_decl(
+            r#""bytesProcessedPerSecond": 1234"#
+        ));
+        assert!(is_loki_json_decl(r#""bytesProcessedPerSecond": 1234"#));
+        assert!(!is_alertmanager_json_decl(r#""dropped_entries": ["#));
+        assert!(is_loki_json_decl(r#""dropped_entries": ["#));
+        assert!(!is_alertmanager_json_decl(
+            r#""rootServiceName": "frontend""#
+        ));
+        assert!(is_tempo_json_decl(r#""rootServiceName": "frontend""#));
+        assert!(!is_alertmanager_json_decl(r#""spanSet": {"#));
+        assert!(is_tempo_json_decl(r#""spanSet": {"#));
+        assert!(!is_alertmanager_json_decl(
+            r#""traceID": "0123456789abcdef0123456789abcdef""#
+        ));
+        assert!(is_jaeger_json_decl(
+            r#""traceID": "0123456789abcdef0123456789abcdef""#
+        ));
+        assert!(!is_alertmanager_json_decl(r#""localEndpoint": {"#));
+        assert!(is_zipkin_json_decl(r#""localEndpoint": {"#));
+        assert!(!is_alertmanager_json_decl(r#""resourceSpans": ["#));
+        assert!(is_otlp_json_decl(r#""resourceSpans": ["#));
+        assert!(!is_alertmanager_json_decl(
+            r#""startedDateTime": "2009-04-16T15:53:27.373Z""#
+        ));
+        assert!(is_har_json_decl(
+            r#""startedDateTime": "2009-04-16T15:53:27.373Z""#
+        ));
+        assert!(!is_alertmanager_json_decl(r#""openapi": "3.0.3""#));
+        assert!(is_openapi_json_decl(r#""openapi": "3.0.3""#));
+        assert!(line_is_func_like(r#""groupKey": "{}:{alertname=HighCPU}""#));
+        assert!(line_is_func_like(r#""groupLabels": {"#));
+        assert!(line_is_func_like(r#""commonLabels": {"#));
+        assert!(line_is_func_like(r#""commonAnnotations": {"#));
+        assert!(line_is_func_like(r#""inhibitedBy": ["#));
+        assert!(line_is_func_like(r#""silencedBy": ["#));
+        assert!(line_is_func_like(
+            r#""generatorURL": "http://prometheus/graph?g0.expr=up""#
+        ));
+        assert!(line_is_func_like(
+            r#""externalURL": "http://alertmanager:9093""#
+        ));
+        assert!(line_is_func_like(r#""truncatedAlerts": 1"#));
+    }
+
+    #[test]
+    fn alertmanager_json_keys_count() {
+        assert!(is_alertmanager_json_decl(
+            r#""groupKey": "{}:{alertname=HighCPU}""#
+        ));
+        assert!(is_alertmanager_json_decl(
+            r#""groupKey": "{}:{alertname=HighCPU}","#
+        ));
+        assert!(is_alertmanager_json_decl(
+            r#""groupKey": "{}:{alertname=HighCPU}" // g"#
+        ));
+        assert!(!is_alertmanager_json_decl(r#""groupKey": """#));
+        assert!(!is_alertmanager_json_decl(r#""groupKey": {"#));
+        assert!(!is_alertmanager_json_decl(r#""groupKey": ["#));
+        assert!(!is_alertmanager_json_decl(r#""groupKey": 1"#));
+        assert!(is_alertmanager_json_decl(r#""groupLabels": {"#));
+        assert!(is_alertmanager_json_decl(r#""groupLabels": {,"#));
+        assert!(is_alertmanager_json_decl(r#""groupLabels": { // g"#));
+        assert!(!is_alertmanager_json_decl(r#""groupLabels": ["#));
+        assert!(!is_alertmanager_json_decl(r#""groupLabels": true"#));
+        assert!(!is_alertmanager_json_decl(r#""groupLabels": """#));
+        assert!(is_alertmanager_json_decl(r#""commonLabels": {"#));
+        assert!(is_alertmanager_json_decl(r#""commonLabels": {,"#));
+        assert!(is_alertmanager_json_decl(r#""commonLabels": { // c"#));
+        assert!(!is_alertmanager_json_decl(r#""commonLabels": ["#));
+        assert!(!is_alertmanager_json_decl(r#""commonLabels": true"#));
+        assert!(!is_alertmanager_json_decl(r#""commonLabels": """#));
+        assert!(is_alertmanager_json_decl(r#""commonAnnotations": {"#));
+        assert!(is_alertmanager_json_decl(r#""commonAnnotations": {,"#));
+        assert!(is_alertmanager_json_decl(r#""commonAnnotations": { // a"#));
+        assert!(!is_alertmanager_json_decl(r#""commonAnnotations": ["#));
+        assert!(!is_alertmanager_json_decl(r#""commonAnnotations": true"#));
+        assert!(!is_alertmanager_json_decl(r#""commonAnnotations": """#));
+        assert!(is_alertmanager_json_decl(r#""inhibitedBy": ["#));
+        assert!(is_alertmanager_json_decl(r#""inhibitedBy": [,"#));
+        assert!(is_alertmanager_json_decl(r#""inhibitedBy": [ // i"#));
+        assert!(!is_alertmanager_json_decl(r#""inhibitedBy": {"#));
+        assert!(!is_alertmanager_json_decl(r#""inhibitedBy": true"#));
+        assert!(!is_alertmanager_json_decl(r#""inhibitedBy": """#));
+        assert!(is_alertmanager_json_decl(r#""silencedBy": ["#));
+        assert!(is_alertmanager_json_decl(r#""silencedBy": [,"#));
+        assert!(is_alertmanager_json_decl(r#""silencedBy": [ // s"#));
+        assert!(!is_alertmanager_json_decl(r#""silencedBy": {"#));
+        assert!(!is_alertmanager_json_decl(r#""silencedBy": true"#));
+        assert!(!is_alertmanager_json_decl(r#""silencedBy": """#));
+        assert!(is_alertmanager_json_decl(
+            r#""generatorURL": "http://prometheus/graph?g0.expr=up""#
+        ));
+        assert!(is_alertmanager_json_decl(
+            r#""generatorURL": "http://prometheus/graph?g0.expr=up","#
+        ));
+        assert!(is_alertmanager_json_decl(
+            r#""generatorURL": "http://prometheus/graph?g0.expr=up" // u"#
+        ));
+        assert!(!is_alertmanager_json_decl(r#""generatorURL": """#));
+        assert!(!is_alertmanager_json_decl(r#""generatorURL": {"#));
+        assert!(!is_alertmanager_json_decl(r#""generatorURL": ["#));
+        assert!(!is_alertmanager_json_decl(r#""generatorURL": 1"#));
+        assert!(is_alertmanager_json_decl(
+            r#""externalURL": "http://alertmanager:9093""#
+        ));
+        assert!(is_alertmanager_json_decl(
+            r#""externalURL": "http://alertmanager:9093","#
+        ));
+        assert!(is_alertmanager_json_decl(
+            r#""externalURL": "http://alertmanager:9093" // e"#
+        ));
+        assert!(!is_alertmanager_json_decl(r#""externalURL": """#));
+        assert!(!is_alertmanager_json_decl(r#""externalURL": {"#));
+        assert!(!is_alertmanager_json_decl(r#""externalURL": ["#));
+        assert!(!is_alertmanager_json_decl(r#""externalURL": 1"#));
+        assert!(is_alertmanager_json_decl(r#""truncatedAlerts": 0"#));
+        assert!(is_alertmanager_json_decl(r#""truncatedAlerts": 1"#));
+        assert!(is_alertmanager_json_decl(r#""truncatedAlerts": 1,"#));
+        assert!(is_alertmanager_json_decl(r#""truncatedAlerts": 1 // t"#));
+        assert!(!is_alertmanager_json_decl(r#""truncatedAlerts": 01"#));
+        assert!(!is_alertmanager_json_decl(r#""truncatedAlerts": true"#));
+        assert!(!is_alertmanager_json_decl(r#""truncatedAlerts": "1""#));
+        assert!(!is_alertmanager_json_decl(r#""truncatedAlerts": {"#));
+        // Incomplete / wrong shapes stay out.
+        assert!(!is_alertmanager_json_decl(r#""groupKey""#));
+        assert!(!is_alertmanager_json_decl(r#""groupKey":"#));
+        assert!(!is_alertmanager_json_decl(r#""groupLabels""#));
+        assert!(!is_alertmanager_json_decl(r#""commonLabels""#));
+        assert!(!is_alertmanager_json_decl(r#""commonAnnotations""#));
+        assert!(!is_alertmanager_json_decl(r#""inhibitedBy""#));
+        assert!(!is_alertmanager_json_decl(r#""silencedBy""#));
+        assert!(!is_alertmanager_json_decl(r#""generatorURL""#));
+        assert!(!is_alertmanager_json_decl(r#""externalURL""#));
+        assert!(!is_alertmanager_json_decl(r#""truncatedAlerts""#));
+        // Generic / neighbouring stay out.
+        assert!(!is_alertmanager_json_decl(
+            r#""$schema": "https://json-schema.org/draft/2020-12/schema""#
+        ));
+        assert!(!is_alertmanager_json_decl(r#""name": "HighCPU""#));
+        assert!(!is_alertmanager_json_decl(r#""id": "0123456789abcdef""#));
+        assert!(!is_alertmanager_json_decl(r#""status": "firing""#));
+        assert!(!is_alertmanager_json_decl(r#""receiver": "webhook""#));
+        assert!(!is_alertmanager_json_decl(r#""alerts": ["#));
+        assert!(!is_alertmanager_json_decl(r#""labels": {"#));
+        assert!(!is_alertmanager_json_decl(r#""annotations": ["#));
+        assert!(!is_alertmanager_json_decl(r#""fingerprint": "abc""#));
+        assert!(!is_alertmanager_json_decl(
+            r#""startsAt": "2024-01-01T00:00:00Z""#
+        ));
+        assert!(!is_alertmanager_json_decl(
+            r#""endsAt": "2024-01-01T01:00:00Z""#
+        ));
+        assert!(!is_alertmanager_json_decl(r#""matchers": ["#));
+        assert!(!is_alertmanager_json_decl(
+            r#""totalQueryableSamples": 100"#
+        ));
+        assert!(is_prometheus_json_decl(r#""totalQueryableSamples": 100"#));
+        assert!(!is_alertmanager_json_decl(r#""peakSamples": 50"#));
+        assert!(is_prometheus_json_decl(r#""peakSamples": 50"#));
+        assert!(!is_alertmanager_json_decl(r#""numSeries": 508"#));
+        assert!(is_prometheus_json_decl(r#""numSeries": 508"#));
+        assert!(!is_alertmanager_json_decl(r#""numLabelPairs": 1234"#));
+        assert!(is_prometheus_json_decl(r#""numLabelPairs": 1234"#));
+        assert!(!is_alertmanager_json_decl(r#""chunkCount": 1203"#));
+        assert!(is_prometheus_json_decl(r#""chunkCount": 1203"#));
+        assert!(!is_alertmanager_json_decl(r#""headStats": {"#));
+        assert!(is_prometheus_json_decl(r#""headStats": {"#));
+        assert!(!is_alertmanager_json_decl(
+            r#""seriesCountByMetricName": ["#
+        ));
+        assert!(is_prometheus_json_decl(r#""seriesCountByMetricName": ["#));
+        assert!(!is_alertmanager_json_decl(
+            r#""labelValueCountByLabelName": ["#
+        ));
+        assert!(is_prometheus_json_decl(
+            r#""labelValueCountByLabelName": ["#
+        ));
+        assert!(!is_alertmanager_json_decl(
+            r#""memoryInBytesByLabelName": ["#
+        ));
+        assert!(is_prometheus_json_decl(r#""memoryInBytesByLabelName": ["#));
+        assert!(!is_alertmanager_json_decl(
+            r#""bytesProcessedPerSecond": 1234"#
+        ));
+        assert!(is_loki_json_decl(r#""bytesProcessedPerSecond": 1234"#));
+        assert!(!is_alertmanager_json_decl(r#""dropped_entries": ["#));
+        assert!(is_loki_json_decl(r#""dropped_entries": ["#));
+        assert!(!is_alertmanager_json_decl(r#""structuredMetadata": {"#));
+        assert!(is_loki_json_decl(r#""structuredMetadata": {"#));
+        assert!(!is_alertmanager_json_decl(
+            r#""rootServiceName": "frontend""#
+        ));
+        assert!(is_tempo_json_decl(r#""rootServiceName": "frontend""#));
+        assert!(!is_alertmanager_json_decl(r#""spanSet": {"#));
+        assert!(is_tempo_json_decl(r#""spanSet": {"#));
+        assert!(!is_alertmanager_json_decl(
+            r#""traceID": "0123456789abcdef0123456789abcdef""#
+        ));
+        assert!(is_jaeger_json_decl(
+            r#""traceID": "0123456789abcdef0123456789abcdef""#
+        ));
+        assert!(!is_alertmanager_json_decl(r#""localEndpoint": {"#));
+        assert!(is_zipkin_json_decl(r#""localEndpoint": {"#));
+        assert!(!is_alertmanager_json_decl(r#""resourceSpans": ["#));
+        assert!(is_otlp_json_decl(r#""resourceSpans": ["#));
+        assert!(!is_alertmanager_json_decl(
+            r#""startedDateTime": "2009-04-16T15:53:27.373Z""#
+        ));
+        assert!(is_har_json_decl(
+            r#""startedDateTime": "2009-04-16T15:53:27.373Z""#
+        ));
+        assert!(!is_alertmanager_json_decl(r#""openapi": "3.0.3""#));
+        assert!(is_openapi_json_decl(r#""openapi": "3.0.3""#));
+        assert!(!is_alertmanager_json_decl(r#""asyncapi": "2.6.0""#));
+        assert!(is_asyncapi_json_decl(r#""asyncapi": "2.6.0""#));
+        assert!(!is_alertmanager_json_decl(r#""printWidth": 80"#));
+        assert!(is_prettier_json_decl(r#""printWidth": 80"#));
+        assert!(!is_alertmanager_json_decl(r#""basePath": ".""#));
+        assert!(is_karma_json_decl(r#""basePath": ".""#));
+        assert!(line_is_func_like(r#""groupKey": "{}:{alertname=HighCPU}""#));
+        assert!(line_is_func_like(r#""groupLabels": {"#));
+        assert!(line_is_func_like(r#""commonLabels": {"#));
+        assert!(line_is_func_like(r#""commonAnnotations": {"#));
+        assert!(line_is_func_like(r#""inhibitedBy": ["#));
+        assert!(line_is_func_like(r#""silencedBy": ["#));
+        assert!(line_is_func_like(
+            r#""generatorURL": "http://prometheus/graph?g0.expr=up""#
+        ));
+        assert!(line_is_func_like(
+            r#""externalURL": "http://alertmanager:9093""#
+        ));
+        assert!(line_is_func_like(r#""truncatedAlerts": 0"#));
     }
 
     #[test]
