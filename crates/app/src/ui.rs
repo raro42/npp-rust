@@ -32465,6 +32465,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_jaeger_json_decl(s)
             || is_tempo_json_decl(s)
             || is_loki_json_decl(s)
+            || is_prometheus_json_decl(s)
             || is_gomod_decl(s)
             || is_gemfile_decl(s)
             || is_brewfile_decl(s)
@@ -32840,6 +32841,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_jaeger_json_decl(s)
         || is_tempo_json_decl(s)
         || is_loki_json_decl(s)
+        || is_prometheus_json_decl(s)
         || is_gomod_decl(s)
         || is_gemfile_decl(s)
         || is_brewfile_decl(s)
@@ -61003,8 +61005,11 @@ fn tempo_json_number_and_tail_ok(key: &str, after_colon: &str) -> bool {
 /// mintlify `"topbarLinks"` / Compodoc `"theme": "material"` / redocly
 /// `"apis"` / spectral `"functionsDir"` / openapitools `"generator-cli"` /
 /// Knip `"entry"` / prettier `"printWidth"` / package.json `"bin"` /
-/// karma `"basePath"` stay out. Numeric keys reject leading zeros beyond
-/// `0`.
+/// karma `"basePath"` / Prometheus `"totalQueryableSamples"` /
+/// `"peakSamples"` / `"numSeries"` / `"numLabelPairs"` / `"chunkCount"` /
+/// `"headStats"` / `"seriesCountByMetricName"` /
+/// `"labelValueCountByLabelName"` / `"memoryInBytesByLabelName"` stay out.
+/// Numeric keys reject leading zeros beyond `0`.
 fn is_loki_json_decl(s: &str) -> bool {
     let s = s.trim_start();
     let Some(rest) = s.strip_prefix('"') else {
@@ -61084,6 +61089,137 @@ fn loki_json_number_and_tail_ok(key: &str, after_colon: &str) -> bool {
         key,
         "totalBytesProcessed" | "totalStructuredMetadataBytesProcessed" | "bytesProcessedPerSecond"
     ) {
+        16
+    } else {
+        12
+    };
+    if digits == 0 || digits > max_digits {
+        return false;
+    }
+    if digits > 1 && after_colon.as_bytes()[0] == b'0' {
+        return false;
+    }
+    package_json_tail_ok(&after_colon[digits..])
+}
+
+/// Prometheus query stats / TSDB status JSON keys:
+/// `"totalQueryableSamples": 0` / `100`,
+/// `"peakSamples": 0` / `50`,
+/// `"numSeries": 0` / `508`,
+/// `"numLabelPairs": 0` / `1234`,
+/// `"chunkCount": 0` / `1203`,
+/// `"headStats": {`,
+/// `"seriesCountByMetricName": [`,
+/// `"labelValueCountByLabelName": [`,
+/// `"memoryInBytesByLabelName": [`.
+/// Optional trailing `,` and `//` / `/*` comment. Incomplete quotes /
+/// missing `:` stay out. Generic `"$schema"` / `"name"` / `"id"` /
+/// `"timestamp"` / `"duration"` / `"tags": [` / `"logs": [` /
+/// `"startTime"` / `"spans": [` / `"serviceName"` / `"status"` /
+/// `"resultType"` / `"result"` / `"stats": {` / `"summary": {` /
+/// `"data": {` / `"metric": {` / `"values": [` / `"value": [` /
+/// Loki `"bytesProcessedPerSecond"` / `"linesProcessedPerSecond"` /
+/// `"totalBytesProcessed"` / `"totalLinesProcessed"` /
+/// `"totalEntriesReturned"` / `"totalPostFilterLines"` /
+/// `"totalStructuredMetadataBytesProcessed"` / `"dropped_entries"` /
+/// `"structuredMetadata"` / Tempo `"rootServiceName"` /
+/// `"rootTraceName"` / `"spanSet"` / `"spanSets"` / `"durationMs"` /
+/// `"inspectedTraces"` / `"inspectedBytes"` / `"totalBlocks"` /
+/// `"completedJobs"` / `"totalJobs"` / `"totalBlockBytes"` / Jaeger
+/// `"traceID"` / `"spanID"` / `"operationName"` / `"references"` /
+/// `"processID"` / `"processes"` / `"flags"` / `"startTimeMillis"` /
+/// `"refType"` / Zipkin `"localEndpoint"` / `"remoteEndpoint"` /
+/// `"annotations"` / `"parentId"` / `"kind"` / `"shared"` / `"debug"` /
+/// `"traceId"` / OTLP `"resourceSpans"` / `"parentSpanId"` /
+/// `"startTimeUnixNano"` / HAR `"startedDateTime"` / `"timings"` /
+/// OpenAPI `"openapi"` / AsyncAPI `"asyncapi"` / `"channels": {` /
+/// Pact `"consumer"` / MockServer `"httpRequest"` / Hoverfly
+/// `"hoverflyVersion"` / Mountebank `"imposters"` / WireMock
+/// `"scenarioName"` / Mockoon `"lastMigration"` / Hoppscotch
+/// `"preRequestScript"` / Yaak `"yaakVersion"` / Bruno `"brunoConfig"` /
+/// Thunder Client `"client"` / Postman `"_postman_id"` / Insomnia
+/// `"__export_format"` / ReDoc `"disableSearch"` / RapiDoc `"specUrl"` /
+/// swagger-ui `"dom_id"` / scalar `"layout": "modern"` / Elements
+/// `"layout": "sidebar"` / mintlify `"topbarLinks"` / Compodoc
+/// `"theme": "material"` / redocly `"apis"` / spectral `"functionsDir"` /
+/// openapitools `"generator-cli"` / Knip `"entry"` / prettier
+/// `"printWidth"` / package.json `"bin"` / karma `"basePath"` stay out.
+/// Numeric keys reject leading zeros beyond `0`.
+fn is_prometheus_json_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    let Some(rest) = s.strip_prefix('"') else {
+        return false;
+    };
+    let Some(end) = rest.find('"') else {
+        return false;
+    };
+    let key = &rest[..end];
+    if !prometheus_json_key_ok(key) {
+        return false;
+    }
+    let after_key = rest[end + 1..].trim_start();
+    let Some(after_colon) = after_key.strip_prefix(':') else {
+        return false;
+    };
+    let after_colon = after_colon.trim_start();
+    prometheus_json_value_and_tail_ok(key, after_colon)
+}
+
+fn prometheus_json_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "totalQueryableSamples"
+            | "peakSamples"
+            | "numSeries"
+            | "numLabelPairs"
+            | "chunkCount"
+            | "headStats"
+            | "seriesCountByMetricName"
+            | "labelValueCountByLabelName"
+            | "memoryInBytesByLabelName"
+    )
+}
+
+fn prometheus_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool {
+    let bytes = after_colon.as_bytes();
+    let Some(first) = bytes.first().copied() else {
+        return false;
+    };
+    match first {
+        b'{' => {
+            if key != "headStats" {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[1..])
+        }
+        b'[' => {
+            if !matches!(
+                key,
+                "seriesCountByMetricName"
+                    | "labelValueCountByLabelName"
+                    | "memoryInBytesByLabelName"
+            ) {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[1..])
+        }
+        b'0'..=b'9' => prometheus_json_number_and_tail_ok(key, after_colon),
+        _ => false,
+    }
+}
+
+fn prometheus_json_number_and_tail_ok(key: &str, after_colon: &str) -> bool {
+    if !matches!(
+        key,
+        "totalQueryableSamples" | "peakSamples" | "numSeries" | "numLabelPairs" | "chunkCount"
+    ) {
+        return false;
+    }
+    let digits = after_colon
+        .bytes()
+        .take_while(|b| b.is_ascii_digit())
+        .count();
+    let max_digits = if matches!(key, "numSeries" | "numLabelPairs" | "chunkCount") {
         16
     } else {
         12
@@ -91751,9 +91887,9 @@ mod func_like_line_tests {
         is_passwd_group_file_decl, is_pdm_toml_decl, is_php_ini_decl, is_pip_conf_decl,
         is_pipfile_decl, is_pixi_toml_decl, is_playwright_json_decl, is_podfile_decl,
         is_poetry_toml_decl, is_postcss_json_decl, is_postman_json_decl, is_premake_decl,
-        is_prettier_json_decl, is_protocols_file_decl, is_pycln_ini_decl, is_pycodestyle_ini_decl,
-        is_pydoclint_ini_decl, is_pydocstyle_ini_decl, is_pylama_ini_decl, is_pylint_ini_decl,
-        is_pypirc_ini_decl, is_pyproject_toml_decl, is_pyre_configuration_decl,
+        is_prettier_json_decl, is_prometheus_json_decl, is_protocols_file_decl, is_pycln_ini_decl,
+        is_pycodestyle_ini_decl, is_pydoclint_ini_decl, is_pydocstyle_ini_decl, is_pylama_ini_decl,
+        is_pylint_ini_decl, is_pypirc_ini_decl, is_pyproject_toml_decl, is_pyre_configuration_decl,
         is_pyright_toml_decl, is_pyrightconfig_json_decl, is_pytest_ini_decl, is_pytype_ini_decl,
         is_pyupgrade_ini_decl, is_radon_ini_decl, is_railway_toml_decl, is_rake_decl,
         is_rapidoc_json_decl, is_redoc_json_decl, is_redocly_json_decl, is_refurb_toml_decl,
@@ -122555,6 +122691,280 @@ mod func_like_line_tests {
         ));
         assert!(line_is_func_like(r#""dropped_entries": ["#));
         assert!(line_is_func_like(r#""structuredMetadata": {"#));
+        // Prometheus neighbours stay out of Loki.
+        assert!(!is_loki_json_decl(r#""totalQueryableSamples": 100"#));
+        assert!(is_prometheus_json_decl(r#""totalQueryableSamples": 100"#));
+        assert!(!is_loki_json_decl(r#""peakSamples": 50"#));
+        assert!(is_prometheus_json_decl(r#""peakSamples": 50"#));
+        assert!(!is_loki_json_decl(r#""headStats": {"#));
+        assert!(is_prometheus_json_decl(r#""headStats": {"#));
+    }
+
+    #[test]
+    fn prometheus_json_keys_smoke() {
+        assert!(is_prometheus_json_decl(r#""totalQueryableSamples": 100"#));
+        assert!(is_prometheus_json_decl(r#""peakSamples": 50"#));
+        assert!(is_prometheus_json_decl(r#""numSeries": 508"#));
+        assert!(is_prometheus_json_decl(r#""numLabelPairs": 1234"#));
+        assert!(is_prometheus_json_decl(r#""chunkCount": 1203"#));
+        assert!(is_prometheus_json_decl(r#""headStats": {"#));
+        assert!(is_prometheus_json_decl(r#""seriesCountByMetricName": ["#));
+        assert!(is_prometheus_json_decl(
+            r#""labelValueCountByLabelName": ["#
+        ));
+        assert!(is_prometheus_json_decl(r#""memoryInBytesByLabelName": ["#));
+        // Distinctive neighbours stay out of this scanner.
+        assert!(!is_prometheus_json_decl(
+            r#""bytesProcessedPerSecond": 1234"#
+        ));
+        assert!(is_loki_json_decl(r#""bytesProcessedPerSecond": 1234"#));
+        assert!(!is_prometheus_json_decl(r#""dropped_entries": ["#));
+        assert!(is_loki_json_decl(r#""dropped_entries": ["#));
+        assert!(!is_prometheus_json_decl(r#""structuredMetadata": {"#));
+        assert!(is_loki_json_decl(r#""structuredMetadata": {"#));
+        assert!(!is_prometheus_json_decl(r#""rootServiceName": "frontend""#));
+        assert!(is_tempo_json_decl(r#""rootServiceName": "frontend""#));
+        assert!(!is_prometheus_json_decl(r#""spanSet": {"#));
+        assert!(is_tempo_json_decl(r#""spanSet": {"#));
+        assert!(!is_prometheus_json_decl(
+            r#""traceID": "0123456789abcdef0123456789abcdef""#
+        ));
+        assert!(is_jaeger_json_decl(
+            r#""traceID": "0123456789abcdef0123456789abcdef""#
+        ));
+        assert!(!is_prometheus_json_decl(r#""localEndpoint": {"#));
+        assert!(is_zipkin_json_decl(r#""localEndpoint": {"#));
+        assert!(!is_prometheus_json_decl(r#""resourceSpans": ["#));
+        assert!(is_otlp_json_decl(r#""resourceSpans": ["#));
+        assert!(!is_prometheus_json_decl(
+            r#""startedDateTime": "2009-04-16T15:53:27.373Z""#
+        ));
+        assert!(is_har_json_decl(
+            r#""startedDateTime": "2009-04-16T15:53:27.373Z""#
+        ));
+        assert!(!is_prometheus_json_decl(r#""openapi": "3.0.3""#));
+        assert!(is_openapi_json_decl(r#""openapi": "3.0.3""#));
+        assert!(line_is_func_like(r#""totalQueryableSamples": 100"#));
+        assert!(line_is_func_like(r#""peakSamples": 50"#));
+        assert!(line_is_func_like(r#""numSeries": 508"#));
+        assert!(line_is_func_like(r#""numLabelPairs": 1234"#));
+        assert!(line_is_func_like(r#""chunkCount": 1203"#));
+        assert!(line_is_func_like(r#""headStats": {"#));
+        assert!(line_is_func_like(r#""seriesCountByMetricName": ["#));
+        assert!(line_is_func_like(r#""labelValueCountByLabelName": ["#));
+        assert!(line_is_func_like(r#""memoryInBytesByLabelName": ["#));
+    }
+
+    #[test]
+    fn prometheus_json_keys_count() {
+        assert!(is_prometheus_json_decl(r#""totalQueryableSamples": 0"#));
+        assert!(is_prometheus_json_decl(r#""totalQueryableSamples": 100"#));
+        assert!(is_prometheus_json_decl(r#""totalQueryableSamples": 100,"#));
+        assert!(is_prometheus_json_decl(
+            r#""totalQueryableSamples": 100 // q"#
+        ));
+        assert!(!is_prometheus_json_decl(r#""totalQueryableSamples": 01"#));
+        assert!(!is_prometheus_json_decl(r#""totalQueryableSamples": true"#));
+        assert!(!is_prometheus_json_decl(
+            r#""totalQueryableSamples": "100""#
+        ));
+        assert!(!is_prometheus_json_decl(r#""totalQueryableSamples": {"#));
+        assert!(is_prometheus_json_decl(r#""peakSamples": 0"#));
+        assert!(is_prometheus_json_decl(r#""peakSamples": 50"#));
+        assert!(is_prometheus_json_decl(r#""peakSamples": 50,"#));
+        assert!(is_prometheus_json_decl(r#""peakSamples": 50 // p"#));
+        assert!(!is_prometheus_json_decl(r#""peakSamples": 050"#));
+        assert!(!is_prometheus_json_decl(r#""peakSamples": true"#));
+        assert!(!is_prometheus_json_decl(r#""peakSamples": "50""#));
+        assert!(!is_prometheus_json_decl(r#""peakSamples": {"#));
+        assert!(is_prometheus_json_decl(r#""numSeries": 0"#));
+        assert!(is_prometheus_json_decl(r#""numSeries": 508"#));
+        assert!(is_prometheus_json_decl(r#""numSeries": 508,"#));
+        assert!(is_prometheus_json_decl(r#""numSeries": 508 // n"#));
+        assert!(!is_prometheus_json_decl(r#""numSeries": 0508"#));
+        assert!(!is_prometheus_json_decl(r#""numSeries": true"#));
+        assert!(!is_prometheus_json_decl(r#""numSeries": "508""#));
+        assert!(!is_prometheus_json_decl(r#""numSeries": {"#));
+        assert!(is_prometheus_json_decl(r#""numLabelPairs": 0"#));
+        assert!(is_prometheus_json_decl(r#""numLabelPairs": 1234"#));
+        assert!(is_prometheus_json_decl(r#""numLabelPairs": 1234,"#));
+        assert!(is_prometheus_json_decl(r#""numLabelPairs": 1234 // l"#));
+        assert!(!is_prometheus_json_decl(r#""numLabelPairs": 01234"#));
+        assert!(!is_prometheus_json_decl(r#""numLabelPairs": true"#));
+        assert!(!is_prometheus_json_decl(r#""numLabelPairs": "1234""#));
+        assert!(!is_prometheus_json_decl(r#""numLabelPairs": {"#));
+        assert!(is_prometheus_json_decl(r#""chunkCount": 0"#));
+        assert!(is_prometheus_json_decl(r#""chunkCount": 1203"#));
+        assert!(is_prometheus_json_decl(r#""chunkCount": 1203,"#));
+        assert!(is_prometheus_json_decl(r#""chunkCount": 1203 // c"#));
+        assert!(!is_prometheus_json_decl(r#""chunkCount": 01203"#));
+        assert!(!is_prometheus_json_decl(r#""chunkCount": true"#));
+        assert!(!is_prometheus_json_decl(r#""chunkCount": "1203""#));
+        assert!(!is_prometheus_json_decl(r#""chunkCount": {"#));
+        assert!(is_prometheus_json_decl(r#""headStats": {"#));
+        assert!(is_prometheus_json_decl(r#""headStats": {,"#));
+        assert!(is_prometheus_json_decl(r#""headStats": { // head"#));
+        assert!(!is_prometheus_json_decl(r#""headStats": ["#));
+        assert!(!is_prometheus_json_decl(r#""headStats": true"#));
+        assert!(!is_prometheus_json_decl(r#""headStats": """#));
+        assert!(is_prometheus_json_decl(r#""seriesCountByMetricName": ["#));
+        assert!(is_prometheus_json_decl(r#""seriesCountByMetricName": [,"#));
+        assert!(is_prometheus_json_decl(
+            r#""seriesCountByMetricName": [ // series"#
+        ));
+        assert!(!is_prometheus_json_decl(r#""seriesCountByMetricName": {"#));
+        assert!(!is_prometheus_json_decl(
+            r#""seriesCountByMetricName": true"#
+        ));
+        assert!(!is_prometheus_json_decl(r#""seriesCountByMetricName": """#));
+        assert!(is_prometheus_json_decl(
+            r#""labelValueCountByLabelName": ["#
+        ));
+        assert!(is_prometheus_json_decl(
+            r#""labelValueCountByLabelName": [,"#
+        ));
+        assert!(is_prometheus_json_decl(
+            r#""labelValueCountByLabelName": [ // labels"#
+        ));
+        assert!(!is_prometheus_json_decl(
+            r#""labelValueCountByLabelName": {"#
+        ));
+        assert!(!is_prometheus_json_decl(
+            r#""labelValueCountByLabelName": true"#
+        ));
+        assert!(!is_prometheus_json_decl(
+            r#""labelValueCountByLabelName": """#
+        ));
+        assert!(is_prometheus_json_decl(r#""memoryInBytesByLabelName": ["#));
+        assert!(is_prometheus_json_decl(r#""memoryInBytesByLabelName": [,"#));
+        assert!(is_prometheus_json_decl(
+            r#""memoryInBytesByLabelName": [ // mem"#
+        ));
+        assert!(!is_prometheus_json_decl(r#""memoryInBytesByLabelName": {"#));
+        assert!(!is_prometheus_json_decl(
+            r#""memoryInBytesByLabelName": true"#
+        ));
+        assert!(!is_prometheus_json_decl(
+            r#""memoryInBytesByLabelName": """#
+        ));
+        // Incomplete / wrong shapes stay out.
+        assert!(!is_prometheus_json_decl(r#""totalQueryableSamples""#));
+        assert!(!is_prometheus_json_decl(r#""totalQueryableSamples":"#));
+        assert!(!is_prometheus_json_decl(r#""peakSamples""#));
+        assert!(!is_prometheus_json_decl(r#""numSeries""#));
+        assert!(!is_prometheus_json_decl(r#""numLabelPairs""#));
+        assert!(!is_prometheus_json_decl(r#""chunkCount""#));
+        assert!(!is_prometheus_json_decl(r#""headStats""#));
+        assert!(!is_prometheus_json_decl(r#""seriesCountByMetricName""#));
+        assert!(!is_prometheus_json_decl(r#""labelValueCountByLabelName""#));
+        assert!(!is_prometheus_json_decl(r#""memoryInBytesByLabelName""#));
+        // Generic / neighbouring stay out.
+        assert!(!is_prometheus_json_decl(
+            r#""$schema": "https://json-schema.org/draft/2020-12/schema""#
+        ));
+        assert!(!is_prometheus_json_decl(r#""name": "up""#));
+        assert!(!is_prometheus_json_decl(r#""id": "0123456789abcdef""#));
+        assert!(!is_prometheus_json_decl(r#""timestamp": 1500000000000000"#));
+        assert!(!is_prometheus_json_decl(r#""duration": 35000"#));
+        assert!(!is_prometheus_json_decl(r#""startTime": 1485467191639875"#));
+        assert!(!is_prometheus_json_decl(r#""tags": ["#));
+        assert!(!is_prometheus_json_decl(r#""logs": ["#));
+        assert!(!is_prometheus_json_decl(r#""spans": ["#));
+        assert!(!is_prometheus_json_decl(r#""serviceName": "api""#));
+        assert!(!is_prometheus_json_decl(r#""status": "success""#));
+        assert!(!is_prometheus_json_decl(r#""resultType": "vector""#));
+        assert!(!is_prometheus_json_decl(r#""result": ["#));
+        assert!(!is_prometheus_json_decl(r#""stats": {"#));
+        assert!(!is_prometheus_json_decl(r#""summary": {"#));
+        assert!(!is_prometheus_json_decl(r#""data": {"#));
+        assert!(!is_prometheus_json_decl(r#""metric": {"#));
+        assert!(!is_prometheus_json_decl(r#""values": ["#));
+        assert!(!is_prometheus_json_decl(r#""value": ["#));
+        assert!(!is_prometheus_json_decl(
+            r#""bytesProcessedPerSecond": 1234"#
+        ));
+        assert!(is_loki_json_decl(r#""bytesProcessedPerSecond": 1234"#));
+        assert!(!is_prometheus_json_decl(r#""linesProcessedPerSecond": 56"#));
+        assert!(is_loki_json_decl(r#""linesProcessedPerSecond": 56"#));
+        assert!(!is_prometheus_json_decl(
+            r#""totalBytesProcessed": 1048576"#
+        ));
+        assert!(is_loki_json_decl(r#""totalBytesProcessed": 1048576"#));
+        assert!(!is_prometheus_json_decl(r#""totalLinesProcessed": 100"#));
+        assert!(is_loki_json_decl(r#""totalLinesProcessed": 100"#));
+        assert!(!is_prometheus_json_decl(r#""totalEntriesReturned": 10"#));
+        assert!(is_loki_json_decl(r#""totalEntriesReturned": 10"#));
+        assert!(!is_prometheus_json_decl(r#""totalPostFilterLines": 10"#));
+        assert!(is_loki_json_decl(r#""totalPostFilterLines": 10"#));
+        assert!(!is_prometheus_json_decl(
+            r#""totalStructuredMetadataBytesProcessed": 32"#
+        ));
+        assert!(is_loki_json_decl(
+            r#""totalStructuredMetadataBytesProcessed": 32"#
+        ));
+        assert!(!is_prometheus_json_decl(r#""dropped_entries": ["#));
+        assert!(is_loki_json_decl(r#""dropped_entries": ["#));
+        assert!(!is_prometheus_json_decl(r#""structuredMetadata": {"#));
+        assert!(is_loki_json_decl(r#""structuredMetadata": {"#));
+        assert!(!is_prometheus_json_decl(r#""rootServiceName": "frontend""#));
+        assert!(is_tempo_json_decl(r#""rootServiceName": "frontend""#));
+        assert!(!is_prometheus_json_decl(
+            r#""rootTraceName": "HTTP GET /api""#
+        ));
+        assert!(is_tempo_json_decl(r#""rootTraceName": "HTTP GET /api""#));
+        assert!(!is_prometheus_json_decl(r#""spanSet": {"#));
+        assert!(is_tempo_json_decl(r#""spanSet": {"#));
+        assert!(!is_prometheus_json_decl(r#""spanSets": ["#));
+        assert!(is_tempo_json_decl(r#""spanSets": ["#));
+        assert!(!is_prometheus_json_decl(r#""durationMs": 1234"#));
+        assert!(is_tempo_json_decl(r#""durationMs": 1234"#));
+        assert!(!is_prometheus_json_decl(r#""inspectedTraces": 100"#));
+        assert!(is_tempo_json_decl(r#""inspectedTraces": 100"#));
+        assert!(!is_prometheus_json_decl(r#""inspectedBytes": "1048576""#));
+        assert!(is_tempo_json_decl(r#""inspectedBytes": "1048576""#));
+        assert!(!is_prometheus_json_decl(r#""totalBlocks": 5"#));
+        assert!(is_tempo_json_decl(r#""totalBlocks": 5"#));
+        assert!(!is_prometheus_json_decl(r#""completedJobs": 1"#));
+        assert!(is_tempo_json_decl(r#""completedJobs": 1"#));
+        assert!(!is_prometheus_json_decl(r#""totalJobs": 1"#));
+        assert!(is_tempo_json_decl(r#""totalJobs": 1"#));
+        assert!(!is_prometheus_json_decl(r#""totalBlockBytes": "2097152""#));
+        assert!(is_tempo_json_decl(r#""totalBlockBytes": "2097152""#));
+        assert!(!is_prometheus_json_decl(
+            r#""traceID": "0123456789abcdef0123456789abcdef""#
+        ));
+        assert!(is_jaeger_json_decl(
+            r#""traceID": "0123456789abcdef0123456789abcdef""#
+        ));
+        assert!(!is_prometheus_json_decl(r#""spanID": "0123456789abcdef""#));
+        assert!(is_jaeger_json_decl(r#""spanID": "0123456789abcdef""#));
+        assert!(!is_prometheus_json_decl(r#""localEndpoint": {"#));
+        assert!(is_zipkin_json_decl(r#""localEndpoint": {"#));
+        assert!(!is_prometheus_json_decl(r#""resourceSpans": ["#));
+        assert!(is_otlp_json_decl(r#""resourceSpans": ["#));
+        assert!(!is_prometheus_json_decl(
+            r#""startedDateTime": "2009-04-16T15:53:27.373Z""#
+        ));
+        assert!(is_har_json_decl(
+            r#""startedDateTime": "2009-04-16T15:53:27.373Z""#
+        ));
+        assert!(!is_prometheus_json_decl(r#""openapi": "3.0.3""#));
+        assert!(is_openapi_json_decl(r#""openapi": "3.0.3""#));
+        assert!(!is_prometheus_json_decl(r#""asyncapi": "2.6.0""#));
+        assert!(is_asyncapi_json_decl(r#""asyncapi": "2.6.0""#));
+        assert!(!is_prometheus_json_decl(r#""printWidth": 80"#));
+        assert!(is_prettier_json_decl(r#""printWidth": 80"#));
+        assert!(!is_prometheus_json_decl(r#""basePath": ".""#));
+        assert!(is_karma_json_decl(r#""basePath": ".""#));
+        assert!(line_is_func_like(r#""totalQueryableSamples": 0"#));
+        assert!(line_is_func_like(r#""peakSamples": 50"#));
+        assert!(line_is_func_like(r#""numSeries": 508"#));
+        assert!(line_is_func_like(r#""numLabelPairs": 1234"#));
+        assert!(line_is_func_like(r#""chunkCount": 1203"#));
+        assert!(line_is_func_like(r#""headStats": {"#));
+        assert!(line_is_func_like(r#""seriesCountByMetricName": ["#));
+        assert!(line_is_func_like(r#""labelValueCountByLabelName": ["#));
+        assert!(line_is_func_like(r#""memoryInBytesByLabelName": ["#));
     }
 
     #[test]

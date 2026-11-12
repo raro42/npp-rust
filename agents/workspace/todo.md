@@ -1258,3 +1258,5 @@
 009 keep: Function List Tempo rootServiceName/rootTraceName/spanSet/spanSets/durationMs/inspectedTraces/inspectedBytes/totalBlocks/completedJobs/totalJobs/totalBlockBytes (v0.3.796)
 
 009 keep: Function List Loki bytesProcessedPerSecond/linesProcessedPerSecond/totalBytesProcessed/totalLinesProcessed/totalEntriesReturned/totalPostFilterLines/totalStructuredMetadataBytesProcessed/dropped_entries/structuredMetadata (v0.3.797)
+
+009 keep: Function List Prometheus totalQueryableSamples/peakSamples/numSeries/numLabelPairs/chunkCount/headStats/seriesCountByMetricName/labelValueCountByLabelName/memoryInBytesByLabelName (v0.3.798)
