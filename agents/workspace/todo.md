@@ -1,3 +1,5 @@
+009 keep: Function List Grafana dashboard schemaVersion/graphTooltip/fiscalYearStartMonth/templating/timepicker/gnetId/preload/liveNow/weekStart (v0.3.800)
+
 009 keep: Function List Jaeger traceID/spanID/operationName/references/processID/processes/flags/startTimeMillis/refType (v0.3.795)
 
 009 keep: Function List Zipkin localEndpoint/remoteEndpoint/annotations/parentId/kind/shared/debug/traceId (v0.3.794)

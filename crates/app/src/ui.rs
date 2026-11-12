@@ -32467,6 +32467,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_loki_json_decl(s)
             || is_prometheus_json_decl(s)
             || is_alertmanager_json_decl(s)
+            || is_grafana_dashboard_json_decl(s)
             || is_gomod_decl(s)
             || is_gemfile_decl(s)
             || is_brewfile_decl(s)
@@ -32844,6 +32845,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_loki_json_decl(s)
         || is_prometheus_json_decl(s)
         || is_alertmanager_json_decl(s)
+        || is_grafana_dashboard_json_decl(s)
         || is_gomod_decl(s)
         || is_gemfile_decl(s)
         || is_brewfile_decl(s)
@@ -61148,7 +61150,10 @@ fn loki_json_number_and_tail_ok(key: &str, after_colon: &str) -> bool {
 /// `"printWidth"` / package.json `"bin"` / karma `"basePath"` /
 /// Alertmanager `"groupKey"` / `"groupLabels"` / `"commonLabels"` /
 /// `"commonAnnotations"` / `"inhibitedBy"` / `"silencedBy"` /
-/// `"generatorURL"` / `"externalURL"` / `"truncatedAlerts"` stay out.
+/// `"generatorURL"` / `"externalURL"` / `"truncatedAlerts"` / Grafana
+/// dashboard `"schemaVersion"` / `"graphTooltip"` /
+/// `"fiscalYearStartMonth"` / `"templating"` / `"timepicker"` /
+/// `"gnetId"` / `"preload"` / `"liveNow"` / `"weekStart"` stay out.
 /// Numeric keys reject leading zeros beyond `0`.
 fn is_prometheus_json_decl(s: &str) -> bool {
     let s = s.trim_start();
@@ -61283,7 +61288,10 @@ fn prometheus_json_number_and_tail_ok(key: &str, after_colon: &str) -> bool {
 /// `"layout": "sidebar"` / mintlify `"topbarLinks"` / Compodoc
 /// `"theme": "material"` / redocly `"apis"` / spectral `"functionsDir"` /
 /// openapitools `"generator-cli"` / Knip `"entry"` / prettier
-/// `"printWidth"` / package.json `"bin"` / karma `"basePath"` stay out.
+/// `"printWidth"` / package.json `"bin"` / karma `"basePath"` / Grafana
+/// dashboard `"schemaVersion"` / `"graphTooltip"` /
+/// `"fiscalYearStartMonth"` / `"templating"` / `"timepicker"` /
+/// `"gnetId"` / `"preload"` / `"liveNow"` / `"weekStart"` stay out.
 /// String keys need a non-empty value. Numeric keys reject leading zeros
 /// beyond `0`.
 fn is_alertmanager_json_decl(s: &str) -> bool {
@@ -61374,6 +61382,183 @@ fn alertmanager_json_number_and_tail_ok(key: &str, after_colon: &str) -> bool {
         return false;
     }
     if digits > 1 && after_colon.as_bytes()[0] == b'0' {
+        return false;
+    }
+    package_json_tail_ok(&after_colon[digits..])
+}
+
+/// Grafana dashboard JSON keys:
+/// `"schemaVersion": 36` / `42` (integer; distinct from Hoverfly
+/// `"schemaVersion": "v5"`),
+/// `"graphTooltip": 0` / `1` / `2`,
+/// `"fiscalYearStartMonth": 0` / `11`,
+/// `"templating": {`,
+/// `"timepicker": {`,
+/// `"gnetId": "…"`,
+/// `"preload": true` / `false`,
+/// `"liveNow": true` / `false`,
+/// `"weekStart": "monday"`.
+/// Optional trailing `,` and `//` / `/*` comment. Incomplete quotes /
+/// missing `:` stay out. Generic `"$schema"` / `"name"` / `"id"` /
+/// `"title"` / `"uid"` / `"version"` / `"panels": [` / `"tags": [` /
+/// `"links": [` / `"editable"` / `"timezone"` / `"refresh"` /
+/// `"time": {` / `"annotations": {` / `"style"` / Alertmanager
+/// `"groupKey"` / `"groupLabels"` / `"commonLabels"` /
+/// `"commonAnnotations"` / `"inhibitedBy"` / `"silencedBy"` /
+/// `"generatorURL"` / `"externalURL"` / `"truncatedAlerts"` /
+/// Prometheus `"totalQueryableSamples"` / `"peakSamples"` /
+/// `"numSeries"` / `"numLabelPairs"` / `"chunkCount"` / `"headStats"` /
+/// `"seriesCountByMetricName"` / `"labelValueCountByLabelName"` /
+/// `"memoryInBytesByLabelName"` / Loki `"bytesProcessedPerSecond"` /
+/// `"linesProcessedPerSecond"` / `"totalBytesProcessed"` /
+/// `"totalLinesProcessed"` / `"totalEntriesReturned"` /
+/// `"totalPostFilterLines"` /
+/// `"totalStructuredMetadataBytesProcessed"` / `"dropped_entries"` /
+/// `"structuredMetadata"` / Tempo `"rootServiceName"` /
+/// `"rootTraceName"` / `"spanSet"` / `"spanSets"` / `"durationMs"` /
+/// `"inspectedTraces"` / `"inspectedBytes"` / `"totalBlocks"` /
+/// `"completedJobs"` / `"totalJobs"` / `"totalBlockBytes"` / Jaeger
+/// `"traceID"` / `"spanID"` / `"operationName"` / `"references"` /
+/// `"processID"` / `"processes"` / `"flags"` / `"startTimeMillis"` /
+/// `"refType"` / Zipkin `"localEndpoint"` / `"remoteEndpoint"` /
+/// `"annotations"` / `"parentId"` / `"kind"` / `"shared"` / `"debug"` /
+/// `"traceId"` / OTLP `"resourceSpans"` / `"parentSpanId"` /
+/// `"startTimeUnixNano"` / HAR `"startedDateTime"` / `"timings"` /
+/// OpenAPI `"openapi"` / AsyncAPI `"asyncapi"` / `"channels": {` /
+/// Pact `"consumer"` / MockServer `"httpRequest"` / Hoverfly
+/// `"hoverflyVersion"` / `"schemaVersion": "v5"` / Mountebank
+/// `"imposters"` / WireMock `"scenarioName"` / Mockoon
+/// `"lastMigration"` / Hoppscotch `"preRequestScript"` / Yaak
+/// `"yaakVersion"` / Bruno `"brunoConfig"` / Thunder Client `"client"` /
+/// Postman `"_postman_id"` / Insomnia `"__export_format"` / ReDoc
+/// `"disableSearch"` / RapiDoc `"specUrl"` / swagger-ui `"dom_id"` /
+/// scalar `"layout": "modern"` / Elements `"layout": "sidebar"` /
+/// mintlify `"topbarLinks"` / Compodoc `"theme": "material"` / redocly
+/// `"apis"` / spectral `"functionsDir"` / openapitools
+/// `"generator-cli"` / Knip `"entry"` / prettier `"printWidth"` /
+/// package.json `"bin"` / karma `"basePath"` stay out. `"gnetId"` needs
+/// a non-empty value. `"weekStart"` only matches weekday names.
+/// `"graphTooltip"` only matches `0` / `1` / `2`.
+/// `"fiscalYearStartMonth"` only matches `0`…`11`. Numeric
+/// `"schemaVersion"` rejects leading zeros beyond a single `0` (and
+/// rejects `0` itself).
+fn is_grafana_dashboard_json_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    let Some(rest) = s.strip_prefix('"') else {
+        return false;
+    };
+    let Some(end) = rest.find('"') else {
+        return false;
+    };
+    let key = &rest[..end];
+    if !grafana_dashboard_json_key_ok(key) {
+        return false;
+    }
+    let after_key = rest[end + 1..].trim_start();
+    let Some(after_colon) = after_key.strip_prefix(':') else {
+        return false;
+    };
+    let after_colon = after_colon.trim_start();
+    grafana_dashboard_json_value_and_tail_ok(key, after_colon)
+}
+
+fn grafana_dashboard_json_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "schemaVersion"
+            | "graphTooltip"
+            | "fiscalYearStartMonth"
+            | "templating"
+            | "timepicker"
+            | "gnetId"
+            | "preload"
+            | "liveNow"
+            | "weekStart"
+    )
+}
+
+fn grafana_dashboard_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool {
+    let bytes = after_colon.as_bytes();
+    let Some(first) = bytes.first().copied() else {
+        return false;
+    };
+    match first {
+        b'{' => {
+            if !matches!(key, "templating" | "timepicker") {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[1..])
+        }
+        b'"' => {
+            if !matches!(key, "gnetId" | "weekStart") {
+                return false;
+            }
+            let rest = &after_colon[1..];
+            let Some(end) = rest.find('"') else {
+                return false;
+            };
+            let value = &rest[..end];
+            if !grafana_dashboard_json_string_ok(key, value) {
+                return false;
+            }
+            package_json_tail_ok(&rest[end + 1..])
+        }
+        b't' | b'f' => {
+            if !matches!(key, "preload" | "liveNow") {
+                return false;
+            }
+            grafana_dashboard_json_bool_and_tail_ok(after_colon)
+        }
+        b'0'..=b'9' => grafana_dashboard_json_number_and_tail_ok(key, after_colon),
+        _ => false,
+    }
+}
+
+fn grafana_dashboard_json_string_ok(key: &str, value: &str) -> bool {
+    if value.contains('\n') {
+        return false;
+    }
+    match key {
+        "gnetId" => !value.is_empty(),
+        "weekStart" => matches!(
+            value,
+            "monday" | "tuesday" | "wednesday" | "thursday" | "friday" | "saturday" | "sunday"
+        ),
+        _ => false,
+    }
+}
+
+fn grafana_dashboard_json_bool_and_tail_ok(after_colon: &str) -> bool {
+    if let Some(rest) = after_colon.strip_prefix("true") {
+        return package_json_tail_ok(rest);
+    }
+    if let Some(rest) = after_colon.strip_prefix("false") {
+        return package_json_tail_ok(rest);
+    }
+    false
+}
+
+fn grafana_dashboard_json_number_and_tail_ok(key: &str, after_colon: &str) -> bool {
+    let digits = after_colon
+        .bytes()
+        .take_while(|b| b.is_ascii_digit())
+        .count();
+    if digits == 0 {
+        return false;
+    }
+    if digits > 1 && after_colon.as_bytes()[0] == b'0' {
+        return false;
+    }
+    let Ok(n) = after_colon[..digits].parse::<u32>() else {
+        return false;
+    };
+    let ok = match key {
+        "graphTooltip" => n <= 2,
+        "fiscalYearStartMonth" => n <= 11,
+        "schemaVersion" => (1..=999).contains(&n),
+        _ => false,
+    };
+    if !ok {
         return false;
     }
     package_json_tail_ok(&after_colon[digits..])
@@ -92011,39 +92196,40 @@ mod func_like_line_tests {
         is_esdoc_json_decl, is_eslint_json_decl, is_ethers_file_decl, is_expo_json_decl,
         is_fail2ban_conf_decl, is_firebase_json_decl, is_flake8_ini_decl, is_fluent_bit_decl,
         is_fly_toml_decl, is_flynt_ini_decl, is_freeradius_decl, is_fstab_decl, is_gdm_conf_decl,
-        is_gemfile_decl, is_gitconfig_decl, is_gomod_decl, is_grafana_ini_decl, is_haproxy_decl,
-        is_har_json_decl, is_hatch_toml_decl, is_hoppscotch_json_decl, is_hosts_access_decl,
-        is_hosts_file_decl, is_hoverfly_json_decl, is_hypothesis_ini_decl,
-        is_importlinter_ini_decl, is_insomnia_json_decl, is_interrogate_ini_decl,
-        is_ionic_json_decl, is_ipsec_conf_decl, is_isort_ini_decl, is_jaeger_json_decl,
-        is_jasmine_json_decl, is_jest_json_decl, is_jsdoc_json_decl, is_karma_json_decl,
-        is_keepalived_decl, is_knip_json_decl, is_krb5_conf_decl, is_lerna_json_decl,
-        is_lightdm_conf_decl, is_limits_conf_decl, is_lint_staged_json_decl, is_locale_conf_decl,
-        is_login_defs_decl, is_logrotate_decl, is_loki_json_decl, is_machine_info_decl,
-        is_makepkg_conf_decl, is_mdbook_toml_decl, is_mintlify_json_decl, is_mise_toml_decl,
-        is_mkinitcpio_conf_decl, is_mocha_json_decl, is_mockoon_json_decl, is_mockserver_json_decl,
-        is_modprobe_conf_decl, is_mountebank_json_decl, is_mutants_toml_decl, is_mypy_ini_decl,
-        is_mysql_cnf_decl, is_named_conf_decl, is_nest_cli_json_decl, is_netlify_toml_decl,
-        is_networks_file_decl, is_neutralino_json_decl, is_nextest_toml_decl, is_nftables_decl,
-        is_nginx_conf_decl, is_nightwatch_json_decl, is_nixpacks_toml_decl, is_nm_connection_decl,
-        is_npmrc_decl, is_nsswitch_conf_decl, is_nx_json_decl, is_nyc_json_decl,
-        is_openapi_json_decl, is_openapitools_json_decl, is_openvpn_decl, is_os_release_decl,
-        is_otlp_json_decl, is_oxlint_json_decl, is_package_json_decl, is_pacman_conf_decl,
-        is_pact_json_decl, is_pam_conf_decl, is_parcel_json_decl, is_paru_conf_decl,
-        is_passwd_group_file_decl, is_pdm_toml_decl, is_php_ini_decl, is_pip_conf_decl,
-        is_pipfile_decl, is_pixi_toml_decl, is_playwright_json_decl, is_podfile_decl,
-        is_poetry_toml_decl, is_postcss_json_decl, is_postman_json_decl, is_premake_decl,
-        is_prettier_json_decl, is_prometheus_json_decl, is_protocols_file_decl, is_pycln_ini_decl,
-        is_pycodestyle_ini_decl, is_pydoclint_ini_decl, is_pydocstyle_ini_decl, is_pylama_ini_decl,
-        is_pylint_ini_decl, is_pypirc_ini_decl, is_pyproject_toml_decl, is_pyre_configuration_decl,
-        is_pyright_toml_decl, is_pyrightconfig_json_decl, is_pytest_ini_decl, is_pytype_ini_decl,
-        is_pyupgrade_ini_decl, is_radon_ini_decl, is_railway_toml_decl, is_rake_decl,
-        is_rapidoc_json_decl, is_redoc_json_decl, is_redocly_json_decl, is_refurb_toml_decl,
-        is_release_it_json_decl, is_release_please_json_decl, is_release_toml_decl,
-        is_renovate_json_decl, is_resolv_conf_decl, is_rpc_file_decl, is_rstcheck_ini_decl,
-        is_rsyslog_decl, is_ruff_toml_decl, is_rush_json_decl, is_rust_toolchain_toml_decl,
-        is_rustfmt_toml_decl, is_samba_conf_decl, is_samconfig_toml_decl, is_scalar_json_decl,
-        is_scons_decl, is_scriv_ini_decl, is_sddm_conf_decl, is_semantic_release_ini_decl,
+        is_gemfile_decl, is_gitconfig_decl, is_gomod_decl, is_grafana_dashboard_json_decl,
+        is_grafana_ini_decl, is_haproxy_decl, is_har_json_decl, is_hatch_toml_decl,
+        is_hoppscotch_json_decl, is_hosts_access_decl, is_hosts_file_decl, is_hoverfly_json_decl,
+        is_hypothesis_ini_decl, is_importlinter_ini_decl, is_insomnia_json_decl,
+        is_interrogate_ini_decl, is_ionic_json_decl, is_ipsec_conf_decl, is_isort_ini_decl,
+        is_jaeger_json_decl, is_jasmine_json_decl, is_jest_json_decl, is_jsdoc_json_decl,
+        is_karma_json_decl, is_keepalived_decl, is_knip_json_decl, is_krb5_conf_decl,
+        is_lerna_json_decl, is_lightdm_conf_decl, is_limits_conf_decl, is_lint_staged_json_decl,
+        is_locale_conf_decl, is_login_defs_decl, is_logrotate_decl, is_loki_json_decl,
+        is_machine_info_decl, is_makepkg_conf_decl, is_mdbook_toml_decl, is_mintlify_json_decl,
+        is_mise_toml_decl, is_mkinitcpio_conf_decl, is_mocha_json_decl, is_mockoon_json_decl,
+        is_mockserver_json_decl, is_modprobe_conf_decl, is_mountebank_json_decl,
+        is_mutants_toml_decl, is_mypy_ini_decl, is_mysql_cnf_decl, is_named_conf_decl,
+        is_nest_cli_json_decl, is_netlify_toml_decl, is_networks_file_decl,
+        is_neutralino_json_decl, is_nextest_toml_decl, is_nftables_decl, is_nginx_conf_decl,
+        is_nightwatch_json_decl, is_nixpacks_toml_decl, is_nm_connection_decl, is_npmrc_decl,
+        is_nsswitch_conf_decl, is_nx_json_decl, is_nyc_json_decl, is_openapi_json_decl,
+        is_openapitools_json_decl, is_openvpn_decl, is_os_release_decl, is_otlp_json_decl,
+        is_oxlint_json_decl, is_package_json_decl, is_pacman_conf_decl, is_pact_json_decl,
+        is_pam_conf_decl, is_parcel_json_decl, is_paru_conf_decl, is_passwd_group_file_decl,
+        is_pdm_toml_decl, is_php_ini_decl, is_pip_conf_decl, is_pipfile_decl, is_pixi_toml_decl,
+        is_playwright_json_decl, is_podfile_decl, is_poetry_toml_decl, is_postcss_json_decl,
+        is_postman_json_decl, is_premake_decl, is_prettier_json_decl, is_prometheus_json_decl,
+        is_protocols_file_decl, is_pycln_ini_decl, is_pycodestyle_ini_decl, is_pydoclint_ini_decl,
+        is_pydocstyle_ini_decl, is_pylama_ini_decl, is_pylint_ini_decl, is_pypirc_ini_decl,
+        is_pyproject_toml_decl, is_pyre_configuration_decl, is_pyright_toml_decl,
+        is_pyrightconfig_json_decl, is_pytest_ini_decl, is_pytype_ini_decl, is_pyupgrade_ini_decl,
+        is_radon_ini_decl, is_railway_toml_decl, is_rake_decl, is_rapidoc_json_decl,
+        is_redoc_json_decl, is_redocly_json_decl, is_refurb_toml_decl, is_release_it_json_decl,
+        is_release_please_json_decl, is_release_toml_decl, is_renovate_json_decl,
+        is_resolv_conf_decl, is_rpc_file_decl, is_rstcheck_ini_decl, is_rsyslog_decl,
+        is_ruff_toml_decl, is_rush_json_decl, is_rust_toolchain_toml_decl, is_rustfmt_toml_decl,
+        is_samba_conf_decl, is_samconfig_toml_decl, is_scalar_json_decl, is_scons_decl,
+        is_scriv_ini_decl, is_sddm_conf_decl, is_semantic_release_ini_decl,
         is_semantic_release_json_decl, is_services_file_decl, is_setup_cfg_decl,
         is_setuptools_scm_ini_decl, is_simple_git_hooks_json_decl, is_spectral_json_decl,
         is_sqlfluff_ini_decl, is_ssh_config_decl, is_sssd_conf_decl,
@@ -122912,6 +123098,15 @@ mod func_like_line_tests {
         assert!(is_alertmanager_json_decl(r#""inhibitedBy": ["#));
         assert!(!is_prometheus_json_decl(r#""truncatedAlerts": 1"#));
         assert!(is_alertmanager_json_decl(r#""truncatedAlerts": 1"#));
+        // Grafana dashboard neighbours stay out of Prometheus.
+        assert!(!is_prometheus_json_decl(r#""schemaVersion": 42"#));
+        assert!(is_grafana_dashboard_json_decl(r#""schemaVersion": 42"#));
+        assert!(!is_prometheus_json_decl(r#""graphTooltip": 1"#));
+        assert!(is_grafana_dashboard_json_decl(r#""graphTooltip": 1"#));
+        assert!(!is_prometheus_json_decl(r#""templating": {"#));
+        assert!(is_grafana_dashboard_json_decl(r#""templating": {"#));
+        assert!(!is_prometheus_json_decl(r#""gnetId": "13639""#));
+        assert!(is_grafana_dashboard_json_decl(r#""gnetId": "13639""#));
     }
 
     #[test]
@@ -123212,6 +123407,27 @@ mod func_like_line_tests {
         ));
         assert!(!is_alertmanager_json_decl(r#""openapi": "3.0.3""#));
         assert!(is_openapi_json_decl(r#""openapi": "3.0.3""#));
+        // Grafana dashboard neighbours stay out of Alertmanager.
+        assert!(!is_alertmanager_json_decl(r#""schemaVersion": 42"#));
+        assert!(is_grafana_dashboard_json_decl(r#""schemaVersion": 42"#));
+        assert!(!is_alertmanager_json_decl(r#""graphTooltip": 1"#));
+        assert!(is_grafana_dashboard_json_decl(r#""graphTooltip": 1"#));
+        assert!(!is_alertmanager_json_decl(r#""fiscalYearStartMonth": 0"#));
+        assert!(is_grafana_dashboard_json_decl(
+            r#""fiscalYearStartMonth": 0"#
+        ));
+        assert!(!is_alertmanager_json_decl(r#""templating": {"#));
+        assert!(is_grafana_dashboard_json_decl(r#""templating": {"#));
+        assert!(!is_alertmanager_json_decl(r#""timepicker": {"#));
+        assert!(is_grafana_dashboard_json_decl(r#""timepicker": {"#));
+        assert!(!is_alertmanager_json_decl(r#""gnetId": "13639""#));
+        assert!(is_grafana_dashboard_json_decl(r#""gnetId": "13639""#));
+        assert!(!is_alertmanager_json_decl(r#""preload": true"#));
+        assert!(is_grafana_dashboard_json_decl(r#""preload": true"#));
+        assert!(!is_alertmanager_json_decl(r#""liveNow": false"#));
+        assert!(is_grafana_dashboard_json_decl(r#""liveNow": false"#));
+        assert!(!is_alertmanager_json_decl(r#""weekStart": "monday""#));
+        assert!(is_grafana_dashboard_json_decl(r#""weekStart": "monday""#));
         assert!(line_is_func_like(r#""groupKey": "{}:{alertname=HighCPU}""#));
         assert!(line_is_func_like(r#""groupLabels": {"#));
         assert!(line_is_func_like(r#""commonLabels": {"#));
@@ -123402,6 +123618,27 @@ mod func_like_line_tests {
         assert!(is_prettier_json_decl(r#""printWidth": 80"#));
         assert!(!is_alertmanager_json_decl(r#""basePath": ".""#));
         assert!(is_karma_json_decl(r#""basePath": ".""#));
+        // Grafana dashboard neighbours stay out of Alertmanager.
+        assert!(!is_alertmanager_json_decl(r#""schemaVersion": 42"#));
+        assert!(is_grafana_dashboard_json_decl(r#""schemaVersion": 42"#));
+        assert!(!is_alertmanager_json_decl(r#""graphTooltip": 1"#));
+        assert!(is_grafana_dashboard_json_decl(r#""graphTooltip": 1"#));
+        assert!(!is_alertmanager_json_decl(r#""fiscalYearStartMonth": 0"#));
+        assert!(is_grafana_dashboard_json_decl(
+            r#""fiscalYearStartMonth": 0"#
+        ));
+        assert!(!is_alertmanager_json_decl(r#""templating": {"#));
+        assert!(is_grafana_dashboard_json_decl(r#""templating": {"#));
+        assert!(!is_alertmanager_json_decl(r#""timepicker": {"#));
+        assert!(is_grafana_dashboard_json_decl(r#""timepicker": {"#));
+        assert!(!is_alertmanager_json_decl(r#""gnetId": "13639""#));
+        assert!(is_grafana_dashboard_json_decl(r#""gnetId": "13639""#));
+        assert!(!is_alertmanager_json_decl(r#""preload": true"#));
+        assert!(is_grafana_dashboard_json_decl(r#""preload": true"#));
+        assert!(!is_alertmanager_json_decl(r#""liveNow": false"#));
+        assert!(is_grafana_dashboard_json_decl(r#""liveNow": false"#));
+        assert!(!is_alertmanager_json_decl(r#""weekStart": "monday""#));
+        assert!(is_grafana_dashboard_json_decl(r#""weekStart": "monday""#));
         assert!(line_is_func_like(r#""groupKey": "{}:{alertname=HighCPU}""#));
         assert!(line_is_func_like(r#""groupLabels": {"#));
         assert!(line_is_func_like(r#""commonLabels": {"#));
@@ -123415,6 +123652,262 @@ mod func_like_line_tests {
             r#""externalURL": "http://alertmanager:9093""#
         ));
         assert!(line_is_func_like(r#""truncatedAlerts": 0"#));
+    }
+
+    #[test]
+    fn grafana_dashboard_json_keys_smoke() {
+        assert!(is_grafana_dashboard_json_decl(r#""schemaVersion": 42"#));
+        assert!(is_grafana_dashboard_json_decl(r#""graphTooltip": 0"#));
+        assert!(is_grafana_dashboard_json_decl(r#""graphTooltip": 1"#));
+        assert!(is_grafana_dashboard_json_decl(r#""graphTooltip": 2"#));
+        assert!(is_grafana_dashboard_json_decl(
+            r#""fiscalYearStartMonth": 0"#
+        ));
+        assert!(is_grafana_dashboard_json_decl(
+            r#""fiscalYearStartMonth": 11"#
+        ));
+        assert!(is_grafana_dashboard_json_decl(r#""templating": {"#));
+        assert!(is_grafana_dashboard_json_decl(r#""timepicker": {"#));
+        assert!(is_grafana_dashboard_json_decl(r#""gnetId": "13639""#));
+        assert!(is_grafana_dashboard_json_decl(r#""preload": true"#));
+        assert!(is_grafana_dashboard_json_decl(r#""liveNow": false"#));
+        assert!(is_grafana_dashboard_json_decl(r#""weekStart": "monday""#));
+        // Distinctive neighbours stay out of this scanner.
+        assert!(!is_grafana_dashboard_json_decl(r#""truncatedAlerts": 1"#));
+        assert!(is_alertmanager_json_decl(r#""truncatedAlerts": 1"#));
+        assert!(!is_grafana_dashboard_json_decl(
+            r#""totalQueryableSamples": 100"#
+        ));
+        assert!(is_prometheus_json_decl(r#""totalQueryableSamples": 100"#));
+        assert!(!is_grafana_dashboard_json_decl(
+            r#""bytesProcessedPerSecond": 1234"#
+        ));
+        assert!(is_loki_json_decl(r#""bytesProcessedPerSecond": 1234"#));
+        assert!(!is_grafana_dashboard_json_decl(
+            r#""rootServiceName": "frontend""#
+        ));
+        assert!(is_tempo_json_decl(r#""rootServiceName": "frontend""#));
+        assert!(!is_grafana_dashboard_json_decl(
+            r#""traceID": "0123456789abcdef0123456789abcdef""#
+        ));
+        assert!(is_jaeger_json_decl(
+            r#""traceID": "0123456789abcdef0123456789abcdef""#
+        ));
+        assert!(!is_grafana_dashboard_json_decl(r#""localEndpoint": {"#));
+        assert!(is_zipkin_json_decl(r#""localEndpoint": {"#));
+        assert!(!is_grafana_dashboard_json_decl(r#""resourceSpans": ["#));
+        assert!(is_otlp_json_decl(r#""resourceSpans": ["#));
+        assert!(!is_grafana_dashboard_json_decl(
+            r#""startedDateTime": "2009-04-16T15:53:27.373Z""#
+        ));
+        assert!(is_har_json_decl(
+            r#""startedDateTime": "2009-04-16T15:53:27.373Z""#
+        ));
+        assert!(!is_grafana_dashboard_json_decl(r#""openapi": "3.0.3""#));
+        assert!(is_openapi_json_decl(r#""openapi": "3.0.3""#));
+        // Hoverfly string schemaVersion stays on Hoverfly.
+        assert!(!is_grafana_dashboard_json_decl(r#""schemaVersion": "v5""#));
+        assert!(is_hoverfly_json_decl(r#""schemaVersion": "v5""#));
+        assert!(line_is_func_like(r#""schemaVersion": 42"#));
+        assert!(line_is_func_like(r#""graphTooltip": 1"#));
+        assert!(line_is_func_like(r#""fiscalYearStartMonth": 0"#));
+        assert!(line_is_func_like(r#""templating": {"#));
+        assert!(line_is_func_like(r#""timepicker": {"#));
+        assert!(line_is_func_like(r#""gnetId": "13639""#));
+        assert!(line_is_func_like(r#""preload": true"#));
+        assert!(line_is_func_like(r#""liveNow": false"#));
+        assert!(line_is_func_like(r#""weekStart": "monday""#));
+    }
+
+    #[test]
+    fn grafana_dashboard_json_keys_count() {
+        assert!(is_grafana_dashboard_json_decl(r#""schemaVersion": 1"#));
+        assert!(is_grafana_dashboard_json_decl(r#""schemaVersion": 36"#));
+        assert!(is_grafana_dashboard_json_decl(r#""schemaVersion": 42"#));
+        assert!(is_grafana_dashboard_json_decl(r#""schemaVersion": 42,"#));
+        assert!(is_grafana_dashboard_json_decl(
+            r#""schemaVersion": 42 // dash"#
+        ));
+        assert!(!is_grafana_dashboard_json_decl(r#""schemaVersion": 0"#));
+        assert!(!is_grafana_dashboard_json_decl(r#""schemaVersion": 01"#));
+        assert!(!is_grafana_dashboard_json_decl(r#""schemaVersion": 1000"#));
+        assert!(!is_grafana_dashboard_json_decl(r#""schemaVersion": "42""#));
+        assert!(!is_grafana_dashboard_json_decl(r#""schemaVersion": "v5""#));
+        assert!(!is_grafana_dashboard_json_decl(r#""schemaVersion": true"#));
+        assert!(!is_grafana_dashboard_json_decl(r#""schemaVersion": {"#));
+        assert!(is_grafana_dashboard_json_decl(r#""graphTooltip": 0"#));
+        assert!(is_grafana_dashboard_json_decl(r#""graphTooltip": 1"#));
+        assert!(is_grafana_dashboard_json_decl(r#""graphTooltip": 2"#));
+        assert!(is_grafana_dashboard_json_decl(r#""graphTooltip": 2,"#));
+        assert!(is_grafana_dashboard_json_decl(
+            r#""graphTooltip": 2 // tip"#
+        ));
+        assert!(!is_grafana_dashboard_json_decl(r#""graphTooltip": 3"#));
+        assert!(!is_grafana_dashboard_json_decl(r#""graphTooltip": 01"#));
+        assert!(!is_grafana_dashboard_json_decl(r#""graphTooltip": true"#));
+        assert!(!is_grafana_dashboard_json_decl(r#""graphTooltip": "1""#));
+        assert!(!is_grafana_dashboard_json_decl(r#""graphTooltip": {"#));
+        assert!(is_grafana_dashboard_json_decl(
+            r#""fiscalYearStartMonth": 0"#
+        ));
+        assert!(is_grafana_dashboard_json_decl(
+            r#""fiscalYearStartMonth": 11"#
+        ));
+        assert!(is_grafana_dashboard_json_decl(
+            r#""fiscalYearStartMonth": 11,"#
+        ));
+        assert!(is_grafana_dashboard_json_decl(
+            r#""fiscalYearStartMonth": 11 // fy"#
+        ));
+        assert!(!is_grafana_dashboard_json_decl(
+            r#""fiscalYearStartMonth": 12"#
+        ));
+        assert!(!is_grafana_dashboard_json_decl(
+            r#""fiscalYearStartMonth": 01"#
+        ));
+        assert!(!is_grafana_dashboard_json_decl(
+            r#""fiscalYearStartMonth": true"#
+        ));
+        assert!(!is_grafana_dashboard_json_decl(
+            r#""fiscalYearStartMonth": "0""#
+        ));
+        assert!(!is_grafana_dashboard_json_decl(
+            r#""fiscalYearStartMonth": {"#
+        ));
+        assert!(is_grafana_dashboard_json_decl(r#""templating": {"#));
+        assert!(is_grafana_dashboard_json_decl(r#""templating": {,"#));
+        assert!(is_grafana_dashboard_json_decl(r#""templating": { // t"#));
+        assert!(!is_grafana_dashboard_json_decl(r#""templating": ["#));
+        assert!(!is_grafana_dashboard_json_decl(r#""templating": true"#));
+        assert!(!is_grafana_dashboard_json_decl(r#""templating": """#));
+        assert!(is_grafana_dashboard_json_decl(r#""timepicker": {"#));
+        assert!(is_grafana_dashboard_json_decl(r#""timepicker": {,"#));
+        assert!(is_grafana_dashboard_json_decl(r#""timepicker": { // t"#));
+        assert!(!is_grafana_dashboard_json_decl(r#""timepicker": ["#));
+        assert!(!is_grafana_dashboard_json_decl(r#""timepicker": true"#));
+        assert!(!is_grafana_dashboard_json_decl(r#""timepicker": """#));
+        assert!(is_grafana_dashboard_json_decl(r#""gnetId": "13639""#));
+        assert!(is_grafana_dashboard_json_decl(r#""gnetId": "13639","#));
+        assert!(is_grafana_dashboard_json_decl(r#""gnetId": "13639" // g"#));
+        assert!(!is_grafana_dashboard_json_decl(r#""gnetId": """#));
+        assert!(!is_grafana_dashboard_json_decl(r#""gnetId": {"#));
+        assert!(!is_grafana_dashboard_json_decl(r#""gnetId": ["#));
+        assert!(!is_grafana_dashboard_json_decl(r#""gnetId": 13639"#));
+        assert!(is_grafana_dashboard_json_decl(r#""preload": true"#));
+        assert!(is_grafana_dashboard_json_decl(r#""preload": false"#));
+        assert!(is_grafana_dashboard_json_decl(r#""preload": true,"#));
+        assert!(is_grafana_dashboard_json_decl(r#""preload": false // p"#));
+        assert!(!is_grafana_dashboard_json_decl(r#""preload": 1"#));
+        assert!(!is_grafana_dashboard_json_decl(r#""preload": "true""#));
+        assert!(!is_grafana_dashboard_json_decl(r#""preload": {"#));
+        assert!(is_grafana_dashboard_json_decl(r#""liveNow": true"#));
+        assert!(is_grafana_dashboard_json_decl(r#""liveNow": false"#));
+        assert!(is_grafana_dashboard_json_decl(r#""liveNow": true,"#));
+        assert!(is_grafana_dashboard_json_decl(r#""liveNow": false // l"#));
+        assert!(!is_grafana_dashboard_json_decl(r#""liveNow": 0"#));
+        assert!(!is_grafana_dashboard_json_decl(r#""liveNow": "false""#));
+        assert!(!is_grafana_dashboard_json_decl(r#""liveNow": {"#));
+        assert!(is_grafana_dashboard_json_decl(r#""weekStart": "monday""#));
+        assert!(is_grafana_dashboard_json_decl(r#""weekStart": "sunday""#));
+        assert!(is_grafana_dashboard_json_decl(r#""weekStart": "monday","#));
+        assert!(is_grafana_dashboard_json_decl(
+            r#""weekStart": "monday" // w"#
+        ));
+        assert!(!is_grafana_dashboard_json_decl(r#""weekStart": """#));
+        assert!(!is_grafana_dashboard_json_decl(r#""weekStart": "Monday""#));
+        assert!(!is_grafana_dashboard_json_decl(r#""weekStart": "mon""#));
+        assert!(!is_grafana_dashboard_json_decl(r#""weekStart": {"#));
+        assert!(!is_grafana_dashboard_json_decl(r#""weekStart": true"#));
+        // Incomplete / wrong shapes stay out.
+        assert!(!is_grafana_dashboard_json_decl(r#""schemaVersion""#));
+        assert!(!is_grafana_dashboard_json_decl(r#""schemaVersion":"#));
+        assert!(!is_grafana_dashboard_json_decl(r#""graphTooltip""#));
+        assert!(!is_grafana_dashboard_json_decl(r#""fiscalYearStartMonth""#));
+        assert!(!is_grafana_dashboard_json_decl(r#""templating""#));
+        assert!(!is_grafana_dashboard_json_decl(r#""timepicker""#));
+        assert!(!is_grafana_dashboard_json_decl(r#""gnetId""#));
+        assert!(!is_grafana_dashboard_json_decl(r#""preload""#));
+        assert!(!is_grafana_dashboard_json_decl(r#""liveNow""#));
+        assert!(!is_grafana_dashboard_json_decl(r#""weekStart""#));
+        // Generic / neighbouring stay out.
+        assert!(!is_grafana_dashboard_json_decl(
+            r#""$schema": "https://json-schema.org/draft/2020-12/schema""#
+        ));
+        assert!(!is_grafana_dashboard_json_decl(r#""name": "CPU""#));
+        assert!(!is_grafana_dashboard_json_decl(r#""title": "Overview""#));
+        assert!(!is_grafana_dashboard_json_decl(r#""uid": "abc""#));
+        assert!(!is_grafana_dashboard_json_decl(r#""id": 1"#));
+        assert!(!is_grafana_dashboard_json_decl(r#""version": 1"#));
+        assert!(!is_grafana_dashboard_json_decl(r#""panels": ["#));
+        assert!(!is_grafana_dashboard_json_decl(r#""tags": ["#));
+        assert!(!is_grafana_dashboard_json_decl(r#""links": ["#));
+        assert!(!is_grafana_dashboard_json_decl(r#""editable": true"#));
+        assert!(!is_grafana_dashboard_json_decl(r#""timezone": "browser""#));
+        assert!(!is_grafana_dashboard_json_decl(r#""refresh": "5s""#));
+        assert!(!is_grafana_dashboard_json_decl(r#""time": {"#));
+        assert!(!is_grafana_dashboard_json_decl(r#""annotations": {"#));
+        assert!(!is_grafana_dashboard_json_decl(r#""style": "dark""#));
+        assert!(!is_grafana_dashboard_json_decl(r#""truncatedAlerts": 1"#));
+        assert!(is_alertmanager_json_decl(r#""truncatedAlerts": 1"#));
+        assert!(!is_grafana_dashboard_json_decl(
+            r#""groupKey": "{}:{alertname=HighCPU}""#
+        ));
+        assert!(is_alertmanager_json_decl(
+            r#""groupKey": "{}:{alertname=HighCPU}""#
+        ));
+        assert!(!is_grafana_dashboard_json_decl(
+            r#""totalQueryableSamples": 100"#
+        ));
+        assert!(is_prometheus_json_decl(r#""totalQueryableSamples": 100"#));
+        assert!(!is_grafana_dashboard_json_decl(r#""peakSamples": 50"#));
+        assert!(is_prometheus_json_decl(r#""peakSamples": 50"#));
+        assert!(!is_grafana_dashboard_json_decl(
+            r#""bytesProcessedPerSecond": 1234"#
+        ));
+        assert!(is_loki_json_decl(r#""bytesProcessedPerSecond": 1234"#));
+        assert!(!is_grafana_dashboard_json_decl(r#""dropped_entries": ["#));
+        assert!(is_loki_json_decl(r#""dropped_entries": ["#));
+        assert!(!is_grafana_dashboard_json_decl(
+            r#""rootServiceName": "frontend""#
+        ));
+        assert!(is_tempo_json_decl(r#""rootServiceName": "frontend""#));
+        assert!(!is_grafana_dashboard_json_decl(r#""spanSet": {"#));
+        assert!(is_tempo_json_decl(r#""spanSet": {"#));
+        assert!(!is_grafana_dashboard_json_decl(
+            r#""traceID": "0123456789abcdef0123456789abcdef""#
+        ));
+        assert!(is_jaeger_json_decl(
+            r#""traceID": "0123456789abcdef0123456789abcdef""#
+        ));
+        assert!(!is_grafana_dashboard_json_decl(r#""localEndpoint": {"#));
+        assert!(is_zipkin_json_decl(r#""localEndpoint": {"#));
+        assert!(!is_grafana_dashboard_json_decl(r#""resourceSpans": ["#));
+        assert!(is_otlp_json_decl(r#""resourceSpans": ["#));
+        assert!(!is_grafana_dashboard_json_decl(
+            r#""startedDateTime": "2009-04-16T15:53:27.373Z""#
+        ));
+        assert!(is_har_json_decl(
+            r#""startedDateTime": "2009-04-16T15:53:27.373Z""#
+        ));
+        assert!(!is_grafana_dashboard_json_decl(r#""openapi": "3.0.3""#));
+        assert!(is_openapi_json_decl(r#""openapi": "3.0.3""#));
+        assert!(!is_grafana_dashboard_json_decl(r#""asyncapi": "2.6.0""#));
+        assert!(is_asyncapi_json_decl(r#""asyncapi": "2.6.0""#));
+        assert!(!is_grafana_dashboard_json_decl(r#""schemaVersion": "v5""#));
+        assert!(is_hoverfly_json_decl(r#""schemaVersion": "v5""#));
+        assert!(!is_grafana_dashboard_json_decl(r#""printWidth": 80"#));
+        assert!(is_prettier_json_decl(r#""printWidth": 80"#));
+        assert!(!is_grafana_dashboard_json_decl(r#""basePath": ".""#));
+        assert!(is_karma_json_decl(r#""basePath": ".""#));
+        assert!(line_is_func_like(r#""schemaVersion": 42"#));
+        assert!(line_is_func_like(r#""graphTooltip": 0"#));
+        assert!(line_is_func_like(r#""fiscalYearStartMonth": 11"#));
+        assert!(line_is_func_like(r#""templating": {"#));
+        assert!(line_is_func_like(r#""timepicker": {"#));
+        assert!(line_is_func_like(r#""gnetId": "13639""#));
+        assert!(line_is_func_like(r#""preload": false"#));
+        assert!(line_is_func_like(r#""liveNow": true"#));
+        assert!(line_is_func_like(r#""weekStart": "sunday""#));
     }
 
     #[test]
