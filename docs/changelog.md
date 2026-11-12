@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.822] — 2026-11-13
+
+View:
+
+- **Function List** lists Searchspring Search API response JSON keys: `"resultLayout": "…"`, `"filterSummary": [`, `"merchandising": {`, `"defaultPerPage": 0` / `24`, `"facet_active": 0` / `1`, `"is_elevated": [`, `"facetsHide": [`, `"triggeredCampaigns": [`, `"removeRefineQuery": [`, `"filterLabel": "…"`, `"didYouMean": {`, `"multiple": "multiple-union"` / `"multiple-intersect"`, `"relatedSearches": [`, `"facet_match": true` / `false`, `"search_match": true` / `false`, `"totalPages": 0` / `58`. Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing `:` stay out. Generic `"$schema"` / `"name"` / `"id"` / `"q"` / `"query"` / `"filter"` / `"filters"` / `"limit"` / `"offset"` / `"page"` / `"results"` / `"facets"` / `"pagination"` / `"sorting"` / `"breadcrumbs"` / `"redirect"` / `"elevated"` / `"removed"` / `"personalized"` / Doofinder `"hashid"` / `"query_name"` / Klevu `"recordQueries"` / Bloomreach Discovery `"domain_key"` / Constructor.io `"result_sources"` / Coveo `"searchHub"` / Azure AI Search `"@odata.count"` / Vespa `"yql"` / Marqo `"searchableAttributes"` / LanceDB `"vector_column_name"` / Milvus `"annsField"` / Chroma `"n_results"` / Pinecone `"topK"` / Weaviate `"nearVector"` / Qdrant `"vectors_count"` / Algolia `"processingTimeMS"` / Meilisearch `"processingTimeMs"` / Typesense `"search_time_ms"` / Solr `"responseHeader"` / Elasticsearch `"track_total_hits"` / prettier `"printWidth"` / karma `"basePath"` stay out. `"multiple"` only matches its Searchspring enums. String keys require a non-empty quoted string. Bool keys only match `true` / `false`. Numeric `"defaultPerPage"` / `"facet_active"` / `"totalPages"` reject leading zeros beyond `0`.
+
 ## [0.3.821] — 2026-11-13
 
 View:

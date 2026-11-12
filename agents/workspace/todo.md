@@ -1306,3 +1306,5 @@
 009 keep: Function List Doofinder hashid/query_name/custom_results_id/dynamic_boosting_rule_id/rpp/dfid/filter_execution/auto_filters/excluded_results/custom_results/top_facet/with_variants/skip_auto_filters/skip_top_facet/indices/df_variants/df_grouping_id (v0.3.821)
 
 009 keep: Function List Klevu recordQueries/typeOfRequest/typeOfRecords/typeOfSearch/totalResultsFound/nextOffset/noOfResults/apiKeys/qTime/groupByFields/filtersToReturn/searchPrefs/priceFieldSuffix/kmcConfig/queryResults (v0.3.820)
+
+009 keep: Function List Searchspring resultLayout/filterSummary/merchandising/defaultPerPage/facet_active/is_elevated/facetsHide/triggeredCampaigns/removeRefineQuery/filterLabel/didYouMean/multiple/relatedSearches/facet_match/search_match/totalPages (v0.3.822)

@@ -32489,6 +32489,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_bloomreach_json_decl(s)
             || is_klevu_json_decl(s)
             || is_doofinder_json_decl(s)
+            || is_searchspring_json_decl(s)
             || is_gomod_decl(s)
             || is_gemfile_decl(s)
             || is_brewfile_decl(s)
@@ -32888,6 +32889,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_bloomreach_json_decl(s)
         || is_klevu_json_decl(s)
         || is_doofinder_json_decl(s)
+        || is_searchspring_json_decl(s)
         || is_gomod_decl(s)
         || is_gemfile_decl(s)
         || is_brewfile_decl(s)
@@ -65337,8 +65339,9 @@ fn klevu_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool {
 /// `"n_results"` / Pinecone `"topK"` / Weaviate `"nearVector"` / Qdrant
 /// `"vectors_count"` / Algolia `"processingTimeMS"` / Meilisearch
 /// `"processingTimeMs"` / Typesense `"search_time_ms"` / Solr
-/// `"responseHeader"` / Elasticsearch `"track_total_hits"` / prettier
-/// `"printWidth"` / karma `"basePath"` stay out.
+/// `"responseHeader"` / Elasticsearch `"track_total_hits"` / Searchspring
+/// `"resultLayout"` / `"filterSummary"` / prettier `"printWidth"` / karma
+/// `"basePath"` stay out.
 fn is_doofinder_json_decl(s: &str) -> bool {
     let s = s.trim_start();
     let Some(rest) = s.strip_prefix('"') else {
@@ -65473,6 +65476,170 @@ fn doofinder_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool {
         key,
         "custom_results_id" | "dynamic_boosting_rule_id" | "rpp"
     ) {
+        return false;
+    }
+    let bytes = after_colon.as_bytes();
+    let mut i = 0usize;
+    if i >= bytes.len() || !bytes[i].is_ascii_digit() {
+        return false;
+    }
+    if bytes[i] == b'0' {
+        i += 1;
+        if i < bytes.len() && bytes[i].is_ascii_digit() {
+            return false;
+        }
+    } else {
+        while i < bytes.len() && bytes[i].is_ascii_digit() {
+            i += 1;
+        }
+    }
+    package_json_tail_ok(&after_colon[i..])
+}
+
+/// Searchspring Search API response JSON keys:
+/// `"resultLayout": "…"`, `"filterSummary": [`, `"merchandising": {`,
+/// `"defaultPerPage": 0` / `24`, `"facet_active": 0` / `1`,
+/// `"is_elevated": [`, `"facetsHide": [`, `"triggeredCampaigns": [`,
+/// `"removeRefineQuery": [`, `"filterLabel": "…"`, `"didYouMean": {`,
+/// `"multiple": "multiple-union"` / `"multiple-intersect"`,
+/// `"relatedSearches": [`, `"facet_match": true` / `false`,
+/// `"search_match": true` / `false`, `"totalPages": 0` / `58`.
+/// Optional trailing `,` and `//` / `/*` comment. Incomplete quotes /
+/// missing `:` stay out. Generic `"$schema"` / `"name"` / `"id"` / `"q"` /
+/// `"query"` / `"filter"` / `"filters"` / `"limit"` / `"offset"` / `"page"` /
+/// `"results"` / `"facets"` / `"pagination"` / `"sorting"` / `"breadcrumbs"` /
+/// `"redirect"` / `"elevated"` / `"removed"` / `"personalized"` /
+/// Doofinder `"hashid"` / `"query_name"` / Klevu `"recordQueries"` /
+/// Bloomreach Discovery `"domain_key"` / Constructor.io
+/// `"result_sources"` / Coveo `"searchHub"` / Azure AI Search
+/// `"@odata.count"` / Vespa `"yql"` / Marqo `"searchableAttributes"` /
+/// LanceDB `"vector_column_name"` / Milvus `"annsField"` / Chroma
+/// `"n_results"` / Pinecone `"topK"` / Weaviate `"nearVector"` / Qdrant
+/// `"vectors_count"` / Algolia `"processingTimeMS"` / Meilisearch
+/// `"processingTimeMs"` / Typesense `"search_time_ms"` / Solr
+/// `"responseHeader"` / Elasticsearch `"track_total_hits"` / prettier
+/// `"printWidth"` / karma `"basePath"` stay out.
+fn is_searchspring_json_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    let Some(rest) = s.strip_prefix('"') else {
+        return false;
+    };
+    let Some(end) = rest.find('"') else {
+        return false;
+    };
+    let key = &rest[..end];
+    if !searchspring_json_key_ok(key) {
+        return false;
+    }
+    let after_key = rest[end + 1..].trim_start();
+    let Some(after_colon) = after_key.strip_prefix(':') else {
+        return false;
+    };
+    let after_colon = after_colon.trim_start();
+    searchspring_json_value_and_tail_ok(key, after_colon)
+}
+
+fn searchspring_json_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "resultLayout"
+            | "filterSummary"
+            | "merchandising"
+            | "defaultPerPage"
+            | "facet_active"
+            | "is_elevated"
+            | "facetsHide"
+            | "triggeredCampaigns"
+            | "removeRefineQuery"
+            | "filterLabel"
+            | "didYouMean"
+            | "multiple"
+            | "relatedSearches"
+            | "facet_match"
+            | "search_match"
+            | "totalPages"
+    )
+}
+
+fn searchspring_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool {
+    let bytes = after_colon.as_bytes();
+    let Some(first) = bytes.first().copied() else {
+        return false;
+    };
+    match first {
+        b'{' => {
+            if !matches!(key, "merchandising" | "didYouMean") {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[1..])
+        }
+        b'[' => {
+            if !matches!(
+                key,
+                "filterSummary"
+                    | "is_elevated"
+                    | "facetsHide"
+                    | "triggeredCampaigns"
+                    | "removeRefineQuery"
+                    | "relatedSearches"
+            ) {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[1..])
+        }
+        b'"' => match key {
+            "resultLayout" | "filterLabel" => {
+                searchspring_json_nonempty_string_and_tail_ok(after_colon)
+            }
+            "multiple" => searchspring_json_multiple_and_tail_ok(after_colon),
+            _ => false,
+        },
+        b't' | b'f' => searchspring_json_bool_and_tail_ok(key, after_colon),
+        b'0'..=b'9' => searchspring_json_uint_and_tail_ok(key, after_colon),
+        _ => false,
+    }
+}
+
+fn searchspring_json_nonempty_string_and_tail_ok(after_colon: &str) -> bool {
+    let rest = &after_colon[1..];
+    let Some(end) = rest.find('"') else {
+        return false;
+    };
+    let value = &rest[..end];
+    if value.is_empty() || value.contains('\n') {
+        return false;
+    }
+    package_json_tail_ok(&rest[end + 1..])
+}
+
+fn searchspring_json_multiple_and_tail_ok(after_colon: &str) -> bool {
+    let rest = &after_colon[1..];
+    let Some(end) = rest.find('"') else {
+        return false;
+    };
+    let value = &rest[..end];
+    if !matches!(value, "multiple-union" | "multiple-intersect") {
+        return false;
+    }
+    package_json_tail_ok(&rest[end + 1..])
+}
+
+fn searchspring_json_bool_and_tail_ok(key: &str, after_colon: &str) -> bool {
+    if !matches!(key, "facet_match" | "search_match") {
+        return false;
+    }
+    let rest = if let Some(rest) = after_colon.strip_prefix("true") {
+        rest
+    } else if let Some(rest) = after_colon.strip_prefix("false") {
+        rest
+    } else {
+        return false;
+    };
+    package_json_tail_ok(rest)
+}
+
+fn searchspring_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool {
+    if !matches!(key, "defaultPerPage" | "facet_active" | "totalPages") {
         return false;
     }
     let bytes = after_colon.as_bytes();
@@ -96164,10 +96331,10 @@ mod func_like_line_tests {
         is_rstcheck_ini_decl, is_rsyslog_decl, is_ruff_toml_decl, is_rush_json_decl,
         is_rust_toolchain_toml_decl, is_rustfmt_toml_decl, is_samba_conf_decl,
         is_samconfig_toml_decl, is_scalar_json_decl, is_scons_decl, is_scriv_ini_decl,
-        is_sddm_conf_decl, is_semantic_release_ini_decl, is_semantic_release_json_decl,
-        is_services_file_decl, is_setup_cfg_decl, is_setuptools_scm_ini_decl,
-        is_simple_git_hooks_json_decl, is_solr_json_decl, is_spectral_json_decl,
-        is_sqlfluff_ini_decl, is_ssh_config_decl, is_sssd_conf_decl,
+        is_sddm_conf_decl, is_searchspring_json_decl, is_semantic_release_ini_decl,
+        is_semantic_release_json_decl, is_services_file_decl, is_setup_cfg_decl,
+        is_setuptools_scm_ini_decl, is_simple_git_hooks_json_decl, is_solr_json_decl,
+        is_spectral_json_decl, is_sqlfluff_ini_decl, is_ssh_config_decl, is_sssd_conf_decl,
         is_stoplight_elements_json_decl, is_stryker_json_decl, is_stylelint_json_decl,
         is_subuid_subgid_decl, is_sudoers_decl, is_supabase_toml_decl, is_supervisord_conf_decl,
         is_swagger_ui_json_decl, is_swc_json_decl, is_syncpack_json_decl, is_sysctl_conf_decl,
@@ -133917,6 +134084,10 @@ mod func_like_line_tests {
         assert!(is_prettier_json_decl(r#""printWidth": 80"#));
         assert!(!is_doofinder_json_decl(r#""basePath": ".""#));
         assert!(is_karma_json_decl(r#""basePath": ".""#));
+        assert!(!is_doofinder_json_decl(r#""resultLayout": "grid""#));
+        assert!(is_searchspring_json_decl(r#""resultLayout": "grid""#));
+        assert!(!is_doofinder_json_decl(r#""filterSummary": ["#));
+        assert!(is_searchspring_json_decl(r#""filterSummary": ["#));
         assert!(line_is_func_like(
             r#""hashid": "d8fdeab7fce96a19d3fc7b0ca7a1e98b""#
         ));
@@ -133938,6 +134109,300 @@ mod func_like_line_tests {
         assert!(line_is_func_like(r#""indices": ["#));
         assert!(line_is_func_like(r#""df_variants": ["#));
         assert!(line_is_func_like(r#""df_grouping_id": "group-1""#));
+    }
+
+    #[test]
+    fn searchspring_json_keys_smoke() {
+        assert!(is_searchspring_json_decl(r#""resultLayout": "grid""#));
+        assert!(is_searchspring_json_decl(r#""filterSummary": ["#));
+        assert!(is_searchspring_json_decl(r#""merchandising": {"#));
+        assert!(is_searchspring_json_decl(r#""defaultPerPage": 24"#));
+        assert!(is_searchspring_json_decl(r#""facet_active": 1"#));
+        assert!(is_searchspring_json_decl(r#""is_elevated": ["#));
+        assert!(is_searchspring_json_decl(r#""facetsHide": ["#));
+        assert!(is_searchspring_json_decl(r#""triggeredCampaigns": ["#));
+        assert!(is_searchspring_json_decl(r#""removeRefineQuery": ["#));
+        assert!(is_searchspring_json_decl(r#""filterLabel": "Search""#));
+        assert!(is_searchspring_json_decl(r#""didYouMean": {"#));
+        assert!(is_searchspring_json_decl(r#""multiple": "multiple-union""#));
+        assert!(is_searchspring_json_decl(
+            r#""multiple": "multiple-intersect""#
+        ));
+        assert!(is_searchspring_json_decl(r#""relatedSearches": ["#));
+        assert!(is_searchspring_json_decl(r#""facet_match": true"#));
+        assert!(is_searchspring_json_decl(r#""search_match": false"#));
+        assert!(is_searchspring_json_decl(r#""totalPages": 58"#));
+        assert!(!is_searchspring_json_decl(
+            r#""hashid": "d8fdeab7fce96a19d3fc7b0ca7a1e98b""#
+        ));
+        assert!(is_doofinder_json_decl(
+            r#""hashid": "d8fdeab7fce96a19d3fc7b0ca7a1e98b""#
+        ));
+        assert!(!is_searchspring_json_decl(r#""recordQueries": ["#));
+        assert!(is_klevu_json_decl(r#""recordQueries": ["#));
+        assert!(!is_searchspring_json_decl(r#""domain_key": "example_com""#));
+        assert!(is_bloomreach_json_decl(r#""domain_key": "example_com""#));
+        assert!(!is_searchspring_json_decl(r#""result_sources": {"#));
+        assert!(is_constructor_io_json_decl(r#""result_sources": {"#));
+        assert!(!is_searchspring_json_decl(r#""searchHub": "default""#));
+        assert!(is_coveo_json_decl(r#""searchHub": "default""#));
+        assert!(!is_searchspring_json_decl(r#""@odata.count": 10"#));
+        assert!(is_azure_search_json_decl(r#""@odata.count": 10"#));
+        assert!(!is_searchspring_json_decl(
+            r#""yql": "select * from sources * where true""#
+        ));
+        assert!(is_vespa_json_decl(
+            r#""yql": "select * from sources * where true""#
+        ));
+        assert!(!is_searchspring_json_decl(r#""searchableAttributes": ["#));
+        assert!(is_marqo_json_decl(r#""searchableAttributes": ["#));
+        assert!(!is_searchspring_json_decl(r#""vector_column_name": "vec""#));
+        assert!(is_lancedb_json_decl(r#""vector_column_name": "vec""#));
+        assert!(!is_searchspring_json_decl(r#""annsField": "vec""#));
+        assert!(is_milvus_json_decl(r#""annsField": "vec""#));
+        assert!(!is_searchspring_json_decl(r#""n_results": 10"#));
+        assert!(is_chroma_json_decl(r#""n_results": 10"#));
+        assert!(!is_searchspring_json_decl(r#""topK": 10"#));
+        assert!(is_pinecone_json_decl(r#""topK": 10"#));
+        assert!(!is_searchspring_json_decl(r#""nearVector": {"#));
+        assert!(is_weaviate_json_decl(r#""nearVector": {"#));
+        assert!(!is_searchspring_json_decl(r#""vectors_count": 100"#));
+        assert!(is_qdrant_json_decl(r#""vectors_count": 100"#));
+        assert!(!is_searchspring_json_decl(r#""processingTimeMS": 12"#));
+        assert!(is_algolia_json_decl(r#""processingTimeMS": 12"#));
+        assert!(!is_searchspring_json_decl(r#""processingTimeMs": 12"#));
+        assert!(is_meilisearch_json_decl(r#""processingTimeMs": 12"#));
+        assert!(!is_searchspring_json_decl(r#""search_time_ms": 12"#));
+        assert!(is_typesense_json_decl(r#""search_time_ms": 12"#));
+        assert!(!is_searchspring_json_decl(r#""responseHeader": {"#));
+        assert!(is_solr_json_decl(r#""responseHeader": {"#));
+        assert!(!is_searchspring_json_decl(r#""track_total_hits": true"#));
+        assert!(is_elasticsearch_json_decl(r#""track_total_hits": true"#));
+        assert!(!is_searchspring_json_decl(r#""printWidth": 80"#));
+        assert!(is_prettier_json_decl(r#""printWidth": 80"#));
+        assert!(!is_searchspring_json_decl(r#""basePath": ".""#));
+        assert!(is_karma_json_decl(r#""basePath": ".""#));
+        assert!(line_is_func_like(r#""resultLayout": "grid""#));
+        assert!(line_is_func_like(r#""filterSummary": ["#));
+        assert!(line_is_func_like(r#""merchandising": {"#));
+        assert!(line_is_func_like(r#""defaultPerPage": 24"#));
+        assert!(line_is_func_like(r#""facet_active": 1"#));
+        assert!(line_is_func_like(r#""is_elevated": ["#));
+        assert!(line_is_func_like(r#""facetsHide": ["#));
+        assert!(line_is_func_like(r#""triggeredCampaigns": ["#));
+        assert!(line_is_func_like(r#""removeRefineQuery": ["#));
+        assert!(line_is_func_like(r#""filterLabel": "Search""#));
+        assert!(line_is_func_like(r#""didYouMean": {"#));
+        assert!(line_is_func_like(r#""multiple": "multiple-union""#));
+        assert!(line_is_func_like(r#""relatedSearches": ["#));
+        assert!(line_is_func_like(r#""facet_match": true"#));
+        assert!(line_is_func_like(r#""search_match": false"#));
+        assert!(line_is_func_like(r#""totalPages": 58"#));
+    }
+
+    #[test]
+    fn searchspring_json_keys_count() {
+        assert!(is_searchspring_json_decl(r#""resultLayout": "grid""#));
+        assert!(is_searchspring_json_decl(r#""resultLayout": "grid","#));
+        assert!(is_searchspring_json_decl(r#""resultLayout": "grid" // r"#));
+        assert!(!is_searchspring_json_decl(r#""resultLayout": {"#));
+        assert!(!is_searchspring_json_decl(r#""resultLayout": """#));
+        assert!(!is_searchspring_json_decl(r#""resultLayout": true"#));
+        assert!(is_searchspring_json_decl(r#""filterSummary": ["#));
+        assert!(is_searchspring_json_decl(r#""filterSummary": [,"#));
+        assert!(is_searchspring_json_decl(r#""filterSummary": [ // f"#));
+        assert!(!is_searchspring_json_decl(r#""filterSummary": {"#));
+        assert!(!is_searchspring_json_decl(r#""filterSummary": true"#));
+        assert!(is_searchspring_json_decl(r#""merchandising": {"#));
+        assert!(is_searchspring_json_decl(r#""merchandising": {,"#));
+        assert!(is_searchspring_json_decl(r#""merchandising": { // m"#));
+        assert!(!is_searchspring_json_decl(r#""merchandising": ["#));
+        assert!(!is_searchspring_json_decl(r#""merchandising": true"#));
+        assert!(is_searchspring_json_decl(r#""defaultPerPage": 0"#));
+        assert!(is_searchspring_json_decl(r#""defaultPerPage": 24"#));
+        assert!(is_searchspring_json_decl(r#""defaultPerPage": 24,"#));
+        assert!(is_searchspring_json_decl(r#""defaultPerPage": 24 // d"#));
+        assert!(!is_searchspring_json_decl(r#""defaultPerPage": 00"#));
+        assert!(!is_searchspring_json_decl(r#""defaultPerPage": 01"#));
+        assert!(!is_searchspring_json_decl(r#""defaultPerPage": true"#));
+        assert!(!is_searchspring_json_decl(r#""defaultPerPage": {"#));
+        assert!(!is_searchspring_json_decl(r#""defaultPerPage": "24""#));
+        assert!(is_searchspring_json_decl(r#""facet_active": 0"#));
+        assert!(is_searchspring_json_decl(r#""facet_active": 1"#));
+        assert!(is_searchspring_json_decl(r#""facet_active": 1,"#));
+        assert!(!is_searchspring_json_decl(r#""facet_active": 00"#));
+        assert!(!is_searchspring_json_decl(r#""facet_active": true"#));
+        assert!(!is_searchspring_json_decl(r#""facet_active": {"#));
+        assert!(is_searchspring_json_decl(r#""is_elevated": ["#));
+        assert!(is_searchspring_json_decl(r#""is_elevated": [,"#));
+        assert!(!is_searchspring_json_decl(r#""is_elevated": {"#));
+        assert!(!is_searchspring_json_decl(r#""is_elevated": true"#));
+        assert!(is_searchspring_json_decl(r#""facetsHide": ["#));
+        assert!(is_searchspring_json_decl(r#""facetsHide": [,"#));
+        assert!(!is_searchspring_json_decl(r#""facetsHide": {"#));
+        assert!(!is_searchspring_json_decl(r#""facetsHide": true"#));
+        assert!(is_searchspring_json_decl(r#""triggeredCampaigns": ["#));
+        assert!(is_searchspring_json_decl(r#""triggeredCampaigns": [,"#));
+        assert!(!is_searchspring_json_decl(r#""triggeredCampaigns": {"#));
+        assert!(!is_searchspring_json_decl(r#""triggeredCampaigns": true"#));
+        assert!(is_searchspring_json_decl(r#""removeRefineQuery": ["#));
+        assert!(is_searchspring_json_decl(r#""removeRefineQuery": [,"#));
+        assert!(!is_searchspring_json_decl(r#""removeRefineQuery": {"#));
+        assert!(!is_searchspring_json_decl(r#""removeRefineQuery": true"#));
+        assert!(is_searchspring_json_decl(r#""filterLabel": "Search""#));
+        assert!(is_searchspring_json_decl(r#""filterLabel": "Search","#));
+        assert!(is_searchspring_json_decl(r#""filterLabel": "Search" // f"#));
+        assert!(!is_searchspring_json_decl(r#""filterLabel": {"#));
+        assert!(!is_searchspring_json_decl(r#""filterLabel": """#));
+        assert!(!is_searchspring_json_decl(r#""filterLabel": true"#));
+        assert!(is_searchspring_json_decl(r#""didYouMean": {"#));
+        assert!(is_searchspring_json_decl(r#""didYouMean": {,"#));
+        assert!(!is_searchspring_json_decl(r#""didYouMean": ["#));
+        assert!(!is_searchspring_json_decl(r#""didYouMean": true"#));
+        assert!(is_searchspring_json_decl(r#""multiple": "multiple-union""#));
+        assert!(is_searchspring_json_decl(
+            r#""multiple": "multiple-intersect""#
+        ));
+        assert!(is_searchspring_json_decl(
+            r#""multiple": "multiple-union","#
+        ));
+        assert!(is_searchspring_json_decl(
+            r#""multiple": "multiple-union" // m"#
+        ));
+        assert!(!is_searchspring_json_decl(r#""multiple": "union""#));
+        assert!(!is_searchspring_json_decl(r#""multiple": "multiple""#));
+        assert!(!is_searchspring_json_decl(r#""multiple": {"#));
+        assert!(!is_searchspring_json_decl(r#""multiple": """#));
+        assert!(is_searchspring_json_decl(r#""relatedSearches": ["#));
+        assert!(is_searchspring_json_decl(r#""relatedSearches": [,"#));
+        assert!(!is_searchspring_json_decl(r#""relatedSearches": {"#));
+        assert!(!is_searchspring_json_decl(r#""relatedSearches": true"#));
+        assert!(is_searchspring_json_decl(r#""facet_match": true"#));
+        assert!(is_searchspring_json_decl(r#""facet_match": false"#));
+        assert!(is_searchspring_json_decl(r#""facet_match": true,"#));
+        assert!(is_searchspring_json_decl(r#""facet_match": true // f"#));
+        assert!(!is_searchspring_json_decl(r#""facet_match": ["#));
+        assert!(!is_searchspring_json_decl(r#""facet_match": "true""#));
+        assert!(!is_searchspring_json_decl(r#""facet_match": 1"#));
+        assert!(is_searchspring_json_decl(r#""search_match": true"#));
+        assert!(is_searchspring_json_decl(r#""search_match": false"#));
+        assert!(!is_searchspring_json_decl(r#""search_match": ["#));
+        assert!(!is_searchspring_json_decl(r#""search_match": 1"#));
+        assert!(is_searchspring_json_decl(r#""totalPages": 0"#));
+        assert!(is_searchspring_json_decl(r#""totalPages": 58"#));
+        assert!(is_searchspring_json_decl(r#""totalPages": 58,"#));
+        assert!(!is_searchspring_json_decl(r#""totalPages": 00"#));
+        assert!(!is_searchspring_json_decl(r#""totalPages": 01"#));
+        assert!(!is_searchspring_json_decl(r#""totalPages": true"#));
+        assert!(!is_searchspring_json_decl(r#""totalPages": {"#));
+        assert!(!is_searchspring_json_decl(r#""totalPages": "58""#));
+        // Incomplete / bare keys stay out.
+        assert!(!is_searchspring_json_decl(r#""resultLayout""#));
+        assert!(!is_searchspring_json_decl(r#""filterSummary""#));
+        assert!(!is_searchspring_json_decl(r#""merchandising""#));
+        assert!(!is_searchspring_json_decl(r#""defaultPerPage""#));
+        assert!(!is_searchspring_json_decl(r#""facet_active""#));
+        assert!(!is_searchspring_json_decl(r#""is_elevated""#));
+        assert!(!is_searchspring_json_decl(r#""facetsHide""#));
+        assert!(!is_searchspring_json_decl(r#""triggeredCampaigns""#));
+        assert!(!is_searchspring_json_decl(r#""removeRefineQuery""#));
+        assert!(!is_searchspring_json_decl(r#""filterLabel""#));
+        assert!(!is_searchspring_json_decl(r#""didYouMean""#));
+        assert!(!is_searchspring_json_decl(r#""multiple""#));
+        assert!(!is_searchspring_json_decl(r#""relatedSearches""#));
+        assert!(!is_searchspring_json_decl(r#""facet_match""#));
+        assert!(!is_searchspring_json_decl(r#""search_match""#));
+        assert!(!is_searchspring_json_decl(r#""totalPages""#));
+        // Generic / neighbouring stay out.
+        assert!(!is_searchspring_json_decl(
+            r#""$schema": "https://json-schema.org/draft/2020-12/schema""#
+        ));
+        assert!(!is_searchspring_json_decl(r#""name": "docs""#));
+        assert!(!is_searchspring_json_decl(r#""id": "idx-1""#));
+        assert!(!is_searchspring_json_decl(r#""q": "shoes""#));
+        assert!(!is_searchspring_json_decl(r#""query": "shoes""#));
+        assert!(!is_searchspring_json_decl(r#""filter": "type eq 'a'""#));
+        assert!(!is_searchspring_json_decl(r#""filters": {"#));
+        assert!(!is_searchspring_json_decl(r#""limit": 10"#));
+        assert!(!is_searchspring_json_decl(r#""offset": 0"#));
+        assert!(!is_searchspring_json_decl(r#""page": 1"#));
+        assert!(!is_searchspring_json_decl(r#""results": ["#));
+        assert!(!is_searchspring_json_decl(r#""facets": ["#));
+        assert!(!is_searchspring_json_decl(r#""pagination": {"#));
+        assert!(!is_searchspring_json_decl(r#""sorting": {"#));
+        assert!(!is_searchspring_json_decl(r#""breadcrumbs": ["#));
+        assert!(!is_searchspring_json_decl(r#""redirect": "https://x""#));
+        assert!(!is_searchspring_json_decl(r#""elevated": ["#));
+        assert!(!is_searchspring_json_decl(r#""removed": ["#));
+        assert!(!is_searchspring_json_decl(r#""personalized": true"#));
+        assert!(!is_searchspring_json_decl(
+            r#""hashid": "d8fdeab7fce96a19d3fc7b0ca7a1e98b""#
+        ));
+        assert!(is_doofinder_json_decl(
+            r#""hashid": "d8fdeab7fce96a19d3fc7b0ca7a1e98b""#
+        ));
+        assert!(!is_searchspring_json_decl(r#""query_name": "fuzzy""#));
+        assert!(is_doofinder_json_decl(r#""query_name": "fuzzy""#));
+        assert!(!is_searchspring_json_decl(r#""recordQueries": ["#));
+        assert!(is_klevu_json_decl(r#""recordQueries": ["#));
+        assert!(!is_searchspring_json_decl(r#""domain_key": "example_com""#));
+        assert!(is_bloomreach_json_decl(r#""domain_key": "example_com""#));
+        assert!(!is_searchspring_json_decl(r#""result_sources": {"#));
+        assert!(is_constructor_io_json_decl(r#""result_sources": {"#));
+        assert!(!is_searchspring_json_decl(r#""searchHub": "default""#));
+        assert!(is_coveo_json_decl(r#""searchHub": "default""#));
+        assert!(!is_searchspring_json_decl(r#""@odata.count": 10"#));
+        assert!(is_azure_search_json_decl(r#""@odata.count": 10"#));
+        assert!(!is_searchspring_json_decl(
+            r#""yql": "select * from sources * where true""#
+        ));
+        assert!(is_vespa_json_decl(
+            r#""yql": "select * from sources * where true""#
+        ));
+        assert!(!is_searchspring_json_decl(r#""searchableAttributes": ["#));
+        assert!(is_marqo_json_decl(r#""searchableAttributes": ["#));
+        assert!(!is_searchspring_json_decl(r#""vector_column_name": "vec""#));
+        assert!(is_lancedb_json_decl(r#""vector_column_name": "vec""#));
+        assert!(!is_searchspring_json_decl(r#""annsField": "vec""#));
+        assert!(is_milvus_json_decl(r#""annsField": "vec""#));
+        assert!(!is_searchspring_json_decl(r#""n_results": 10"#));
+        assert!(is_chroma_json_decl(r#""n_results": 10"#));
+        assert!(!is_searchspring_json_decl(r#""topK": 10"#));
+        assert!(is_pinecone_json_decl(r#""topK": 10"#));
+        assert!(!is_searchspring_json_decl(r#""nearVector": {"#));
+        assert!(is_weaviate_json_decl(r#""nearVector": {"#));
+        assert!(!is_searchspring_json_decl(r#""vectors_count": 100"#));
+        assert!(is_qdrant_json_decl(r#""vectors_count": 100"#));
+        assert!(!is_searchspring_json_decl(r#""processingTimeMS": 12"#));
+        assert!(is_algolia_json_decl(r#""processingTimeMS": 12"#));
+        assert!(!is_searchspring_json_decl(r#""processingTimeMs": 12"#));
+        assert!(is_meilisearch_json_decl(r#""processingTimeMs": 12"#));
+        assert!(!is_searchspring_json_decl(r#""search_time_ms": 12"#));
+        assert!(is_typesense_json_decl(r#""search_time_ms": 12"#));
+        assert!(!is_searchspring_json_decl(r#""responseHeader": {"#));
+        assert!(is_solr_json_decl(r#""responseHeader": {"#));
+        assert!(!is_searchspring_json_decl(r#""track_total_hits": true"#));
+        assert!(is_elasticsearch_json_decl(r#""track_total_hits": true"#));
+        assert!(!is_searchspring_json_decl(r#""printWidth": 80"#));
+        assert!(is_prettier_json_decl(r#""printWidth": 80"#));
+        assert!(!is_searchspring_json_decl(r#""basePath": ".""#));
+        assert!(is_karma_json_decl(r#""basePath": ".""#));
+        assert!(line_is_func_like(r#""resultLayout": "grid""#));
+        assert!(line_is_func_like(r#""filterSummary": ["#));
+        assert!(line_is_func_like(r#""merchandising": {"#));
+        assert!(line_is_func_like(r#""defaultPerPage": 24"#));
+        assert!(line_is_func_like(r#""facet_active": 1"#));
+        assert!(line_is_func_like(r#""is_elevated": ["#));
+        assert!(line_is_func_like(r#""facetsHide": ["#));
+        assert!(line_is_func_like(r#""triggeredCampaigns": ["#));
+        assert!(line_is_func_like(r#""removeRefineQuery": ["#));
+        assert!(line_is_func_like(r#""filterLabel": "Search""#));
+        assert!(line_is_func_like(r#""didYouMean": {"#));
+        assert!(line_is_func_like(r#""multiple": "multiple-union""#));
+        assert!(line_is_func_like(r#""relatedSearches": ["#));
+        assert!(line_is_func_like(r#""facet_match": true"#));
+        assert!(line_is_func_like(r#""search_match": false"#));
+        assert!(line_is_func_like(r#""totalPages": 58"#));
     }
 
     #[test]
