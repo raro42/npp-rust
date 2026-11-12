@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.797] — 2026-11-12
+
+View:
+
+- **Function List** lists Grafana Loki query stats / push JSON keys: `"bytesProcessedPerSecond": 0` / `1234`, `"linesProcessedPerSecond": 0` / `56`, `"totalBytesProcessed": 0` / `1048576`, `"totalLinesProcessed": 0` / `100`, `"totalEntriesReturned": 0` / `10`, `"totalPostFilterLines": 0` / `10`, `"totalStructuredMetadataBytesProcessed": 0` / `32`, `"dropped_entries": [`, `"structuredMetadata": {`. Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing `:` stay out. Generic `"$schema"` / `"name"` / `"id"` / `"timestamp"` / `"duration"` / `"tags": [` / `"logs": [` / `"startTime"` / `"spans": [` / `"serviceName"` / `"streams": [` / `"stream": {` / `"values": [` / `"status"` / `"resultType"` / `"result"` / `"stats": {` / `"summary": {` / Tempo `"rootServiceName"` / `"rootTraceName"` / `"spanSet"` / `"spanSets"` / `"durationMs"` / `"inspectedTraces"` / `"inspectedBytes"` / `"totalBlocks"` / `"completedJobs"` / `"totalJobs"` / `"totalBlockBytes"` / Jaeger `"traceID"` / `"spanID"` / `"operationName"` / `"references"` / `"processID"` / `"processes"` / `"flags"` / `"startTimeMillis"` / `"refType"` / Zipkin `"localEndpoint"` / `"remoteEndpoint"` / `"annotations"` / `"parentId"` / `"kind"` / `"shared"` / `"debug"` / `"traceId"` / OTLP `"resourceSpans"` / `"parentSpanId"` / `"startTimeUnixNano"` / HAR `"startedDateTime"` / `"timings"` / OpenAPI `"openapi"` / AsyncAPI `"asyncapi"` / `"channels": {` / Pact `"consumer"` / MockServer `"httpRequest"` / Hoverfly `"hoverflyVersion"` / Mountebank `"imposters"` / WireMock `"scenarioName"` / Mockoon `"lastMigration"` / Hoppscotch `"preRequestScript"` / Yaak `"yaakVersion"` / Bruno `"brunoConfig"` / Thunder Client `"client"` / Postman `"_postman_id"` / Insomnia `"__export_format"` / ReDoc `"disableSearch"` / RapiDoc `"specUrl"` / swagger-ui `"dom_id"` / scalar `"layout": "modern"` / Elements `"layout": "sidebar"` / mintlify `"topbarLinks"` / Compodoc `"theme": "material"` / redocly `"apis"` / spectral `"functionsDir"` / openapitools `"generator-cli"` / Knip `"entry"` / prettier `"printWidth"` / package.json `"bin"` / karma `"basePath"` stay out. Numeric keys reject leading zeros beyond `0`.
+
 ## [0.3.796] — 2026-11-12
 
 View:

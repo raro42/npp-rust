@@ -32464,6 +32464,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_zipkin_json_decl(s)
             || is_jaeger_json_decl(s)
             || is_tempo_json_decl(s)
+            || is_loki_json_decl(s)
             || is_gomod_decl(s)
             || is_gemfile_decl(s)
             || is_brewfile_decl(s)
@@ -32838,6 +32839,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_zipkin_json_decl(s)
         || is_jaeger_json_decl(s)
         || is_tempo_json_decl(s)
+        || is_loki_json_decl(s)
         || is_gomod_decl(s)
         || is_gemfile_decl(s)
         || is_brewfile_decl(s)
@@ -60667,10 +60669,14 @@ fn zipkin_json_bool_and_tail_ok(after_colon: &str) -> bool {
 /// karma `"basePath"` / Tempo `"rootServiceName"` / `"rootTraceName"` /
 /// `"spanSet"` / `"spanSets"` / `"durationMs"` / `"inspectedTraces"` /
 /// `"inspectedBytes"` / `"totalBlocks"` / `"completedJobs"` /
-/// `"totalJobs"` / `"totalBlockBytes"` stay out. `"processID"` only
-/// matches `p` + digits. `"traceID"` only matches 16 or 32-char lowercase
-/// hex. `"spanID"` only matches 16-char lowercase hex. `"refType"` only
-/// matches Jaeger enums.
+/// `"totalJobs"` / `"totalBlockBytes"` / Loki `"bytesProcessedPerSecond"` /
+/// `"linesProcessedPerSecond"` / `"totalBytesProcessed"` /
+/// `"totalLinesProcessed"` / `"totalEntriesReturned"` /
+/// `"totalPostFilterLines"` / `"totalStructuredMetadataBytesProcessed"` /
+/// `"dropped_entries"` / `"structuredMetadata"` stay out. `"processID"`
+/// only matches `p` + digits. `"traceID"` only matches 16 or 32-char
+/// lowercase hex. `"spanID"` only matches 16-char lowercase hex.
+/// `"refType"` only matches Jaeger enums.
 fn is_jaeger_json_decl(s: &str) -> bool {
     let s = s.trim_start();
     let Some(rest) = s.strip_prefix('"') else {
@@ -60836,9 +60842,14 @@ fn jaeger_json_number_and_tail_ok(key: &str, after_colon: &str) -> bool {
 /// `"layout": "sidebar"` / mintlify `"topbarLinks"` / Compodoc
 /// `"theme": "material"` / redocly `"apis"` / spectral `"functionsDir"` /
 /// openapitools `"generator-cli"` / Knip `"entry"` / prettier
-/// `"printWidth"` / package.json `"bin"` / karma `"basePath"` stay out.
-/// `"inspectedBytes"` / `"totalBlockBytes"` only match non-empty
-/// digit strings. Numeric keys reject leading zeros beyond `0`.
+/// `"printWidth"` / package.json `"bin"` / karma `"basePath"` / Loki
+/// `"bytesProcessedPerSecond"` / `"linesProcessedPerSecond"` /
+/// `"totalBytesProcessed"` / `"totalLinesProcessed"` /
+/// `"totalEntriesReturned"` / `"totalPostFilterLines"` /
+/// `"totalStructuredMetadataBytesProcessed"` / `"dropped_entries"` /
+/// `"structuredMetadata"` stay out. `"inspectedBytes"` /
+/// `"totalBlockBytes"` only match non-empty digit strings. Numeric keys
+/// reject leading zeros beyond `0`.
 fn is_tempo_json_decl(s: &str) -> bool {
     let s = s.trim_start();
     let Some(rest) = s.strip_prefix('"') else {
@@ -60946,6 +60957,136 @@ fn tempo_json_number_and_tail_ok(key: &str, after_colon: &str) -> bool {
         12
     } else {
         8
+    };
+    if digits == 0 || digits > max_digits {
+        return false;
+    }
+    if digits > 1 && after_colon.as_bytes()[0] == b'0' {
+        return false;
+    }
+    package_json_tail_ok(&after_colon[digits..])
+}
+
+/// Grafana Loki query stats / push JSON keys:
+/// `"bytesProcessedPerSecond": 0` / `1234`,
+/// `"linesProcessedPerSecond": 0` / `56`,
+/// `"totalBytesProcessed": 0` / `1048576`,
+/// `"totalLinesProcessed": 0` / `100`,
+/// `"totalEntriesReturned": 0` / `10`,
+/// `"totalPostFilterLines": 0` / `10`,
+/// `"totalStructuredMetadataBytesProcessed": 0` / `32`,
+/// `"dropped_entries": [`, `"structuredMetadata": {`.
+/// Optional trailing `,` and `//` / `/*` comment. Incomplete quotes /
+/// missing `:` stay out. Generic `"$schema"` / `"name"` / `"id"` /
+/// `"timestamp"` / `"duration"` / `"tags": [` / `"logs": [` /
+/// `"startTime"` / `"spans": [` / `"serviceName"` / `"streams": [` /
+/// `"stream": {` / `"values": [` / `"status"` / `"resultType"` /
+/// `"result"` / `"stats": {` / `"summary": {` / Tempo
+/// `"rootServiceName"` / `"rootTraceName"` / `"spanSet"` / `"spanSets"` /
+/// `"durationMs"` / `"inspectedTraces"` / `"inspectedBytes"` /
+/// `"totalBlocks"` / `"completedJobs"` / `"totalJobs"` /
+/// `"totalBlockBytes"` / Jaeger `"traceID"` / `"spanID"` /
+/// `"operationName"` / `"references"` / `"processID"` / `"processes"` /
+/// `"flags"` / `"startTimeMillis"` / `"refType"` / Zipkin
+/// `"localEndpoint"` / `"remoteEndpoint"` / `"annotations"` /
+/// `"parentId"` / `"kind"` / `"shared"` / `"debug"` / `"traceId"` /
+/// OTLP `"resourceSpans"` / `"parentSpanId"` / `"startTimeUnixNano"` /
+/// HAR `"startedDateTime"` / `"timings"` / OpenAPI `"openapi"` /
+/// AsyncAPI `"asyncapi"` / `"channels": {` / Pact `"consumer"` /
+/// MockServer `"httpRequest"` / Hoverfly `"hoverflyVersion"` /
+/// Mountebank `"imposters"` / WireMock `"scenarioName"` / Mockoon
+/// `"lastMigration"` / Hoppscotch `"preRequestScript"` / Yaak
+/// `"yaakVersion"` / Bruno `"brunoConfig"` / Thunder Client `"client"` /
+/// Postman `"_postman_id"` / Insomnia `"__export_format"` / ReDoc
+/// `"disableSearch"` / RapiDoc `"specUrl"` / swagger-ui `"dom_id"` /
+/// scalar `"layout": "modern"` / Elements `"layout": "sidebar"` /
+/// mintlify `"topbarLinks"` / Compodoc `"theme": "material"` / redocly
+/// `"apis"` / spectral `"functionsDir"` / openapitools `"generator-cli"` /
+/// Knip `"entry"` / prettier `"printWidth"` / package.json `"bin"` /
+/// karma `"basePath"` stay out. Numeric keys reject leading zeros beyond
+/// `0`.
+fn is_loki_json_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    let Some(rest) = s.strip_prefix('"') else {
+        return false;
+    };
+    let Some(end) = rest.find('"') else {
+        return false;
+    };
+    let key = &rest[..end];
+    if !loki_json_key_ok(key) {
+        return false;
+    }
+    let after_key = rest[end + 1..].trim_start();
+    let Some(after_colon) = after_key.strip_prefix(':') else {
+        return false;
+    };
+    let after_colon = after_colon.trim_start();
+    loki_json_value_and_tail_ok(key, after_colon)
+}
+
+fn loki_json_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "bytesProcessedPerSecond"
+            | "linesProcessedPerSecond"
+            | "totalBytesProcessed"
+            | "totalLinesProcessed"
+            | "totalEntriesReturned"
+            | "totalPostFilterLines"
+            | "totalStructuredMetadataBytesProcessed"
+            | "dropped_entries"
+            | "structuredMetadata"
+    )
+}
+
+fn loki_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool {
+    let bytes = after_colon.as_bytes();
+    let Some(first) = bytes.first().copied() else {
+        return false;
+    };
+    match first {
+        b'{' => {
+            if key != "structuredMetadata" {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[1..])
+        }
+        b'[' => {
+            if key != "dropped_entries" {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[1..])
+        }
+        b'0'..=b'9' => loki_json_number_and_tail_ok(key, after_colon),
+        _ => false,
+    }
+}
+
+fn loki_json_number_and_tail_ok(key: &str, after_colon: &str) -> bool {
+    if !matches!(
+        key,
+        "bytesProcessedPerSecond"
+            | "linesProcessedPerSecond"
+            | "totalBytesProcessed"
+            | "totalLinesProcessed"
+            | "totalEntriesReturned"
+            | "totalPostFilterLines"
+            | "totalStructuredMetadataBytesProcessed"
+    ) {
+        return false;
+    }
+    let digits = after_colon
+        .bytes()
+        .take_while(|b| b.is_ascii_digit())
+        .count();
+    let max_digits = if matches!(
+        key,
+        "totalBytesProcessed" | "totalStructuredMetadataBytesProcessed" | "bytesProcessedPerSecond"
+    ) {
+        16
+    } else {
+        12
     };
     if digits == 0 || digits > max_digits {
         return false;
@@ -91596,31 +91737,31 @@ mod func_like_line_tests {
         is_jasmine_json_decl, is_jest_json_decl, is_jsdoc_json_decl, is_karma_json_decl,
         is_keepalived_decl, is_knip_json_decl, is_krb5_conf_decl, is_lerna_json_decl,
         is_lightdm_conf_decl, is_limits_conf_decl, is_lint_staged_json_decl, is_locale_conf_decl,
-        is_login_defs_decl, is_logrotate_decl, is_machine_info_decl, is_makepkg_conf_decl,
-        is_mdbook_toml_decl, is_mintlify_json_decl, is_mise_toml_decl, is_mkinitcpio_conf_decl,
-        is_mocha_json_decl, is_mockoon_json_decl, is_mockserver_json_decl, is_modprobe_conf_decl,
-        is_mountebank_json_decl, is_mutants_toml_decl, is_mypy_ini_decl, is_mysql_cnf_decl,
-        is_named_conf_decl, is_nest_cli_json_decl, is_netlify_toml_decl, is_networks_file_decl,
-        is_neutralino_json_decl, is_nextest_toml_decl, is_nftables_decl, is_nginx_conf_decl,
-        is_nightwatch_json_decl, is_nixpacks_toml_decl, is_nm_connection_decl, is_npmrc_decl,
-        is_nsswitch_conf_decl, is_nx_json_decl, is_nyc_json_decl, is_openapi_json_decl,
-        is_openapitools_json_decl, is_openvpn_decl, is_os_release_decl, is_otlp_json_decl,
-        is_oxlint_json_decl, is_package_json_decl, is_pacman_conf_decl, is_pact_json_decl,
-        is_pam_conf_decl, is_parcel_json_decl, is_paru_conf_decl, is_passwd_group_file_decl,
-        is_pdm_toml_decl, is_php_ini_decl, is_pip_conf_decl, is_pipfile_decl, is_pixi_toml_decl,
-        is_playwright_json_decl, is_podfile_decl, is_poetry_toml_decl, is_postcss_json_decl,
-        is_postman_json_decl, is_premake_decl, is_prettier_json_decl, is_protocols_file_decl,
-        is_pycln_ini_decl, is_pycodestyle_ini_decl, is_pydoclint_ini_decl, is_pydocstyle_ini_decl,
-        is_pylama_ini_decl, is_pylint_ini_decl, is_pypirc_ini_decl, is_pyproject_toml_decl,
-        is_pyre_configuration_decl, is_pyright_toml_decl, is_pyrightconfig_json_decl,
-        is_pytest_ini_decl, is_pytype_ini_decl, is_pyupgrade_ini_decl, is_radon_ini_decl,
-        is_railway_toml_decl, is_rake_decl, is_rapidoc_json_decl, is_redoc_json_decl,
-        is_redocly_json_decl, is_refurb_toml_decl, is_release_it_json_decl,
-        is_release_please_json_decl, is_release_toml_decl, is_renovate_json_decl,
-        is_resolv_conf_decl, is_rpc_file_decl, is_rstcheck_ini_decl, is_rsyslog_decl,
-        is_ruff_toml_decl, is_rush_json_decl, is_rust_toolchain_toml_decl, is_rustfmt_toml_decl,
-        is_samba_conf_decl, is_samconfig_toml_decl, is_scalar_json_decl, is_scons_decl,
-        is_scriv_ini_decl, is_sddm_conf_decl, is_semantic_release_ini_decl,
+        is_login_defs_decl, is_logrotate_decl, is_loki_json_decl, is_machine_info_decl,
+        is_makepkg_conf_decl, is_mdbook_toml_decl, is_mintlify_json_decl, is_mise_toml_decl,
+        is_mkinitcpio_conf_decl, is_mocha_json_decl, is_mockoon_json_decl, is_mockserver_json_decl,
+        is_modprobe_conf_decl, is_mountebank_json_decl, is_mutants_toml_decl, is_mypy_ini_decl,
+        is_mysql_cnf_decl, is_named_conf_decl, is_nest_cli_json_decl, is_netlify_toml_decl,
+        is_networks_file_decl, is_neutralino_json_decl, is_nextest_toml_decl, is_nftables_decl,
+        is_nginx_conf_decl, is_nightwatch_json_decl, is_nixpacks_toml_decl, is_nm_connection_decl,
+        is_npmrc_decl, is_nsswitch_conf_decl, is_nx_json_decl, is_nyc_json_decl,
+        is_openapi_json_decl, is_openapitools_json_decl, is_openvpn_decl, is_os_release_decl,
+        is_otlp_json_decl, is_oxlint_json_decl, is_package_json_decl, is_pacman_conf_decl,
+        is_pact_json_decl, is_pam_conf_decl, is_parcel_json_decl, is_paru_conf_decl,
+        is_passwd_group_file_decl, is_pdm_toml_decl, is_php_ini_decl, is_pip_conf_decl,
+        is_pipfile_decl, is_pixi_toml_decl, is_playwright_json_decl, is_podfile_decl,
+        is_poetry_toml_decl, is_postcss_json_decl, is_postman_json_decl, is_premake_decl,
+        is_prettier_json_decl, is_protocols_file_decl, is_pycln_ini_decl, is_pycodestyle_ini_decl,
+        is_pydoclint_ini_decl, is_pydocstyle_ini_decl, is_pylama_ini_decl, is_pylint_ini_decl,
+        is_pypirc_ini_decl, is_pyproject_toml_decl, is_pyre_configuration_decl,
+        is_pyright_toml_decl, is_pyrightconfig_json_decl, is_pytest_ini_decl, is_pytype_ini_decl,
+        is_pyupgrade_ini_decl, is_radon_ini_decl, is_railway_toml_decl, is_rake_decl,
+        is_rapidoc_json_decl, is_redoc_json_decl, is_redocly_json_decl, is_refurb_toml_decl,
+        is_release_it_json_decl, is_release_please_json_decl, is_release_toml_decl,
+        is_renovate_json_decl, is_resolv_conf_decl, is_rpc_file_decl, is_rstcheck_ini_decl,
+        is_rsyslog_decl, is_ruff_toml_decl, is_rush_json_decl, is_rust_toolchain_toml_decl,
+        is_rustfmt_toml_decl, is_samba_conf_decl, is_samconfig_toml_decl, is_scalar_json_decl,
+        is_scons_decl, is_scriv_ini_decl, is_sddm_conf_decl, is_semantic_release_ini_decl,
         is_semantic_release_json_decl, is_services_file_decl, is_setup_cfg_decl,
         is_setuptools_scm_ini_decl, is_simple_git_hooks_json_decl, is_spectral_json_decl,
         is_sqlfluff_ini_decl, is_ssh_config_decl, is_sssd_conf_decl,
@@ -122177,6 +122318,243 @@ mod func_like_line_tests {
         assert!(line_is_func_like(r#""completedJobs": 1"#));
         assert!(line_is_func_like(r#""totalJobs": 1"#));
         assert!(line_is_func_like(r#""totalBlockBytes": "2097152""#));
+        // Loki neighbours stay out of Tempo.
+        assert!(!is_tempo_json_decl(r#""bytesProcessedPerSecond": 1234"#));
+        assert!(is_loki_json_decl(r#""bytesProcessedPerSecond": 1234"#));
+        assert!(!is_tempo_json_decl(r#""dropped_entries": ["#));
+        assert!(is_loki_json_decl(r#""dropped_entries": ["#));
+        assert!(!is_tempo_json_decl(r#""structuredMetadata": {"#));
+        assert!(is_loki_json_decl(r#""structuredMetadata": {"#));
+    }
+
+    #[test]
+    fn loki_json_keys_smoke() {
+        assert!(is_loki_json_decl(r#""bytesProcessedPerSecond": 1234"#));
+        assert!(is_loki_json_decl(r#""linesProcessedPerSecond": 56"#));
+        assert!(is_loki_json_decl(r#""totalBytesProcessed": 1048576"#));
+        assert!(is_loki_json_decl(r#""totalLinesProcessed": 100"#));
+        assert!(is_loki_json_decl(r#""totalEntriesReturned": 10"#));
+        assert!(is_loki_json_decl(r#""totalPostFilterLines": 10"#));
+        assert!(is_loki_json_decl(
+            r#""totalStructuredMetadataBytesProcessed": 32"#
+        ));
+        assert!(is_loki_json_decl(r#""dropped_entries": ["#));
+        assert!(is_loki_json_decl(r#""structuredMetadata": {"#));
+        // Distinctive neighbours stay out of this scanner.
+        assert!(!is_loki_json_decl(r#""rootServiceName": "frontend""#));
+        assert!(is_tempo_json_decl(r#""rootServiceName": "frontend""#));
+        assert!(!is_loki_json_decl(r#""spanSet": {"#));
+        assert!(is_tempo_json_decl(r#""spanSet": {"#));
+        assert!(!is_loki_json_decl(
+            r#""traceID": "0123456789abcdef0123456789abcdef""#
+        ));
+        assert!(is_jaeger_json_decl(
+            r#""traceID": "0123456789abcdef0123456789abcdef""#
+        ));
+        assert!(!is_loki_json_decl(r#""localEndpoint": {"#));
+        assert!(is_zipkin_json_decl(r#""localEndpoint": {"#));
+        assert!(!is_loki_json_decl(r#""resourceSpans": ["#));
+        assert!(is_otlp_json_decl(r#""resourceSpans": ["#));
+        assert!(!is_loki_json_decl(
+            r#""startedDateTime": "2009-04-16T15:53:27.373Z""#
+        ));
+        assert!(is_har_json_decl(
+            r#""startedDateTime": "2009-04-16T15:53:27.373Z""#
+        ));
+        assert!(!is_loki_json_decl(r#""openapi": "3.0.3""#));
+        assert!(is_openapi_json_decl(r#""openapi": "3.0.3""#));
+        assert!(line_is_func_like(r#""bytesProcessedPerSecond": 1234"#));
+        assert!(line_is_func_like(r#""linesProcessedPerSecond": 56"#));
+        assert!(line_is_func_like(r#""totalBytesProcessed": 1048576"#));
+        assert!(line_is_func_like(r#""totalLinesProcessed": 100"#));
+        assert!(line_is_func_like(r#""totalEntriesReturned": 10"#));
+        assert!(line_is_func_like(r#""totalPostFilterLines": 10"#));
+        assert!(line_is_func_like(
+            r#""totalStructuredMetadataBytesProcessed": 32"#
+        ));
+        assert!(line_is_func_like(r#""dropped_entries": ["#));
+        assert!(line_is_func_like(r#""structuredMetadata": {"#));
+    }
+
+    #[test]
+    fn loki_json_keys_count() {
+        assert!(is_loki_json_decl(r#""bytesProcessedPerSecond": 0"#));
+        assert!(is_loki_json_decl(r#""bytesProcessedPerSecond": 1234"#));
+        assert!(is_loki_json_decl(r#""bytesProcessedPerSecond": 1234,"#));
+        assert!(is_loki_json_decl(r#""bytesProcessedPerSecond": 1234 // r"#));
+        assert!(!is_loki_json_decl(r#""bytesProcessedPerSecond": 01"#));
+        assert!(!is_loki_json_decl(r#""bytesProcessedPerSecond": true"#));
+        assert!(!is_loki_json_decl(r#""bytesProcessedPerSecond": "1234""#));
+        assert!(!is_loki_json_decl(r#""bytesProcessedPerSecond": {"#));
+        assert!(is_loki_json_decl(r#""linesProcessedPerSecond": 0"#));
+        assert!(is_loki_json_decl(r#""linesProcessedPerSecond": 56"#));
+        assert!(is_loki_json_decl(r#""linesProcessedPerSecond": 56,"#));
+        assert!(is_loki_json_decl(r#""linesProcessedPerSecond": 56 // r"#));
+        assert!(!is_loki_json_decl(r#""linesProcessedPerSecond": 056"#));
+        assert!(!is_loki_json_decl(r#""linesProcessedPerSecond": true"#));
+        assert!(!is_loki_json_decl(r#""linesProcessedPerSecond": "56""#));
+        assert!(!is_loki_json_decl(r#""linesProcessedPerSecond": {"#));
+        assert!(is_loki_json_decl(r#""totalBytesProcessed": 0"#));
+        assert!(is_loki_json_decl(r#""totalBytesProcessed": 1048576"#));
+        assert!(is_loki_json_decl(r#""totalBytesProcessed": 1048576,"#));
+        assert!(is_loki_json_decl(r#""totalBytesProcessed": 1048576 // b"#));
+        assert!(!is_loki_json_decl(r#""totalBytesProcessed": 01"#));
+        assert!(!is_loki_json_decl(r#""totalBytesProcessed": true"#));
+        assert!(!is_loki_json_decl(r#""totalBytesProcessed": "1048576""#));
+        assert!(!is_loki_json_decl(r#""totalBytesProcessed": {"#));
+        assert!(is_loki_json_decl(r#""totalLinesProcessed": 0"#));
+        assert!(is_loki_json_decl(r#""totalLinesProcessed": 100"#));
+        assert!(is_loki_json_decl(r#""totalLinesProcessed": 100,"#));
+        assert!(is_loki_json_decl(r#""totalLinesProcessed": 100 // n"#));
+        assert!(!is_loki_json_decl(r#""totalLinesProcessed": 01"#));
+        assert!(!is_loki_json_decl(r#""totalLinesProcessed": true"#));
+        assert!(!is_loki_json_decl(r#""totalLinesProcessed": "100""#));
+        assert!(!is_loki_json_decl(r#""totalLinesProcessed": {"#));
+        assert!(is_loki_json_decl(r#""totalEntriesReturned": 0"#));
+        assert!(is_loki_json_decl(r#""totalEntriesReturned": 10"#));
+        assert!(is_loki_json_decl(r#""totalEntriesReturned": 10,"#));
+        assert!(is_loki_json_decl(r#""totalEntriesReturned": 10 // n"#));
+        assert!(!is_loki_json_decl(r#""totalEntriesReturned": 01"#));
+        assert!(!is_loki_json_decl(r#""totalEntriesReturned": true"#));
+        assert!(!is_loki_json_decl(r#""totalEntriesReturned": "10""#));
+        assert!(!is_loki_json_decl(r#""totalEntriesReturned": {"#));
+        assert!(is_loki_json_decl(r#""totalPostFilterLines": 0"#));
+        assert!(is_loki_json_decl(r#""totalPostFilterLines": 10"#));
+        assert!(is_loki_json_decl(r#""totalPostFilterLines": 10,"#));
+        assert!(is_loki_json_decl(r#""totalPostFilterLines": 10 // n"#));
+        assert!(!is_loki_json_decl(r#""totalPostFilterLines": 01"#));
+        assert!(!is_loki_json_decl(r#""totalPostFilterLines": true"#));
+        assert!(!is_loki_json_decl(r#""totalPostFilterLines": "10""#));
+        assert!(!is_loki_json_decl(r#""totalPostFilterLines": {"#));
+        assert!(is_loki_json_decl(
+            r#""totalStructuredMetadataBytesProcessed": 0"#
+        ));
+        assert!(is_loki_json_decl(
+            r#""totalStructuredMetadataBytesProcessed": 32"#
+        ));
+        assert!(is_loki_json_decl(
+            r#""totalStructuredMetadataBytesProcessed": 32,"#
+        ));
+        assert!(is_loki_json_decl(
+            r#""totalStructuredMetadataBytesProcessed": 32 // m"#
+        ));
+        assert!(!is_loki_json_decl(
+            r#""totalStructuredMetadataBytesProcessed": 032"#
+        ));
+        assert!(!is_loki_json_decl(
+            r#""totalStructuredMetadataBytesProcessed": true"#
+        ));
+        assert!(!is_loki_json_decl(
+            r#""totalStructuredMetadataBytesProcessed": "32""#
+        ));
+        assert!(!is_loki_json_decl(
+            r#""totalStructuredMetadataBytesProcessed": {"#
+        ));
+        assert!(is_loki_json_decl(r#""dropped_entries": ["#));
+        assert!(is_loki_json_decl(r#""dropped_entries": [,"#));
+        assert!(is_loki_json_decl(r#""dropped_entries": [ // drop"#));
+        assert!(!is_loki_json_decl(r#""dropped_entries": {"#));
+        assert!(!is_loki_json_decl(r#""dropped_entries": true"#));
+        assert!(!is_loki_json_decl(r#""dropped_entries": """#));
+        assert!(is_loki_json_decl(r#""structuredMetadata": {"#));
+        assert!(is_loki_json_decl(r#""structuredMetadata": {,"#));
+        assert!(is_loki_json_decl(r#""structuredMetadata": { // meta"#));
+        assert!(!is_loki_json_decl(r#""structuredMetadata": ["#));
+        assert!(!is_loki_json_decl(r#""structuredMetadata": true"#));
+        assert!(!is_loki_json_decl(r#""structuredMetadata": """#));
+        // Incomplete / wrong shapes stay out.
+        assert!(!is_loki_json_decl(r#""bytesProcessedPerSecond""#));
+        assert!(!is_loki_json_decl(r#""bytesProcessedPerSecond":"#));
+        assert!(!is_loki_json_decl(r#""linesProcessedPerSecond""#));
+        assert!(!is_loki_json_decl(r#""totalBytesProcessed""#));
+        assert!(!is_loki_json_decl(r#""totalLinesProcessed""#));
+        assert!(!is_loki_json_decl(r#""totalEntriesReturned""#));
+        assert!(!is_loki_json_decl(r#""totalPostFilterLines""#));
+        assert!(!is_loki_json_decl(
+            r#""totalStructuredMetadataBytesProcessed""#
+        ));
+        assert!(!is_loki_json_decl(r#""dropped_entries""#));
+        assert!(!is_loki_json_decl(r#""structuredMetadata""#));
+        // Generic / neighbouring stay out.
+        assert!(!is_loki_json_decl(
+            r#""$schema": "https://json-schema.org/draft/2020-12/schema""#
+        ));
+        assert!(!is_loki_json_decl(r#""name": "GET /users""#));
+        assert!(!is_loki_json_decl(r#""id": "0123456789abcdef""#));
+        assert!(!is_loki_json_decl(r#""timestamp": 1500000000000000"#));
+        assert!(!is_loki_json_decl(r#""duration": 35000"#));
+        assert!(!is_loki_json_decl(r#""startTime": 1485467191639875"#));
+        assert!(!is_loki_json_decl(r#""tags": ["#));
+        assert!(!is_loki_json_decl(r#""logs": ["#));
+        assert!(!is_loki_json_decl(r#""spans": ["#));
+        assert!(!is_loki_json_decl(r#""serviceName": "api""#));
+        assert!(!is_loki_json_decl(r#""streams": ["#));
+        assert!(!is_loki_json_decl(r#""stream": {"#));
+        assert!(!is_loki_json_decl(r#""values": ["#));
+        assert!(!is_loki_json_decl(r#""status": "success""#));
+        assert!(!is_loki_json_decl(r#""resultType": "streams""#));
+        assert!(!is_loki_json_decl(r#""result": ["#));
+        assert!(!is_loki_json_decl(r#""stats": {"#));
+        assert!(!is_loki_json_decl(r#""summary": {"#));
+        assert!(!is_loki_json_decl(r#""rootServiceName": "frontend""#));
+        assert!(is_tempo_json_decl(r#""rootServiceName": "frontend""#));
+        assert!(!is_loki_json_decl(r#""rootTraceName": "HTTP GET /api""#));
+        assert!(is_tempo_json_decl(r#""rootTraceName": "HTTP GET /api""#));
+        assert!(!is_loki_json_decl(r#""spanSet": {"#));
+        assert!(is_tempo_json_decl(r#""spanSet": {"#));
+        assert!(!is_loki_json_decl(r#""spanSets": ["#));
+        assert!(is_tempo_json_decl(r#""spanSets": ["#));
+        assert!(!is_loki_json_decl(r#""durationMs": 1234"#));
+        assert!(is_tempo_json_decl(r#""durationMs": 1234"#));
+        assert!(!is_loki_json_decl(r#""inspectedTraces": 100"#));
+        assert!(is_tempo_json_decl(r#""inspectedTraces": 100"#));
+        assert!(!is_loki_json_decl(r#""inspectedBytes": "1048576""#));
+        assert!(is_tempo_json_decl(r#""inspectedBytes": "1048576""#));
+        assert!(!is_loki_json_decl(r#""totalBlocks": 5"#));
+        assert!(is_tempo_json_decl(r#""totalBlocks": 5"#));
+        assert!(!is_loki_json_decl(r#""completedJobs": 1"#));
+        assert!(is_tempo_json_decl(r#""completedJobs": 1"#));
+        assert!(!is_loki_json_decl(r#""totalJobs": 1"#));
+        assert!(is_tempo_json_decl(r#""totalJobs": 1"#));
+        assert!(!is_loki_json_decl(r#""totalBlockBytes": "2097152""#));
+        assert!(is_tempo_json_decl(r#""totalBlockBytes": "2097152""#));
+        assert!(!is_loki_json_decl(
+            r#""traceID": "0123456789abcdef0123456789abcdef""#
+        ));
+        assert!(is_jaeger_json_decl(
+            r#""traceID": "0123456789abcdef0123456789abcdef""#
+        ));
+        assert!(!is_loki_json_decl(r#""spanID": "0123456789abcdef""#));
+        assert!(is_jaeger_json_decl(r#""spanID": "0123456789abcdef""#));
+        assert!(!is_loki_json_decl(r#""localEndpoint": {"#));
+        assert!(is_zipkin_json_decl(r#""localEndpoint": {"#));
+        assert!(!is_loki_json_decl(r#""resourceSpans": ["#));
+        assert!(is_otlp_json_decl(r#""resourceSpans": ["#));
+        assert!(!is_loki_json_decl(
+            r#""startedDateTime": "2009-04-16T15:53:27.373Z""#
+        ));
+        assert!(is_har_json_decl(
+            r#""startedDateTime": "2009-04-16T15:53:27.373Z""#
+        ));
+        assert!(!is_loki_json_decl(r#""openapi": "3.0.3""#));
+        assert!(is_openapi_json_decl(r#""openapi": "3.0.3""#));
+        assert!(!is_loki_json_decl(r#""asyncapi": "2.6.0""#));
+        assert!(is_asyncapi_json_decl(r#""asyncapi": "2.6.0""#));
+        assert!(!is_loki_json_decl(r#""printWidth": 80"#));
+        assert!(is_prettier_json_decl(r#""printWidth": 80"#));
+        assert!(!is_loki_json_decl(r#""basePath": ".""#));
+        assert!(is_karma_json_decl(r#""basePath": ".""#));
+        assert!(line_is_func_like(r#""bytesProcessedPerSecond": 0"#));
+        assert!(line_is_func_like(r#""linesProcessedPerSecond": 56"#));
+        assert!(line_is_func_like(r#""totalBytesProcessed": 1048576"#));
+        assert!(line_is_func_like(r#""totalLinesProcessed": 100"#));
+        assert!(line_is_func_like(r#""totalEntriesReturned": 10"#));
+        assert!(line_is_func_like(r#""totalPostFilterLines": 10"#));
+        assert!(line_is_func_like(
+            r#""totalStructuredMetadataBytesProcessed": 32"#
+        ));
+        assert!(line_is_func_like(r#""dropped_entries": ["#));
+        assert!(line_is_func_like(r#""structuredMetadata": {"#));
     }
 
     #[test]
