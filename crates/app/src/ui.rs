@@ -32478,6 +32478,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_qdrant_json_decl(s)
             || is_weaviate_json_decl(s)
             || is_pinecone_json_decl(s)
+            || is_chroma_json_decl(s)
             || is_gomod_decl(s)
             || is_gemfile_decl(s)
             || is_brewfile_decl(s)
@@ -32866,6 +32867,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_qdrant_json_decl(s)
         || is_weaviate_json_decl(s)
         || is_pinecone_json_decl(s)
+        || is_chroma_json_decl(s)
         || is_gomod_decl(s)
         || is_gemfile_decl(s)
         || is_brewfile_decl(s)
@@ -62859,7 +62861,10 @@ fn algolia_json_bool_and_tail_ok(after_colon: &str) -> bool {
 /// `"includeMetadata"` / `"includeValues"` / `"sparseValues"` /
 /// `"sparseVector"` / `"namespaces"` / `"usage"` / `"totalVectorCount"` /
 /// `"vectorCount"` / `"upsertedCount"` / `"readUnits"` / `"indexFullness"` /
-/// `"deletion_protection"` / `"vector_type"` stay out.
+/// `"deletion_protection"` / `"vector_type"` / Chroma `"n_results"` /
+/// `"where_document"` / `"query_embeddings"` / `"query_texts"` /
+/// `"metadatas"` / `"distances"` / `"include"` / `"included"` /
+/// `"get_or_create"` / `"configuration_json"` / `"log_position"` stay out.
 /// `"optimizer_status"` only matches `"ok"` as a string (or `{`).
 /// Numeric `"vectors_count"` / `"indexed_vectors_count"` /
 /// `"points_count"` / `"segments_count"` / `"hnsw_ef"` reject leading
@@ -63086,7 +63091,10 @@ fn qdrant_json_bool_and_tail_ok(after_colon: &str) -> bool {
 /// `"includeMetadata"` / `"includeValues"` / `"sparseValues"` /
 /// `"sparseVector"` / `"namespaces"` / `"usage"` / `"totalVectorCount"` /
 /// `"vectorCount"` / `"upsertedCount"` / `"readUnits"` / `"indexFullness"` /
-/// `"deletion_protection"` / `"vector_type"` stay out.
+/// `"deletion_protection"` / `"vector_type"` / Chroma `"n_results"` /
+/// `"where_document"` / `"query_embeddings"` / `"query_texts"` /
+/// `"metadatas"` / `"distances"` / `"include"` / `"included"` /
+/// `"get_or_create"` / `"configuration_json"` / `"log_position"` stay out.
 /// `"vectorIndexType"` only matches `hnsw` / `flat` / `dynamic`.
 /// `"tokenization"` only matches its Weaviate enums. Numeric
 /// `"creationTimeUnix"` / `"lastUpdateTimeUnix"` reject leading zeros
@@ -63311,7 +63319,10 @@ fn weaviate_json_bool_and_tail_ok(after_colon: &str) -> bool {
 /// mintlify `"topbarLinks"` / Compodoc `"theme": "material"` / redocly
 /// `"apis"` / spectral `"functionsDir"` / openapitools
 /// `"generator-cli"` / Knip `"entry"` / prettier `"printWidth"` /
-/// package.json `"bin"` / karma `"basePath"` stay out.
+/// package.json `"bin"` / karma `"basePath"` / Chroma `"n_results"` /
+/// `"where_document"` / `"query_embeddings"` / `"query_texts"` /
+/// `"metadatas"` / `"distances"` / `"include"` / `"included"` /
+/// `"get_or_create"` / `"configuration_json"` / `"log_position"` stay out.
 /// `"deletion_protection"` only matches `enabled` / `disabled`.
 /// `"vector_type"` only matches `dense` / `sparse`. Numeric
 /// `"topK"` / `"totalVectorCount"` / `"vectorCount"` / `"upsertedCount"` /
@@ -63467,6 +63478,190 @@ fn pinecone_json_index_fullness_and_tail_ok(after_colon: &str) -> bool {
 }
 
 fn pinecone_json_bool_and_tail_ok(after_colon: &str) -> bool {
+    if let Some(rest) = after_colon.strip_prefix("true") {
+        return package_json_tail_ok(rest);
+    }
+    if let Some(rest) = after_colon.strip_prefix("false") {
+        return package_json_tail_ok(rest);
+    }
+    false
+}
+
+/// Chroma query / collection / result JSON keys:
+/// `"n_results": 0` / `10`,
+/// `"where_document": {`,
+/// `"query_embeddings": [`,
+/// `"query_texts": [`,
+/// `"metadatas": [`,
+/// `"distances": [`,
+/// `"include": [`,
+/// `"included": [`,
+/// `"get_or_create": true` / `false`,
+/// `"configuration_json": {`,
+/// `"log_position": 0` / `3`.
+/// Optional trailing `,` and `//` / `/*` comment. Incomplete quotes /
+/// missing `:` stay out. Generic `"$schema"` / `"name"` / `"id"` /
+/// `"ids"` / `"embeddings"` / `"documents"` / `"uris"` / `"data"` /
+/// `"where"` / `"metadata"` / `"tenant"` / `"database"` / `"version"` /
+/// `"filter"` / `"limit"` / `"offset"` / Pinecone `"topK"` /
+/// `"includeMetadata"` / `"includeValues"` / `"sparseValues"` /
+/// `"sparseVector"` / `"namespaces"` / `"usage"` / `"totalVectorCount"` /
+/// `"vectorCount"` / `"upsertedCount"` / `"readUnits"` / `"indexFullness"` /
+/// `"deletion_protection"` / `"vector_type"` / Weaviate `"nearVector"` /
+/// `"nearObject"` / `"nearText"` / `"invertedIndexConfig"` /
+/// `"vectorIndexConfig"` / `"vectorIndexType"` / `"shardingConfig"` /
+/// `"multiTenancyConfig"` / `"replicationConfig"` / `"moduleConfig"` /
+/// `"creationTimeUnix"` / `"lastUpdateTimeUnix"` / `"indexFilterable"` /
+/// `"indexSearchable"` / `"tokenization"` / Qdrant `"vectors_count"` /
+/// `"indexed_vectors_count"` / `"points_count"` / `"segments_count"` /
+/// `"optimizer_status"` / `"payload_schema"` / `"hnsw_config"` /
+/// `"wal_config"` / `"optimizer_config"` / `"quantization_config"` /
+/// `"score_threshold"` / `"with_payload"` / `"with_vector"` / `"hnsw_ef"` /
+/// `"indexed_only"` / Algolia `"processingTimeMS"` / `"nbPages"` /
+/// `"serverTimeMS"` / `"queryID"` / `"indexUsed"` / `"aroundLatLng"` /
+/// `"highlightPreTag"` / `"facets_stats"` / `"renderingContent"` /
+/// `"appliedRules"` / `"attributesToHighlight"` / `"getRankingInfo"` /
+/// `"clickAnalytics"` / `"enablePersonalization"` /
+/// `"removeWordsIfNoResults"` / Meilisearch `"processingTimeMs"` /
+/// `"estimatedTotalHits"` / `"exhaustiveNbHits"` / `"nbHits"` /
+/// `"hitsPerPage"` / `"facetDistribution"` / `"facetStats"` /
+/// `"exhaustiveFacetsCount"` / `"rankingScoreThreshold"` /
+/// `"showRankingScore"` / `"matchingStrategy"` / `"attributesToSearchOn"` /
+/// Typesense `"search_time_ms"` / `"out_of"` / `"search_cutoff"` /
+/// `"grouped_hits"` / `"facet_counts": [` / `"default_sorting_field"` /
+/// `"enable_nested_fields"` / `"token_separators"` / `"symbols_to_index"` /
+/// `"drop_tokens_threshold"` / `"typo_tokens_threshold"` /
+/// `"prioritize_exact_match"` / `"exhaustive_search"` / Solr
+/// `"responseHeader"` / `"numFound"` / `"numFoundExact"` / `"QTime"` /
+/// `"zkConnected"` / `"facet_counts": {` / `"highlighting"` /
+/// `"spellcheck"` / `"grouped"` / `"nextCursorMark"` / Elasticsearch
+/// `"track_total_hits"` / `"min_score"` / `"post_filter"` /
+/// `"runtime_mappings"` / `"script_fields"` / `"docvalue_fields"` /
+/// `"seq_no_primary_term"` / `"_scroll_id"` / `"_shards"` / Grafana
+/// alerting `"noDataState"` / `"execErrState"` / `"datasourceUid"` /
+/// `"folderUID"` / `"relativeTimeRange"` / `"grafana_alert"` /
+/// `"contactPoints"` / `"muteTimes"` / `"isPaused"` / Grafana
+/// dashboard `"schemaVersion"` / `"graphTooltip"` / `"templating"` /
+/// `"gnetId"` / Grafana datasource `"access"` / `"basicAuth"` /
+/// `"jsonData"` / `"deleteDatasources"` / Alertmanager `"groupKey"` /
+/// `"truncatedAlerts"` / Prometheus `"totalQueryableSamples"` / Loki
+/// `"bytesProcessedPerSecond"` / Tempo `"rootServiceName"` / Jaeger
+/// `"traceID"` / Zipkin `"localEndpoint"` / OTLP `"resourceSpans"` /
+/// HAR `"startedDateTime"` / OpenAPI `"openapi"` / AsyncAPI
+/// `"asyncapi"` / `"channels": {` / Pact `"consumer"` / MockServer
+/// `"httpRequest"` / Hoverfly `"hoverflyVersion"` / Mountebank
+/// `"imposters"` / WireMock `"scenarioName"` / Mockoon
+/// `"lastMigration"` / Hoppscotch `"preRequestScript"` / Yaak
+/// `"yaakVersion"` / Bruno `"brunoConfig"` / Thunder Client `"client"` /
+/// Postman `"_postman_id"` / Insomnia `"__export_format"` / ReDoc
+/// `"disableSearch"` / RapiDoc `"specUrl"` / swagger-ui `"dom_id"` /
+/// scalar `"layout": "modern"` / Elements `"layout": "sidebar"` /
+/// mintlify `"topbarLinks"` / Compodoc `"theme": "material"` / redocly
+/// `"apis"` / spectral `"functionsDir"` / openapitools
+/// `"generator-cli"` / Knip `"entry"` / prettier `"printWidth"` /
+/// package.json `"bin"` / karma `"basePath"` stay out.
+/// Numeric `"n_results"` / `"log_position"` reject leading zeros beyond `0`.
+fn is_chroma_json_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    let Some(rest) = s.strip_prefix('"') else {
+        return false;
+    };
+    let Some(end) = rest.find('"') else {
+        return false;
+    };
+    let key = &rest[..end];
+    if !chroma_json_key_ok(key) {
+        return false;
+    }
+    let after_key = rest[end + 1..].trim_start();
+    let Some(after_colon) = after_key.strip_prefix(':') else {
+        return false;
+    };
+    let after_colon = after_colon.trim_start();
+    chroma_json_value_and_tail_ok(key, after_colon)
+}
+
+fn chroma_json_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "n_results"
+            | "where_document"
+            | "query_embeddings"
+            | "query_texts"
+            | "metadatas"
+            | "distances"
+            | "include"
+            | "included"
+            | "get_or_create"
+            | "configuration_json"
+            | "log_position"
+    )
+}
+
+fn chroma_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool {
+    let bytes = after_colon.as_bytes();
+    let Some(first) = bytes.first().copied() else {
+        return false;
+    };
+    match first {
+        b'{' => {
+            if !matches!(key, "where_document" | "configuration_json") {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[1..])
+        }
+        b'[' => {
+            if !matches!(
+                key,
+                "query_embeddings"
+                    | "query_texts"
+                    | "metadatas"
+                    | "distances"
+                    | "include"
+                    | "included"
+            ) {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[1..])
+        }
+        b't' | b'f' => {
+            if key != "get_or_create" {
+                return false;
+            }
+            chroma_json_bool_and_tail_ok(after_colon)
+        }
+        b'0'..=b'9' => chroma_json_number_and_tail_ok(key, after_colon),
+        _ => false,
+    }
+}
+
+fn chroma_json_number_and_tail_ok(key: &str, after_colon: &str) -> bool {
+    match key {
+        "n_results" | "log_position" => chroma_json_uint_and_tail_ok(after_colon),
+        _ => false,
+    }
+}
+
+fn chroma_json_uint_and_tail_ok(after_colon: &str) -> bool {
+    let bytes = after_colon.as_bytes();
+    let mut i = 0usize;
+    if i >= bytes.len() || !bytes[i].is_ascii_digit() {
+        return false;
+    }
+    if bytes[i] == b'0' {
+        i += 1;
+        if i < bytes.len() && bytes[i].is_ascii_digit() {
+            return false;
+        }
+    } else {
+        while i < bytes.len() && bytes[i].is_ascii_digit() {
+            i += 1;
+        }
+    }
+    package_json_tail_ok(&after_colon[i..])
+}
+
+fn chroma_json_bool_and_tail_ok(after_colon: &str) -> bool {
     if let Some(rest) = after_colon.strip_prefix("true") {
         return package_json_tail_ok(rest);
     }
@@ -94096,58 +94291,58 @@ mod func_like_line_tests {
         is_bunfig_toml_decl, is_c8_json_decl, is_cabal_decl, is_capacitor_json_decl,
         is_cargo_config_toml_decl, is_cargo_make_toml_decl, is_cargo_toml_decl,
         is_cbindgen_toml_decl, is_changesets_json_decl, is_check_manifest_ini_decl,
-        is_check_wheel_contents_ini_decl, is_cibuildwheel_ini_decl, is_cliff_toml_decl,
-        is_clippy_toml_decl, is_codecept_json_decl, is_codespell_ini_decl, is_commitizen_ini_decl,
-        is_commitlint_json_decl, is_compodoc_json_decl, is_composer_json_decl,
-        is_coverage_ini_decl, is_cross_toml_decl, is_crypttab_decl, is_cspell_json_decl,
-        is_cucumber_json_decl, is_cypress_json_decl, is_darglint_ini_decl, is_default_grub_decl,
-        is_deno_json_decl, is_deny_toml_decl, is_desktop_entry_decl, is_detox_json_decl,
-        is_devcontainer_json_decl, is_dhcpd_decl, is_dioxus_toml_decl, is_dist_toml_decl,
-        is_doc8_ini_decl, is_docformatter_ini_decl, is_docfx_json_decl, is_dovecot_decl,
-        is_dprint_json_decl, is_dracut_conf_decl, is_eas_json_decl, is_editorconfig_decl,
-        is_elasticsearch_json_decl, is_electron_builder_json_decl, is_electron_forge_json_decl,
-        is_esdoc_json_decl, is_eslint_json_decl, is_ethers_file_decl, is_expo_json_decl,
-        is_fail2ban_conf_decl, is_firebase_json_decl, is_flake8_ini_decl, is_fluent_bit_decl,
-        is_fly_toml_decl, is_flynt_ini_decl, is_freeradius_decl, is_fstab_decl, is_gdm_conf_decl,
-        is_gemfile_decl, is_gitconfig_decl, is_gomod_decl, is_grafana_alerting_json_decl,
-        is_grafana_dashboard_json_decl, is_grafana_datasource_json_decl, is_grafana_ini_decl,
-        is_haproxy_decl, is_har_json_decl, is_hatch_toml_decl, is_hoppscotch_json_decl,
-        is_hosts_access_decl, is_hosts_file_decl, is_hoverfly_json_decl, is_hypothesis_ini_decl,
-        is_importlinter_ini_decl, is_insomnia_json_decl, is_interrogate_ini_decl,
-        is_ionic_json_decl, is_ipsec_conf_decl, is_isort_ini_decl, is_jaeger_json_decl,
-        is_jasmine_json_decl, is_jest_json_decl, is_jsdoc_json_decl, is_karma_json_decl,
-        is_keepalived_decl, is_knip_json_decl, is_krb5_conf_decl, is_lerna_json_decl,
-        is_lightdm_conf_decl, is_limits_conf_decl, is_lint_staged_json_decl, is_locale_conf_decl,
-        is_login_defs_decl, is_logrotate_decl, is_loki_json_decl, is_machine_info_decl,
-        is_makepkg_conf_decl, is_mdbook_toml_decl, is_meilisearch_json_decl, is_mintlify_json_decl,
-        is_mise_toml_decl, is_mkinitcpio_conf_decl, is_mocha_json_decl, is_mockoon_json_decl,
-        is_mockserver_json_decl, is_modprobe_conf_decl, is_mountebank_json_decl,
-        is_mutants_toml_decl, is_mypy_ini_decl, is_mysql_cnf_decl, is_named_conf_decl,
-        is_nest_cli_json_decl, is_netlify_toml_decl, is_networks_file_decl,
-        is_neutralino_json_decl, is_nextest_toml_decl, is_nftables_decl, is_nginx_conf_decl,
-        is_nightwatch_json_decl, is_nixpacks_toml_decl, is_nm_connection_decl, is_npmrc_decl,
-        is_nsswitch_conf_decl, is_nx_json_decl, is_nyc_json_decl, is_openapi_json_decl,
-        is_openapitools_json_decl, is_openvpn_decl, is_os_release_decl, is_otlp_json_decl,
-        is_oxlint_json_decl, is_package_json_decl, is_pacman_conf_decl, is_pact_json_decl,
-        is_pam_conf_decl, is_parcel_json_decl, is_paru_conf_decl, is_passwd_group_file_decl,
-        is_pdm_toml_decl, is_php_ini_decl, is_pinecone_json_decl, is_pip_conf_decl,
-        is_pipfile_decl, is_pixi_toml_decl, is_playwright_json_decl, is_podfile_decl,
-        is_poetry_toml_decl, is_postcss_json_decl, is_postman_json_decl, is_premake_decl,
-        is_prettier_json_decl, is_prometheus_json_decl, is_protocols_file_decl, is_pycln_ini_decl,
-        is_pycodestyle_ini_decl, is_pydoclint_ini_decl, is_pydocstyle_ini_decl, is_pylama_ini_decl,
-        is_pylint_ini_decl, is_pypirc_ini_decl, is_pyproject_toml_decl, is_pyre_configuration_decl,
-        is_pyright_toml_decl, is_pyrightconfig_json_decl, is_pytest_ini_decl, is_pytype_ini_decl,
-        is_pyupgrade_ini_decl, is_qdrant_json_decl, is_radon_ini_decl, is_railway_toml_decl,
-        is_rake_decl, is_rapidoc_json_decl, is_redoc_json_decl, is_redocly_json_decl,
-        is_refurb_toml_decl, is_release_it_json_decl, is_release_please_json_decl,
-        is_release_toml_decl, is_renovate_json_decl, is_resolv_conf_decl, is_rpc_file_decl,
-        is_rstcheck_ini_decl, is_rsyslog_decl, is_ruff_toml_decl, is_rush_json_decl,
-        is_rust_toolchain_toml_decl, is_rustfmt_toml_decl, is_samba_conf_decl,
-        is_samconfig_toml_decl, is_scalar_json_decl, is_scons_decl, is_scriv_ini_decl,
-        is_sddm_conf_decl, is_semantic_release_ini_decl, is_semantic_release_json_decl,
-        is_services_file_decl, is_setup_cfg_decl, is_setuptools_scm_ini_decl,
-        is_simple_git_hooks_json_decl, is_solr_json_decl, is_spectral_json_decl,
-        is_sqlfluff_ini_decl, is_ssh_config_decl, is_sssd_conf_decl,
+        is_check_wheel_contents_ini_decl, is_chroma_json_decl, is_cibuildwheel_ini_decl,
+        is_cliff_toml_decl, is_clippy_toml_decl, is_codecept_json_decl, is_codespell_ini_decl,
+        is_commitizen_ini_decl, is_commitlint_json_decl, is_compodoc_json_decl,
+        is_composer_json_decl, is_coverage_ini_decl, is_cross_toml_decl, is_crypttab_decl,
+        is_cspell_json_decl, is_cucumber_json_decl, is_cypress_json_decl, is_darglint_ini_decl,
+        is_default_grub_decl, is_deno_json_decl, is_deny_toml_decl, is_desktop_entry_decl,
+        is_detox_json_decl, is_devcontainer_json_decl, is_dhcpd_decl, is_dioxus_toml_decl,
+        is_dist_toml_decl, is_doc8_ini_decl, is_docformatter_ini_decl, is_docfx_json_decl,
+        is_dovecot_decl, is_dprint_json_decl, is_dracut_conf_decl, is_eas_json_decl,
+        is_editorconfig_decl, is_elasticsearch_json_decl, is_electron_builder_json_decl,
+        is_electron_forge_json_decl, is_esdoc_json_decl, is_eslint_json_decl, is_ethers_file_decl,
+        is_expo_json_decl, is_fail2ban_conf_decl, is_firebase_json_decl, is_flake8_ini_decl,
+        is_fluent_bit_decl, is_fly_toml_decl, is_flynt_ini_decl, is_freeradius_decl, is_fstab_decl,
+        is_gdm_conf_decl, is_gemfile_decl, is_gitconfig_decl, is_gomod_decl,
+        is_grafana_alerting_json_decl, is_grafana_dashboard_json_decl,
+        is_grafana_datasource_json_decl, is_grafana_ini_decl, is_haproxy_decl, is_har_json_decl,
+        is_hatch_toml_decl, is_hoppscotch_json_decl, is_hosts_access_decl, is_hosts_file_decl,
+        is_hoverfly_json_decl, is_hypothesis_ini_decl, is_importlinter_ini_decl,
+        is_insomnia_json_decl, is_interrogate_ini_decl, is_ionic_json_decl, is_ipsec_conf_decl,
+        is_isort_ini_decl, is_jaeger_json_decl, is_jasmine_json_decl, is_jest_json_decl,
+        is_jsdoc_json_decl, is_karma_json_decl, is_keepalived_decl, is_knip_json_decl,
+        is_krb5_conf_decl, is_lerna_json_decl, is_lightdm_conf_decl, is_limits_conf_decl,
+        is_lint_staged_json_decl, is_locale_conf_decl, is_login_defs_decl, is_logrotate_decl,
+        is_loki_json_decl, is_machine_info_decl, is_makepkg_conf_decl, is_mdbook_toml_decl,
+        is_meilisearch_json_decl, is_mintlify_json_decl, is_mise_toml_decl,
+        is_mkinitcpio_conf_decl, is_mocha_json_decl, is_mockoon_json_decl, is_mockserver_json_decl,
+        is_modprobe_conf_decl, is_mountebank_json_decl, is_mutants_toml_decl, is_mypy_ini_decl,
+        is_mysql_cnf_decl, is_named_conf_decl, is_nest_cli_json_decl, is_netlify_toml_decl,
+        is_networks_file_decl, is_neutralino_json_decl, is_nextest_toml_decl, is_nftables_decl,
+        is_nginx_conf_decl, is_nightwatch_json_decl, is_nixpacks_toml_decl, is_nm_connection_decl,
+        is_npmrc_decl, is_nsswitch_conf_decl, is_nx_json_decl, is_nyc_json_decl,
+        is_openapi_json_decl, is_openapitools_json_decl, is_openvpn_decl, is_os_release_decl,
+        is_otlp_json_decl, is_oxlint_json_decl, is_package_json_decl, is_pacman_conf_decl,
+        is_pact_json_decl, is_pam_conf_decl, is_parcel_json_decl, is_paru_conf_decl,
+        is_passwd_group_file_decl, is_pdm_toml_decl, is_php_ini_decl, is_pinecone_json_decl,
+        is_pip_conf_decl, is_pipfile_decl, is_pixi_toml_decl, is_playwright_json_decl,
+        is_podfile_decl, is_poetry_toml_decl, is_postcss_json_decl, is_postman_json_decl,
+        is_premake_decl, is_prettier_json_decl, is_prometheus_json_decl, is_protocols_file_decl,
+        is_pycln_ini_decl, is_pycodestyle_ini_decl, is_pydoclint_ini_decl, is_pydocstyle_ini_decl,
+        is_pylama_ini_decl, is_pylint_ini_decl, is_pypirc_ini_decl, is_pyproject_toml_decl,
+        is_pyre_configuration_decl, is_pyright_toml_decl, is_pyrightconfig_json_decl,
+        is_pytest_ini_decl, is_pytype_ini_decl, is_pyupgrade_ini_decl, is_qdrant_json_decl,
+        is_radon_ini_decl, is_railway_toml_decl, is_rake_decl, is_rapidoc_json_decl,
+        is_redoc_json_decl, is_redocly_json_decl, is_refurb_toml_decl, is_release_it_json_decl,
+        is_release_please_json_decl, is_release_toml_decl, is_renovate_json_decl,
+        is_resolv_conf_decl, is_rpc_file_decl, is_rstcheck_ini_decl, is_rsyslog_decl,
+        is_ruff_toml_decl, is_rush_json_decl, is_rust_toolchain_toml_decl, is_rustfmt_toml_decl,
+        is_samba_conf_decl, is_samconfig_toml_decl, is_scalar_json_decl, is_scons_decl,
+        is_scriv_ini_decl, is_sddm_conf_decl, is_semantic_release_ini_decl,
+        is_semantic_release_json_decl, is_services_file_decl, is_setup_cfg_decl,
+        is_setuptools_scm_ini_decl, is_simple_git_hooks_json_decl, is_solr_json_decl,
+        is_spectral_json_decl, is_sqlfluff_ini_decl, is_ssh_config_decl, is_sssd_conf_decl,
         is_stoplight_elements_json_decl, is_stryker_json_decl, is_stylelint_json_decl,
         is_subuid_subgid_decl, is_sudoers_decl, is_supabase_toml_decl, is_supervisord_conf_decl,
         is_swagger_ui_json_decl, is_swc_json_decl, is_syncpack_json_decl, is_sysctl_conf_decl,
@@ -128493,6 +128688,14 @@ mod func_like_line_tests {
         assert!(is_prettier_json_decl(r#""printWidth": 80"#));
         assert!(!is_pinecone_json_decl(r#""basePath": ".""#));
         assert!(is_karma_json_decl(r#""basePath": ".""#));
+        assert!(!is_pinecone_json_decl(r#""n_results": 10"#));
+        assert!(is_chroma_json_decl(r#""n_results": 10"#));
+        assert!(!is_pinecone_json_decl(r#""where_document": {"#));
+        assert!(is_chroma_json_decl(r#""where_document": {"#));
+        assert!(!is_pinecone_json_decl(r#""query_embeddings": ["#));
+        assert!(is_chroma_json_decl(r#""query_embeddings": ["#));
+        assert!(!is_pinecone_json_decl(r#""get_or_create": true"#));
+        assert!(is_chroma_json_decl(r#""get_or_create": true"#));
         assert!(line_is_func_like(r#""topK": 10"#));
         assert!(line_is_func_like(r#""includeMetadata": true"#));
         assert!(line_is_func_like(r#""includeValues": false"#));
@@ -128662,6 +128865,28 @@ mod func_like_line_tests {
         assert!(is_prettier_json_decl(r#""printWidth": 80"#));
         assert!(!is_pinecone_json_decl(r#""basePath": ".""#));
         assert!(is_karma_json_decl(r#""basePath": ".""#));
+        assert!(!is_pinecone_json_decl(r#""n_results": 10"#));
+        assert!(is_chroma_json_decl(r#""n_results": 10"#));
+        assert!(!is_pinecone_json_decl(r#""where_document": {"#));
+        assert!(is_chroma_json_decl(r#""where_document": {"#));
+        assert!(!is_pinecone_json_decl(r#""query_embeddings": ["#));
+        assert!(is_chroma_json_decl(r#""query_embeddings": ["#));
+        assert!(!is_pinecone_json_decl(r#""query_texts": ["#));
+        assert!(is_chroma_json_decl(r#""query_texts": ["#));
+        assert!(!is_pinecone_json_decl(r#""metadatas": ["#));
+        assert!(is_chroma_json_decl(r#""metadatas": ["#));
+        assert!(!is_pinecone_json_decl(r#""distances": ["#));
+        assert!(is_chroma_json_decl(r#""distances": ["#));
+        assert!(!is_pinecone_json_decl(r#""include": ["#));
+        assert!(is_chroma_json_decl(r#""include": ["#));
+        assert!(!is_pinecone_json_decl(r#""included": ["#));
+        assert!(is_chroma_json_decl(r#""included": ["#));
+        assert!(!is_pinecone_json_decl(r#""get_or_create": true"#));
+        assert!(is_chroma_json_decl(r#""get_or_create": true"#));
+        assert!(!is_pinecone_json_decl(r#""configuration_json": {"#));
+        assert!(is_chroma_json_decl(r#""configuration_json": {"#));
+        assert!(!is_pinecone_json_decl(r#""log_position": 3"#));
+        assert!(is_chroma_json_decl(r#""log_position": 3"#));
         assert!(line_is_func_like(r#""topK": 10"#));
         assert!(line_is_func_like(r#""includeMetadata": true"#));
         assert!(line_is_func_like(r#""includeValues": false"#));
@@ -128676,6 +128901,221 @@ mod func_like_line_tests {
         assert!(line_is_func_like(r#""indexFullness": 0.1"#));
         assert!(line_is_func_like(r#""deletion_protection": "disabled""#));
         assert!(line_is_func_like(r#""vector_type": "sparse""#));
+    }
+
+    #[test]
+    fn chroma_json_keys_smoke() {
+        assert!(is_chroma_json_decl(r#""n_results": 0"#));
+        assert!(is_chroma_json_decl(r#""n_results": 10"#));
+        assert!(is_chroma_json_decl(r#""where_document": {"#));
+        assert!(is_chroma_json_decl(r#""query_embeddings": ["#));
+        assert!(is_chroma_json_decl(r#""query_texts": ["#));
+        assert!(is_chroma_json_decl(r#""metadatas": ["#));
+        assert!(is_chroma_json_decl(r#""distances": ["#));
+        assert!(is_chroma_json_decl(r#""include": ["#));
+        assert!(is_chroma_json_decl(r#""included": ["#));
+        assert!(is_chroma_json_decl(r#""get_or_create": true"#));
+        assert!(is_chroma_json_decl(r#""get_or_create": false"#));
+        assert!(is_chroma_json_decl(r#""configuration_json": {"#));
+        assert!(is_chroma_json_decl(r#""log_position": 0"#));
+        assert!(is_chroma_json_decl(r#""log_position": 3"#));
+        // Distinctive neighbours stay out of this scanner.
+        assert!(!is_chroma_json_decl(r#""topK": 10"#));
+        assert!(is_pinecone_json_decl(r#""topK": 10"#));
+        assert!(!is_chroma_json_decl(r#""includeMetadata": true"#));
+        assert!(is_pinecone_json_decl(r#""includeMetadata": true"#));
+        assert!(!is_chroma_json_decl(r#""sparseValues": {"#));
+        assert!(is_pinecone_json_decl(r#""sparseValues": {"#));
+        assert!(!is_chroma_json_decl(r#""indexFullness": 0.1"#));
+        assert!(is_pinecone_json_decl(r#""indexFullness": 0.1"#));
+        assert!(!is_chroma_json_decl(r#""nearVector": {"#));
+        assert!(is_weaviate_json_decl(r#""nearVector": {"#));
+        assert!(!is_chroma_json_decl(r#""vectors_count": 100"#));
+        assert!(is_qdrant_json_decl(r#""vectors_count": 100"#));
+        assert!(!is_chroma_json_decl(r#""score_threshold": 0.5"#));
+        assert!(is_qdrant_json_decl(r#""score_threshold": 0.5"#));
+        assert!(!is_chroma_json_decl(r#""processingTimeMS": 12"#));
+        assert!(is_algolia_json_decl(r#""processingTimeMS": 12"#));
+        assert!(!is_chroma_json_decl(r#""processingTimeMs": 12"#));
+        assert!(is_meilisearch_json_decl(r#""processingTimeMs": 12"#));
+        assert!(!is_chroma_json_decl(r#""search_time_ms": 12"#));
+        assert!(is_typesense_json_decl(r#""search_time_ms": 12"#));
+        assert!(!is_chroma_json_decl(r#""responseHeader": {"#));
+        assert!(is_solr_json_decl(r#""responseHeader": {"#));
+        assert!(!is_chroma_json_decl(r#""track_total_hits": true"#));
+        assert!(is_elasticsearch_json_decl(r#""track_total_hits": true"#));
+        assert!(!is_chroma_json_decl(r#""printWidth": 80"#));
+        assert!(is_prettier_json_decl(r#""printWidth": 80"#));
+        assert!(!is_chroma_json_decl(r#""basePath": ".""#));
+        assert!(is_karma_json_decl(r#""basePath": ".""#));
+        assert!(line_is_func_like(r#""n_results": 10"#));
+        assert!(line_is_func_like(r#""where_document": {"#));
+        assert!(line_is_func_like(r#""query_embeddings": ["#));
+        assert!(line_is_func_like(r#""query_texts": ["#));
+        assert!(line_is_func_like(r#""metadatas": ["#));
+        assert!(line_is_func_like(r#""distances": ["#));
+        assert!(line_is_func_like(r#""include": ["#));
+        assert!(line_is_func_like(r#""included": ["#));
+        assert!(line_is_func_like(r#""get_or_create": true"#));
+        assert!(line_is_func_like(r#""configuration_json": {"#));
+        assert!(line_is_func_like(r#""log_position": 3"#));
+    }
+
+    #[test]
+    fn chroma_json_keys_count() {
+        assert!(is_chroma_json_decl(r#""n_results": 0"#));
+        assert!(is_chroma_json_decl(r#""n_results": 10"#));
+        assert!(is_chroma_json_decl(r#""n_results": 10,"#));
+        assert!(is_chroma_json_decl(r#""n_results": 10 // n"#));
+        assert!(!is_chroma_json_decl(r#""n_results": 00"#));
+        assert!(!is_chroma_json_decl(r#""n_results": 01"#));
+        assert!(!is_chroma_json_decl(r#""n_results": true"#));
+        assert!(!is_chroma_json_decl(r#""n_results": {"#));
+        assert!(!is_chroma_json_decl(r#""n_results": ["#));
+        assert!(!is_chroma_json_decl(r#""n_results": "10""#));
+        assert!(is_chroma_json_decl(r#""where_document": {"#));
+        assert!(is_chroma_json_decl(r#""where_document": {,"#));
+        assert!(is_chroma_json_decl(r#""where_document": { // w"#));
+        assert!(!is_chroma_json_decl(r#""where_document": ["#));
+        assert!(!is_chroma_json_decl(r#""where_document": true"#));
+        assert!(is_chroma_json_decl(r#""query_embeddings": ["#));
+        assert!(is_chroma_json_decl(r#""query_embeddings": [,"#));
+        assert!(is_chroma_json_decl(r#""query_embeddings": [ // q"#));
+        assert!(!is_chroma_json_decl(r#""query_embeddings": {"#));
+        assert!(!is_chroma_json_decl(r#""query_embeddings": true"#));
+        assert!(is_chroma_json_decl(r#""query_texts": ["#));
+        assert!(is_chroma_json_decl(r#""query_texts": [,"#));
+        assert!(is_chroma_json_decl(r#""query_texts": [ // q"#));
+        assert!(!is_chroma_json_decl(r#""query_texts": {"#));
+        assert!(!is_chroma_json_decl(r#""query_texts": true"#));
+        assert!(is_chroma_json_decl(r#""metadatas": ["#));
+        assert!(is_chroma_json_decl(r#""metadatas": [,"#));
+        assert!(is_chroma_json_decl(r#""metadatas": [ // m"#));
+        assert!(!is_chroma_json_decl(r#""metadatas": {"#));
+        assert!(!is_chroma_json_decl(r#""metadatas": true"#));
+        assert!(is_chroma_json_decl(r#""distances": ["#));
+        assert!(is_chroma_json_decl(r#""distances": [,"#));
+        assert!(is_chroma_json_decl(r#""distances": [ // d"#));
+        assert!(!is_chroma_json_decl(r#""distances": {"#));
+        assert!(!is_chroma_json_decl(r#""distances": true"#));
+        assert!(is_chroma_json_decl(r#""include": ["#));
+        assert!(is_chroma_json_decl(r#""include": [,"#));
+        assert!(is_chroma_json_decl(r#""include": [ // i"#));
+        assert!(!is_chroma_json_decl(r#""include": {"#));
+        assert!(!is_chroma_json_decl(r#""include": true"#));
+        assert!(is_chroma_json_decl(r#""included": ["#));
+        assert!(is_chroma_json_decl(r#""included": [,"#));
+        assert!(is_chroma_json_decl(r#""included": [ // i"#));
+        assert!(!is_chroma_json_decl(r#""included": {"#));
+        assert!(!is_chroma_json_decl(r#""included": true"#));
+        assert!(is_chroma_json_decl(r#""get_or_create": true"#));
+        assert!(is_chroma_json_decl(r#""get_or_create": false"#));
+        assert!(is_chroma_json_decl(r#""get_or_create": true,"#));
+        assert!(is_chroma_json_decl(r#""get_or_create": false // g"#));
+        assert!(!is_chroma_json_decl(r#""get_or_create": {"#));
+        assert!(!is_chroma_json_decl(r#""get_or_create": 1"#));
+        assert!(is_chroma_json_decl(r#""configuration_json": {"#));
+        assert!(is_chroma_json_decl(r#""configuration_json": {,"#));
+        assert!(is_chroma_json_decl(r#""configuration_json": { // c"#));
+        assert!(!is_chroma_json_decl(r#""configuration_json": ["#));
+        assert!(!is_chroma_json_decl(r#""configuration_json": true"#));
+        assert!(is_chroma_json_decl(r#""log_position": 0"#));
+        assert!(is_chroma_json_decl(r#""log_position": 3"#));
+        assert!(is_chroma_json_decl(r#""log_position": 3,"#));
+        assert!(is_chroma_json_decl(r#""log_position": 3 // l"#));
+        assert!(!is_chroma_json_decl(r#""log_position": 00"#));
+        assert!(!is_chroma_json_decl(r#""log_position": 03"#));
+        assert!(!is_chroma_json_decl(r#""log_position": true"#));
+        assert!(!is_chroma_json_decl(r#""log_position": {"#));
+        assert!(!is_chroma_json_decl(r#""log_position": ["#));
+        // Incomplete / bare keys stay out.
+        assert!(!is_chroma_json_decl(r#""n_results""#));
+        assert!(!is_chroma_json_decl(r#""where_document""#));
+        assert!(!is_chroma_json_decl(r#""query_embeddings""#));
+        assert!(!is_chroma_json_decl(r#""query_texts""#));
+        assert!(!is_chroma_json_decl(r#""metadatas""#));
+        assert!(!is_chroma_json_decl(r#""distances""#));
+        assert!(!is_chroma_json_decl(r#""include""#));
+        assert!(!is_chroma_json_decl(r#""included""#));
+        assert!(!is_chroma_json_decl(r#""get_or_create""#));
+        assert!(!is_chroma_json_decl(r#""configuration_json""#));
+        assert!(!is_chroma_json_decl(r#""log_position""#));
+        // Generic / neighbouring stay out.
+        assert!(!is_chroma_json_decl(
+            r#""$schema": "https://json-schema.org/draft/2020-12/schema""#
+        ));
+        assert!(!is_chroma_json_decl(r#""name": "docs""#));
+        assert!(!is_chroma_json_decl(r#""id": "col-1""#));
+        assert!(!is_chroma_json_decl(r#""ids": ["#));
+        assert!(!is_chroma_json_decl(r#""embeddings": ["#));
+        assert!(!is_chroma_json_decl(r#""documents": ["#));
+        assert!(!is_chroma_json_decl(r#""uris": ["#));
+        assert!(!is_chroma_json_decl(r#""data": ["#));
+        assert!(!is_chroma_json_decl(r#""where": {"#));
+        assert!(!is_chroma_json_decl(r#""metadata": {"#));
+        assert!(!is_chroma_json_decl(r#""tenant": "default""#));
+        assert!(!is_chroma_json_decl(r#""database": "default""#));
+        assert!(!is_chroma_json_decl(r#""version": 1"#));
+        assert!(!is_chroma_json_decl(r#""filter": {"#));
+        assert!(!is_chroma_json_decl(r#""limit": 10"#));
+        assert!(!is_chroma_json_decl(r#""offset": 0"#));
+        assert!(!is_chroma_json_decl(r#""topK": 10"#));
+        assert!(is_pinecone_json_decl(r#""topK": 10"#));
+        assert!(!is_chroma_json_decl(r#""includeMetadata": true"#));
+        assert!(is_pinecone_json_decl(r#""includeMetadata": true"#));
+        assert!(!is_chroma_json_decl(r#""sparseValues": {"#));
+        assert!(is_pinecone_json_decl(r#""sparseValues": {"#));
+        assert!(!is_chroma_json_decl(r#""totalVectorCount": 100"#));
+        assert!(is_pinecone_json_decl(r#""totalVectorCount": 100"#));
+        assert!(!is_chroma_json_decl(r#""indexFullness": 0.1"#));
+        assert!(is_pinecone_json_decl(r#""indexFullness": 0.1"#));
+        assert!(!is_chroma_json_decl(r#""deletion_protection": "enabled""#));
+        assert!(is_pinecone_json_decl(r#""deletion_protection": "enabled""#));
+        assert!(!is_chroma_json_decl(r#""vector_type": "dense""#));
+        assert!(is_pinecone_json_decl(r#""vector_type": "dense""#));
+        assert!(!is_chroma_json_decl(r#""nearVector": {"#));
+        assert!(is_weaviate_json_decl(r#""nearVector": {"#));
+        assert!(!is_chroma_json_decl(r#""creationTimeUnix": 0"#));
+        assert!(is_weaviate_json_decl(r#""creationTimeUnix": 0"#));
+        assert!(!is_chroma_json_decl(r#""vectors_count": 100"#));
+        assert!(is_qdrant_json_decl(r#""vectors_count": 100"#));
+        assert!(!is_chroma_json_decl(r#""hnsw_config": {"#));
+        assert!(is_qdrant_json_decl(r#""hnsw_config": {"#));
+        assert!(!is_chroma_json_decl(r#""processingTimeMS": 12"#));
+        assert!(is_algolia_json_decl(r#""processingTimeMS": 12"#));
+        assert!(!is_chroma_json_decl(r#""nbPages": 20"#));
+        assert!(is_algolia_json_decl(r#""nbPages": 20"#));
+        assert!(!is_chroma_json_decl(r#""processingTimeMs": 12"#));
+        assert!(is_meilisearch_json_decl(r#""processingTimeMs": 12"#));
+        assert!(!is_chroma_json_decl(r#""facetDistribution": {"#));
+        assert!(is_meilisearch_json_decl(r#""facetDistribution": {"#));
+        assert!(!is_chroma_json_decl(r#""search_time_ms": 12"#));
+        assert!(is_typesense_json_decl(r#""search_time_ms": 12"#));
+        assert!(!is_chroma_json_decl(r#""out_of": 100"#));
+        assert!(is_typesense_json_decl(r#""out_of": 100"#));
+        assert!(!is_chroma_json_decl(r#""responseHeader": {"#));
+        assert!(is_solr_json_decl(r#""responseHeader": {"#));
+        assert!(!is_chroma_json_decl(r#""numFound": 10"#));
+        assert!(is_solr_json_decl(r#""numFound": 10"#));
+        assert!(!is_chroma_json_decl(r#""track_total_hits": true"#));
+        assert!(is_elasticsearch_json_decl(r#""track_total_hits": true"#));
+        assert!(!is_chroma_json_decl(r#""min_score": 0.5"#));
+        assert!(is_elasticsearch_json_decl(r#""min_score": 0.5"#));
+        assert!(!is_chroma_json_decl(r#""printWidth": 80"#));
+        assert!(is_prettier_json_decl(r#""printWidth": 80"#));
+        assert!(!is_chroma_json_decl(r#""basePath": ".""#));
+        assert!(is_karma_json_decl(r#""basePath": ".""#));
+        assert!(line_is_func_like(r#""n_results": 10"#));
+        assert!(line_is_func_like(r#""where_document": {"#));
+        assert!(line_is_func_like(r#""query_embeddings": ["#));
+        assert!(line_is_func_like(r#""query_texts": ["#));
+        assert!(line_is_func_like(r#""metadatas": ["#));
+        assert!(line_is_func_like(r#""distances": ["#));
+        assert!(line_is_func_like(r#""include": ["#));
+        assert!(line_is_func_like(r#""included": ["#));
+        assert!(line_is_func_like(r#""get_or_create": false"#));
+        assert!(line_is_func_like(r#""configuration_json": {"#));
+        assert!(line_is_func_like(r#""log_position": 3"#));
     }
 
     #[test]

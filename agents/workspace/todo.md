@@ -1,3 +1,5 @@
+009 keep: Function List Chroma n_results/where_document/query_embeddings/query_texts/metadatas/distances/include/included/get_or_create/configuration_json/log_position (v0.3.811)
+
 009 keep: Function List Pinecone topK/includeMetadata/includeValues/sparseValues/sparseVector/namespaces/usage/totalVectorCount/vectorCount/upsertedCount/readUnits/indexFullness/deletion_protection/vector_type (v0.3.810)
 
 009 keep: Function List Weaviate nearVector/nearObject/nearText/invertedIndexConfig/vectorIndexConfig/vectorIndexType/shardingConfig/multiTenancyConfig/replicationConfig/moduleConfig/creationTimeUnix/lastUpdateTimeUnix/indexFilterable/indexSearchable/tokenization (v0.3.809)
