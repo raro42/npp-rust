@@ -1,3 +1,5 @@
+009 keep: Function List Qdrant vectors_count/indexed_vectors_count/points_count/segments_count/optimizer_status/payload_schema/hnsw_config/wal_config/optimizer_config/quantization_config/score_threshold/with_payload/with_vector/hnsw_ef/indexed_only (v0.3.808)
+
 009 keep: Function List Algolia processingTimeMS/nbPages/serverTimeMS/queryID/indexUsed/aroundLatLng/highlightPreTag/facets_stats/renderingContent/appliedRules/attributesToHighlight/getRankingInfo/clickAnalytics/enablePersonalization/removeWordsIfNoResults (v0.3.807)
 
 009 keep: Function List Typesense search_time_ms/out_of/search_cutoff/grouped_hits/facet_counts[]/default_sorting_field/enable_nested_fields/token_separators/symbols_to_index/drop_tokens_threshold/typo_tokens_threshold/prioritize_exact_match/exhaustive_search (v0.3.806)

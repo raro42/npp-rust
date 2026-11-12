@@ -32475,6 +32475,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_meilisearch_json_decl(s)
             || is_typesense_json_decl(s)
             || is_algolia_json_decl(s)
+            || is_qdrant_json_decl(s)
             || is_gomod_decl(s)
             || is_gemfile_decl(s)
             || is_brewfile_decl(s)
@@ -32860,6 +32861,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_meilisearch_json_decl(s)
         || is_typesense_json_decl(s)
         || is_algolia_json_decl(s)
+        || is_qdrant_json_decl(s)
         || is_gomod_decl(s)
         || is_gemfile_decl(s)
         || is_brewfile_decl(s)
@@ -62244,7 +62246,12 @@ fn solr_json_bool_and_tail_ok(after_colon: &str) -> bool {
 /// mintlify `"topbarLinks"` / Compodoc `"theme": "material"` / redocly
 /// `"apis"` / spectral `"functionsDir"` / openapitools
 /// `"generator-cli"` / Knip `"entry"` / prettier `"printWidth"` /
-/// package.json `"bin"` / karma `"basePath"` stay out.
+/// package.json `"bin"` / karma `"basePath"` / Qdrant `"vectors_count"` /
+/// `"indexed_vectors_count"` / `"points_count"` / `"segments_count"` /
+/// `"optimizer_status"` / `"payload_schema"` / `"hnsw_config"` /
+/// `"wal_config"` / `"optimizer_config"` / `"quantization_config"` /
+/// `"score_threshold"` / `"with_payload"` / `"with_vector"` / `"hnsw_ef"` /
+/// `"indexed_only"` stay out.
 /// `"matchingStrategy"` only matches its Meilisearch enums. Numeric
 /// `"processingTimeMs"` / `"estimatedTotalHits"` / `"nbHits"` /
 /// `"hitsPerPage"` reject leading zeros beyond `0`.
@@ -62448,7 +62455,12 @@ fn meilisearch_json_bool_and_tail_ok(after_colon: &str) -> bool {
 /// mintlify `"topbarLinks"` / Compodoc `"theme": "material"` / redocly
 /// `"apis"` / spectral `"functionsDir"` / openapitools
 /// `"generator-cli"` / Knip `"entry"` / prettier `"printWidth"` /
-/// package.json `"bin"` / karma `"basePath"` stay out.
+/// package.json `"bin"` / karma `"basePath"` / Qdrant `"vectors_count"` /
+/// `"indexed_vectors_count"` / `"points_count"` / `"segments_count"` /
+/// `"optimizer_status"` / `"payload_schema"` / `"hnsw_config"` /
+/// `"wal_config"` / `"optimizer_config"` / `"quantization_config"` /
+/// `"score_threshold"` / `"with_payload"` / `"with_vector"` / `"hnsw_ef"` /
+/// `"indexed_only"` stay out.
 /// `"default_sorting_field"` needs a non-empty value. Numeric
 /// `"search_time_ms"` / `"out_of"` / `"drop_tokens_threshold"` /
 /// `"typo_tokens_threshold"` reject leading zeros beyond `0`.
@@ -62623,7 +62635,12 @@ fn typesense_json_bool_and_tail_ok(after_colon: &str) -> bool {
 /// mintlify `"topbarLinks"` / Compodoc `"theme": "material"` / redocly
 /// `"apis"` / spectral `"functionsDir"` / openapitools
 /// `"generator-cli"` / Knip `"entry"` / prettier `"printWidth"` /
-/// package.json `"bin"` / karma `"basePath"` stay out.
+/// package.json `"bin"` / karma `"basePath"` / Qdrant `"vectors_count"` /
+/// `"indexed_vectors_count"` / `"points_count"` / `"segments_count"` /
+/// `"optimizer_status"` / `"payload_schema"` / `"hnsw_config"` /
+/// `"wal_config"` / `"optimizer_config"` / `"quantization_config"` /
+/// `"score_threshold"` / `"with_payload"` / `"with_vector"` / `"hnsw_ef"` /
+/// `"indexed_only"` stay out.
 /// `"removeWordsIfNoResults"` only matches its Algolia enums.
 /// `"queryID"` / `"indexUsed"` / `"aroundLatLng"` / `"highlightPreTag"`
 /// need a non-empty value. Numeric `"processingTimeMS"` / `"nbPages"` /
@@ -62746,6 +62763,223 @@ fn algolia_json_number_and_tail_ok(key: &str, after_colon: &str) -> bool {
 }
 
 fn algolia_json_bool_and_tail_ok(after_colon: &str) -> bool {
+    if let Some(rest) = after_colon.strip_prefix("true") {
+        return package_json_tail_ok(rest);
+    }
+    if let Some(rest) = after_colon.strip_prefix("false") {
+        return package_json_tail_ok(rest);
+    }
+    false
+}
+
+/// Qdrant collection info / search request JSON keys:
+/// `"vectors_count": 0` / `100`,
+/// `"indexed_vectors_count": 0` / `100`,
+/// `"points_count": 0` / `100`,
+/// `"segments_count": 0` / `2`,
+/// `"optimizer_status": "ok"` / `{`,
+/// `"payload_schema": {`,
+/// `"hnsw_config": {`,
+/// `"wal_config": {`,
+/// `"optimizer_config": {`,
+/// `"quantization_config": {`,
+/// `"score_threshold": 0` / `0.5` / `1`,
+/// `"with_payload": true` / `false`,
+/// `"with_vector": true` / `false`,
+/// `"hnsw_ef": 0` / `128`,
+/// `"indexed_only": true` / `false`.
+/// Optional trailing `,` and `//` / `/*` comment. Incomplete quotes /
+/// missing `:` stay out. Generic `"$schema"` / `"name"` / `"id"` /
+/// `"status"` / `"result"` / `"vector"` / `"filter"` / `"limit"` /
+/// `"offset"` / `"params": {` / `"score"` / `"payload"` / `"version"` /
+/// `"time"` / Algolia `"processingTimeMS"` / `"nbPages"` /
+/// `"serverTimeMS"` / `"queryID"` / `"indexUsed"` / `"aroundLatLng"` /
+/// `"highlightPreTag"` / `"facets_stats"` / `"renderingContent"` /
+/// `"appliedRules"` / `"attributesToHighlight"` / `"getRankingInfo"` /
+/// `"clickAnalytics"` / `"enablePersonalization"` /
+/// `"removeWordsIfNoResults"` / Meilisearch `"processingTimeMs"` /
+/// `"estimatedTotalHits"` / `"exhaustiveNbHits"` / `"nbHits"` /
+/// `"hitsPerPage"` / `"facetDistribution"` / `"facetStats"` /
+/// `"exhaustiveFacetsCount"` / `"rankingScoreThreshold"` /
+/// `"showRankingScore"` / `"matchingStrategy"` / `"attributesToSearchOn"` /
+/// Typesense `"search_time_ms"` / `"out_of"` / `"search_cutoff"` /
+/// `"grouped_hits"` / `"facet_counts": [` / `"default_sorting_field"` /
+/// `"enable_nested_fields"` / `"token_separators"` / `"symbols_to_index"` /
+/// `"drop_tokens_threshold"` / `"typo_tokens_threshold"` /
+/// `"prioritize_exact_match"` / `"exhaustive_search"` / Solr
+/// `"responseHeader"` / `"numFound"` / `"numFoundExact"` / `"QTime"` /
+/// `"zkConnected"` / `"facet_counts": {` / `"highlighting"` /
+/// `"spellcheck"` / `"grouped"` / `"nextCursorMark"` / Elasticsearch
+/// `"track_total_hits"` / `"min_score"` / `"post_filter"` /
+/// `"runtime_mappings"` / `"script_fields"` / `"docvalue_fields"` /
+/// `"seq_no_primary_term"` / `"_scroll_id"` / `"_shards"` / Grafana
+/// alerting `"noDataState"` / `"execErrState"` / `"datasourceUid"` /
+/// `"folderUID"` / `"relativeTimeRange"` / `"grafana_alert"` /
+/// `"contactPoints"` / `"muteTimes"` / `"isPaused"` / Grafana
+/// dashboard `"schemaVersion"` / `"graphTooltip"` / `"templating"` /
+/// `"gnetId"` / Grafana datasource `"access"` / `"basicAuth"` /
+/// `"jsonData"` / `"deleteDatasources"` / Alertmanager `"groupKey"` /
+/// `"truncatedAlerts"` / Prometheus `"totalQueryableSamples"` / Loki
+/// `"bytesProcessedPerSecond"` / Tempo `"rootServiceName"` / Jaeger
+/// `"traceID"` / Zipkin `"localEndpoint"` / OTLP `"resourceSpans"` /
+/// HAR `"startedDateTime"` / OpenAPI `"openapi"` / AsyncAPI
+/// `"asyncapi"` / `"channels": {` / Pact `"consumer"` / MockServer
+/// `"httpRequest"` / Hoverfly `"hoverflyVersion"` / Mountebank
+/// `"imposters"` / WireMock `"scenarioName"` / Mockoon
+/// `"lastMigration"` / Hoppscotch `"preRequestScript"` / Yaak
+/// `"yaakVersion"` / Bruno `"brunoConfig"` / Thunder Client `"client"` /
+/// Postman `"_postman_id"` / Insomnia `"__export_format"` / ReDoc
+/// `"disableSearch"` / RapiDoc `"specUrl"` / swagger-ui `"dom_id"` /
+/// scalar `"layout": "modern"` / Elements `"layout": "sidebar"` /
+/// mintlify `"topbarLinks"` / Compodoc `"theme": "material"` / redocly
+/// `"apis"` / spectral `"functionsDir"` / openapitools
+/// `"generator-cli"` / Knip `"entry"` / prettier `"printWidth"` /
+/// package.json `"bin"` / karma `"basePath"` stay out.
+/// `"optimizer_status"` only matches `"ok"` as a string (or `{`).
+/// Numeric `"vectors_count"` / `"indexed_vectors_count"` /
+/// `"points_count"` / `"segments_count"` / `"hnsw_ef"` reject leading
+/// zeros beyond `0`. `"score_threshold"` allows a simple decimal
+/// (no exponent).
+fn is_qdrant_json_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    let Some(rest) = s.strip_prefix('"') else {
+        return false;
+    };
+    let Some(end) = rest.find('"') else {
+        return false;
+    };
+    let key = &rest[..end];
+    if !qdrant_json_key_ok(key) {
+        return false;
+    }
+    let after_key = rest[end + 1..].trim_start();
+    let Some(after_colon) = after_key.strip_prefix(':') else {
+        return false;
+    };
+    let after_colon = after_colon.trim_start();
+    qdrant_json_value_and_tail_ok(key, after_colon)
+}
+
+fn qdrant_json_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "vectors_count"
+            | "indexed_vectors_count"
+            | "points_count"
+            | "segments_count"
+            | "optimizer_status"
+            | "payload_schema"
+            | "hnsw_config"
+            | "wal_config"
+            | "optimizer_config"
+            | "quantization_config"
+            | "score_threshold"
+            | "with_payload"
+            | "with_vector"
+            | "hnsw_ef"
+            | "indexed_only"
+    )
+}
+
+fn qdrant_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool {
+    let bytes = after_colon.as_bytes();
+    let Some(first) = bytes.first().copied() else {
+        return false;
+    };
+    match first {
+        b'{' => {
+            if !matches!(
+                key,
+                "optimizer_status"
+                    | "payload_schema"
+                    | "hnsw_config"
+                    | "wal_config"
+                    | "optimizer_config"
+                    | "quantization_config"
+            ) {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[1..])
+        }
+        b'"' => {
+            if key != "optimizer_status" {
+                return false;
+            }
+            qdrant_json_optimizer_status_and_tail_ok(after_colon)
+        }
+        b't' | b'f' => {
+            if !matches!(key, "with_payload" | "with_vector" | "indexed_only") {
+                return false;
+            }
+            qdrant_json_bool_and_tail_ok(after_colon)
+        }
+        b'0'..=b'9' => qdrant_json_number_and_tail_ok(key, after_colon),
+        _ => false,
+    }
+}
+
+fn qdrant_json_optimizer_status_and_tail_ok(after_colon: &str) -> bool {
+    let rest = &after_colon[1..];
+    let Some(end) = rest.find('"') else {
+        return false;
+    };
+    let value = &rest[..end];
+    if value != "ok" {
+        return false;
+    }
+    package_json_tail_ok(&rest[end + 1..])
+}
+
+fn qdrant_json_number_and_tail_ok(key: &str, after_colon: &str) -> bool {
+    match key {
+        "vectors_count"
+        | "indexed_vectors_count"
+        | "points_count"
+        | "segments_count"
+        | "hnsw_ef" => {
+            let digits = after_colon
+                .bytes()
+                .take_while(|b| b.is_ascii_digit())
+                .count();
+            if digits == 0 || digits > 12 {
+                return false;
+            }
+            if digits > 1 && after_colon.as_bytes()[0] == b'0' {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[digits..])
+        }
+        "score_threshold" => qdrant_json_score_threshold_and_tail_ok(after_colon),
+        _ => false,
+    }
+}
+
+fn qdrant_json_score_threshold_and_tail_ok(after_colon: &str) -> bool {
+    let bytes = after_colon.as_bytes();
+    let mut i = 0;
+    while i < bytes.len() && bytes[i].is_ascii_digit() {
+        i += 1;
+    }
+    if i == 0 || i > 12 {
+        return false;
+    }
+    if i > 1 && bytes[0] == b'0' {
+        return false;
+    }
+    if i < bytes.len() && bytes[i] == b'.' {
+        i += 1;
+        let frac_start = i;
+        while i < bytes.len() && bytes[i].is_ascii_digit() {
+            i += 1;
+        }
+        if i == frac_start || i - frac_start > 12 {
+            return false;
+        }
+    }
+    package_json_tail_ok(&after_colon[i..])
+}
+
+fn qdrant_json_bool_and_tail_ok(after_colon: &str) -> bool {
     if let Some(rest) = after_colon.strip_prefix("true") {
         return package_json_tail_ok(rest);
     }
@@ -93416,13 +93650,13 @@ mod func_like_line_tests {
         is_pydocstyle_ini_decl, is_pylama_ini_decl, is_pylint_ini_decl, is_pypirc_ini_decl,
         is_pyproject_toml_decl, is_pyre_configuration_decl, is_pyright_toml_decl,
         is_pyrightconfig_json_decl, is_pytest_ini_decl, is_pytype_ini_decl, is_pyupgrade_ini_decl,
-        is_radon_ini_decl, is_railway_toml_decl, is_rake_decl, is_rapidoc_json_decl,
-        is_redoc_json_decl, is_redocly_json_decl, is_refurb_toml_decl, is_release_it_json_decl,
-        is_release_please_json_decl, is_release_toml_decl, is_renovate_json_decl,
-        is_resolv_conf_decl, is_rpc_file_decl, is_rstcheck_ini_decl, is_rsyslog_decl,
-        is_ruff_toml_decl, is_rush_json_decl, is_rust_toolchain_toml_decl, is_rustfmt_toml_decl,
-        is_samba_conf_decl, is_samconfig_toml_decl, is_scalar_json_decl, is_scons_decl,
-        is_scriv_ini_decl, is_sddm_conf_decl, is_semantic_release_ini_decl,
+        is_qdrant_json_decl, is_radon_ini_decl, is_railway_toml_decl, is_rake_decl,
+        is_rapidoc_json_decl, is_redoc_json_decl, is_redocly_json_decl, is_refurb_toml_decl,
+        is_release_it_json_decl, is_release_please_json_decl, is_release_toml_decl,
+        is_renovate_json_decl, is_resolv_conf_decl, is_rpc_file_decl, is_rstcheck_ini_decl,
+        is_rsyslog_decl, is_ruff_toml_decl, is_rush_json_decl, is_rust_toolchain_toml_decl,
+        is_rustfmt_toml_decl, is_samba_conf_decl, is_samconfig_toml_decl, is_scalar_json_decl,
+        is_scons_decl, is_scriv_ini_decl, is_sddm_conf_decl, is_semantic_release_ini_decl,
         is_semantic_release_json_decl, is_services_file_decl, is_setup_cfg_decl,
         is_setuptools_scm_ini_decl, is_simple_git_hooks_json_decl, is_solr_json_decl,
         is_spectral_json_decl, is_sqlfluff_ini_decl, is_ssh_config_decl, is_sssd_conf_decl,
@@ -126924,6 +127158,14 @@ mod func_like_line_tests {
         assert!(line_is_func_like(
             r#""removeWordsIfNoResults": "lastWords""#
         ));
+        assert!(!is_algolia_json_decl(r#""vectors_count": 100"#));
+        assert!(is_qdrant_json_decl(r#""vectors_count": 100"#));
+        assert!(!is_algolia_json_decl(r#""points_count": 100"#));
+        assert!(is_qdrant_json_decl(r#""points_count": 100"#));
+        assert!(!is_algolia_json_decl(r#""hnsw_config": {"#));
+        assert!(is_qdrant_json_decl(r#""hnsw_config": {"#));
+        assert!(!is_algolia_json_decl(r#""score_threshold": 0.5"#));
+        assert!(is_qdrant_json_decl(r#""score_threshold": 0.5"#));
     }
 
     #[test]
@@ -127149,6 +127391,258 @@ mod func_like_line_tests {
         assert!(line_is_func_like(
             r#""removeWordsIfNoResults": "allOptional""#
         ));
+    }
+
+    #[test]
+    fn qdrant_json_keys_smoke() {
+        assert!(is_qdrant_json_decl(r#""vectors_count": 0"#));
+        assert!(is_qdrant_json_decl(r#""vectors_count": 100"#));
+        assert!(is_qdrant_json_decl(r#""indexed_vectors_count": 0"#));
+        assert!(is_qdrant_json_decl(r#""indexed_vectors_count": 100"#));
+        assert!(is_qdrant_json_decl(r#""points_count": 0"#));
+        assert!(is_qdrant_json_decl(r#""points_count": 100"#));
+        assert!(is_qdrant_json_decl(r#""segments_count": 0"#));
+        assert!(is_qdrant_json_decl(r#""segments_count": 2"#));
+        assert!(is_qdrant_json_decl(r#""optimizer_status": "ok""#));
+        assert!(is_qdrant_json_decl(r#""optimizer_status": {"#));
+        assert!(is_qdrant_json_decl(r#""payload_schema": {"#));
+        assert!(is_qdrant_json_decl(r#""hnsw_config": {"#));
+        assert!(is_qdrant_json_decl(r#""wal_config": {"#));
+        assert!(is_qdrant_json_decl(r#""optimizer_config": {"#));
+        assert!(is_qdrant_json_decl(r#""quantization_config": {"#));
+        assert!(is_qdrant_json_decl(r#""score_threshold": 0"#));
+        assert!(is_qdrant_json_decl(r#""score_threshold": 0.5"#));
+        assert!(is_qdrant_json_decl(r#""score_threshold": 1"#));
+        assert!(is_qdrant_json_decl(r#""with_payload": true"#));
+        assert!(is_qdrant_json_decl(r#""with_payload": false"#));
+        assert!(is_qdrant_json_decl(r#""with_vector": true"#));
+        assert!(is_qdrant_json_decl(r#""with_vector": false"#));
+        assert!(is_qdrant_json_decl(r#""hnsw_ef": 0"#));
+        assert!(is_qdrant_json_decl(r#""hnsw_ef": 128"#));
+        assert!(is_qdrant_json_decl(r#""indexed_only": true"#));
+        assert!(is_qdrant_json_decl(r#""indexed_only": false"#));
+        // Distinctive neighbours stay out of this scanner.
+        assert!(!is_qdrant_json_decl(r#""processingTimeMS": 12"#));
+        assert!(is_algolia_json_decl(r#""processingTimeMS": 12"#));
+        assert!(!is_qdrant_json_decl(r#""processingTimeMs": 12"#));
+        assert!(is_meilisearch_json_decl(r#""processingTimeMs": 12"#));
+        assert!(!is_qdrant_json_decl(r#""search_time_ms": 12"#));
+        assert!(is_typesense_json_decl(r#""search_time_ms": 12"#));
+        assert!(!is_qdrant_json_decl(r#""responseHeader": {"#));
+        assert!(is_solr_json_decl(r#""responseHeader": {"#));
+        assert!(!is_qdrant_json_decl(r#""track_total_hits": true"#));
+        assert!(is_elasticsearch_json_decl(r#""track_total_hits": true"#));
+        assert!(!is_qdrant_json_decl(r#""printWidth": 80"#));
+        assert!(is_prettier_json_decl(r#""printWidth": 80"#));
+        assert!(!is_qdrant_json_decl(r#""basePath": ".""#));
+        assert!(is_karma_json_decl(r#""basePath": ".""#));
+        assert!(line_is_func_like(r#""vectors_count": 100"#));
+        assert!(line_is_func_like(r#""indexed_vectors_count": 100"#));
+        assert!(line_is_func_like(r#""points_count": 100"#));
+        assert!(line_is_func_like(r#""segments_count": 2"#));
+        assert!(line_is_func_like(r#""optimizer_status": "ok""#));
+        assert!(line_is_func_like(r#""optimizer_status": {"#));
+        assert!(line_is_func_like(r#""payload_schema": {"#));
+        assert!(line_is_func_like(r#""hnsw_config": {"#));
+        assert!(line_is_func_like(r#""wal_config": {"#));
+        assert!(line_is_func_like(r#""optimizer_config": {"#));
+        assert!(line_is_func_like(r#""quantization_config": {"#));
+        assert!(line_is_func_like(r#""score_threshold": 0.5"#));
+        assert!(line_is_func_like(r#""with_payload": true"#));
+        assert!(line_is_func_like(r#""with_vector": false"#));
+        assert!(line_is_func_like(r#""hnsw_ef": 128"#));
+        assert!(line_is_func_like(r#""indexed_only": true"#));
+    }
+
+    #[test]
+    fn qdrant_json_keys_count() {
+        assert!(is_qdrant_json_decl(r#""vectors_count": 0"#));
+        assert!(is_qdrant_json_decl(r#""vectors_count": 100"#));
+        assert!(is_qdrant_json_decl(r#""vectors_count": 100,"#));
+        assert!(is_qdrant_json_decl(r#""vectors_count": 100 // v"#));
+        assert!(!is_qdrant_json_decl(r#""vectors_count": 00"#));
+        assert!(!is_qdrant_json_decl(r#""vectors_count": 01"#));
+        assert!(!is_qdrant_json_decl(r#""vectors_count": true"#));
+        assert!(!is_qdrant_json_decl(r#""vectors_count": {"#));
+        assert!(!is_qdrant_json_decl(r#""vectors_count": "100""#));
+        assert!(is_qdrant_json_decl(r#""indexed_vectors_count": 0"#));
+        assert!(is_qdrant_json_decl(r#""indexed_vectors_count": 100"#));
+        assert!(is_qdrant_json_decl(r#""indexed_vectors_count": 100,"#));
+        assert!(is_qdrant_json_decl(r#""indexed_vectors_count": 100 // i"#));
+        assert!(!is_qdrant_json_decl(r#""indexed_vectors_count": 00"#));
+        assert!(!is_qdrant_json_decl(r#""indexed_vectors_count": 01"#));
+        assert!(!is_qdrant_json_decl(r#""indexed_vectors_count": true"#));
+        assert!(!is_qdrant_json_decl(r#""indexed_vectors_count": {"#));
+        assert!(is_qdrant_json_decl(r#""points_count": 0"#));
+        assert!(is_qdrant_json_decl(r#""points_count": 100"#));
+        assert!(is_qdrant_json_decl(r#""points_count": 100,"#));
+        assert!(is_qdrant_json_decl(r#""points_count": 100 // p"#));
+        assert!(!is_qdrant_json_decl(r#""points_count": 00"#));
+        assert!(!is_qdrant_json_decl(r#""points_count": 01"#));
+        assert!(!is_qdrant_json_decl(r#""points_count": true"#));
+        assert!(!is_qdrant_json_decl(r#""points_count": {"#));
+        assert!(is_qdrant_json_decl(r#""segments_count": 0"#));
+        assert!(is_qdrant_json_decl(r#""segments_count": 2"#));
+        assert!(is_qdrant_json_decl(r#""segments_count": 2,"#));
+        assert!(is_qdrant_json_decl(r#""segments_count": 2 // s"#));
+        assert!(!is_qdrant_json_decl(r#""segments_count": 00"#));
+        assert!(!is_qdrant_json_decl(r#""segments_count": 01"#));
+        assert!(!is_qdrant_json_decl(r#""segments_count": true"#));
+        assert!(!is_qdrant_json_decl(r#""segments_count": {"#));
+        assert!(is_qdrant_json_decl(r#""optimizer_status": "ok""#));
+        assert!(is_qdrant_json_decl(r#""optimizer_status": "ok","#));
+        assert!(is_qdrant_json_decl(r#""optimizer_status": "ok" // o"#));
+        assert!(is_qdrant_json_decl(r#""optimizer_status": {"#));
+        assert!(is_qdrant_json_decl(r#""optimizer_status": {,"#));
+        assert!(is_qdrant_json_decl(r#""optimizer_status": { // e"#));
+        assert!(!is_qdrant_json_decl(r#""optimizer_status": "error""#));
+        assert!(!is_qdrant_json_decl(r#""optimizer_status": """#));
+        assert!(!is_qdrant_json_decl(r#""optimizer_status": true"#));
+        assert!(!is_qdrant_json_decl(r#""optimizer_status": ["#));
+        assert!(is_qdrant_json_decl(r#""payload_schema": {"#));
+        assert!(is_qdrant_json_decl(r#""payload_schema": {,"#));
+        assert!(is_qdrant_json_decl(r#""payload_schema": { // p"#));
+        assert!(!is_qdrant_json_decl(r#""payload_schema": ["#));
+        assert!(!is_qdrant_json_decl(r#""payload_schema": true"#));
+        assert!(!is_qdrant_json_decl(r#""payload_schema": """#));
+        assert!(is_qdrant_json_decl(r#""hnsw_config": {"#));
+        assert!(is_qdrant_json_decl(r#""hnsw_config": {,"#));
+        assert!(is_qdrant_json_decl(r#""hnsw_config": { // h"#));
+        assert!(!is_qdrant_json_decl(r#""hnsw_config": ["#));
+        assert!(!is_qdrant_json_decl(r#""hnsw_config": true"#));
+        assert!(!is_qdrant_json_decl(r#""hnsw_config": """#));
+        assert!(is_qdrant_json_decl(r#""wal_config": {"#));
+        assert!(is_qdrant_json_decl(r#""wal_config": {,"#));
+        assert!(is_qdrant_json_decl(r#""wal_config": { // w"#));
+        assert!(!is_qdrant_json_decl(r#""wal_config": ["#));
+        assert!(!is_qdrant_json_decl(r#""wal_config": true"#));
+        assert!(!is_qdrant_json_decl(r#""wal_config": """#));
+        assert!(is_qdrant_json_decl(r#""optimizer_config": {"#));
+        assert!(is_qdrant_json_decl(r#""optimizer_config": {,"#));
+        assert!(is_qdrant_json_decl(r#""optimizer_config": { // o"#));
+        assert!(!is_qdrant_json_decl(r#""optimizer_config": ["#));
+        assert!(!is_qdrant_json_decl(r#""optimizer_config": true"#));
+        assert!(!is_qdrant_json_decl(r#""optimizer_config": """#));
+        assert!(is_qdrant_json_decl(r#""quantization_config": {"#));
+        assert!(is_qdrant_json_decl(r#""quantization_config": {,"#));
+        assert!(is_qdrant_json_decl(r#""quantization_config": { // q"#));
+        assert!(!is_qdrant_json_decl(r#""quantization_config": ["#));
+        assert!(!is_qdrant_json_decl(r#""quantization_config": true"#));
+        assert!(!is_qdrant_json_decl(r#""quantization_config": """#));
+        assert!(is_qdrant_json_decl(r#""score_threshold": 0"#));
+        assert!(is_qdrant_json_decl(r#""score_threshold": 0.5"#));
+        assert!(is_qdrant_json_decl(r#""score_threshold": 1"#));
+        assert!(is_qdrant_json_decl(r#""score_threshold": 0.5,"#));
+        assert!(is_qdrant_json_decl(r#""score_threshold": 0.5 // s"#));
+        assert!(!is_qdrant_json_decl(r#""score_threshold": 00"#));
+        assert!(!is_qdrant_json_decl(r#""score_threshold": 01"#));
+        assert!(!is_qdrant_json_decl(r#""score_threshold": 0."#));
+        assert!(!is_qdrant_json_decl(r#""score_threshold": true"#));
+        assert!(!is_qdrant_json_decl(r#""score_threshold": {"#));
+        assert!(!is_qdrant_json_decl(r#""score_threshold": "0.5""#));
+        assert!(is_qdrant_json_decl(r#""with_payload": true"#));
+        assert!(is_qdrant_json_decl(r#""with_payload": false"#));
+        assert!(is_qdrant_json_decl(r#""with_payload": true,"#));
+        assert!(is_qdrant_json_decl(r#""with_payload": false // w"#));
+        assert!(!is_qdrant_json_decl(r#""with_payload": 1"#));
+        assert!(!is_qdrant_json_decl(r#""with_payload": "true""#));
+        assert!(!is_qdrant_json_decl(r#""with_payload": {"#));
+        assert!(is_qdrant_json_decl(r#""with_vector": true"#));
+        assert!(is_qdrant_json_decl(r#""with_vector": false"#));
+        assert!(is_qdrant_json_decl(r#""with_vector": true,"#));
+        assert!(is_qdrant_json_decl(r#""with_vector": false // w"#));
+        assert!(!is_qdrant_json_decl(r#""with_vector": 1"#));
+        assert!(!is_qdrant_json_decl(r#""with_vector": "true""#));
+        assert!(!is_qdrant_json_decl(r#""with_vector": {"#));
+        assert!(is_qdrant_json_decl(r#""hnsw_ef": 0"#));
+        assert!(is_qdrant_json_decl(r#""hnsw_ef": 128"#));
+        assert!(is_qdrant_json_decl(r#""hnsw_ef": 128,"#));
+        assert!(is_qdrant_json_decl(r#""hnsw_ef": 128 // h"#));
+        assert!(!is_qdrant_json_decl(r#""hnsw_ef": 00"#));
+        assert!(!is_qdrant_json_decl(r#""hnsw_ef": 01"#));
+        assert!(!is_qdrant_json_decl(r#""hnsw_ef": true"#));
+        assert!(!is_qdrant_json_decl(r#""hnsw_ef": {"#));
+        assert!(!is_qdrant_json_decl(r#""hnsw_ef": "128""#));
+        assert!(is_qdrant_json_decl(r#""indexed_only": true"#));
+        assert!(is_qdrant_json_decl(r#""indexed_only": false"#));
+        assert!(is_qdrant_json_decl(r#""indexed_only": true,"#));
+        assert!(is_qdrant_json_decl(r#""indexed_only": false // i"#));
+        assert!(!is_qdrant_json_decl(r#""indexed_only": 1"#));
+        assert!(!is_qdrant_json_decl(r#""indexed_only": "true""#));
+        assert!(!is_qdrant_json_decl(r#""indexed_only": {"#));
+        // Incomplete / wrong shapes stay out.
+        assert!(!is_qdrant_json_decl(r#""vectors_count""#));
+        assert!(!is_qdrant_json_decl(r#""vectors_count":"#));
+        assert!(!is_qdrant_json_decl(r#""indexed_vectors_count""#));
+        assert!(!is_qdrant_json_decl(r#""points_count""#));
+        assert!(!is_qdrant_json_decl(r#""segments_count""#));
+        assert!(!is_qdrant_json_decl(r#""optimizer_status""#));
+        assert!(!is_qdrant_json_decl(r#""payload_schema""#));
+        assert!(!is_qdrant_json_decl(r#""hnsw_config""#));
+        assert!(!is_qdrant_json_decl(r#""wal_config""#));
+        assert!(!is_qdrant_json_decl(r#""optimizer_config""#));
+        assert!(!is_qdrant_json_decl(r#""quantization_config""#));
+        assert!(!is_qdrant_json_decl(r#""score_threshold""#));
+        assert!(!is_qdrant_json_decl(r#""with_payload""#));
+        assert!(!is_qdrant_json_decl(r#""with_vector""#));
+        assert!(!is_qdrant_json_decl(r#""hnsw_ef""#));
+        assert!(!is_qdrant_json_decl(r#""indexed_only""#));
+        // Generic / neighbouring stay out.
+        assert!(!is_qdrant_json_decl(
+            r#""$schema": "https://json-schema.org/draft/2020-12/schema""#
+        ));
+        assert!(!is_qdrant_json_decl(r#""name": "demo""#));
+        assert!(!is_qdrant_json_decl(r#""status": "ok""#));
+        assert!(!is_qdrant_json_decl(r#""result": {"#));
+        assert!(!is_qdrant_json_decl(r#""vector": ["#));
+        assert!(!is_qdrant_json_decl(r#""filter": {"#));
+        assert!(!is_qdrant_json_decl(r#""limit": 10"#));
+        assert!(!is_qdrant_json_decl(r#""offset": 0"#));
+        assert!(!is_qdrant_json_decl(r#""params": {"#));
+        assert!(!is_qdrant_json_decl(r#""score": 0.9"#));
+        assert!(!is_qdrant_json_decl(r#""payload": {"#));
+        assert!(!is_qdrant_json_decl(r#""version": 1"#));
+        assert!(!is_qdrant_json_decl(r#""time": 0.01"#));
+        assert!(!is_qdrant_json_decl(r#""processingTimeMS": 12"#));
+        assert!(is_algolia_json_decl(r#""processingTimeMS": 12"#));
+        assert!(!is_qdrant_json_decl(r#""nbPages": 20"#));
+        assert!(is_algolia_json_decl(r#""nbPages": 20"#));
+        assert!(!is_qdrant_json_decl(r#""processingTimeMs": 12"#));
+        assert!(is_meilisearch_json_decl(r#""processingTimeMs": 12"#));
+        assert!(!is_qdrant_json_decl(r#""facetDistribution": {"#));
+        assert!(is_meilisearch_json_decl(r#""facetDistribution": {"#));
+        assert!(!is_qdrant_json_decl(r#""search_time_ms": 12"#));
+        assert!(is_typesense_json_decl(r#""search_time_ms": 12"#));
+        assert!(!is_qdrant_json_decl(r#""out_of": 100"#));
+        assert!(is_typesense_json_decl(r#""out_of": 100"#));
+        assert!(!is_qdrant_json_decl(r#""responseHeader": {"#));
+        assert!(is_solr_json_decl(r#""responseHeader": {"#));
+        assert!(!is_qdrant_json_decl(r#""numFound": 10"#));
+        assert!(is_solr_json_decl(r#""numFound": 10"#));
+        assert!(!is_qdrant_json_decl(r#""track_total_hits": true"#));
+        assert!(is_elasticsearch_json_decl(r#""track_total_hits": true"#));
+        assert!(!is_qdrant_json_decl(r#""min_score": 0.5"#));
+        assert!(is_elasticsearch_json_decl(r#""min_score": 0.5"#));
+        assert!(!is_qdrant_json_decl(r#""printWidth": 80"#));
+        assert!(is_prettier_json_decl(r#""printWidth": 80"#));
+        assert!(!is_qdrant_json_decl(r#""basePath": ".""#));
+        assert!(is_karma_json_decl(r#""basePath": ".""#));
+        assert!(line_is_func_like(r#""vectors_count": 0"#));
+        assert!(line_is_func_like(r#""indexed_vectors_count": 0"#));
+        assert!(line_is_func_like(r#""points_count": 0"#));
+        assert!(line_is_func_like(r#""segments_count": 0"#));
+        assert!(line_is_func_like(r#""optimizer_status": "ok""#));
+        assert!(line_is_func_like(r#""optimizer_status": {"#));
+        assert!(line_is_func_like(r#""payload_schema": {"#));
+        assert!(line_is_func_like(r#""hnsw_config": {"#));
+        assert!(line_is_func_like(r#""wal_config": {"#));
+        assert!(line_is_func_like(r#""optimizer_config": {"#));
+        assert!(line_is_func_like(r#""quantization_config": {"#));
+        assert!(line_is_func_like(r#""score_threshold": 0"#));
+        assert!(line_is_func_like(r#""with_payload": false"#));
+        assert!(line_is_func_like(r#""with_vector": true"#));
+        assert!(line_is_func_like(r#""hnsw_ef": 0"#));
+        assert!(line_is_func_like(r#""indexed_only": false"#));
     }
 
     #[test]
