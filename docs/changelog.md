@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.813] — 2026-11-12
+
+View:
+
+- **Function List** lists LanceDB search / index / embedding JSON keys: `"vector_column_name": "vec"`, `"nprobes": 0` / `20`, `"refine_factor": 0` / `10`, `"num_partitions": 0` / `256`, `"num_sub_vectors": 0` / `16`, `"index_cache_size": 0` / `100`, `"with_row_id": true` / `false`, `"fast_search": true` / `false`, `"bypass_vector_index": true` / `false`, `"prefilter": true` / `false`, `"distance_type": "l2"` / `"cosine"` / `"dot"`, `"index_type": "IVF_PQ"` / `"IVF_HNSW_SQ"` / `"BTREE"` / `"BITMAP"` / `"LABEL_LIST"` / `"FTS"` / `"HNSW"`, `"source_column": "text"`, `"target_columns": [`, `"embedding_functions": {`. Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing `:` stay out. Generic `"$schema"` / `"name"` / `"id"` / `"filter"` / `"limit"` / `"offset"` / `"vector"` / `"vectors"` / `"columns"` / `"data"` / `"schema"` / `"metric"` / Milvus `"annsField"` / `"nprobe"` / `"indexType"` / Chroma `"n_results"` / `"where_document"` / Pinecone `"topK"` / Weaviate `"nearVector"` / Qdrant `"vectors_count"` / Algolia `"processingTimeMS"` / Meilisearch `"processingTimeMs"` / Typesense `"search_time_ms"` / Solr `"responseHeader"` / Elasticsearch `"track_total_hits"` / prettier `"printWidth"` / karma `"basePath"` stay out. `"distance_type"` / `"index_type"` only match their LanceDB enums. `"vector_column_name"` / `"source_column"` require a non-empty quoted string. Numeric `"nprobes"` / `"refine_factor"` / `"num_partitions"` / `"num_sub_vectors"` / `"index_cache_size"` reject leading zeros beyond `0`.
+
 ## [0.3.812] — 2026-11-12
 
 View:

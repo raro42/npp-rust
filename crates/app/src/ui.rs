@@ -32480,6 +32480,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_pinecone_json_decl(s)
             || is_chroma_json_decl(s)
             || is_milvus_json_decl(s)
+            || is_lancedb_json_decl(s)
             || is_gomod_decl(s)
             || is_gemfile_decl(s)
             || is_brewfile_decl(s)
@@ -32870,6 +32871,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_pinecone_json_decl(s)
         || is_chroma_json_decl(s)
         || is_milvus_json_decl(s)
+        || is_lancedb_json_decl(s)
         || is_gomod_decl(s)
         || is_gemfile_decl(s)
         || is_brewfile_decl(s)
@@ -63954,6 +63956,175 @@ fn milvus_json_bool_and_tail_ok(after_colon: &str) -> bool {
     false
 }
 
+/// LanceDB search / index / embedding JSON keys: `"vector_column_name": "vec"`,
+/// `"nprobes": 20`, `"refine_factor": 10`, `"num_partitions": 256`,
+/// `"num_sub_vectors": 16`, `"index_cache_size": 100`, `"with_row_id": true`,
+/// `"fast_search": false`, `"bypass_vector_index": false`, `"prefilter": true`,
+/// `"distance_type": "l2"` / `"cosine"` / `"dot"`,
+/// `"index_type": "IVF_PQ"` / `"IVF_HNSW_SQ"` / `"BTREE"` / `"BITMAP"` /
+/// `"LABEL_LIST"` / `"FTS"` / `"HNSW"`, `"source_column": "text"`,
+/// `"target_columns": [`, `"embedding_functions": {`. Optional trailing `,`
+/// and `//` / `/*` comment. Incomplete quotes / missing `:` stay out.
+/// Generic `"name"` / `"id"` / `"filter"` / `"limit"` / `"vector"` / Milvus
+/// `"annsField"` / `"nprobe"` / Chroma `"n_results"` stay out.
+fn is_lancedb_json_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    let Some(rest) = s.strip_prefix('"') else {
+        return false;
+    };
+    let Some(end) = rest.find('"') else {
+        return false;
+    };
+    let key = &rest[..end];
+    if !lancedb_json_key_ok(key) {
+        return false;
+    }
+    let after_key = rest[end + 1..].trim_start();
+    let Some(after_colon) = after_key.strip_prefix(':') else {
+        return false;
+    };
+    let after_colon = after_colon.trim_start();
+    lancedb_json_value_and_tail_ok(key, after_colon)
+}
+
+fn lancedb_json_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "vector_column_name"
+            | "nprobes"
+            | "refine_factor"
+            | "num_partitions"
+            | "num_sub_vectors"
+            | "index_cache_size"
+            | "with_row_id"
+            | "fast_search"
+            | "bypass_vector_index"
+            | "prefilter"
+            | "distance_type"
+            | "index_type"
+            | "source_column"
+            | "target_columns"
+            | "embedding_functions"
+    )
+}
+
+fn lancedb_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool {
+    let bytes = after_colon.as_bytes();
+    let Some(first) = bytes.first().copied() else {
+        return false;
+    };
+    match first {
+        b'{' => {
+            if key != "embedding_functions" {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[1..])
+        }
+        b'[' => {
+            if key != "target_columns" {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[1..])
+        }
+        b'"' => match key {
+            "vector_column_name" | "source_column" => {
+                lancedb_json_nonempty_string_and_tail_ok(after_colon)
+            }
+            "distance_type" => lancedb_json_distance_type_and_tail_ok(after_colon),
+            "index_type" => lancedb_json_index_type_and_tail_ok(after_colon),
+            _ => false,
+        },
+        b't' | b'f' => {
+            if !matches!(
+                key,
+                "with_row_id" | "fast_search" | "bypass_vector_index" | "prefilter"
+            ) {
+                return false;
+            }
+            lancedb_json_bool_and_tail_ok(after_colon)
+        }
+        b'0'..=b'9' => lancedb_json_number_and_tail_ok(key, after_colon),
+        _ => false,
+    }
+}
+
+fn lancedb_json_nonempty_string_and_tail_ok(after_colon: &str) -> bool {
+    let rest = &after_colon[1..];
+    let Some(end) = rest.find('"') else {
+        return false;
+    };
+    let value = &rest[..end];
+    if value.is_empty() || value.contains('\n') {
+        return false;
+    }
+    package_json_tail_ok(&rest[end + 1..])
+}
+
+fn lancedb_json_distance_type_and_tail_ok(after_colon: &str) -> bool {
+    let rest = &after_colon[1..];
+    let Some(end) = rest.find('"') else {
+        return false;
+    };
+    let value = &rest[..end];
+    if !matches!(value, "l2" | "cosine" | "dot") {
+        return false;
+    }
+    package_json_tail_ok(&rest[end + 1..])
+}
+
+fn lancedb_json_index_type_and_tail_ok(after_colon: &str) -> bool {
+    let rest = &after_colon[1..];
+    let Some(end) = rest.find('"') else {
+        return false;
+    };
+    let value = &rest[..end];
+    if !matches!(
+        value,
+        "IVF_PQ" | "IVF_HNSW_SQ" | "BTREE" | "BITMAP" | "LABEL_LIST" | "FTS" | "HNSW"
+    ) {
+        return false;
+    }
+    package_json_tail_ok(&rest[end + 1..])
+}
+
+fn lancedb_json_number_and_tail_ok(key: &str, after_colon: &str) -> bool {
+    match key {
+        "nprobes" | "refine_factor" | "num_partitions" | "num_sub_vectors" | "index_cache_size" => {
+            lancedb_json_uint_and_tail_ok(after_colon)
+        }
+        _ => false,
+    }
+}
+
+fn lancedb_json_uint_and_tail_ok(after_colon: &str) -> bool {
+    let bytes = after_colon.as_bytes();
+    let mut i = 0usize;
+    if i >= bytes.len() || !bytes[i].is_ascii_digit() {
+        return false;
+    }
+    if bytes[i] == b'0' {
+        i += 1;
+        if i < bytes.len() && bytes[i].is_ascii_digit() {
+            return false;
+        }
+    } else {
+        while i < bytes.len() && bytes[i].is_ascii_digit() {
+            i += 1;
+        }
+    }
+    package_json_tail_ok(&after_colon[i..])
+}
+
+fn lancedb_json_bool_and_tail_ok(after_colon: &str) -> bool {
+    if let Some(rest) = after_colon.strip_prefix("true") {
+        return package_json_tail_ok(rest);
+    }
+    if let Some(rest) = after_colon.strip_prefix("false") {
+        return package_json_tail_ok(rest);
+    }
+    false
+}
+
 /// go.mod / go.work directives: `module example.com/foo`, `go 1.22`,
 /// `toolchain go1.22.1`, `require (` / `require path v1.2.3`,
 /// `exclude (` / single-line, `replace (` / `replace old => new`,
@@ -94595,37 +94766,38 @@ mod func_like_line_tests {
         is_insomnia_json_decl, is_interrogate_ini_decl, is_ionic_json_decl, is_ipsec_conf_decl,
         is_isort_ini_decl, is_jaeger_json_decl, is_jasmine_json_decl, is_jest_json_decl,
         is_jsdoc_json_decl, is_karma_json_decl, is_keepalived_decl, is_knip_json_decl,
-        is_krb5_conf_decl, is_lerna_json_decl, is_lightdm_conf_decl, is_limits_conf_decl,
-        is_lint_staged_json_decl, is_locale_conf_decl, is_login_defs_decl, is_logrotate_decl,
-        is_loki_json_decl, is_machine_info_decl, is_makepkg_conf_decl, is_mdbook_toml_decl,
-        is_meilisearch_json_decl, is_milvus_json_decl, is_mintlify_json_decl, is_mise_toml_decl,
-        is_mkinitcpio_conf_decl, is_mocha_json_decl, is_mockoon_json_decl, is_mockserver_json_decl,
-        is_modprobe_conf_decl, is_mountebank_json_decl, is_mutants_toml_decl, is_mypy_ini_decl,
-        is_mysql_cnf_decl, is_named_conf_decl, is_nest_cli_json_decl, is_netlify_toml_decl,
-        is_networks_file_decl, is_neutralino_json_decl, is_nextest_toml_decl, is_nftables_decl,
-        is_nginx_conf_decl, is_nightwatch_json_decl, is_nixpacks_toml_decl, is_nm_connection_decl,
-        is_npmrc_decl, is_nsswitch_conf_decl, is_nx_json_decl, is_nyc_json_decl,
-        is_openapi_json_decl, is_openapitools_json_decl, is_openvpn_decl, is_os_release_decl,
-        is_otlp_json_decl, is_oxlint_json_decl, is_package_json_decl, is_pacman_conf_decl,
-        is_pact_json_decl, is_pam_conf_decl, is_parcel_json_decl, is_paru_conf_decl,
-        is_passwd_group_file_decl, is_pdm_toml_decl, is_php_ini_decl, is_pinecone_json_decl,
-        is_pip_conf_decl, is_pipfile_decl, is_pixi_toml_decl, is_playwright_json_decl,
-        is_podfile_decl, is_poetry_toml_decl, is_postcss_json_decl, is_postman_json_decl,
-        is_premake_decl, is_prettier_json_decl, is_prometheus_json_decl, is_protocols_file_decl,
-        is_pycln_ini_decl, is_pycodestyle_ini_decl, is_pydoclint_ini_decl, is_pydocstyle_ini_decl,
-        is_pylama_ini_decl, is_pylint_ini_decl, is_pypirc_ini_decl, is_pyproject_toml_decl,
-        is_pyre_configuration_decl, is_pyright_toml_decl, is_pyrightconfig_json_decl,
-        is_pytest_ini_decl, is_pytype_ini_decl, is_pyupgrade_ini_decl, is_qdrant_json_decl,
-        is_radon_ini_decl, is_railway_toml_decl, is_rake_decl, is_rapidoc_json_decl,
-        is_redoc_json_decl, is_redocly_json_decl, is_refurb_toml_decl, is_release_it_json_decl,
-        is_release_please_json_decl, is_release_toml_decl, is_renovate_json_decl,
-        is_resolv_conf_decl, is_rpc_file_decl, is_rstcheck_ini_decl, is_rsyslog_decl,
-        is_ruff_toml_decl, is_rush_json_decl, is_rust_toolchain_toml_decl, is_rustfmt_toml_decl,
-        is_samba_conf_decl, is_samconfig_toml_decl, is_scalar_json_decl, is_scons_decl,
-        is_scriv_ini_decl, is_sddm_conf_decl, is_semantic_release_ini_decl,
-        is_semantic_release_json_decl, is_services_file_decl, is_setup_cfg_decl,
-        is_setuptools_scm_ini_decl, is_simple_git_hooks_json_decl, is_solr_json_decl,
-        is_spectral_json_decl, is_sqlfluff_ini_decl, is_ssh_config_decl, is_sssd_conf_decl,
+        is_krb5_conf_decl, is_lancedb_json_decl, is_lerna_json_decl, is_lightdm_conf_decl,
+        is_limits_conf_decl, is_lint_staged_json_decl, is_locale_conf_decl, is_login_defs_decl,
+        is_logrotate_decl, is_loki_json_decl, is_machine_info_decl, is_makepkg_conf_decl,
+        is_mdbook_toml_decl, is_meilisearch_json_decl, is_milvus_json_decl, is_mintlify_json_decl,
+        is_mise_toml_decl, is_mkinitcpio_conf_decl, is_mocha_json_decl, is_mockoon_json_decl,
+        is_mockserver_json_decl, is_modprobe_conf_decl, is_mountebank_json_decl,
+        is_mutants_toml_decl, is_mypy_ini_decl, is_mysql_cnf_decl, is_named_conf_decl,
+        is_nest_cli_json_decl, is_netlify_toml_decl, is_networks_file_decl,
+        is_neutralino_json_decl, is_nextest_toml_decl, is_nftables_decl, is_nginx_conf_decl,
+        is_nightwatch_json_decl, is_nixpacks_toml_decl, is_nm_connection_decl, is_npmrc_decl,
+        is_nsswitch_conf_decl, is_nx_json_decl, is_nyc_json_decl, is_openapi_json_decl,
+        is_openapitools_json_decl, is_openvpn_decl, is_os_release_decl, is_otlp_json_decl,
+        is_oxlint_json_decl, is_package_json_decl, is_pacman_conf_decl, is_pact_json_decl,
+        is_pam_conf_decl, is_parcel_json_decl, is_paru_conf_decl, is_passwd_group_file_decl,
+        is_pdm_toml_decl, is_php_ini_decl, is_pinecone_json_decl, is_pip_conf_decl,
+        is_pipfile_decl, is_pixi_toml_decl, is_playwright_json_decl, is_podfile_decl,
+        is_poetry_toml_decl, is_postcss_json_decl, is_postman_json_decl, is_premake_decl,
+        is_prettier_json_decl, is_prometheus_json_decl, is_protocols_file_decl, is_pycln_ini_decl,
+        is_pycodestyle_ini_decl, is_pydoclint_ini_decl, is_pydocstyle_ini_decl, is_pylama_ini_decl,
+        is_pylint_ini_decl, is_pypirc_ini_decl, is_pyproject_toml_decl, is_pyre_configuration_decl,
+        is_pyright_toml_decl, is_pyrightconfig_json_decl, is_pytest_ini_decl, is_pytype_ini_decl,
+        is_pyupgrade_ini_decl, is_qdrant_json_decl, is_radon_ini_decl, is_railway_toml_decl,
+        is_rake_decl, is_rapidoc_json_decl, is_redoc_json_decl, is_redocly_json_decl,
+        is_refurb_toml_decl, is_release_it_json_decl, is_release_please_json_decl,
+        is_release_toml_decl, is_renovate_json_decl, is_resolv_conf_decl, is_rpc_file_decl,
+        is_rstcheck_ini_decl, is_rsyslog_decl, is_ruff_toml_decl, is_rush_json_decl,
+        is_rust_toolchain_toml_decl, is_rustfmt_toml_decl, is_samba_conf_decl,
+        is_samconfig_toml_decl, is_scalar_json_decl, is_scons_decl, is_scriv_ini_decl,
+        is_sddm_conf_decl, is_semantic_release_ini_decl, is_semantic_release_json_decl,
+        is_services_file_decl, is_setup_cfg_decl, is_setuptools_scm_ini_decl,
+        is_simple_git_hooks_json_decl, is_solr_json_decl, is_spectral_json_decl,
+        is_sqlfluff_ini_decl, is_ssh_config_decl, is_sssd_conf_decl,
         is_stoplight_elements_json_decl, is_stryker_json_decl, is_stylelint_json_decl,
         is_subuid_subgid_decl, is_sudoers_decl, is_supabase_toml_decl, is_supervisord_conf_decl,
         is_swagger_ui_json_decl, is_swc_json_decl, is_syncpack_json_decl, is_sysctl_conf_decl,
@@ -129507,6 +129679,14 @@ mod func_like_line_tests {
         assert!(is_prettier_json_decl(r#""printWidth": 80"#));
         assert!(!is_milvus_json_decl(r#""basePath": ".""#));
         assert!(is_karma_json_decl(r#""basePath": ".""#));
+        assert!(!is_milvus_json_decl(r#""vector_column_name": "vec""#));
+        assert!(is_lancedb_json_decl(r#""vector_column_name": "vec""#));
+        assert!(!is_milvus_json_decl(r#""nprobes": 20"#));
+        assert!(is_lancedb_json_decl(r#""nprobes": 20"#));
+        assert!(!is_milvus_json_decl(r#""distance_type": "l2""#));
+        assert!(is_lancedb_json_decl(r#""distance_type": "l2""#));
+        assert!(!is_milvus_json_decl(r#""index_type": "IVF_PQ""#));
+        assert!(is_lancedb_json_decl(r#""index_type": "IVF_PQ""#));
         assert!(line_is_func_like(r#""annsField": "vec""#));
         assert!(line_is_func_like(r#""searchParams": {"#));
         assert!(line_is_func_like(r#""outputFields": ["#));
@@ -129735,6 +129915,284 @@ mod func_like_line_tests {
         assert!(line_is_func_like(r#""numEntities": 1000"#));
         assert!(line_is_func_like(r#""partitionNames": ["#));
         assert!(line_is_func_like(r#""elementTypeParams": {"#));
+        // LanceDB stays on its scanner.
+        assert!(!is_milvus_json_decl(r#""vector_column_name": "vec""#));
+        assert!(is_lancedb_json_decl(r#""vector_column_name": "vec""#));
+        assert!(!is_milvus_json_decl(r#""nprobes": 20"#));
+        assert!(is_lancedb_json_decl(r#""nprobes": 20"#));
+        assert!(!is_milvus_json_decl(r#""refine_factor": 10"#));
+        assert!(is_lancedb_json_decl(r#""refine_factor": 10"#));
+        assert!(!is_milvus_json_decl(r#""distance_type": "l2""#));
+        assert!(is_lancedb_json_decl(r#""distance_type": "l2""#));
+        assert!(!is_milvus_json_decl(r#""index_type": "IVF_PQ""#));
+        assert!(is_lancedb_json_decl(r#""index_type": "IVF_PQ""#));
+        assert!(!is_milvus_json_decl(r#""embedding_functions": {"#));
+        assert!(is_lancedb_json_decl(r#""embedding_functions": {"#));
+    }
+
+    #[test]
+    fn lancedb_json_keys_smoke() {
+        assert!(is_lancedb_json_decl(r#""vector_column_name": "vec""#));
+        assert!(is_lancedb_json_decl(r#""nprobes": 0"#));
+        assert!(is_lancedb_json_decl(r#""nprobes": 20"#));
+        assert!(is_lancedb_json_decl(r#""refine_factor": 0"#));
+        assert!(is_lancedb_json_decl(r#""refine_factor": 10"#));
+        assert!(is_lancedb_json_decl(r#""num_partitions": 0"#));
+        assert!(is_lancedb_json_decl(r#""num_partitions": 256"#));
+        assert!(is_lancedb_json_decl(r#""num_sub_vectors": 0"#));
+        assert!(is_lancedb_json_decl(r#""num_sub_vectors": 16"#));
+        assert!(is_lancedb_json_decl(r#""index_cache_size": 0"#));
+        assert!(is_lancedb_json_decl(r#""index_cache_size": 100"#));
+        assert!(is_lancedb_json_decl(r#""with_row_id": true"#));
+        assert!(is_lancedb_json_decl(r#""with_row_id": false"#));
+        assert!(is_lancedb_json_decl(r#""fast_search": true"#));
+        assert!(is_lancedb_json_decl(r#""fast_search": false"#));
+        assert!(is_lancedb_json_decl(r#""bypass_vector_index": true"#));
+        assert!(is_lancedb_json_decl(r#""bypass_vector_index": false"#));
+        assert!(is_lancedb_json_decl(r#""prefilter": true"#));
+        assert!(is_lancedb_json_decl(r#""prefilter": false"#));
+        assert!(is_lancedb_json_decl(r#""distance_type": "l2""#));
+        assert!(is_lancedb_json_decl(r#""distance_type": "cosine""#));
+        assert!(is_lancedb_json_decl(r#""distance_type": "dot""#));
+        assert!(is_lancedb_json_decl(r#""index_type": "IVF_PQ""#));
+        assert!(is_lancedb_json_decl(r#""index_type": "IVF_HNSW_SQ""#));
+        assert!(is_lancedb_json_decl(r#""index_type": "BTREE""#));
+        assert!(is_lancedb_json_decl(r#""index_type": "BITMAP""#));
+        assert!(is_lancedb_json_decl(r#""index_type": "LABEL_LIST""#));
+        assert!(is_lancedb_json_decl(r#""index_type": "FTS""#));
+        assert!(is_lancedb_json_decl(r#""index_type": "HNSW""#));
+        assert!(is_lancedb_json_decl(r#""source_column": "text""#));
+        assert!(is_lancedb_json_decl(r#""target_columns": ["#));
+        assert!(is_lancedb_json_decl(r#""embedding_functions": {"#));
+        // Distinctive neighbours stay out of this scanner.
+        assert!(!is_lancedb_json_decl(r#""annsField": "vec""#));
+        assert!(is_milvus_json_decl(r#""annsField": "vec""#));
+        assert!(!is_lancedb_json_decl(r#""nprobe": 10"#));
+        assert!(is_milvus_json_decl(r#""nprobe": 10"#));
+        assert!(!is_lancedb_json_decl(r#""indexType": "HNSW""#));
+        assert!(is_milvus_json_decl(r#""indexType": "HNSW""#));
+        assert!(!is_lancedb_json_decl(r#""n_results": 10"#));
+        assert!(is_chroma_json_decl(r#""n_results": 10"#));
+        assert!(!is_lancedb_json_decl(r#""topK": 10"#));
+        assert!(is_pinecone_json_decl(r#""topK": 10"#));
+        assert!(!is_lancedb_json_decl(r#""nearVector": {"#));
+        assert!(is_weaviate_json_decl(r#""nearVector": {"#));
+        assert!(!is_lancedb_json_decl(r#""vectors_count": 100"#));
+        assert!(is_qdrant_json_decl(r#""vectors_count": 100"#));
+        assert!(!is_lancedb_json_decl(r#""processingTimeMS": 12"#));
+        assert!(is_algolia_json_decl(r#""processingTimeMS": 12"#));
+        assert!(!is_lancedb_json_decl(r#""processingTimeMs": 12"#));
+        assert!(is_meilisearch_json_decl(r#""processingTimeMs": 12"#));
+        assert!(!is_lancedb_json_decl(r#""search_time_ms": 12"#));
+        assert!(is_typesense_json_decl(r#""search_time_ms": 12"#));
+        assert!(!is_lancedb_json_decl(r#""responseHeader": {"#));
+        assert!(is_solr_json_decl(r#""responseHeader": {"#));
+        assert!(!is_lancedb_json_decl(r#""track_total_hits": true"#));
+        assert!(is_elasticsearch_json_decl(r#""track_total_hits": true"#));
+        assert!(!is_lancedb_json_decl(r#""printWidth": 80"#));
+        assert!(is_prettier_json_decl(r#""printWidth": 80"#));
+        assert!(!is_lancedb_json_decl(r#""basePath": ".""#));
+        assert!(is_karma_json_decl(r#""basePath": ".""#));
+        assert!(line_is_func_like(r#""vector_column_name": "vec""#));
+        assert!(line_is_func_like(r#""nprobes": 20"#));
+        assert!(line_is_func_like(r#""refine_factor": 10"#));
+        assert!(line_is_func_like(r#""num_partitions": 256"#));
+        assert!(line_is_func_like(r#""num_sub_vectors": 16"#));
+        assert!(line_is_func_like(r#""index_cache_size": 100"#));
+        assert!(line_is_func_like(r#""with_row_id": true"#));
+        assert!(line_is_func_like(r#""fast_search": false"#));
+        assert!(line_is_func_like(r#""bypass_vector_index": false"#));
+        assert!(line_is_func_like(r#""prefilter": true"#));
+        assert!(line_is_func_like(r#""distance_type": "cosine""#));
+        assert!(line_is_func_like(r#""index_type": "IVF_HNSW_SQ""#));
+        assert!(line_is_func_like(r#""source_column": "text""#));
+        assert!(line_is_func_like(r#""target_columns": ["#));
+        assert!(line_is_func_like(r#""embedding_functions": {"#));
+    }
+
+    #[test]
+    fn lancedb_json_keys_count() {
+        assert!(is_lancedb_json_decl(r#""vector_column_name": "vec""#));
+        assert!(is_lancedb_json_decl(r#""vector_column_name": "embedding""#));
+        assert!(is_lancedb_json_decl(r#""vector_column_name": "vec","#));
+        assert!(is_lancedb_json_decl(r#""vector_column_name": "vec" // v"#));
+        assert!(!is_lancedb_json_decl(r#""vector_column_name": """#));
+        assert!(!is_lancedb_json_decl(r#""vector_column_name": {"#));
+        assert!(!is_lancedb_json_decl(r#""vector_column_name": ["#));
+        assert!(!is_lancedb_json_decl(r#""vector_column_name": true"#));
+        assert!(is_lancedb_json_decl(r#""nprobes": 0"#));
+        assert!(is_lancedb_json_decl(r#""nprobes": 20"#));
+        assert!(is_lancedb_json_decl(r#""nprobes": 20,"#));
+        assert!(is_lancedb_json_decl(r#""nprobes": 20 // n"#));
+        assert!(!is_lancedb_json_decl(r#""nprobes": 00"#));
+        assert!(!is_lancedb_json_decl(r#""nprobes": 01"#));
+        assert!(!is_lancedb_json_decl(r#""nprobes": true"#));
+        assert!(!is_lancedb_json_decl(r#""nprobes": {"#));
+        assert!(is_lancedb_json_decl(r#""refine_factor": 0"#));
+        assert!(is_lancedb_json_decl(r#""refine_factor": 10"#));
+        assert!(is_lancedb_json_decl(r#""refine_factor": 10,"#));
+        assert!(!is_lancedb_json_decl(r#""refine_factor": 00"#));
+        assert!(!is_lancedb_json_decl(r#""refine_factor": 010"#));
+        assert!(!is_lancedb_json_decl(r#""refine_factor": true"#));
+        assert!(is_lancedb_json_decl(r#""num_partitions": 0"#));
+        assert!(is_lancedb_json_decl(r#""num_partitions": 256"#));
+        assert!(is_lancedb_json_decl(r#""num_partitions": 256,"#));
+        assert!(!is_lancedb_json_decl(r#""num_partitions": 00"#));
+        assert!(!is_lancedb_json_decl(r#""num_partitions": 0256"#));
+        assert!(!is_lancedb_json_decl(r#""num_partitions": true"#));
+        assert!(is_lancedb_json_decl(r#""num_sub_vectors": 0"#));
+        assert!(is_lancedb_json_decl(r#""num_sub_vectors": 16"#));
+        assert!(is_lancedb_json_decl(r#""num_sub_vectors": 16,"#));
+        assert!(!is_lancedb_json_decl(r#""num_sub_vectors": 00"#));
+        assert!(!is_lancedb_json_decl(r#""num_sub_vectors": 016"#));
+        assert!(!is_lancedb_json_decl(r#""num_sub_vectors": true"#));
+        assert!(is_lancedb_json_decl(r#""index_cache_size": 0"#));
+        assert!(is_lancedb_json_decl(r#""index_cache_size": 100"#));
+        assert!(is_lancedb_json_decl(r#""index_cache_size": 100,"#));
+        assert!(!is_lancedb_json_decl(r#""index_cache_size": 00"#));
+        assert!(!is_lancedb_json_decl(r#""index_cache_size": 0100"#));
+        assert!(!is_lancedb_json_decl(r#""index_cache_size": true"#));
+        assert!(is_lancedb_json_decl(r#""with_row_id": true"#));
+        assert!(is_lancedb_json_decl(r#""with_row_id": false"#));
+        assert!(is_lancedb_json_decl(r#""with_row_id": true,"#));
+        assert!(is_lancedb_json_decl(r#""with_row_id": false // w"#));
+        assert!(!is_lancedb_json_decl(r#""with_row_id": {"#));
+        assert!(!is_lancedb_json_decl(r#""with_row_id": 1"#));
+        assert!(is_lancedb_json_decl(r#""fast_search": true"#));
+        assert!(is_lancedb_json_decl(r#""fast_search": false"#));
+        assert!(is_lancedb_json_decl(r#""fast_search": true,"#));
+        assert!(!is_lancedb_json_decl(r#""fast_search": {"#));
+        assert!(!is_lancedb_json_decl(r#""fast_search": 1"#));
+        assert!(is_lancedb_json_decl(r#""bypass_vector_index": true"#));
+        assert!(is_lancedb_json_decl(r#""bypass_vector_index": false"#));
+        assert!(is_lancedb_json_decl(r#""bypass_vector_index": true,"#));
+        assert!(!is_lancedb_json_decl(r#""bypass_vector_index": {"#));
+        assert!(!is_lancedb_json_decl(r#""bypass_vector_index": 1"#));
+        assert!(is_lancedb_json_decl(r#""prefilter": true"#));
+        assert!(is_lancedb_json_decl(r#""prefilter": false"#));
+        assert!(is_lancedb_json_decl(r#""prefilter": true,"#));
+        assert!(!is_lancedb_json_decl(r#""prefilter": {"#));
+        assert!(!is_lancedb_json_decl(r#""prefilter": 1"#));
+        assert!(is_lancedb_json_decl(r#""distance_type": "l2""#));
+        assert!(is_lancedb_json_decl(r#""distance_type": "cosine""#));
+        assert!(is_lancedb_json_decl(r#""distance_type": "dot""#));
+        assert!(is_lancedb_json_decl(r#""distance_type": "l2","#));
+        assert!(is_lancedb_json_decl(r#""distance_type": "cosine" // d"#));
+        assert!(!is_lancedb_json_decl(r#""distance_type": "L2""#));
+        assert!(!is_lancedb_json_decl(r#""distance_type": "euclidean""#));
+        assert!(!is_lancedb_json_decl(r#""distance_type": {"#));
+        assert!(!is_lancedb_json_decl(r#""distance_type": true"#));
+        assert!(is_lancedb_json_decl(r#""index_type": "IVF_PQ""#));
+        assert!(is_lancedb_json_decl(r#""index_type": "IVF_HNSW_SQ""#));
+        assert!(is_lancedb_json_decl(r#""index_type": "BTREE""#));
+        assert!(is_lancedb_json_decl(r#""index_type": "BITMAP""#));
+        assert!(is_lancedb_json_decl(r#""index_type": "LABEL_LIST""#));
+        assert!(is_lancedb_json_decl(r#""index_type": "FTS""#));
+        assert!(is_lancedb_json_decl(r#""index_type": "HNSW""#));
+        assert!(is_lancedb_json_decl(r#""index_type": "IVF_PQ","#));
+        assert!(is_lancedb_json_decl(r#""index_type": "HNSW" // i"#));
+        assert!(!is_lancedb_json_decl(r#""index_type": "hnsw""#));
+        assert!(!is_lancedb_json_decl(r#""index_type": "FLAT""#));
+        assert!(!is_lancedb_json_decl(r#""index_type": {"#));
+        assert!(!is_lancedb_json_decl(r#""index_type": true"#));
+        assert!(is_lancedb_json_decl(r#""source_column": "text""#));
+        assert!(is_lancedb_json_decl(r#""source_column": "body""#));
+        assert!(is_lancedb_json_decl(r#""source_column": "text","#));
+        assert!(is_lancedb_json_decl(r#""source_column": "text" // s"#));
+        assert!(!is_lancedb_json_decl(r#""source_column": """#));
+        assert!(!is_lancedb_json_decl(r#""source_column": {"#));
+        assert!(!is_lancedb_json_decl(r#""source_column": ["#));
+        assert!(!is_lancedb_json_decl(r#""source_column": true"#));
+        assert!(is_lancedb_json_decl(r#""target_columns": ["#));
+        assert!(is_lancedb_json_decl(r#""target_columns": [,"#));
+        assert!(is_lancedb_json_decl(r#""target_columns": [ // t"#));
+        assert!(!is_lancedb_json_decl(r#""target_columns": {"#));
+        assert!(!is_lancedb_json_decl(r#""target_columns": true"#));
+        assert!(is_lancedb_json_decl(r#""embedding_functions": {"#));
+        assert!(is_lancedb_json_decl(r#""embedding_functions": {,"#));
+        assert!(is_lancedb_json_decl(r#""embedding_functions": { // e"#));
+        assert!(!is_lancedb_json_decl(r#""embedding_functions": ["#));
+        assert!(!is_lancedb_json_decl(r#""embedding_functions": true"#));
+        // Incomplete / bare keys stay out.
+        assert!(!is_lancedb_json_decl(r#""vector_column_name""#));
+        assert!(!is_lancedb_json_decl(r#""nprobes""#));
+        assert!(!is_lancedb_json_decl(r#""refine_factor""#));
+        assert!(!is_lancedb_json_decl(r#""num_partitions""#));
+        assert!(!is_lancedb_json_decl(r#""num_sub_vectors""#));
+        assert!(!is_lancedb_json_decl(r#""index_cache_size""#));
+        assert!(!is_lancedb_json_decl(r#""with_row_id""#));
+        assert!(!is_lancedb_json_decl(r#""fast_search""#));
+        assert!(!is_lancedb_json_decl(r#""bypass_vector_index""#));
+        assert!(!is_lancedb_json_decl(r#""prefilter""#));
+        assert!(!is_lancedb_json_decl(r#""distance_type""#));
+        assert!(!is_lancedb_json_decl(r#""index_type""#));
+        assert!(!is_lancedb_json_decl(r#""source_column""#));
+        assert!(!is_lancedb_json_decl(r#""target_columns""#));
+        assert!(!is_lancedb_json_decl(r#""embedding_functions""#));
+        // Generic / neighbouring stay out.
+        assert!(!is_lancedb_json_decl(
+            r#""$schema": "https://json-schema.org/draft/2020-12/schema""#
+        ));
+        assert!(!is_lancedb_json_decl(r#""name": "docs""#));
+        assert!(!is_lancedb_json_decl(r#""id": "tbl-1""#));
+        assert!(!is_lancedb_json_decl(r#""filter": "id > 0""#));
+        assert!(!is_lancedb_json_decl(r#""limit": 10"#));
+        assert!(!is_lancedb_json_decl(r#""offset": 0"#));
+        assert!(!is_lancedb_json_decl(r#""vector": ["#));
+        assert!(!is_lancedb_json_decl(r#""vectors": ["#));
+        assert!(!is_lancedb_json_decl(r#""columns": ["#));
+        assert!(!is_lancedb_json_decl(r#""data": ["#));
+        assert!(!is_lancedb_json_decl(r#""schema": {"#));
+        assert!(!is_lancedb_json_decl(r#""metric": "l2""#));
+        assert!(!is_lancedb_json_decl(r#""annsField": "vec""#));
+        assert!(is_milvus_json_decl(r#""annsField": "vec""#));
+        assert!(!is_lancedb_json_decl(r#""searchParams": {"#));
+        assert!(is_milvus_json_decl(r#""searchParams": {"#));
+        assert!(!is_lancedb_json_decl(r#""nprobe": 10"#));
+        assert!(is_milvus_json_decl(r#""nprobe": 10"#));
+        assert!(!is_lancedb_json_decl(r#""indexType": "HNSW""#));
+        assert!(is_milvus_json_decl(r#""indexType": "HNSW""#));
+        assert!(!is_lancedb_json_decl(r#""n_results": 10"#));
+        assert!(is_chroma_json_decl(r#""n_results": 10"#));
+        assert!(!is_lancedb_json_decl(r#""where_document": {"#));
+        assert!(is_chroma_json_decl(r#""where_document": {"#));
+        assert!(!is_lancedb_json_decl(r#""topK": 10"#));
+        assert!(is_pinecone_json_decl(r#""topK": 10"#));
+        assert!(!is_lancedb_json_decl(r#""includeMetadata": true"#));
+        assert!(is_pinecone_json_decl(r#""includeMetadata": true"#));
+        assert!(!is_lancedb_json_decl(r#""nearVector": {"#));
+        assert!(is_weaviate_json_decl(r#""nearVector": {"#));
+        assert!(!is_lancedb_json_decl(r#""vectors_count": 100"#));
+        assert!(is_qdrant_json_decl(r#""vectors_count": 100"#));
+        assert!(!is_lancedb_json_decl(r#""processingTimeMS": 12"#));
+        assert!(is_algolia_json_decl(r#""processingTimeMS": 12"#));
+        assert!(!is_lancedb_json_decl(r#""processingTimeMs": 12"#));
+        assert!(is_meilisearch_json_decl(r#""processingTimeMs": 12"#));
+        assert!(!is_lancedb_json_decl(r#""search_time_ms": 12"#));
+        assert!(is_typesense_json_decl(r#""search_time_ms": 12"#));
+        assert!(!is_lancedb_json_decl(r#""responseHeader": {"#));
+        assert!(is_solr_json_decl(r#""responseHeader": {"#));
+        assert!(!is_lancedb_json_decl(r#""track_total_hits": true"#));
+        assert!(is_elasticsearch_json_decl(r#""track_total_hits": true"#));
+        assert!(!is_lancedb_json_decl(r#""printWidth": 80"#));
+        assert!(is_prettier_json_decl(r#""printWidth": 80"#));
+        assert!(!is_lancedb_json_decl(r#""basePath": ".""#));
+        assert!(is_karma_json_decl(r#""basePath": ".""#));
+        assert!(line_is_func_like(r#""vector_column_name": "vec""#));
+        assert!(line_is_func_like(r#""nprobes": 20"#));
+        assert!(line_is_func_like(r#""refine_factor": 10"#));
+        assert!(line_is_func_like(r#""num_partitions": 256"#));
+        assert!(line_is_func_like(r#""num_sub_vectors": 16"#));
+        assert!(line_is_func_like(r#""index_cache_size": 100"#));
+        assert!(line_is_func_like(r#""with_row_id": false"#));
+        assert!(line_is_func_like(r#""fast_search": true"#));
+        assert!(line_is_func_like(r#""bypass_vector_index": true"#));
+        assert!(line_is_func_like(r#""prefilter": false"#));
+        assert!(line_is_func_like(r#""distance_type": "dot""#));
+        assert!(line_is_func_like(r#""index_type": "BTREE""#));
+        assert!(line_is_func_like(r#""source_column": "text""#));
+        assert!(line_is_func_like(r#""target_columns": ["#));
+        assert!(line_is_func_like(r#""embedding_functions": {"#));
     }
 
     #[test]
