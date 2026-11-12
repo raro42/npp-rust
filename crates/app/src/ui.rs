@@ -32463,6 +32463,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_otlp_json_decl(s)
             || is_zipkin_json_decl(s)
             || is_jaeger_json_decl(s)
+            || is_tempo_json_decl(s)
             || is_gomod_decl(s)
             || is_gemfile_decl(s)
             || is_brewfile_decl(s)
@@ -32836,6 +32837,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_otlp_json_decl(s)
         || is_zipkin_json_decl(s)
         || is_jaeger_json_decl(s)
+        || is_tempo_json_decl(s)
         || is_gomod_decl(s)
         || is_gemfile_decl(s)
         || is_brewfile_decl(s)
@@ -60662,9 +60664,13 @@ fn zipkin_json_bool_and_tail_ok(after_colon: &str) -> bool {
 /// mintlify `"topbarLinks"` / Compodoc `"theme": "material"` / redocly
 /// `"apis"` / spectral `"functionsDir"` / openapitools `"generator-cli"` /
 /// Knip `"entry"` / prettier `"printWidth"` / package.json `"bin"` /
-/// karma `"basePath"` stay out. `"processID"` only matches `p` + digits.
-/// `"traceID"` only matches 16 or 32-char lowercase hex. `"spanID"` only
-/// matches 16-char lowercase hex. `"refType"` only matches Jaeger enums.
+/// karma `"basePath"` / Tempo `"rootServiceName"` / `"rootTraceName"` /
+/// `"spanSet"` / `"spanSets"` / `"durationMs"` / `"inspectedTraces"` /
+/// `"inspectedBytes"` / `"totalBlocks"` / `"completedJobs"` /
+/// `"totalJobs"` / `"totalBlockBytes"` stay out. `"processID"` only
+/// matches `p` + digits. `"traceID"` only matches 16 or 32-char lowercase
+/// hex. `"spanID"` only matches 16-char lowercase hex. `"refType"` only
+/// matches Jaeger enums.
 fn is_jaeger_json_decl(s: &str) -> bool {
     let s = s.trim_start();
     let Some(rest) = s.strip_prefix('"') else {
@@ -60794,6 +60800,153 @@ fn jaeger_json_number_and_tail_ok(key: &str, after_colon: &str) -> bool {
         .take_while(|b| b.is_ascii_digit())
         .count();
     let max_digits = if key == "startTimeMillis" { 16 } else { 8 };
+    if digits == 0 || digits > max_digits {
+        return false;
+    }
+    if digits > 1 && after_colon.as_bytes()[0] == b'0' {
+        return false;
+    }
+    package_json_tail_ok(&after_colon[digits..])
+}
+
+/// Grafana Tempo search / metrics JSON keys: `"rootServiceName": "…"`,
+/// `"rootTraceName": "…"`, `"spanSet": {`, `"spanSets": [`,
+/// `"durationMs": 0` / `1234`, `"inspectedTraces": 0` / `100`,
+/// `"inspectedBytes": "…"`, `"totalBlocks": 0` / `5`,
+/// `"completedJobs": 0` / `1`, `"totalJobs": 0` / `1`,
+/// `"totalBlockBytes": "…"`. Optional trailing `,` and `//` / `/*`
+/// comment. Incomplete quotes / missing `:` stay out. Generic
+/// `"$schema"` / `"name"` / `"id"` / `"timestamp"` / `"duration"` /
+/// `"tags": [` / `"logs": [` / `"startTime"` / `"spans": [` /
+/// `"serviceName"` / `"traces": [` / `"metrics": {` / Jaeger
+/// `"traceID"` / `"spanID"` / `"operationName"` / `"references"` /
+/// `"processID"` / `"processes"` / `"flags"` / `"startTimeMillis"` /
+/// `"refType"` / Zipkin `"localEndpoint"` / `"remoteEndpoint"` /
+/// `"annotations"` / `"parentId"` / `"kind"` / `"shared"` / `"debug"` /
+/// `"traceId"` / OTLP `"resourceSpans"` / `"parentSpanId"` /
+/// `"startTimeUnixNano"` / HAR `"startedDateTime"` / `"timings"` /
+/// OpenAPI `"openapi"` / AsyncAPI `"asyncapi"` / `"channels": {` /
+/// Pact `"consumer"` / MockServer `"httpRequest"` / Hoverfly
+/// `"hoverflyVersion"` / Mountebank `"imposters"` / WireMock
+/// `"scenarioName"` / Mockoon `"lastMigration"` / Hoppscotch
+/// `"preRequestScript"` / Yaak `"yaakVersion"` / Bruno `"brunoConfig"` /
+/// Thunder Client `"client"` / Postman `"_postman_id"` / Insomnia
+/// `"__export_format"` / ReDoc `"disableSearch"` / RapiDoc `"specUrl"` /
+/// swagger-ui `"dom_id"` / scalar `"layout": "modern"` / Elements
+/// `"layout": "sidebar"` / mintlify `"topbarLinks"` / Compodoc
+/// `"theme": "material"` / redocly `"apis"` / spectral `"functionsDir"` /
+/// openapitools `"generator-cli"` / Knip `"entry"` / prettier
+/// `"printWidth"` / package.json `"bin"` / karma `"basePath"` stay out.
+/// `"inspectedBytes"` / `"totalBlockBytes"` only match non-empty
+/// digit strings. Numeric keys reject leading zeros beyond `0`.
+fn is_tempo_json_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    let Some(rest) = s.strip_prefix('"') else {
+        return false;
+    };
+    let Some(end) = rest.find('"') else {
+        return false;
+    };
+    let key = &rest[..end];
+    if !tempo_json_key_ok(key) {
+        return false;
+    }
+    let after_key = rest[end + 1..].trim_start();
+    let Some(after_colon) = after_key.strip_prefix(':') else {
+        return false;
+    };
+    let after_colon = after_colon.trim_start();
+    tempo_json_value_and_tail_ok(key, after_colon)
+}
+
+fn tempo_json_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "rootServiceName"
+            | "rootTraceName"
+            | "spanSet"
+            | "spanSets"
+            | "durationMs"
+            | "inspectedTraces"
+            | "inspectedBytes"
+            | "totalBlocks"
+            | "completedJobs"
+            | "totalJobs"
+            | "totalBlockBytes"
+    )
+}
+
+fn tempo_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool {
+    let bytes = after_colon.as_bytes();
+    let Some(first) = bytes.first().copied() else {
+        return false;
+    };
+    match first {
+        b'{' => {
+            if key != "spanSet" {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[1..])
+        }
+        b'[' => {
+            if key != "spanSets" {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[1..])
+        }
+        b'"' => {
+            if !matches!(
+                key,
+                "rootServiceName" | "rootTraceName" | "inspectedBytes" | "totalBlockBytes"
+            ) {
+                return false;
+            }
+            let rest = &after_colon[1..];
+            let Some(end) = rest.find('"') else {
+                return false;
+            };
+            let value = &rest[..end];
+            if !tempo_json_string_ok(key, value) {
+                return false;
+            }
+            package_json_tail_ok(&rest[end + 1..])
+        }
+        b'0'..=b'9' => tempo_json_number_and_tail_ok(key, after_colon),
+        _ => false,
+    }
+}
+
+fn tempo_json_string_ok(key: &str, value: &str) -> bool {
+    match key {
+        "rootServiceName" | "rootTraceName" => !value.is_empty() && !value.contains('\n'),
+        "inspectedBytes" | "totalBlockBytes" => tempo_digit_string_ok(value),
+        _ => false,
+    }
+}
+
+fn tempo_digit_string_ok(value: &str) -> bool {
+    if value.is_empty() || value.len() > 20 || value.contains('\n') {
+        return false;
+    }
+    value.bytes().all(|b| b.is_ascii_digit())
+}
+
+fn tempo_json_number_and_tail_ok(key: &str, after_colon: &str) -> bool {
+    if !matches!(
+        key,
+        "durationMs" | "inspectedTraces" | "totalBlocks" | "completedJobs" | "totalJobs"
+    ) {
+        return false;
+    }
+    let digits = after_colon
+        .bytes()
+        .take_while(|b| b.is_ascii_digit())
+        .count();
+    let max_digits = if key == "durationMs" || key == "inspectedTraces" {
+        12
+    } else {
+        8
+    };
     if digits == 0 || digits > max_digits {
         return false;
     }
@@ -91476,7 +91629,7 @@ mod func_like_line_tests {
         is_swagger_ui_json_decl, is_swc_json_decl, is_syncpack_json_decl, is_sysctl_conf_decl,
         is_syslog_ng_decl, is_systemd_networkd_decl, is_systemd_unit_decl, is_sysusers_d_decl,
         is_tap_json_decl, is_taplo_toml_decl, is_tauri_json_decl, is_telegraf_toml_decl,
-        is_testcafe_json_decl, is_thunder_client_json_decl, is_tmpfiles_d_decl,
+        is_tempo_json_decl, is_testcafe_json_decl, is_thunder_client_json_decl, is_tmpfiles_d_decl,
         is_towncrier_ini_decl, is_tox_ini_decl, is_trunk_toml_decl, is_tsconfig_json_decl,
         is_turbo_json_decl, is_ty_toml_decl, is_typedoc_json_decl, is_typos_toml_decl,
         is_udev_rule_decl, is_unbound_nsd_conf_decl, is_uniffi_toml_decl, is_unimport_ini_decl,
@@ -121525,6 +121678,10 @@ mod func_like_line_tests {
         assert!(is_pact_json_decl(r#""consumer": {"#));
         assert!(!is_jaeger_json_decl(r#""httpRequest": {"#));
         assert!(is_mockserver_json_decl(r#""httpRequest": {"#));
+        assert!(!is_jaeger_json_decl(r#""rootServiceName": "frontend""#));
+        assert!(is_tempo_json_decl(r#""rootServiceName": "frontend""#));
+        assert!(!is_jaeger_json_decl(r#""spanSets": ["#));
+        assert!(is_tempo_json_decl(r#""spanSets": ["#));
         assert!(line_is_func_like(
             r#""traceID": "0123456789abcdef0123456789abcdef""#
         ));
@@ -121725,6 +121882,10 @@ mod func_like_line_tests {
         assert!(is_prettier_json_decl(r#""printWidth": 80"#));
         assert!(!is_jaeger_json_decl(r#""basePath": ".""#));
         assert!(is_karma_json_decl(r#""basePath": ".""#));
+        assert!(!is_jaeger_json_decl(r#""rootServiceName": "frontend""#));
+        assert!(is_tempo_json_decl(r#""rootServiceName": "frontend""#));
+        assert!(!is_jaeger_json_decl(r#""spanSet": {"#));
+        assert!(is_tempo_json_decl(r#""spanSet": {"#));
         assert!(line_is_func_like(
             r#""traceID": "0123456789abcdef0123456789abcdef""#
         ));
@@ -121736,6 +121897,286 @@ mod func_like_line_tests {
         assert!(line_is_func_like(r#""flags": 0"#));
         assert!(line_is_func_like(r#""startTimeMillis": 1485467191639"#));
         assert!(line_is_func_like(r#""refType": "FOLLOWS_FROM""#));
+    }
+
+    #[test]
+    fn tempo_json_keys_smoke() {
+        assert!(is_tempo_json_decl(r#""rootServiceName": "frontend""#));
+        assert!(is_tempo_json_decl(r#""rootTraceName": "HTTP GET /api""#));
+        assert!(is_tempo_json_decl(r#""spanSet": {"#));
+        assert!(is_tempo_json_decl(r#""spanSets": ["#));
+        assert!(is_tempo_json_decl(r#""durationMs": 1234"#));
+        assert!(is_tempo_json_decl(r#""inspectedTraces": 100"#));
+        assert!(is_tempo_json_decl(r#""inspectedBytes": "1048576""#));
+        assert!(is_tempo_json_decl(r#""totalBlocks": 5"#));
+        assert!(is_tempo_json_decl(r#""completedJobs": 1"#));
+        assert!(is_tempo_json_decl(r#""totalJobs": 1"#));
+        assert!(is_tempo_json_decl(r#""totalBlockBytes": "2097152""#));
+        // Distinctive neighbours stay out of this scanner.
+        assert!(!is_tempo_json_decl(
+            r#""traceID": "0123456789abcdef0123456789abcdef""#
+        ));
+        assert!(is_jaeger_json_decl(
+            r#""traceID": "0123456789abcdef0123456789abcdef""#
+        ));
+        assert!(!is_tempo_json_decl(r#""spanID": "0123456789abcdef""#));
+        assert!(is_jaeger_json_decl(r#""spanID": "0123456789abcdef""#));
+        assert!(!is_tempo_json_decl(r#""localEndpoint": {"#));
+        assert!(is_zipkin_json_decl(r#""localEndpoint": {"#));
+        assert!(!is_tempo_json_decl(r#""resourceSpans": ["#));
+        assert!(is_otlp_json_decl(r#""resourceSpans": ["#));
+        assert!(!is_tempo_json_decl(
+            r#""startedDateTime": "2009-04-16T15:53:27.373Z""#
+        ));
+        assert!(is_har_json_decl(
+            r#""startedDateTime": "2009-04-16T15:53:27.373Z""#
+        ));
+        assert!(!is_tempo_json_decl(r#""openapi": "3.0.3""#));
+        assert!(is_openapi_json_decl(r#""openapi": "3.0.3""#));
+        assert!(line_is_func_like(r#""rootServiceName": "frontend""#));
+        assert!(line_is_func_like(r#""rootTraceName": "HTTP GET /api""#));
+        assert!(line_is_func_like(r#""spanSet": {"#));
+        assert!(line_is_func_like(r#""spanSets": ["#));
+        assert!(line_is_func_like(r#""durationMs": 1234"#));
+        assert!(line_is_func_like(r#""inspectedTraces": 100"#));
+        assert!(line_is_func_like(r#""inspectedBytes": "1048576""#));
+        assert!(line_is_func_like(r#""totalBlocks": 5"#));
+        assert!(line_is_func_like(r#""completedJobs": 1"#));
+        assert!(line_is_func_like(r#""totalJobs": 1"#));
+        assert!(line_is_func_like(r#""totalBlockBytes": "2097152""#));
+    }
+
+    #[test]
+    fn tempo_json_keys_count() {
+        assert!(is_tempo_json_decl(r#""rootServiceName": "frontend""#));
+        assert!(is_tempo_json_decl(r#""rootServiceName": "frontend","#));
+        assert!(is_tempo_json_decl(r#""rootServiceName": "frontend" // s"#));
+        assert!(!is_tempo_json_decl(r#""rootServiceName": """#));
+        assert!(!is_tempo_json_decl(r#""rootServiceName": {"#));
+        assert!(!is_tempo_json_decl(r#""rootServiceName": true"#));
+        assert!(is_tempo_json_decl(r#""rootTraceName": "HTTP GET /api""#));
+        assert!(is_tempo_json_decl(r#""rootTraceName": "HTTP GET /api","#));
+        assert!(is_tempo_json_decl(
+            r#""rootTraceName": "HTTP GET /api" // t"#
+        ));
+        assert!(!is_tempo_json_decl(r#""rootTraceName": """#));
+        assert!(!is_tempo_json_decl(r#""rootTraceName": {"#));
+        assert!(!is_tempo_json_decl(r#""rootTraceName": true"#));
+        assert!(is_tempo_json_decl(r#""spanSet": {"#));
+        assert!(is_tempo_json_decl(r#""spanSet": {,"#));
+        assert!(is_tempo_json_decl(r#""spanSet": { // set"#));
+        assert!(!is_tempo_json_decl(r#""spanSet": ["#));
+        assert!(!is_tempo_json_decl(r#""spanSet": true"#));
+        assert!(!is_tempo_json_decl(r#""spanSet": """#));
+        assert!(is_tempo_json_decl(r#""spanSets": ["#));
+        assert!(is_tempo_json_decl(r#""spanSets": [,"#));
+        assert!(is_tempo_json_decl(r#""spanSets": [ // sets"#));
+        assert!(!is_tempo_json_decl(r#""spanSets": {"#));
+        assert!(!is_tempo_json_decl(r#""spanSets": true"#));
+        assert!(!is_tempo_json_decl(r#""spanSets": """#));
+        assert!(is_tempo_json_decl(r#""durationMs": 0"#));
+        assert!(is_tempo_json_decl(r#""durationMs": 1234"#));
+        assert!(is_tempo_json_decl(r#""durationMs": 1234,"#));
+        assert!(is_tempo_json_decl(r#""durationMs": 1234 // ms"#));
+        assert!(!is_tempo_json_decl(r#""durationMs": 01"#));
+        assert!(!is_tempo_json_decl(r#""durationMs": true"#));
+        assert!(!is_tempo_json_decl(r#""durationMs": "1234""#));
+        assert!(!is_tempo_json_decl(r#""durationMs": {"#));
+        assert!(is_tempo_json_decl(r#""inspectedTraces": 0"#));
+        assert!(is_tempo_json_decl(r#""inspectedTraces": 100"#));
+        assert!(is_tempo_json_decl(r#""inspectedTraces": 100,"#));
+        assert!(is_tempo_json_decl(r#""inspectedTraces": 100 // n"#));
+        assert!(!is_tempo_json_decl(r#""inspectedTraces": 01"#));
+        assert!(!is_tempo_json_decl(r#""inspectedTraces": true"#));
+        assert!(!is_tempo_json_decl(r#""inspectedTraces": "100""#));
+        assert!(!is_tempo_json_decl(r#""inspectedTraces": {"#));
+        assert!(is_tempo_json_decl(r#""inspectedBytes": "0""#));
+        assert!(is_tempo_json_decl(r#""inspectedBytes": "1048576""#));
+        assert!(is_tempo_json_decl(r#""inspectedBytes": "1048576","#));
+        assert!(is_tempo_json_decl(r#""inspectedBytes": "1048576" // b"#));
+        assert!(!is_tempo_json_decl(r#""inspectedBytes": """#));
+        assert!(!is_tempo_json_decl(r#""inspectedBytes": "abc""#));
+        assert!(!is_tempo_json_decl(r#""inspectedBytes": 1048576"#));
+        assert!(!is_tempo_json_decl(r#""inspectedBytes": {"#));
+        assert!(is_tempo_json_decl(r#""totalBlocks": 0"#));
+        assert!(is_tempo_json_decl(r#""totalBlocks": 5"#));
+        assert!(is_tempo_json_decl(r#""totalBlocks": 5,"#));
+        assert!(is_tempo_json_decl(r#""totalBlocks": 5 // b"#));
+        assert!(!is_tempo_json_decl(r#""totalBlocks": 05"#));
+        assert!(!is_tempo_json_decl(r#""totalBlocks": true"#));
+        assert!(!is_tempo_json_decl(r#""totalBlocks": "5""#));
+        assert!(!is_tempo_json_decl(r#""totalBlocks": {"#));
+        assert!(is_tempo_json_decl(r#""completedJobs": 0"#));
+        assert!(is_tempo_json_decl(r#""completedJobs": 1"#));
+        assert!(is_tempo_json_decl(r#""completedJobs": 1,"#));
+        assert!(is_tempo_json_decl(r#""completedJobs": 1 // j"#));
+        assert!(!is_tempo_json_decl(r#""completedJobs": 01"#));
+        assert!(!is_tempo_json_decl(r#""completedJobs": true"#));
+        assert!(!is_tempo_json_decl(r#""completedJobs": "1""#));
+        assert!(!is_tempo_json_decl(r#""completedJobs": {"#));
+        assert!(is_tempo_json_decl(r#""totalJobs": 0"#));
+        assert!(is_tempo_json_decl(r#""totalJobs": 1"#));
+        assert!(is_tempo_json_decl(r#""totalJobs": 1,"#));
+        assert!(is_tempo_json_decl(r#""totalJobs": 1 // j"#));
+        assert!(!is_tempo_json_decl(r#""totalJobs": 01"#));
+        assert!(!is_tempo_json_decl(r#""totalJobs": true"#));
+        assert!(!is_tempo_json_decl(r#""totalJobs": "1""#));
+        assert!(!is_tempo_json_decl(r#""totalJobs": {"#));
+        assert!(is_tempo_json_decl(r#""totalBlockBytes": "0""#));
+        assert!(is_tempo_json_decl(r#""totalBlockBytes": "2097152""#));
+        assert!(is_tempo_json_decl(r#""totalBlockBytes": "2097152","#));
+        assert!(is_tempo_json_decl(r#""totalBlockBytes": "2097152" // b"#));
+        assert!(!is_tempo_json_decl(r#""totalBlockBytes": """#));
+        assert!(!is_tempo_json_decl(r#""totalBlockBytes": "abc""#));
+        assert!(!is_tempo_json_decl(r#""totalBlockBytes": 2097152"#));
+        assert!(!is_tempo_json_decl(r#""totalBlockBytes": {"#));
+        // Incomplete / wrong shapes stay out.
+        assert!(!is_tempo_json_decl(r#""rootServiceName""#));
+        assert!(!is_tempo_json_decl(r#""rootServiceName":"#));
+        assert!(!is_tempo_json_decl(r#""rootTraceName""#));
+        assert!(!is_tempo_json_decl(r#""spanSet""#));
+        assert!(!is_tempo_json_decl(r#""spanSets""#));
+        assert!(!is_tempo_json_decl(r#""durationMs""#));
+        assert!(!is_tempo_json_decl(r#""inspectedTraces""#));
+        assert!(!is_tempo_json_decl(r#""inspectedBytes""#));
+        assert!(!is_tempo_json_decl(r#""totalBlocks""#));
+        assert!(!is_tempo_json_decl(r#""completedJobs""#));
+        assert!(!is_tempo_json_decl(r#""totalJobs""#));
+        assert!(!is_tempo_json_decl(r#""totalBlockBytes""#));
+        // Generic / neighbouring stay out.
+        assert!(!is_tempo_json_decl(
+            r#""$schema": "https://json-schema.org/draft/2020-12/schema""#
+        ));
+        assert!(!is_tempo_json_decl(r#""name": "GET /users""#));
+        assert!(!is_tempo_json_decl(r#""id": "0123456789abcdef""#));
+        assert!(!is_tempo_json_decl(r#""timestamp": 1500000000000000"#));
+        assert!(!is_tempo_json_decl(r#""duration": 35000"#));
+        assert!(!is_tempo_json_decl(r#""startTime": 1485467191639875"#));
+        assert!(!is_tempo_json_decl(r#""tags": ["#));
+        assert!(!is_tempo_json_decl(r#""logs": ["#));
+        assert!(!is_tempo_json_decl(r#""spans": ["#));
+        assert!(!is_tempo_json_decl(r#""serviceName": "api""#));
+        assert!(!is_tempo_json_decl(r#""traces": ["#));
+        assert!(!is_tempo_json_decl(r#""metrics": {"#));
+        assert!(!is_tempo_json_decl(
+            r#""traceID": "0123456789abcdef0123456789abcdef""#
+        ));
+        assert!(is_jaeger_json_decl(
+            r#""traceID": "0123456789abcdef0123456789abcdef""#
+        ));
+        assert!(!is_tempo_json_decl(r#""spanID": "0123456789abcdef""#));
+        assert!(is_jaeger_json_decl(r#""spanID": "0123456789abcdef""#));
+        assert!(!is_tempo_json_decl(r#""operationName": "HTTP GET""#));
+        assert!(is_jaeger_json_decl(r#""operationName": "HTTP GET""#));
+        assert!(!is_tempo_json_decl(r#""references": ["#));
+        assert!(is_jaeger_json_decl(r#""references": ["#));
+        assert!(!is_tempo_json_decl(r#""processID": "p1""#));
+        assert!(is_jaeger_json_decl(r#""processID": "p1""#));
+        assert!(!is_tempo_json_decl(r#""processes": {"#));
+        assert!(is_jaeger_json_decl(r#""processes": {"#));
+        assert!(!is_tempo_json_decl(r#""flags": 1"#));
+        assert!(is_jaeger_json_decl(r#""flags": 1"#));
+        assert!(!is_tempo_json_decl(r#""startTimeMillis": 1485467191639"#));
+        assert!(is_jaeger_json_decl(r#""startTimeMillis": 1485467191639"#));
+        assert!(!is_tempo_json_decl(r#""refType": "CHILD_OF""#));
+        assert!(is_jaeger_json_decl(r#""refType": "CHILD_OF""#));
+        assert!(!is_tempo_json_decl(r#""localEndpoint": {"#));
+        assert!(is_zipkin_json_decl(r#""localEndpoint": {"#));
+        assert!(!is_tempo_json_decl(r#""remoteEndpoint": {"#));
+        assert!(is_zipkin_json_decl(r#""remoteEndpoint": {"#));
+        assert!(!is_tempo_json_decl(r#""annotations": ["#));
+        assert!(is_zipkin_json_decl(r#""annotations": ["#));
+        assert!(!is_tempo_json_decl(r#""parentId": "0123456789abcdef""#));
+        assert!(is_zipkin_json_decl(r#""parentId": "0123456789abcdef""#));
+        assert!(!is_tempo_json_decl(r#""kind": "CLIENT""#));
+        assert!(is_zipkin_json_decl(r#""kind": "CLIENT""#));
+        assert!(!is_tempo_json_decl(r#""shared": true"#));
+        assert!(is_zipkin_json_decl(r#""shared": true"#));
+        assert!(!is_tempo_json_decl(r#""debug": false"#));
+        assert!(is_zipkin_json_decl(r#""debug": false"#));
+        assert!(!is_tempo_json_decl(r#""traceId": "0123456789abcdef""#));
+        assert!(is_zipkin_json_decl(r#""traceId": "0123456789abcdef""#));
+        assert!(!is_tempo_json_decl(r#""resourceSpans": ["#));
+        assert!(is_otlp_json_decl(r#""resourceSpans": ["#));
+        assert!(!is_tempo_json_decl(r#""parentSpanId": "0123456789abcdef""#));
+        assert!(is_otlp_json_decl(r#""parentSpanId": "0123456789abcdef""#));
+        assert!(!is_tempo_json_decl(
+            r#""startTimeUnixNano": "1683148233000000000""#
+        ));
+        assert!(is_otlp_json_decl(
+            r#""startTimeUnixNano": "1683148233000000000""#
+        ));
+        assert!(!is_tempo_json_decl(
+            r#""startedDateTime": "2009-04-16T15:53:27.373Z""#
+        ));
+        assert!(is_har_json_decl(
+            r#""startedDateTime": "2009-04-16T15:53:27.373Z""#
+        ));
+        assert!(!is_tempo_json_decl(r#""openapi": "3.0.3""#));
+        assert!(is_openapi_json_decl(r#""openapi": "3.0.3""#));
+        assert!(!is_tempo_json_decl(r#""asyncapi": "2.6.0""#));
+        assert!(is_asyncapi_json_decl(r#""asyncapi": "2.6.0""#));
+        assert!(!is_tempo_json_decl(r#""consumer": {"#));
+        assert!(is_pact_json_decl(r#""consumer": {"#));
+        assert!(!is_tempo_json_decl(r#""httpRequest": {"#));
+        assert!(is_mockserver_json_decl(r#""httpRequest": {"#));
+        assert!(!is_tempo_json_decl(r#""hoverflyVersion": "v1.2.0""#));
+        assert!(is_hoverfly_json_decl(r#""hoverflyVersion": "v1.2.0""#));
+        assert!(!is_tempo_json_decl(r#""imposters": ["#));
+        assert!(is_mountebank_json_decl(r#""imposters": ["#));
+        assert!(!is_tempo_json_decl(r#""scenarioName": "checkout""#));
+        assert!(is_wiremock_json_decl(r#""scenarioName": "checkout""#));
+        assert!(!is_tempo_json_decl(r#""lastMigration": 33"#));
+        assert!(is_mockoon_json_decl(r#""lastMigration": 33"#));
+        assert!(!is_tempo_json_decl(r#""preRequestScript": """#));
+        assert!(is_hoppscotch_json_decl(r#""preRequestScript": """#));
+        assert!(!is_tempo_json_decl(r#""yaakVersion": "2025.1.0""#));
+        assert!(is_yaak_json_decl(r#""yaakVersion": "2025.1.0""#));
+        assert!(!is_tempo_json_decl(r#""brunoConfig": {"#));
+        assert!(is_bruno_json_decl(r#""brunoConfig": {"#));
+        assert!(!is_tempo_json_decl(r#""client": "Thunder Client""#));
+        assert!(is_thunder_client_json_decl(r#""client": "Thunder Client""#));
+        assert!(!is_tempo_json_decl(
+            r#""_postman_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890""#
+        ));
+        assert!(is_postman_json_decl(
+            r#""_postman_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890""#
+        ));
+        assert!(!is_tempo_json_decl(r#""__export_format": 4"#));
+        assert!(is_insomnia_json_decl(r#""__export_format": 4"#));
+        assert!(!is_tempo_json_decl(r#""disableSearch": true"#));
+        assert!(is_redoc_json_decl(r#""disableSearch": true"#));
+        assert!(!is_tempo_json_decl(r#""specUrl": "./openapi.yaml""#));
+        assert!(is_rapidoc_json_decl(r#""specUrl": "./openapi.yaml""#));
+        assert!(!is_tempo_json_decl(r##""dom_id": "#swagger-ui""##));
+        assert!(is_swagger_ui_json_decl(r##""dom_id": "#swagger-ui""##));
+        assert!(!is_tempo_json_decl(r#""layout": "modern""#));
+        assert!(is_scalar_json_decl(r#""layout": "modern""#));
+        assert!(!is_tempo_json_decl(r#""layout": "sidebar""#));
+        assert!(is_stoplight_elements_json_decl(r#""layout": "sidebar""#));
+        assert!(!is_tempo_json_decl(r#""topbarLinks": ["#));
+        assert!(is_mintlify_json_decl(r#""topbarLinks": ["#));
+        assert!(!is_tempo_json_decl(r#""apis": {"#));
+        assert!(is_redocly_json_decl(r#""apis": {"#));
+        assert!(!is_tempo_json_decl(r#""functionsDir": "./functions""#));
+        assert!(is_spectral_json_decl(r#""functionsDir": "./functions""#));
+        assert!(!is_tempo_json_decl(r#""generator-cli": {"#));
+        assert!(is_openapitools_json_decl(r#""generator-cli": {"#));
+        assert!(!is_tempo_json_decl(r#""printWidth": 80"#));
+        assert!(is_prettier_json_decl(r#""printWidth": 80"#));
+        assert!(!is_tempo_json_decl(r#""basePath": ".""#));
+        assert!(is_karma_json_decl(r#""basePath": ".""#));
+        assert!(line_is_func_like(r#""rootServiceName": "frontend""#));
+        assert!(line_is_func_like(r#""rootTraceName": "HTTP GET /api""#));
+        assert!(line_is_func_like(r#""spanSet": {"#));
+        assert!(line_is_func_like(r#""spanSets": ["#));
+        assert!(line_is_func_like(r#""durationMs": 0"#));
+        assert!(line_is_func_like(r#""inspectedTraces": 100"#));
+        assert!(line_is_func_like(r#""inspectedBytes": "1048576""#));
+        assert!(line_is_func_like(r#""totalBlocks": 5"#));
+        assert!(line_is_func_like(r#""completedJobs": 1"#));
+        assert!(line_is_func_like(r#""totalJobs": 1"#));
+        assert!(line_is_func_like(r#""totalBlockBytes": "2097152""#));
     }
 
     #[test]

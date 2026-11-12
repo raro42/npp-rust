@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.796] — 2026-11-12
+
+View:
+
+- **Function List** lists Grafana Tempo search / metrics JSON keys: `"rootServiceName": "…"`, `"rootTraceName": "…"`, `"spanSet": {`, `"spanSets": [`, `"durationMs": 0` / `1234`, `"inspectedTraces": 0` / `100`, `"inspectedBytes": "…"`, `"totalBlocks": 0` / `5`, `"completedJobs": 0` / `1`, `"totalJobs": 0` / `1`, `"totalBlockBytes": "…"`. Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing `:` stay out. Generic `"$schema"` / `"name"` / `"id"` / `"timestamp"` / `"duration"` / `"tags": [` / `"logs": [` / `"startTime"` / `"spans": [` / `"serviceName"` / `"traces": [` / `"metrics": {` / Jaeger `"traceID"` / `"spanID"` / `"operationName"` / `"references"` / `"processID"` / `"processes"` / `"flags"` / `"startTimeMillis"` / `"refType"` / Zipkin `"localEndpoint"` / `"remoteEndpoint"` / `"annotations"` / `"parentId"` / `"kind"` / `"shared"` / `"debug"` / `"traceId"` / OTLP `"resourceSpans"` / `"parentSpanId"` / `"startTimeUnixNano"` / HAR `"startedDateTime"` / `"timings"` / OpenAPI `"openapi"` / AsyncAPI `"asyncapi"` / `"channels": {` / Pact `"consumer"` / MockServer `"httpRequest"` / Hoverfly `"hoverflyVersion"` / Mountebank `"imposters"` / WireMock `"scenarioName"` / Mockoon `"lastMigration"` / Hoppscotch `"preRequestScript"` / Yaak `"yaakVersion"` / Bruno `"brunoConfig"` / Thunder Client `"client"` / Postman `"_postman_id"` / Insomnia `"__export_format"` / ReDoc `"disableSearch"` / RapiDoc `"specUrl"` / swagger-ui `"dom_id"` / scalar `"layout": "modern"` / Elements `"layout": "sidebar"` / mintlify `"topbarLinks"` / Compodoc `"theme": "material"` / redocly `"apis"` / spectral `"functionsDir"` / openapitools `"generator-cli"` / Knip `"entry"` / prettier `"printWidth"` / package.json `"bin"` / karma `"basePath"` stay out. `"inspectedBytes"` / `"totalBlockBytes"` only match non-empty digit strings. Numeric keys reject leading zeros beyond `0`.
+
 ## [0.3.795] — 2026-11-12
 
 View:
