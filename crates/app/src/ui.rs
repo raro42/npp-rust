@@ -32476,6 +32476,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_typesense_json_decl(s)
             || is_algolia_json_decl(s)
             || is_qdrant_json_decl(s)
+            || is_weaviate_json_decl(s)
             || is_gomod_decl(s)
             || is_gemfile_decl(s)
             || is_brewfile_decl(s)
@@ -32862,6 +32863,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_typesense_json_decl(s)
         || is_algolia_json_decl(s)
         || is_qdrant_json_decl(s)
+        || is_weaviate_json_decl(s)
         || is_gomod_decl(s)
         || is_gemfile_decl(s)
         || is_brewfile_decl(s)
@@ -62251,7 +62253,11 @@ fn solr_json_bool_and_tail_ok(after_colon: &str) -> bool {
 /// `"optimizer_status"` / `"payload_schema"` / `"hnsw_config"` /
 /// `"wal_config"` / `"optimizer_config"` / `"quantization_config"` /
 /// `"score_threshold"` / `"with_payload"` / `"with_vector"` / `"hnsw_ef"` /
-/// `"indexed_only"` stay out.
+/// `"indexed_only"` / Weaviate `"nearVector"` / `"nearObject"` / `"nearText"` /
+/// `"invertedIndexConfig"` / `"vectorIndexConfig"` / `"vectorIndexType"` /
+/// `"shardingConfig"` / `"multiTenancyConfig"` / `"replicationConfig"` /
+/// `"moduleConfig"` / `"creationTimeUnix"` / `"lastUpdateTimeUnix"` /
+/// `"indexFilterable"` / `"indexSearchable"` / `"tokenization"` stay out.
 /// `"matchingStrategy"` only matches its Meilisearch enums. Numeric
 /// `"processingTimeMs"` / `"estimatedTotalHits"` / `"nbHits"` /
 /// `"hitsPerPage"` reject leading zeros beyond `0`.
@@ -62460,7 +62466,11 @@ fn meilisearch_json_bool_and_tail_ok(after_colon: &str) -> bool {
 /// `"optimizer_status"` / `"payload_schema"` / `"hnsw_config"` /
 /// `"wal_config"` / `"optimizer_config"` / `"quantization_config"` /
 /// `"score_threshold"` / `"with_payload"` / `"with_vector"` / `"hnsw_ef"` /
-/// `"indexed_only"` stay out.
+/// `"indexed_only"` / Weaviate `"nearVector"` / `"nearObject"` / `"nearText"` /
+/// `"invertedIndexConfig"` / `"vectorIndexConfig"` / `"vectorIndexType"` /
+/// `"shardingConfig"` / `"multiTenancyConfig"` / `"replicationConfig"` /
+/// `"moduleConfig"` / `"creationTimeUnix"` / `"lastUpdateTimeUnix"` /
+/// `"indexFilterable"` / `"indexSearchable"` / `"tokenization"` stay out.
 /// `"default_sorting_field"` needs a non-empty value. Numeric
 /// `"search_time_ms"` / `"out_of"` / `"drop_tokens_threshold"` /
 /// `"typo_tokens_threshold"` reject leading zeros beyond `0`.
@@ -62640,7 +62650,11 @@ fn typesense_json_bool_and_tail_ok(after_colon: &str) -> bool {
 /// `"optimizer_status"` / `"payload_schema"` / `"hnsw_config"` /
 /// `"wal_config"` / `"optimizer_config"` / `"quantization_config"` /
 /// `"score_threshold"` / `"with_payload"` / `"with_vector"` / `"hnsw_ef"` /
-/// `"indexed_only"` stay out.
+/// `"indexed_only"` / Weaviate `"nearVector"` / `"nearObject"` / `"nearText"` /
+/// `"invertedIndexConfig"` / `"vectorIndexConfig"` / `"vectorIndexType"` /
+/// `"shardingConfig"` / `"multiTenancyConfig"` / `"replicationConfig"` /
+/// `"moduleConfig"` / `"creationTimeUnix"` / `"lastUpdateTimeUnix"` /
+/// `"indexFilterable"` / `"indexSearchable"` / `"tokenization"` stay out.
 /// `"removeWordsIfNoResults"` only matches its Algolia enums.
 /// `"queryID"` / `"indexUsed"` / `"aroundLatLng"` / `"highlightPreTag"`
 /// need a non-empty value. Numeric `"processingTimeMS"` / `"nbPages"` /
@@ -62834,7 +62848,12 @@ fn algolia_json_bool_and_tail_ok(after_colon: &str) -> bool {
 /// mintlify `"topbarLinks"` / Compodoc `"theme": "material"` / redocly
 /// `"apis"` / spectral `"functionsDir"` / openapitools
 /// `"generator-cli"` / Knip `"entry"` / prettier `"printWidth"` /
-/// package.json `"bin"` / karma `"basePath"` stay out.
+/// package.json `"bin"` / karma `"basePath"` / Weaviate `"nearVector"` /
+/// `"nearObject"` / `"nearText"` / `"invertedIndexConfig"` /
+/// `"vectorIndexConfig"` / `"vectorIndexType"` / `"shardingConfig"` /
+/// `"multiTenancyConfig"` / `"replicationConfig"` / `"moduleConfig"` /
+/// `"creationTimeUnix"` / `"lastUpdateTimeUnix"` / `"indexFilterable"` /
+/// `"indexSearchable"` / `"tokenization"` stay out.
 /// `"optimizer_status"` only matches `"ok"` as a string (or `{`).
 /// Numeric `"vectors_count"` / `"indexed_vectors_count"` /
 /// `"points_count"` / `"segments_count"` / `"hnsw_ef"` reject leading
@@ -62980,6 +62999,229 @@ fn qdrant_json_score_threshold_and_tail_ok(after_colon: &str) -> bool {
 }
 
 fn qdrant_json_bool_and_tail_ok(after_colon: &str) -> bool {
+    if let Some(rest) = after_colon.strip_prefix("true") {
+        return package_json_tail_ok(rest);
+    }
+    if let Some(rest) = after_colon.strip_prefix("false") {
+        return package_json_tail_ok(rest);
+    }
+    false
+}
+
+/// Weaviate schema / GraphQL search JSON keys:
+/// `"nearVector": {`,
+/// `"nearObject": {`,
+/// `"nearText": {`,
+/// `"invertedIndexConfig": {`,
+/// `"vectorIndexConfig": {`,
+/// `"vectorIndexType": "hnsw"` / `"flat"` / `"dynamic"`,
+/// `"shardingConfig": {`,
+/// `"multiTenancyConfig": {`,
+/// `"replicationConfig": {`,
+/// `"moduleConfig": {`,
+/// `"creationTimeUnix": 0` / `1710000000000`,
+/// `"lastUpdateTimeUnix": 0` / `1710000000000`,
+/// `"indexFilterable": true` / `false`,
+/// `"indexSearchable": true` / `false`,
+/// `"tokenization": "word"` / `"lowercase"` / `"whitespace"` / `"field"` /
+/// `"gse"` / `"trigram"` / `"kagome_ja"` / `"kagome_kr"`.
+/// Optional trailing `,` and `//` / `/*` comment. Incomplete quotes /
+/// missing `:` stay out. Generic `"$schema"` / `"name"` / `"id"` /
+/// `"class"` / `"properties"` / `"dataType"` / `"vector"` / `"certainty"` /
+/// `"distance"` / `"limit"` / `"offset"` / `"where"` / `"objects"` /
+/// `"result"` / `"errors"` / Qdrant `"vectors_count"` /
+/// `"indexed_vectors_count"` / `"points_count"` / `"segments_count"` /
+/// `"optimizer_status"` / `"payload_schema"` / `"hnsw_config"` /
+/// `"wal_config"` / `"optimizer_config"` / `"quantization_config"` /
+/// `"score_threshold"` / `"with_payload"` / `"with_vector"` / `"hnsw_ef"` /
+/// `"indexed_only"` / Algolia `"processingTimeMS"` / `"nbPages"` /
+/// `"serverTimeMS"` / `"queryID"` / `"indexUsed"` / `"aroundLatLng"` /
+/// `"highlightPreTag"` / `"facets_stats"` / `"renderingContent"` /
+/// `"appliedRules"` / `"attributesToHighlight"` / `"getRankingInfo"` /
+/// `"clickAnalytics"` / `"enablePersonalization"` /
+/// `"removeWordsIfNoResults"` / Meilisearch `"processingTimeMs"` /
+/// `"estimatedTotalHits"` / `"exhaustiveNbHits"` / `"nbHits"` /
+/// `"hitsPerPage"` / `"facetDistribution"` / `"facetStats"` /
+/// `"exhaustiveFacetsCount"` / `"rankingScoreThreshold"` /
+/// `"showRankingScore"` / `"matchingStrategy"` / `"attributesToSearchOn"` /
+/// Typesense `"search_time_ms"` / `"out_of"` / `"search_cutoff"` /
+/// `"grouped_hits"` / `"facet_counts": [` / `"default_sorting_field"` /
+/// `"enable_nested_fields"` / `"token_separators"` / `"symbols_to_index"` /
+/// `"drop_tokens_threshold"` / `"typo_tokens_threshold"` /
+/// `"prioritize_exact_match"` / `"exhaustive_search"` / Solr
+/// `"responseHeader"` / `"numFound"` / `"numFoundExact"` / `"QTime"` /
+/// `"zkConnected"` / `"facet_counts": {` / `"highlighting"` /
+/// `"spellcheck"` / `"grouped"` / `"nextCursorMark"` / Elasticsearch
+/// `"track_total_hits"` / `"min_score"` / `"post_filter"` /
+/// `"runtime_mappings"` / `"script_fields"` / `"docvalue_fields"` /
+/// `"seq_no_primary_term"` / `"_scroll_id"` / `"_shards"` / Grafana
+/// alerting `"noDataState"` / `"execErrState"` / `"datasourceUid"` /
+/// `"folderUID"` / `"relativeTimeRange"` / `"grafana_alert"` /
+/// `"contactPoints"` / `"muteTimes"` / `"isPaused"` / Grafana
+/// dashboard `"schemaVersion"` / `"graphTooltip"` / `"templating"` /
+/// `"gnetId"` / Grafana datasource `"access"` / `"basicAuth"` /
+/// `"jsonData"` / `"deleteDatasources"` / Alertmanager `"groupKey"` /
+/// `"truncatedAlerts"` / Prometheus `"totalQueryableSamples"` / Loki
+/// `"bytesProcessedPerSecond"` / Tempo `"rootServiceName"` / Jaeger
+/// `"traceID"` / Zipkin `"localEndpoint"` / OTLP `"resourceSpans"` /
+/// HAR `"startedDateTime"` / OpenAPI `"openapi"` / AsyncAPI
+/// `"asyncapi"` / `"channels": {` / Pact `"consumer"` / MockServer
+/// `"httpRequest"` / Hoverfly `"hoverflyVersion"` / Mountebank
+/// `"imposters"` / WireMock `"scenarioName"` / Mockoon
+/// `"lastMigration"` / Hoppscotch `"preRequestScript"` / Yaak
+/// `"yaakVersion"` / Bruno `"brunoConfig"` / Thunder Client `"client"` /
+/// Postman `"_postman_id"` / Insomnia `"__export_format"` / ReDoc
+/// `"disableSearch"` / RapiDoc `"specUrl"` / swagger-ui `"dom_id"` /
+/// scalar `"layout": "modern"` / Elements `"layout": "sidebar"` /
+/// mintlify `"topbarLinks"` / Compodoc `"theme": "material"` / redocly
+/// `"apis"` / spectral `"functionsDir"` / openapitools
+/// `"generator-cli"` / Knip `"entry"` / prettier `"printWidth"` /
+/// package.json `"bin"` / karma `"basePath"` stay out.
+/// `"vectorIndexType"` only matches `hnsw` / `flat` / `dynamic`.
+/// `"tokenization"` only matches its Weaviate enums. Numeric
+/// `"creationTimeUnix"` / `"lastUpdateTimeUnix"` reject leading zeros
+/// beyond `0`.
+fn is_weaviate_json_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    let Some(rest) = s.strip_prefix('"') else {
+        return false;
+    };
+    let Some(end) = rest.find('"') else {
+        return false;
+    };
+    let key = &rest[..end];
+    if !weaviate_json_key_ok(key) {
+        return false;
+    }
+    let after_key = rest[end + 1..].trim_start();
+    let Some(after_colon) = after_key.strip_prefix(':') else {
+        return false;
+    };
+    let after_colon = after_colon.trim_start();
+    weaviate_json_value_and_tail_ok(key, after_colon)
+}
+
+fn weaviate_json_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "nearVector"
+            | "nearObject"
+            | "nearText"
+            | "invertedIndexConfig"
+            | "vectorIndexConfig"
+            | "vectorIndexType"
+            | "shardingConfig"
+            | "multiTenancyConfig"
+            | "replicationConfig"
+            | "moduleConfig"
+            | "creationTimeUnix"
+            | "lastUpdateTimeUnix"
+            | "indexFilterable"
+            | "indexSearchable"
+            | "tokenization"
+    )
+}
+
+fn weaviate_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool {
+    let bytes = after_colon.as_bytes();
+    let Some(first) = bytes.first().copied() else {
+        return false;
+    };
+    match first {
+        b'{' => {
+            if !matches!(
+                key,
+                "nearVector"
+                    | "nearObject"
+                    | "nearText"
+                    | "invertedIndexConfig"
+                    | "vectorIndexConfig"
+                    | "shardingConfig"
+                    | "multiTenancyConfig"
+                    | "replicationConfig"
+                    | "moduleConfig"
+            ) {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[1..])
+        }
+        b'"' => match key {
+            "vectorIndexType" => weaviate_json_vector_index_type_and_tail_ok(after_colon),
+            "tokenization" => weaviate_json_tokenization_and_tail_ok(after_colon),
+            _ => false,
+        },
+        b't' | b'f' => {
+            if !matches!(key, "indexFilterable" | "indexSearchable") {
+                return false;
+            }
+            weaviate_json_bool_and_tail_ok(after_colon)
+        }
+        b'0'..=b'9' => weaviate_json_number_and_tail_ok(key, after_colon),
+        _ => false,
+    }
+}
+
+fn weaviate_json_vector_index_type_and_tail_ok(after_colon: &str) -> bool {
+    let rest = &after_colon[1..];
+    let Some(end) = rest.find('"') else {
+        return false;
+    };
+    let value = &rest[..end];
+    if !matches!(value, "hnsw" | "flat" | "dynamic") {
+        return false;
+    }
+    package_json_tail_ok(&rest[end + 1..])
+}
+
+fn weaviate_json_tokenization_and_tail_ok(after_colon: &str) -> bool {
+    let rest = &after_colon[1..];
+    let Some(end) = rest.find('"') else {
+        return false;
+    };
+    let value = &rest[..end];
+    if !matches!(
+        value,
+        "word"
+            | "lowercase"
+            | "whitespace"
+            | "field"
+            | "gse"
+            | "trigram"
+            | "kagome_ja"
+            | "kagome_kr"
+    ) {
+        return false;
+    }
+    package_json_tail_ok(&rest[end + 1..])
+}
+
+fn weaviate_json_number_and_tail_ok(key: &str, after_colon: &str) -> bool {
+    match key {
+        "creationTimeUnix" | "lastUpdateTimeUnix" => weaviate_json_uint_and_tail_ok(after_colon),
+        _ => false,
+    }
+}
+
+fn weaviate_json_uint_and_tail_ok(after_colon: &str) -> bool {
+    let bytes = after_colon.as_bytes();
+    let mut i = 0usize;
+    if i >= bytes.len() || !bytes[i].is_ascii_digit() {
+        return false;
+    }
+    if bytes[i] == b'0' {
+        i += 1;
+        if i < bytes.len() && bytes[i].is_ascii_digit() {
+            return false;
+        }
+    } else {
+        while i < bytes.len() && bytes[i].is_ascii_digit() {
+            i += 1;
+        }
+    }
+    package_json_tail_ok(&after_colon[i..])
+}
+
+fn weaviate_json_bool_and_tail_ok(after_colon: &str) -> bool {
     if let Some(rest) = after_colon.strip_prefix("true") {
         return package_json_tail_ok(rest);
     }
@@ -93672,10 +93914,11 @@ mod func_like_line_tests {
         is_unimport_ini_decl, is_uv_toml_decl, is_vconsole_conf_decl, is_vector_toml_decl,
         is_vercel_json_decl, is_versioneer_ini_decl, is_versionrc_json_decl, is_vitest_json_decl,
         is_vscode_launch_json_decl, is_vscode_tasks_json_decl, is_vulture_ini_decl,
-        is_wails_json_decl, is_wdio_json_decl, is_webextension_manifest_json_decl,
-        is_wireguard_config_decl, is_wiremock_json_decl, is_wrangler_toml_decl, is_xmake_decl,
-        is_xorg_conf_decl, is_yaak_json_decl, is_yapf_ini_decl, is_yarnrc_yml_decl,
-        is_yum_repo_decl, is_zest_releaser_ini_decl, is_zipkin_json_decl, line_is_func_like,
+        is_wails_json_decl, is_wdio_json_decl, is_weaviate_json_decl,
+        is_webextension_manifest_json_decl, is_wireguard_config_decl, is_wiremock_json_decl,
+        is_wrangler_toml_decl, is_xmake_decl, is_xorg_conf_decl, is_yaak_json_decl,
+        is_yapf_ini_decl, is_yarnrc_yml_decl, is_yum_repo_decl, is_zest_releaser_ini_decl,
+        is_zipkin_json_decl, line_is_func_like,
     };
 
     #[test]
@@ -127166,6 +127409,14 @@ mod func_like_line_tests {
         assert!(is_qdrant_json_decl(r#""hnsw_config": {"#));
         assert!(!is_algolia_json_decl(r#""score_threshold": 0.5"#));
         assert!(is_qdrant_json_decl(r#""score_threshold": 0.5"#));
+        assert!(!is_algolia_json_decl(r#""nearVector": {"#));
+        assert!(is_weaviate_json_decl(r#""nearVector": {"#));
+        assert!(!is_algolia_json_decl(r#""vectorIndexType": "hnsw""#));
+        assert!(is_weaviate_json_decl(r#""vectorIndexType": "hnsw""#));
+        assert!(!is_algolia_json_decl(r#""tokenization": "word""#));
+        assert!(is_weaviate_json_decl(r#""tokenization": "word""#));
+        assert!(!is_algolia_json_decl(r#""creationTimeUnix": 0"#));
+        assert!(is_weaviate_json_decl(r#""creationTimeUnix": 0"#));
     }
 
     #[test]
@@ -127436,6 +127687,10 @@ mod func_like_line_tests {
         assert!(is_prettier_json_decl(r#""printWidth": 80"#));
         assert!(!is_qdrant_json_decl(r#""basePath": ".""#));
         assert!(is_karma_json_decl(r#""basePath": ".""#));
+        assert!(!is_qdrant_json_decl(r#""nearVector": {"#));
+        assert!(is_weaviate_json_decl(r#""nearVector": {"#));
+        assert!(!is_qdrant_json_decl(r#""vectorIndexType": "hnsw""#));
+        assert!(is_weaviate_json_decl(r#""vectorIndexType": "hnsw""#));
         assert!(line_is_func_like(r#""vectors_count": 100"#));
         assert!(line_is_func_like(r#""indexed_vectors_count": 100"#));
         assert!(line_is_func_like(r#""points_count": 100"#));
@@ -127627,6 +127882,14 @@ mod func_like_line_tests {
         assert!(is_prettier_json_decl(r#""printWidth": 80"#));
         assert!(!is_qdrant_json_decl(r#""basePath": ".""#));
         assert!(is_karma_json_decl(r#""basePath": ".""#));
+        assert!(!is_qdrant_json_decl(r#""nearVector": {"#));
+        assert!(is_weaviate_json_decl(r#""nearVector": {"#));
+        assert!(!is_qdrant_json_decl(r#""vectorIndexType": "hnsw""#));
+        assert!(is_weaviate_json_decl(r#""vectorIndexType": "hnsw""#));
+        assert!(!is_qdrant_json_decl(r#""tokenization": "word""#));
+        assert!(is_weaviate_json_decl(r#""tokenization": "word""#));
+        assert!(!is_qdrant_json_decl(r#""creationTimeUnix": 0"#));
+        assert!(is_weaviate_json_decl(r#""creationTimeUnix": 0"#));
         assert!(line_is_func_like(r#""vectors_count": 0"#));
         assert!(line_is_func_like(r#""indexed_vectors_count": 0"#));
         assert!(line_is_func_like(r#""points_count": 0"#));
@@ -127643,6 +127906,269 @@ mod func_like_line_tests {
         assert!(line_is_func_like(r#""with_vector": true"#));
         assert!(line_is_func_like(r#""hnsw_ef": 0"#));
         assert!(line_is_func_like(r#""indexed_only": false"#));
+    }
+
+    #[test]
+    fn weaviate_json_keys_smoke() {
+        assert!(is_weaviate_json_decl(r#""nearVector": {"#));
+        assert!(is_weaviate_json_decl(r#""nearObject": {"#));
+        assert!(is_weaviate_json_decl(r#""nearText": {"#));
+        assert!(is_weaviate_json_decl(r#""invertedIndexConfig": {"#));
+        assert!(is_weaviate_json_decl(r#""vectorIndexConfig": {"#));
+        assert!(is_weaviate_json_decl(r#""vectorIndexType": "hnsw""#));
+        assert!(is_weaviate_json_decl(r#""vectorIndexType": "flat""#));
+        assert!(is_weaviate_json_decl(r#""vectorIndexType": "dynamic""#));
+        assert!(is_weaviate_json_decl(r#""shardingConfig": {"#));
+        assert!(is_weaviate_json_decl(r#""multiTenancyConfig": {"#));
+        assert!(is_weaviate_json_decl(r#""replicationConfig": {"#));
+        assert!(is_weaviate_json_decl(r#""moduleConfig": {"#));
+        assert!(is_weaviate_json_decl(r#""creationTimeUnix": 0"#));
+        assert!(is_weaviate_json_decl(
+            r#""creationTimeUnix": 1710000000000"#
+        ));
+        assert!(is_weaviate_json_decl(r#""lastUpdateTimeUnix": 0"#));
+        assert!(is_weaviate_json_decl(
+            r#""lastUpdateTimeUnix": 1710000000000"#
+        ));
+        assert!(is_weaviate_json_decl(r#""indexFilterable": true"#));
+        assert!(is_weaviate_json_decl(r#""indexFilterable": false"#));
+        assert!(is_weaviate_json_decl(r#""indexSearchable": true"#));
+        assert!(is_weaviate_json_decl(r#""indexSearchable": false"#));
+        assert!(is_weaviate_json_decl(r#""tokenization": "word""#));
+        assert!(is_weaviate_json_decl(r#""tokenization": "lowercase""#));
+        assert!(is_weaviate_json_decl(r#""tokenization": "whitespace""#));
+        assert!(is_weaviate_json_decl(r#""tokenization": "field""#));
+        assert!(is_weaviate_json_decl(r#""tokenization": "gse""#));
+        assert!(is_weaviate_json_decl(r#""tokenization": "trigram""#));
+        assert!(is_weaviate_json_decl(r#""tokenization": "kagome_ja""#));
+        assert!(is_weaviate_json_decl(r#""tokenization": "kagome_kr""#));
+        // Distinctive neighbours stay out of this scanner.
+        assert!(!is_weaviate_json_decl(r#""vectors_count": 100"#));
+        assert!(is_qdrant_json_decl(r#""vectors_count": 100"#));
+        assert!(!is_weaviate_json_decl(r#""points_count": 100"#));
+        assert!(is_qdrant_json_decl(r#""points_count": 100"#));
+        assert!(!is_weaviate_json_decl(r#""processingTimeMS": 12"#));
+        assert!(is_algolia_json_decl(r#""processingTimeMS": 12"#));
+        assert!(!is_weaviate_json_decl(r#""processingTimeMs": 12"#));
+        assert!(is_meilisearch_json_decl(r#""processingTimeMs": 12"#));
+        assert!(!is_weaviate_json_decl(r#""search_time_ms": 12"#));
+        assert!(is_typesense_json_decl(r#""search_time_ms": 12"#));
+        assert!(!is_weaviate_json_decl(r#""responseHeader": {"#));
+        assert!(is_solr_json_decl(r#""responseHeader": {"#));
+        assert!(!is_weaviate_json_decl(r#""track_total_hits": true"#));
+        assert!(is_elasticsearch_json_decl(r#""track_total_hits": true"#));
+        assert!(!is_weaviate_json_decl(r#""printWidth": 80"#));
+        assert!(is_prettier_json_decl(r#""printWidth": 80"#));
+        assert!(!is_weaviate_json_decl(r#""basePath": ".""#));
+        assert!(is_karma_json_decl(r#""basePath": ".""#));
+        assert!(line_is_func_like(r#""nearVector": {"#));
+        assert!(line_is_func_like(r#""nearObject": {"#));
+        assert!(line_is_func_like(r#""nearText": {"#));
+        assert!(line_is_func_like(r#""invertedIndexConfig": {"#));
+        assert!(line_is_func_like(r#""vectorIndexConfig": {"#));
+        assert!(line_is_func_like(r#""vectorIndexType": "hnsw""#));
+        assert!(line_is_func_like(r#""shardingConfig": {"#));
+        assert!(line_is_func_like(r#""multiTenancyConfig": {"#));
+        assert!(line_is_func_like(r#""replicationConfig": {"#));
+        assert!(line_is_func_like(r#""moduleConfig": {"#));
+        assert!(line_is_func_like(r#""creationTimeUnix": 0"#));
+        assert!(line_is_func_like(r#""lastUpdateTimeUnix": 0"#));
+        assert!(line_is_func_like(r#""indexFilterable": true"#));
+        assert!(line_is_func_like(r#""indexSearchable": false"#));
+        assert!(line_is_func_like(r#""tokenization": "word""#));
+    }
+
+    #[test]
+    fn weaviate_json_keys_count() {
+        assert!(is_weaviate_json_decl(r#""nearVector": {"#));
+        assert!(is_weaviate_json_decl(r#""nearVector": {,"#));
+        assert!(is_weaviate_json_decl(r#""nearVector": { // n"#));
+        assert!(!is_weaviate_json_decl(r#""nearVector": ["#));
+        assert!(!is_weaviate_json_decl(r#""nearVector": true"#));
+        assert!(!is_weaviate_json_decl(r#""nearVector": """#));
+        assert!(is_weaviate_json_decl(r#""nearObject": {"#));
+        assert!(is_weaviate_json_decl(r#""nearObject": {,"#));
+        assert!(is_weaviate_json_decl(r#""nearObject": { // n"#));
+        assert!(!is_weaviate_json_decl(r#""nearObject": ["#));
+        assert!(!is_weaviate_json_decl(r#""nearObject": true"#));
+        assert!(is_weaviate_json_decl(r#""nearText": {"#));
+        assert!(is_weaviate_json_decl(r#""nearText": {,"#));
+        assert!(is_weaviate_json_decl(r#""nearText": { // n"#));
+        assert!(!is_weaviate_json_decl(r#""nearText": ["#));
+        assert!(!is_weaviate_json_decl(r#""nearText": true"#));
+        assert!(is_weaviate_json_decl(r#""invertedIndexConfig": {"#));
+        assert!(is_weaviate_json_decl(r#""invertedIndexConfig": {,"#));
+        assert!(is_weaviate_json_decl(r#""invertedIndexConfig": { // i"#));
+        assert!(!is_weaviate_json_decl(r#""invertedIndexConfig": ["#));
+        assert!(!is_weaviate_json_decl(r#""invertedIndexConfig": true"#));
+        assert!(is_weaviate_json_decl(r#""vectorIndexConfig": {"#));
+        assert!(is_weaviate_json_decl(r#""vectorIndexConfig": {,"#));
+        assert!(is_weaviate_json_decl(r#""vectorIndexConfig": { // v"#));
+        assert!(!is_weaviate_json_decl(r#""vectorIndexConfig": ["#));
+        assert!(!is_weaviate_json_decl(r#""vectorIndexConfig": true"#));
+        assert!(is_weaviate_json_decl(r#""vectorIndexType": "hnsw""#));
+        assert!(is_weaviate_json_decl(r#""vectorIndexType": "flat""#));
+        assert!(is_weaviate_json_decl(r#""vectorIndexType": "dynamic""#));
+        assert!(is_weaviate_json_decl(r#""vectorIndexType": "hnsw","#));
+        assert!(is_weaviate_json_decl(r#""vectorIndexType": "hnsw" // v"#));
+        assert!(!is_weaviate_json_decl(r#""vectorIndexType": "ivf""#));
+        assert!(!is_weaviate_json_decl(r#""vectorIndexType": """#));
+        assert!(!is_weaviate_json_decl(r#""vectorIndexType": true"#));
+        assert!(!is_weaviate_json_decl(r#""vectorIndexType": {"#));
+        assert!(is_weaviate_json_decl(r#""shardingConfig": {"#));
+        assert!(is_weaviate_json_decl(r#""shardingConfig": {,"#));
+        assert!(is_weaviate_json_decl(r#""shardingConfig": { // s"#));
+        assert!(!is_weaviate_json_decl(r#""shardingConfig": ["#));
+        assert!(!is_weaviate_json_decl(r#""shardingConfig": true"#));
+        assert!(is_weaviate_json_decl(r#""multiTenancyConfig": {"#));
+        assert!(is_weaviate_json_decl(r#""multiTenancyConfig": {,"#));
+        assert!(is_weaviate_json_decl(r#""multiTenancyConfig": { // m"#));
+        assert!(!is_weaviate_json_decl(r#""multiTenancyConfig": ["#));
+        assert!(!is_weaviate_json_decl(r#""multiTenancyConfig": true"#));
+        assert!(is_weaviate_json_decl(r#""replicationConfig": {"#));
+        assert!(is_weaviate_json_decl(r#""replicationConfig": {,"#));
+        assert!(is_weaviate_json_decl(r#""replicationConfig": { // r"#));
+        assert!(!is_weaviate_json_decl(r#""replicationConfig": ["#));
+        assert!(!is_weaviate_json_decl(r#""replicationConfig": true"#));
+        assert!(is_weaviate_json_decl(r#""moduleConfig": {"#));
+        assert!(is_weaviate_json_decl(r#""moduleConfig": {,"#));
+        assert!(is_weaviate_json_decl(r#""moduleConfig": { // m"#));
+        assert!(!is_weaviate_json_decl(r#""moduleConfig": ["#));
+        assert!(!is_weaviate_json_decl(r#""moduleConfig": true"#));
+        assert!(is_weaviate_json_decl(r#""creationTimeUnix": 0"#));
+        assert!(is_weaviate_json_decl(
+            r#""creationTimeUnix": 1710000000000"#
+        ));
+        assert!(is_weaviate_json_decl(
+            r#""creationTimeUnix": 1710000000000,"#
+        ));
+        assert!(is_weaviate_json_decl(
+            r#""creationTimeUnix": 1710000000000 // c"#
+        ));
+        assert!(!is_weaviate_json_decl(r#""creationTimeUnix": 00"#));
+        assert!(!is_weaviate_json_decl(r#""creationTimeUnix": 01"#));
+        assert!(!is_weaviate_json_decl(r#""creationTimeUnix": true"#));
+        assert!(!is_weaviate_json_decl(r#""creationTimeUnix": {"#));
+        assert!(!is_weaviate_json_decl(r#""creationTimeUnix": "0""#));
+        assert!(is_weaviate_json_decl(r#""lastUpdateTimeUnix": 0"#));
+        assert!(is_weaviate_json_decl(
+            r#""lastUpdateTimeUnix": 1710000000000"#
+        ));
+        assert!(is_weaviate_json_decl(
+            r#""lastUpdateTimeUnix": 1710000000000,"#
+        ));
+        assert!(is_weaviate_json_decl(
+            r#""lastUpdateTimeUnix": 1710000000000 // l"#
+        ));
+        assert!(!is_weaviate_json_decl(r#""lastUpdateTimeUnix": 00"#));
+        assert!(!is_weaviate_json_decl(r#""lastUpdateTimeUnix": 01"#));
+        assert!(!is_weaviate_json_decl(r#""lastUpdateTimeUnix": true"#));
+        assert!(!is_weaviate_json_decl(r#""lastUpdateTimeUnix": {"#));
+        assert!(is_weaviate_json_decl(r#""indexFilterable": true"#));
+        assert!(is_weaviate_json_decl(r#""indexFilterable": false"#));
+        assert!(is_weaviate_json_decl(r#""indexFilterable": true,"#));
+        assert!(is_weaviate_json_decl(r#""indexFilterable": false // i"#));
+        assert!(!is_weaviate_json_decl(r#""indexFilterable": 1"#));
+        assert!(!is_weaviate_json_decl(r#""indexFilterable": "true""#));
+        assert!(!is_weaviate_json_decl(r#""indexFilterable": {"#));
+        assert!(is_weaviate_json_decl(r#""indexSearchable": true"#));
+        assert!(is_weaviate_json_decl(r#""indexSearchable": false"#));
+        assert!(is_weaviate_json_decl(r#""indexSearchable": true,"#));
+        assert!(is_weaviate_json_decl(r#""indexSearchable": false // i"#));
+        assert!(!is_weaviate_json_decl(r#""indexSearchable": 1"#));
+        assert!(!is_weaviate_json_decl(r#""indexSearchable": "true""#));
+        assert!(!is_weaviate_json_decl(r#""indexSearchable": {"#));
+        assert!(is_weaviate_json_decl(r#""tokenization": "word""#));
+        assert!(is_weaviate_json_decl(r#""tokenization": "lowercase""#));
+        assert!(is_weaviate_json_decl(r#""tokenization": "whitespace""#));
+        assert!(is_weaviate_json_decl(r#""tokenization": "field""#));
+        assert!(is_weaviate_json_decl(r#""tokenization": "gse""#));
+        assert!(is_weaviate_json_decl(r#""tokenization": "trigram""#));
+        assert!(is_weaviate_json_decl(r#""tokenization": "kagome_ja""#));
+        assert!(is_weaviate_json_decl(r#""tokenization": "kagome_kr""#));
+        assert!(is_weaviate_json_decl(r#""tokenization": "word","#));
+        assert!(is_weaviate_json_decl(r#""tokenization": "word" // t"#));
+        assert!(!is_weaviate_json_decl(r#""tokenization": "bytes""#));
+        assert!(!is_weaviate_json_decl(r#""tokenization": """#));
+        assert!(!is_weaviate_json_decl(r#""tokenization": true"#));
+        assert!(!is_weaviate_json_decl(r#""tokenization": {"#));
+        // Incomplete / wrong shapes stay out.
+        assert!(!is_weaviate_json_decl(r#""nearVector""#));
+        assert!(!is_weaviate_json_decl(r#""nearVector":"#));
+        assert!(!is_weaviate_json_decl(r#""nearObject""#));
+        assert!(!is_weaviate_json_decl(r#""nearText""#));
+        assert!(!is_weaviate_json_decl(r#""invertedIndexConfig""#));
+        assert!(!is_weaviate_json_decl(r#""vectorIndexConfig""#));
+        assert!(!is_weaviate_json_decl(r#""vectorIndexType""#));
+        assert!(!is_weaviate_json_decl(r#""shardingConfig""#));
+        assert!(!is_weaviate_json_decl(r#""multiTenancyConfig""#));
+        assert!(!is_weaviate_json_decl(r#""replicationConfig""#));
+        assert!(!is_weaviate_json_decl(r#""moduleConfig""#));
+        assert!(!is_weaviate_json_decl(r#""creationTimeUnix""#));
+        assert!(!is_weaviate_json_decl(r#""lastUpdateTimeUnix""#));
+        assert!(!is_weaviate_json_decl(r#""indexFilterable""#));
+        assert!(!is_weaviate_json_decl(r#""indexSearchable""#));
+        assert!(!is_weaviate_json_decl(r#""tokenization""#));
+        // Generic / neighbouring stay out.
+        assert!(!is_weaviate_json_decl(
+            r#""$schema": "https://json-schema.org/draft/2020-12/schema""#
+        ));
+        assert!(!is_weaviate_json_decl(r#""name": "Article""#));
+        assert!(!is_weaviate_json_decl(r#""class": "Article""#));
+        assert!(!is_weaviate_json_decl(r#""properties": ["#));
+        assert!(!is_weaviate_json_decl(r#""dataType": ["#));
+        assert!(!is_weaviate_json_decl(r#""vector": ["#));
+        assert!(!is_weaviate_json_decl(r#""certainty": 0.9"#));
+        assert!(!is_weaviate_json_decl(r#""distance": 0.1"#));
+        assert!(!is_weaviate_json_decl(r#""limit": 10"#));
+        assert!(!is_weaviate_json_decl(r#""offset": 0"#));
+        assert!(!is_weaviate_json_decl(r#""where": {"#));
+        assert!(!is_weaviate_json_decl(r#""objects": ["#));
+        assert!(!is_weaviate_json_decl(r#""result": {"#));
+        assert!(!is_weaviate_json_decl(r#""errors": ["#));
+        assert!(!is_weaviate_json_decl(r#""vectors_count": 100"#));
+        assert!(is_qdrant_json_decl(r#""vectors_count": 100"#));
+        assert!(!is_weaviate_json_decl(r#""hnsw_config": {"#));
+        assert!(is_qdrant_json_decl(r#""hnsw_config": {"#));
+        assert!(!is_weaviate_json_decl(r#""processingTimeMS": 12"#));
+        assert!(is_algolia_json_decl(r#""processingTimeMS": 12"#));
+        assert!(!is_weaviate_json_decl(r#""nbPages": 20"#));
+        assert!(is_algolia_json_decl(r#""nbPages": 20"#));
+        assert!(!is_weaviate_json_decl(r#""processingTimeMs": 12"#));
+        assert!(is_meilisearch_json_decl(r#""processingTimeMs": 12"#));
+        assert!(!is_weaviate_json_decl(r#""facetDistribution": {"#));
+        assert!(is_meilisearch_json_decl(r#""facetDistribution": {"#));
+        assert!(!is_weaviate_json_decl(r#""search_time_ms": 12"#));
+        assert!(is_typesense_json_decl(r#""search_time_ms": 12"#));
+        assert!(!is_weaviate_json_decl(r#""out_of": 100"#));
+        assert!(is_typesense_json_decl(r#""out_of": 100"#));
+        assert!(!is_weaviate_json_decl(r#""responseHeader": {"#));
+        assert!(is_solr_json_decl(r#""responseHeader": {"#));
+        assert!(!is_weaviate_json_decl(r#""numFound": 10"#));
+        assert!(is_solr_json_decl(r#""numFound": 10"#));
+        assert!(!is_weaviate_json_decl(r#""track_total_hits": true"#));
+        assert!(is_elasticsearch_json_decl(r#""track_total_hits": true"#));
+        assert!(!is_weaviate_json_decl(r#""min_score": 0.5"#));
+        assert!(is_elasticsearch_json_decl(r#""min_score": 0.5"#));
+        assert!(!is_weaviate_json_decl(r#""printWidth": 80"#));
+        assert!(is_prettier_json_decl(r#""printWidth": 80"#));
+        assert!(!is_weaviate_json_decl(r#""basePath": ".""#));
+        assert!(is_karma_json_decl(r#""basePath": ".""#));
+        assert!(line_is_func_like(r#""nearVector": {"#));
+        assert!(line_is_func_like(r#""nearObject": {"#));
+        assert!(line_is_func_like(r#""nearText": {"#));
+        assert!(line_is_func_like(r#""invertedIndexConfig": {"#));
+        assert!(line_is_func_like(r#""vectorIndexConfig": {"#));
+        assert!(line_is_func_like(r#""vectorIndexType": "flat""#));
+        assert!(line_is_func_like(r#""shardingConfig": {"#));
+        assert!(line_is_func_like(r#""multiTenancyConfig": {"#));
+        assert!(line_is_func_like(r#""replicationConfig": {"#));
+        assert!(line_is_func_like(r#""moduleConfig": {"#));
+        assert!(line_is_func_like(r#""creationTimeUnix": 0"#));
+        assert!(line_is_func_like(r#""lastUpdateTimeUnix": 0"#));
+        assert!(line_is_func_like(r#""indexFilterable": false"#));
+        assert!(line_is_func_like(r#""indexSearchable": true"#));
+        assert!(line_is_func_like(r#""tokenization": "trigram""#));
     }
 
     #[test]
