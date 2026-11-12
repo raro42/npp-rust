@@ -32468,6 +32468,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_prometheus_json_decl(s)
             || is_alertmanager_json_decl(s)
             || is_grafana_dashboard_json_decl(s)
+            || is_grafana_datasource_json_decl(s)
             || is_gomod_decl(s)
             || is_gemfile_decl(s)
             || is_brewfile_decl(s)
@@ -32846,6 +32847,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_prometheus_json_decl(s)
         || is_alertmanager_json_decl(s)
         || is_grafana_dashboard_json_decl(s)
+        || is_grafana_datasource_json_decl(s)
         || is_gomod_decl(s)
         || is_gemfile_decl(s)
         || is_brewfile_decl(s)
@@ -61436,9 +61438,12 @@ fn alertmanager_json_number_and_tail_ok(key: &str, after_colon: &str) -> bool {
 /// mintlify `"topbarLinks"` / Compodoc `"theme": "material"` / redocly
 /// `"apis"` / spectral `"functionsDir"` / openapitools
 /// `"generator-cli"` / Knip `"entry"` / prettier `"printWidth"` /
-/// package.json `"bin"` / karma `"basePath"` stay out. `"gnetId"` needs
-/// a non-empty value. `"weekStart"` only matches weekday names.
-/// `"graphTooltip"` only matches `0` / `1` / `2`.
+/// package.json `"bin"` / karma `"basePath"` / Grafana datasource
+/// `"access": "proxy"` / `"basicAuth"` / `"basicAuthUser"` /
+/// `"isDefault"` / `"jsonData"` / `"secureJsonData"` /
+/// `"secureJsonFields"` / `"typeLogoUrl"` / `"deleteDatasources"` stay
+/// out. `"gnetId"` needs a non-empty value. `"weekStart"` only matches
+/// weekday names. `"graphTooltip"` only matches `0` / `1` / `2`.
 /// `"fiscalYearStartMonth"` only matches `0`…`11`. Numeric
 /// `"schemaVersion"` rejects leading zeros beyond a single `0` (and
 /// rejects `0` itself).
@@ -61562,6 +61567,142 @@ fn grafana_dashboard_json_number_and_tail_ok(key: &str, after_colon: &str) -> bo
         return false;
     }
     package_json_tail_ok(&after_colon[digits..])
+}
+
+/// Grafana datasource API / provisioning JSON keys:
+/// `"access": "proxy"` / `"direct"`,
+/// `"basicAuth": true` / `false`,
+/// `"basicAuthUser": ""` / `"…"`,
+/// `"isDefault": true` / `false`,
+/// `"jsonData": {`,
+/// `"secureJsonData": {`,
+/// `"secureJsonFields": {`,
+/// `"typeLogoUrl": "…"`,
+/// `"deleteDatasources": [`.
+/// Optional trailing `,` and `//` / `/*` comment. Incomplete quotes /
+/// missing `:` stay out. Generic `"$schema"` / `"name"` / `"id"` /
+/// `"uid"` / `"type"` / `"url"` / `"user"` / `"database"` / `"version"` /
+/// `"editable"` / `"orgId"` / `"datasources": [` / `"apiVersion"` /
+/// `"withCredentials"` / `"readOnly"` / `"typeName"` / changesets /
+/// JSDoc `"access": "public"` / `"restricted"` / swagger-ui
+/// `"withCredentials"` / Grafana dashboard `"schemaVersion"` /
+/// `"graphTooltip"` / `"fiscalYearStartMonth"` / `"templating"` /
+/// `"timepicker"` / `"gnetId"` / `"preload"` / `"liveNow"` /
+/// `"weekStart"` / Alertmanager `"groupKey"` / `"truncatedAlerts"` /
+/// Prometheus `"totalQueryableSamples"` / Loki
+/// `"bytesProcessedPerSecond"` / Tempo `"rootServiceName"` / Jaeger
+/// `"traceID"` / Zipkin `"localEndpoint"` / OTLP `"resourceSpans"` /
+/// HAR `"startedDateTime"` / OpenAPI `"openapi"` / AsyncAPI
+/// `"asyncapi"` / `"channels": {` / Pact `"consumer"` / MockServer
+/// `"httpRequest"` / Hoverfly `"hoverflyVersion"` / Mountebank
+/// `"imposters"` / WireMock `"scenarioName"` / Mockoon
+/// `"lastMigration"` / Hoppscotch `"preRequestScript"` / Yaak
+/// `"yaakVersion"` / Bruno `"brunoConfig"` / Thunder Client `"client"` /
+/// Postman `"_postman_id"` / Insomnia `"__export_format"` / ReDoc
+/// `"disableSearch"` / RapiDoc `"specUrl"` / swagger-ui `"dom_id"` /
+/// scalar `"layout": "modern"` / Elements `"layout": "sidebar"` /
+/// mintlify `"topbarLinks"` / Compodoc `"theme": "material"` / redocly
+/// `"apis"` / spectral `"functionsDir"` / openapitools
+/// `"generator-cli"` / Knip `"entry"` / prettier `"printWidth"` /
+/// package.json `"bin"` / karma `"basePath"` stay out. `"access"` only
+/// matches `proxy` / `direct`. `"typeLogoUrl"` needs a non-empty value.
+fn is_grafana_datasource_json_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    let Some(rest) = s.strip_prefix('"') else {
+        return false;
+    };
+    let Some(end) = rest.find('"') else {
+        return false;
+    };
+    let key = &rest[..end];
+    if !grafana_datasource_json_key_ok(key) {
+        return false;
+    }
+    let after_key = rest[end + 1..].trim_start();
+    let Some(after_colon) = after_key.strip_prefix(':') else {
+        return false;
+    };
+    let after_colon = after_colon.trim_start();
+    grafana_datasource_json_value_and_tail_ok(key, after_colon)
+}
+
+fn grafana_datasource_json_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "access"
+            | "basicAuth"
+            | "basicAuthUser"
+            | "isDefault"
+            | "jsonData"
+            | "secureJsonData"
+            | "secureJsonFields"
+            | "typeLogoUrl"
+            | "deleteDatasources"
+    )
+}
+
+fn grafana_datasource_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool {
+    let bytes = after_colon.as_bytes();
+    let Some(first) = bytes.first().copied() else {
+        return false;
+    };
+    match first {
+        b'{' => {
+            if !matches!(key, "jsonData" | "secureJsonData" | "secureJsonFields") {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[1..])
+        }
+        b'[' => {
+            if key != "deleteDatasources" {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[1..])
+        }
+        b'"' => {
+            if !matches!(key, "access" | "basicAuthUser" | "typeLogoUrl") {
+                return false;
+            }
+            let rest = &after_colon[1..];
+            let Some(end) = rest.find('"') else {
+                return false;
+            };
+            let value = &rest[..end];
+            if !grafana_datasource_json_string_ok(key, value) {
+                return false;
+            }
+            package_json_tail_ok(&rest[end + 1..])
+        }
+        b't' | b'f' => {
+            if !matches!(key, "basicAuth" | "isDefault") {
+                return false;
+            }
+            grafana_datasource_json_bool_and_tail_ok(after_colon)
+        }
+        _ => false,
+    }
+}
+
+fn grafana_datasource_json_string_ok(key: &str, value: &str) -> bool {
+    if value.contains('\n') {
+        return false;
+    }
+    match key {
+        "access" => matches!(value, "proxy" | "direct"),
+        "basicAuthUser" => true,
+        "typeLogoUrl" => !value.is_empty(),
+        _ => false,
+    }
+}
+
+fn grafana_datasource_json_bool_and_tail_ok(after_colon: &str) -> bool {
+    if let Some(rest) = after_colon.strip_prefix("true") {
+        return package_json_tail_ok(rest);
+    }
+    if let Some(rest) = after_colon.strip_prefix("false") {
+        return package_json_tail_ok(rest);
+    }
+    false
 }
 
 /// go.mod / go.work directives: `module example.com/foo`, `go 1.22`,
@@ -92197,19 +92338,19 @@ mod func_like_line_tests {
         is_fail2ban_conf_decl, is_firebase_json_decl, is_flake8_ini_decl, is_fluent_bit_decl,
         is_fly_toml_decl, is_flynt_ini_decl, is_freeradius_decl, is_fstab_decl, is_gdm_conf_decl,
         is_gemfile_decl, is_gitconfig_decl, is_gomod_decl, is_grafana_dashboard_json_decl,
-        is_grafana_ini_decl, is_haproxy_decl, is_har_json_decl, is_hatch_toml_decl,
-        is_hoppscotch_json_decl, is_hosts_access_decl, is_hosts_file_decl, is_hoverfly_json_decl,
-        is_hypothesis_ini_decl, is_importlinter_ini_decl, is_insomnia_json_decl,
-        is_interrogate_ini_decl, is_ionic_json_decl, is_ipsec_conf_decl, is_isort_ini_decl,
-        is_jaeger_json_decl, is_jasmine_json_decl, is_jest_json_decl, is_jsdoc_json_decl,
-        is_karma_json_decl, is_keepalived_decl, is_knip_json_decl, is_krb5_conf_decl,
-        is_lerna_json_decl, is_lightdm_conf_decl, is_limits_conf_decl, is_lint_staged_json_decl,
-        is_locale_conf_decl, is_login_defs_decl, is_logrotate_decl, is_loki_json_decl,
-        is_machine_info_decl, is_makepkg_conf_decl, is_mdbook_toml_decl, is_mintlify_json_decl,
-        is_mise_toml_decl, is_mkinitcpio_conf_decl, is_mocha_json_decl, is_mockoon_json_decl,
-        is_mockserver_json_decl, is_modprobe_conf_decl, is_mountebank_json_decl,
-        is_mutants_toml_decl, is_mypy_ini_decl, is_mysql_cnf_decl, is_named_conf_decl,
-        is_nest_cli_json_decl, is_netlify_toml_decl, is_networks_file_decl,
+        is_grafana_datasource_json_decl, is_grafana_ini_decl, is_haproxy_decl, is_har_json_decl,
+        is_hatch_toml_decl, is_hoppscotch_json_decl, is_hosts_access_decl, is_hosts_file_decl,
+        is_hoverfly_json_decl, is_hypothesis_ini_decl, is_importlinter_ini_decl,
+        is_insomnia_json_decl, is_interrogate_ini_decl, is_ionic_json_decl, is_ipsec_conf_decl,
+        is_isort_ini_decl, is_jaeger_json_decl, is_jasmine_json_decl, is_jest_json_decl,
+        is_jsdoc_json_decl, is_karma_json_decl, is_keepalived_decl, is_knip_json_decl,
+        is_krb5_conf_decl, is_lerna_json_decl, is_lightdm_conf_decl, is_limits_conf_decl,
+        is_lint_staged_json_decl, is_locale_conf_decl, is_login_defs_decl, is_logrotate_decl,
+        is_loki_json_decl, is_machine_info_decl, is_makepkg_conf_decl, is_mdbook_toml_decl,
+        is_mintlify_json_decl, is_mise_toml_decl, is_mkinitcpio_conf_decl, is_mocha_json_decl,
+        is_mockoon_json_decl, is_mockserver_json_decl, is_modprobe_conf_decl,
+        is_mountebank_json_decl, is_mutants_toml_decl, is_mypy_ini_decl, is_mysql_cnf_decl,
+        is_named_conf_decl, is_nest_cli_json_decl, is_netlify_toml_decl, is_networks_file_decl,
         is_neutralino_json_decl, is_nextest_toml_decl, is_nftables_decl, is_nginx_conf_decl,
         is_nightwatch_json_decl, is_nixpacks_toml_decl, is_nm_connection_decl, is_npmrc_decl,
         is_nsswitch_conf_decl, is_nx_json_decl, is_nyc_json_decl, is_openapi_json_decl,
@@ -123899,6 +124040,14 @@ mod func_like_line_tests {
         assert!(is_prettier_json_decl(r#""printWidth": 80"#));
         assert!(!is_grafana_dashboard_json_decl(r#""basePath": ".""#));
         assert!(is_karma_json_decl(r#""basePath": ".""#));
+        assert!(!is_grafana_dashboard_json_decl(r#""access": "proxy""#));
+        assert!(is_grafana_datasource_json_decl(r#""access": "proxy""#));
+        assert!(!is_grafana_dashboard_json_decl(r#""basicAuth": true"#));
+        assert!(is_grafana_datasource_json_decl(r#""basicAuth": true"#));
+        assert!(!is_grafana_dashboard_json_decl(r#""jsonData": {"#));
+        assert!(is_grafana_datasource_json_decl(r#""jsonData": {"#));
+        assert!(!is_grafana_dashboard_json_decl(r#""deleteDatasources": ["#));
+        assert!(is_grafana_datasource_json_decl(r#""deleteDatasources": ["#));
         assert!(line_is_func_like(r#""schemaVersion": 42"#));
         assert!(line_is_func_like(r#""graphTooltip": 0"#));
         assert!(line_is_func_like(r#""fiscalYearStartMonth": 11"#));
@@ -123908,6 +124057,285 @@ mod func_like_line_tests {
         assert!(line_is_func_like(r#""preload": false"#));
         assert!(line_is_func_like(r#""liveNow": true"#));
         assert!(line_is_func_like(r#""weekStart": "sunday""#));
+    }
+
+    #[test]
+    fn grafana_datasource_json_keys_smoke() {
+        assert!(is_grafana_datasource_json_decl(r#""access": "proxy""#));
+        assert!(is_grafana_datasource_json_decl(r#""access": "direct""#));
+        assert!(is_grafana_datasource_json_decl(r#""basicAuth": true"#));
+        assert!(is_grafana_datasource_json_decl(r#""basicAuth": false"#));
+        assert!(is_grafana_datasource_json_decl(r#""basicAuthUser": """#));
+        assert!(is_grafana_datasource_json_decl(
+            r#""basicAuthUser": "admin""#
+        ));
+        assert!(is_grafana_datasource_json_decl(r#""isDefault": true"#));
+        assert!(is_grafana_datasource_json_decl(r#""isDefault": false"#));
+        assert!(is_grafana_datasource_json_decl(r#""jsonData": {"#));
+        assert!(is_grafana_datasource_json_decl(r#""secureJsonData": {"#));
+        assert!(is_grafana_datasource_json_decl(r#""secureJsonFields": {"#));
+        assert!(is_grafana_datasource_json_decl(
+            r#""typeLogoUrl": "public/app/plugins/datasource/prometheus/img/prometheus_logo.svg""#
+        ));
+        assert!(is_grafana_datasource_json_decl(r#""deleteDatasources": ["#));
+        // Distinctive neighbours stay out of this scanner.
+        assert!(!is_grafana_datasource_json_decl(r#""schemaVersion": 42"#));
+        assert!(is_grafana_dashboard_json_decl(r#""schemaVersion": 42"#));
+        assert!(!is_grafana_datasource_json_decl(r#""graphTooltip": 1"#));
+        assert!(is_grafana_dashboard_json_decl(r#""graphTooltip": 1"#));
+        assert!(!is_grafana_datasource_json_decl(r#""truncatedAlerts": 1"#));
+        assert!(is_alertmanager_json_decl(r#""truncatedAlerts": 1"#));
+        assert!(!is_grafana_datasource_json_decl(
+            r#""totalQueryableSamples": 100"#
+        ));
+        assert!(is_prometheus_json_decl(r#""totalQueryableSamples": 100"#));
+        assert!(!is_grafana_datasource_json_decl(
+            r#""bytesProcessedPerSecond": 1234"#
+        ));
+        assert!(is_loki_json_decl(r#""bytesProcessedPerSecond": 1234"#));
+        assert!(!is_grafana_datasource_json_decl(
+            r#""rootServiceName": "frontend""#
+        ));
+        assert!(is_tempo_json_decl(r#""rootServiceName": "frontend""#));
+        assert!(!is_grafana_datasource_json_decl(
+            r#""traceID": "0123456789abcdef0123456789abcdef""#
+        ));
+        assert!(is_jaeger_json_decl(
+            r#""traceID": "0123456789abcdef0123456789abcdef""#
+        ));
+        assert!(!is_grafana_datasource_json_decl(r#""localEndpoint": {"#));
+        assert!(is_zipkin_json_decl(r#""localEndpoint": {"#));
+        assert!(!is_grafana_datasource_json_decl(r#""resourceSpans": ["#));
+        assert!(is_otlp_json_decl(r#""resourceSpans": ["#));
+        assert!(!is_grafana_datasource_json_decl(
+            r#""startedDateTime": "2009-04-16T15:53:27.373Z""#
+        ));
+        assert!(is_har_json_decl(
+            r#""startedDateTime": "2009-04-16T15:53:27.373Z""#
+        ));
+        assert!(!is_grafana_datasource_json_decl(r#""openapi": "3.0.3""#));
+        assert!(is_openapi_json_decl(r#""openapi": "3.0.3""#));
+        // changesets / JSDoc access enums stay on their scanners.
+        assert!(!is_grafana_datasource_json_decl(r#""access": "public""#));
+        assert!(is_jsdoc_json_decl(r#""access": "public""#));
+        assert!(!is_grafana_datasource_json_decl(
+            r#""access": "restricted""#
+        ));
+        assert!(is_changesets_json_decl(r#""access": "restricted""#));
+        // swagger-ui withCredentials stays on swagger-ui.
+        assert!(!is_grafana_datasource_json_decl(
+            r#""withCredentials": true"#
+        ));
+        assert!(is_swagger_ui_json_decl(r#""withCredentials": true"#));
+        assert!(line_is_func_like(r#""access": "proxy""#));
+        assert!(line_is_func_like(r#""basicAuth": false"#));
+        assert!(line_is_func_like(r#""basicAuthUser": "admin""#));
+        assert!(line_is_func_like(r#""isDefault": true"#));
+        assert!(line_is_func_like(r#""jsonData": {"#));
+        assert!(line_is_func_like(r#""secureJsonData": {"#));
+        assert!(line_is_func_like(r#""secureJsonFields": {"#));
+        assert!(line_is_func_like(
+            r#""typeLogoUrl": "public/app/plugins/datasource/prometheus/img/prometheus_logo.svg""#
+        ));
+        assert!(line_is_func_like(r#""deleteDatasources": ["#));
+    }
+
+    #[test]
+    fn grafana_datasource_json_keys_count() {
+        assert!(is_grafana_datasource_json_decl(r#""access": "proxy""#));
+        assert!(is_grafana_datasource_json_decl(r#""access": "direct""#));
+        assert!(is_grafana_datasource_json_decl(r#""access": "proxy","#));
+        assert!(is_grafana_datasource_json_decl(
+            r#""access": "proxy" // ds"#
+        ));
+        assert!(!is_grafana_datasource_json_decl(r#""access": "public""#));
+        assert!(!is_grafana_datasource_json_decl(
+            r#""access": "restricted""#
+        ));
+        assert!(!is_grafana_datasource_json_decl(r#""access": "Proxy""#));
+        assert!(!is_grafana_datasource_json_decl(r#""access": """#));
+        assert!(!is_grafana_datasource_json_decl(r#""access": true"#));
+        assert!(!is_grafana_datasource_json_decl(r#""access": {"#));
+        assert!(is_grafana_datasource_json_decl(r#""basicAuth": true"#));
+        assert!(is_grafana_datasource_json_decl(r#""basicAuth": false"#));
+        assert!(is_grafana_datasource_json_decl(r#""basicAuth": true,"#));
+        assert!(is_grafana_datasource_json_decl(
+            r#""basicAuth": false // ba"#
+        ));
+        assert!(!is_grafana_datasource_json_decl(r#""basicAuth": 1"#));
+        assert!(!is_grafana_datasource_json_decl(r#""basicAuth": "true""#));
+        assert!(!is_grafana_datasource_json_decl(r#""basicAuth": {"#));
+        assert!(is_grafana_datasource_json_decl(r#""basicAuthUser": """#));
+        assert!(is_grafana_datasource_json_decl(
+            r#""basicAuthUser": "admin""#
+        ));
+        assert!(is_grafana_datasource_json_decl(
+            r#""basicAuthUser": "admin","#
+        ));
+        assert!(is_grafana_datasource_json_decl(
+            r#""basicAuthUser": "admin" // u"#
+        ));
+        assert!(!is_grafana_datasource_json_decl(r#""basicAuthUser": {"#));
+        assert!(!is_grafana_datasource_json_decl(r#""basicAuthUser": true"#));
+        assert!(!is_grafana_datasource_json_decl(r#""basicAuthUser": 1"#));
+        assert!(is_grafana_datasource_json_decl(r#""isDefault": true"#));
+        assert!(is_grafana_datasource_json_decl(r#""isDefault": false"#));
+        assert!(is_grafana_datasource_json_decl(r#""isDefault": true,"#));
+        assert!(is_grafana_datasource_json_decl(
+            r#""isDefault": false // d"#
+        ));
+        assert!(!is_grafana_datasource_json_decl(r#""isDefault": 0"#));
+        assert!(!is_grafana_datasource_json_decl(r#""isDefault": "true""#));
+        assert!(!is_grafana_datasource_json_decl(r#""isDefault": {"#));
+        assert!(is_grafana_datasource_json_decl(r#""jsonData": {"#));
+        assert!(is_grafana_datasource_json_decl(r#""jsonData": {,"#));
+        assert!(is_grafana_datasource_json_decl(r#""jsonData": { // j"#));
+        assert!(!is_grafana_datasource_json_decl(r#""jsonData": ["#));
+        assert!(!is_grafana_datasource_json_decl(r#""jsonData": true"#));
+        assert!(!is_grafana_datasource_json_decl(r#""jsonData": """#));
+        assert!(is_grafana_datasource_json_decl(r#""secureJsonData": {"#));
+        assert!(is_grafana_datasource_json_decl(r#""secureJsonData": {,"#));
+        assert!(is_grafana_datasource_json_decl(
+            r#""secureJsonData": { // s"#
+        ));
+        assert!(!is_grafana_datasource_json_decl(r#""secureJsonData": ["#));
+        assert!(!is_grafana_datasource_json_decl(
+            r#""secureJsonData": true"#
+        ));
+        assert!(!is_grafana_datasource_json_decl(r#""secureJsonData": """#));
+        assert!(is_grafana_datasource_json_decl(r#""secureJsonFields": {"#));
+        assert!(is_grafana_datasource_json_decl(r#""secureJsonFields": {,"#));
+        assert!(is_grafana_datasource_json_decl(
+            r#""secureJsonFields": { // f"#
+        ));
+        assert!(!is_grafana_datasource_json_decl(r#""secureJsonFields": ["#));
+        assert!(!is_grafana_datasource_json_decl(
+            r#""secureJsonFields": true"#
+        ));
+        assert!(!is_grafana_datasource_json_decl(
+            r#""secureJsonFields": """#
+        ));
+        assert!(is_grafana_datasource_json_decl(
+            r#""typeLogoUrl": "public/app/plugins/datasource/prometheus/img/prometheus_logo.svg""#
+        ));
+        assert!(is_grafana_datasource_json_decl(
+            r#""typeLogoUrl": "public/app/plugins/datasource/prometheus/img/prometheus_logo.svg","#
+        ));
+        assert!(is_grafana_datasource_json_decl(
+            r#""typeLogoUrl": "public/app/plugins/datasource/prometheus/img/prometheus_logo.svg" // l"#
+        ));
+        assert!(!is_grafana_datasource_json_decl(r#""typeLogoUrl": """#));
+        assert!(!is_grafana_datasource_json_decl(r#""typeLogoUrl": {"#));
+        assert!(!is_grafana_datasource_json_decl(r#""typeLogoUrl": ["#));
+        assert!(!is_grafana_datasource_json_decl(r#""typeLogoUrl": true"#));
+        assert!(is_grafana_datasource_json_decl(r#""deleteDatasources": ["#));
+        assert!(is_grafana_datasource_json_decl(
+            r#""deleteDatasources": [,"#
+        ));
+        assert!(is_grafana_datasource_json_decl(
+            r#""deleteDatasources": [ // del"#
+        ));
+        assert!(!is_grafana_datasource_json_decl(
+            r#""deleteDatasources": {"#
+        ));
+        assert!(!is_grafana_datasource_json_decl(
+            r#""deleteDatasources": true"#
+        ));
+        assert!(!is_grafana_datasource_json_decl(
+            r#""deleteDatasources": """#
+        ));
+        // Incomplete / wrong shapes stay out.
+        assert!(!is_grafana_datasource_json_decl(r#""access""#));
+        assert!(!is_grafana_datasource_json_decl(r#""access":"#));
+        assert!(!is_grafana_datasource_json_decl(r#""basicAuth""#));
+        assert!(!is_grafana_datasource_json_decl(r#""basicAuthUser""#));
+        assert!(!is_grafana_datasource_json_decl(r#""isDefault""#));
+        assert!(!is_grafana_datasource_json_decl(r#""jsonData""#));
+        assert!(!is_grafana_datasource_json_decl(r#""secureJsonData""#));
+        assert!(!is_grafana_datasource_json_decl(r#""secureJsonFields""#));
+        assert!(!is_grafana_datasource_json_decl(r#""typeLogoUrl""#));
+        assert!(!is_grafana_datasource_json_decl(r#""deleteDatasources""#));
+        // Generic / neighbouring stay out.
+        assert!(!is_grafana_datasource_json_decl(
+            r#""$schema": "https://json-schema.org/draft/2020-12/schema""#
+        ));
+        assert!(!is_grafana_datasource_json_decl(r#""name": "Prometheus""#));
+        assert!(!is_grafana_datasource_json_decl(r#""type": "prometheus""#));
+        assert!(!is_grafana_datasource_json_decl(r#""uid": "prom""#));
+        assert!(!is_grafana_datasource_json_decl(r#""id": 1"#));
+        assert!(!is_grafana_datasource_json_decl(
+            r#""url": "http://localhost:9090""#
+        ));
+        assert!(!is_grafana_datasource_json_decl(r#""user": "admin""#));
+        assert!(!is_grafana_datasource_json_decl(r#""database": """#));
+        assert!(!is_grafana_datasource_json_decl(r#""version": 1"#));
+        assert!(!is_grafana_datasource_json_decl(r#""editable": true"#));
+        assert!(!is_grafana_datasource_json_decl(r#""orgId": 1"#));
+        assert!(!is_grafana_datasource_json_decl(r#""datasources": ["#));
+        assert!(!is_grafana_datasource_json_decl(r#""apiVersion": 1"#));
+        assert!(!is_grafana_datasource_json_decl(
+            r#""withCredentials": true"#
+        ));
+        assert!(is_swagger_ui_json_decl(r#""withCredentials": true"#));
+        assert!(!is_grafana_datasource_json_decl(r#""readOnly": false"#));
+        assert!(!is_grafana_datasource_json_decl(
+            r#""typeName": "Prometheus""#
+        ));
+        assert!(!is_grafana_datasource_json_decl(r#""schemaVersion": 42"#));
+        assert!(is_grafana_dashboard_json_decl(r#""schemaVersion": 42"#));
+        assert!(!is_grafana_datasource_json_decl(r#""templating": {"#));
+        assert!(is_grafana_dashboard_json_decl(r#""templating": {"#));
+        assert!(!is_grafana_datasource_json_decl(r#""truncatedAlerts": 1"#));
+        assert!(is_alertmanager_json_decl(r#""truncatedAlerts": 1"#));
+        assert!(!is_grafana_datasource_json_decl(
+            r#""totalQueryableSamples": 100"#
+        ));
+        assert!(is_prometheus_json_decl(r#""totalQueryableSamples": 100"#));
+        assert!(!is_grafana_datasource_json_decl(
+            r#""bytesProcessedPerSecond": 1234"#
+        ));
+        assert!(is_loki_json_decl(r#""bytesProcessedPerSecond": 1234"#));
+        assert!(!is_grafana_datasource_json_decl(
+            r#""rootServiceName": "frontend""#
+        ));
+        assert!(is_tempo_json_decl(r#""rootServiceName": "frontend""#));
+        assert!(!is_grafana_datasource_json_decl(
+            r#""traceID": "0123456789abcdef0123456789abcdef""#
+        ));
+        assert!(is_jaeger_json_decl(
+            r#""traceID": "0123456789abcdef0123456789abcdef""#
+        ));
+        assert!(!is_grafana_datasource_json_decl(r#""localEndpoint": {"#));
+        assert!(is_zipkin_json_decl(r#""localEndpoint": {"#));
+        assert!(!is_grafana_datasource_json_decl(r#""resourceSpans": ["#));
+        assert!(is_otlp_json_decl(r#""resourceSpans": ["#));
+        assert!(!is_grafana_datasource_json_decl(
+            r#""startedDateTime": "2009-04-16T15:53:27.373Z""#
+        ));
+        assert!(is_har_json_decl(
+            r#""startedDateTime": "2009-04-16T15:53:27.373Z""#
+        ));
+        assert!(!is_grafana_datasource_json_decl(r#""openapi": "3.0.3""#));
+        assert!(is_openapi_json_decl(r#""openapi": "3.0.3""#));
+        assert!(!is_grafana_datasource_json_decl(r#""asyncapi": "2.6.0""#));
+        assert!(is_asyncapi_json_decl(r#""asyncapi": "2.6.0""#));
+        assert!(!is_grafana_datasource_json_decl(r#""schemaVersion": "v5""#));
+        assert!(is_hoverfly_json_decl(r#""schemaVersion": "v5""#));
+        assert!(!is_grafana_datasource_json_decl(r#""printWidth": 80"#));
+        assert!(is_prettier_json_decl(r#""printWidth": 80"#));
+        assert!(!is_grafana_datasource_json_decl(r#""basePath": ".""#));
+        assert!(is_karma_json_decl(r#""basePath": ".""#));
+        assert!(line_is_func_like(r#""access": "direct""#));
+        assert!(line_is_func_like(r#""basicAuth": true"#));
+        assert!(line_is_func_like(r#""basicAuthUser": """#));
+        assert!(line_is_func_like(r#""isDefault": false"#));
+        assert!(line_is_func_like(r#""jsonData": {"#));
+        assert!(line_is_func_like(r#""secureJsonData": {"#));
+        assert!(line_is_func_like(r#""secureJsonFields": {"#));
+        assert!(line_is_func_like(
+            r#""typeLogoUrl": "public/app/plugins/datasource/prometheus/img/prometheus_logo.svg""#
+        ));
+        assert!(line_is_func_like(r#""deleteDatasources": ["#));
     }
 
     #[test]

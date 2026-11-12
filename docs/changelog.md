@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.801] — 2026-11-12
+
+View:
+
+- **Function List** lists Grafana datasource API / provisioning JSON keys: `"access": "proxy"` / `"direct"`, `"basicAuth": true` / `false`, `"basicAuthUser": ""` / `"…"`, `"isDefault": true` / `false`, `"jsonData": {`, `"secureJsonData": {`, `"secureJsonFields": {`, `"typeLogoUrl": "…"`, `"deleteDatasources": [`. Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing `:` stay out. Generic `"$schema"` / `"name"` / `"id"` / `"uid"` / `"type"` / `"url"` / `"user"` / `"database"` / `"version"` / `"editable"` / `"orgId"` / `"datasources": [` / `"apiVersion"` / `"withCredentials"` / `"readOnly"` / `"typeName"` / changesets / JSDoc `"access": "public"` / `"restricted"` / swagger-ui `"withCredentials"` / Grafana dashboard `"schemaVersion"` / `"graphTooltip"` / `"fiscalYearStartMonth"` / `"templating"` / `"timepicker"` / `"gnetId"` / `"preload"` / `"liveNow"` / `"weekStart"` / Alertmanager `"groupKey"` / `"truncatedAlerts"` / Prometheus `"totalQueryableSamples"` / Loki `"bytesProcessedPerSecond"` / Tempo `"rootServiceName"` / Jaeger `"traceID"` / Zipkin `"localEndpoint"` / OTLP `"resourceSpans"` / HAR `"startedDateTime"` / OpenAPI `"openapi"` / AsyncAPI `"asyncapi"` / `"channels": {` / Pact `"consumer"` / MockServer `"httpRequest"` / Hoverfly `"hoverflyVersion"` / Mountebank `"imposters"` / WireMock `"scenarioName"` / Mockoon `"lastMigration"` / Hoppscotch `"preRequestScript"` / Yaak `"yaakVersion"` / Bruno `"brunoConfig"` / Thunder Client `"client"` / Postman `"_postman_id"` / Insomnia `"__export_format"` / ReDoc `"disableSearch"` / RapiDoc `"specUrl"` / swagger-ui `"dom_id"` / scalar `"layout": "modern"` / Elements `"layout": "sidebar"` / mintlify `"topbarLinks"` / Compodoc `"theme": "material"` / redocly `"apis"` / spectral `"functionsDir"` / openapitools `"generator-cli"` / Knip `"entry"` / prettier `"printWidth"` / package.json `"bin"` / karma `"basePath"` stay out. `"access"` only matches `proxy` / `direct`. `"typeLogoUrl"` needs a non-empty value.
+
 ## [0.3.800] — 2026-11-12
 
 View:

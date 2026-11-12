@@ -1,3 +1,5 @@
+009 keep: Function List Grafana datasource access/basicAuth/basicAuthUser/isDefault/jsonData/secureJsonData/secureJsonFields/typeLogoUrl/deleteDatasources (v0.3.801)
+
 009 keep: Function List Grafana dashboard schemaVersion/graphTooltip/fiscalYearStartMonth/templating/timepicker/gnetId/preload/liveNow/weekStart (v0.3.800)
 
 009 keep: Function List Jaeger traceID/spanID/operationName/references/processID/processes/flags/startTimeMillis/refType (v0.3.795)
