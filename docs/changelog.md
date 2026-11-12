@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.814] — 2026-11-12
+
+View:
+
+- **Function List** lists Marqo search / recommend JSON keys: `"searchableAttributes": [`, `"attributesToRetrieve": [`, `"tensorFields": [`, `"scoreModifiers": {`, `"hybridParameters": {`, `"imageDownloadHeaders": {`, `"mediaDownloadHeaders": {`, `"searchMethod": "TENSOR"` / `"LEXICAL"` / `"HYBRID"`, `"interpolationMethod": "slerp"` / `"nlerp"` / `"lerp"`, `"showHighlights": true` / `false`, `"excludeInputDocuments": true` / `false`, `"allowMissingDocuments": true` / `false`, `"allowMissingEmbeddings": true` / `false`, `"approximate": true` / `false`, `"efSearch": 0` / `2000`, `"approximateThreshold": 0` / `0.05` / `1`. Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing `:` stay out. Generic `"$schema"` / `"name"` / `"id"` / `"q"` / `"filter"` / `"limit"` / `"offset"` / `"documents"` / `"context"` / `"vector"` / LanceDB `"vector_column_name"` / `"nprobes"` / Milvus `"annsField"` / Chroma `"n_results"` / Pinecone `"topK"` / Weaviate `"nearVector"` / Qdrant `"vectors_count"` / Algolia `"processingTimeMS"` / Meilisearch `"processingTimeMs"` / Typesense `"search_time_ms"` / Solr `"responseHeader"` / Elasticsearch `"track_total_hits"` / prettier `"printWidth"` / karma `"basePath"` stay out. `"searchMethod"` / `"interpolationMethod"` only match their Marqo enums. Numeric `"efSearch"` rejects leading zeros beyond `0`. `"approximateThreshold"` allows a simple decimal (no exponent).
+
 ## [0.3.813] — 2026-11-12
 
 View:

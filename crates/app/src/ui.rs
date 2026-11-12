@@ -32481,6 +32481,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_chroma_json_decl(s)
             || is_milvus_json_decl(s)
             || is_lancedb_json_decl(s)
+            || is_marqo_json_decl(s)
             || is_gomod_decl(s)
             || is_gemfile_decl(s)
             || is_brewfile_decl(s)
@@ -32872,6 +32873,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_chroma_json_decl(s)
         || is_milvus_json_decl(s)
         || is_lancedb_json_decl(s)
+        || is_marqo_json_decl(s)
         || is_gomod_decl(s)
         || is_gemfile_decl(s)
         || is_brewfile_decl(s)
@@ -63966,7 +63968,8 @@ fn milvus_json_bool_and_tail_ok(after_colon: &str) -> bool {
 /// `"target_columns": [`, `"embedding_functions": {`. Optional trailing `,`
 /// and `//` / `/*` comment. Incomplete quotes / missing `:` stay out.
 /// Generic `"name"` / `"id"` / `"filter"` / `"limit"` / `"vector"` / Milvus
-/// `"annsField"` / `"nprobe"` / Chroma `"n_results"` stay out.
+/// `"annsField"` / `"nprobe"` / Chroma `"n_results"` / Marqo
+/// `"searchableAttributes"` / `"scoreModifiers"` stay out.
 fn is_lancedb_json_decl(s: &str) -> bool {
     let s = s.trim_start();
     let Some(rest) = s.strip_prefix('"') else {
@@ -64116,6 +64119,202 @@ fn lancedb_json_uint_and_tail_ok(after_colon: &str) -> bool {
 }
 
 fn lancedb_json_bool_and_tail_ok(after_colon: &str) -> bool {
+    if let Some(rest) = after_colon.strip_prefix("true") {
+        return package_json_tail_ok(rest);
+    }
+    if let Some(rest) = after_colon.strip_prefix("false") {
+        return package_json_tail_ok(rest);
+    }
+    false
+}
+
+/// Marqo search / recommend JSON keys: `"searchableAttributes": [`,
+/// `"attributesToRetrieve": [`, `"tensorFields": [`,
+/// `"scoreModifiers": {`, `"hybridParameters": {`,
+/// `"imageDownloadHeaders": {`, `"mediaDownloadHeaders": {`,
+/// `"searchMethod": "TENSOR"` / `"LEXICAL"` / `"HYBRID"`,
+/// `"interpolationMethod": "slerp"` / `"nlerp"` / `"lerp"`,
+/// `"showHighlights": true` / `false`,
+/// `"excludeInputDocuments": true` / `false`,
+/// `"allowMissingDocuments": true` / `false`,
+/// `"allowMissingEmbeddings": true` / `false`,
+/// `"approximate": true` / `false`,
+/// `"efSearch": 0` / `2000`,
+/// `"approximateThreshold": 0` / `0.05` / `1`.
+/// Optional trailing `,` and `//` / `/*` comment. Incomplete quotes /
+/// missing `:` stay out. Generic `"name"` / `"id"` / `"q"` / `"filter"` /
+/// `"limit"` / `"offset"` / `"documents"` / `"context"` / `"vector"` /
+/// LanceDB `"vector_column_name"` / `"nprobes"` / Milvus `"annsField"` /
+/// Chroma `"n_results"` / Pinecone `"topK"` stay out.
+fn is_marqo_json_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    let Some(rest) = s.strip_prefix('"') else {
+        return false;
+    };
+    let Some(end) = rest.find('"') else {
+        return false;
+    };
+    let key = &rest[..end];
+    if !marqo_json_key_ok(key) {
+        return false;
+    }
+    let after_key = rest[end + 1..].trim_start();
+    let Some(after_colon) = after_key.strip_prefix(':') else {
+        return false;
+    };
+    let after_colon = after_colon.trim_start();
+    marqo_json_value_and_tail_ok(key, after_colon)
+}
+
+fn marqo_json_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "searchableAttributes"
+            | "attributesToRetrieve"
+            | "tensorFields"
+            | "scoreModifiers"
+            | "hybridParameters"
+            | "imageDownloadHeaders"
+            | "mediaDownloadHeaders"
+            | "searchMethod"
+            | "interpolationMethod"
+            | "showHighlights"
+            | "excludeInputDocuments"
+            | "allowMissingDocuments"
+            | "allowMissingEmbeddings"
+            | "approximate"
+            | "efSearch"
+            | "approximateThreshold"
+    )
+}
+
+fn marqo_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool {
+    let bytes = after_colon.as_bytes();
+    let Some(first) = bytes.first().copied() else {
+        return false;
+    };
+    match first {
+        b'{' => {
+            if !matches!(
+                key,
+                "scoreModifiers"
+                    | "hybridParameters"
+                    | "imageDownloadHeaders"
+                    | "mediaDownloadHeaders"
+            ) {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[1..])
+        }
+        b'[' => {
+            if !matches!(
+                key,
+                "searchableAttributes" | "attributesToRetrieve" | "tensorFields"
+            ) {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[1..])
+        }
+        b'"' => match key {
+            "searchMethod" => marqo_json_search_method_and_tail_ok(after_colon),
+            "interpolationMethod" => marqo_json_interpolation_method_and_tail_ok(after_colon),
+            _ => false,
+        },
+        b't' | b'f' => {
+            if !matches!(
+                key,
+                "showHighlights"
+                    | "excludeInputDocuments"
+                    | "allowMissingDocuments"
+                    | "allowMissingEmbeddings"
+                    | "approximate"
+            ) {
+                return false;
+            }
+            marqo_json_bool_and_tail_ok(after_colon)
+        }
+        b'0'..=b'9' => marqo_json_number_and_tail_ok(key, after_colon),
+        _ => false,
+    }
+}
+
+fn marqo_json_search_method_and_tail_ok(after_colon: &str) -> bool {
+    let rest = &after_colon[1..];
+    let Some(end) = rest.find('"') else {
+        return false;
+    };
+    let value = &rest[..end];
+    if !matches!(value, "TENSOR" | "LEXICAL" | "HYBRID") {
+        return false;
+    }
+    package_json_tail_ok(&rest[end + 1..])
+}
+
+fn marqo_json_interpolation_method_and_tail_ok(after_colon: &str) -> bool {
+    let rest = &after_colon[1..];
+    let Some(end) = rest.find('"') else {
+        return false;
+    };
+    let value = &rest[..end];
+    if !matches!(value, "slerp" | "nlerp" | "lerp") {
+        return false;
+    }
+    package_json_tail_ok(&rest[end + 1..])
+}
+
+fn marqo_json_number_and_tail_ok(key: &str, after_colon: &str) -> bool {
+    match key {
+        "efSearch" => marqo_json_uint_and_tail_ok(after_colon),
+        "approximateThreshold" => marqo_json_decimal_and_tail_ok(after_colon),
+        _ => false,
+    }
+}
+
+fn marqo_json_uint_and_tail_ok(after_colon: &str) -> bool {
+    let bytes = after_colon.as_bytes();
+    let mut i = 0usize;
+    if i >= bytes.len() || !bytes[i].is_ascii_digit() {
+        return false;
+    }
+    if bytes[i] == b'0' {
+        i += 1;
+        if i < bytes.len() && bytes[i].is_ascii_digit() {
+            return false;
+        }
+    } else {
+        while i < bytes.len() && bytes[i].is_ascii_digit() {
+            i += 1;
+        }
+    }
+    package_json_tail_ok(&after_colon[i..])
+}
+
+fn marqo_json_decimal_and_tail_ok(after_colon: &str) -> bool {
+    let bytes = after_colon.as_bytes();
+    let mut i = 0;
+    while i < bytes.len() && bytes[i].is_ascii_digit() {
+        i += 1;
+    }
+    if i == 0 || i > 12 {
+        return false;
+    }
+    if i > 1 && bytes[0] == b'0' {
+        return false;
+    }
+    if i < bytes.len() && bytes[i] == b'.' {
+        i += 1;
+        let frac_start = i;
+        while i < bytes.len() && bytes[i].is_ascii_digit() {
+            i += 1;
+        }
+        if i == frac_start || i - frac_start > 12 {
+            return false;
+        }
+    }
+    package_json_tail_ok(&after_colon[i..])
+}
+
+fn marqo_json_bool_and_tail_ok(after_colon: &str) -> bool {
     if let Some(rest) = after_colon.strip_prefix("true") {
         return package_json_tail_ok(rest);
     }
@@ -94769,11 +94968,11 @@ mod func_like_line_tests {
         is_krb5_conf_decl, is_lancedb_json_decl, is_lerna_json_decl, is_lightdm_conf_decl,
         is_limits_conf_decl, is_lint_staged_json_decl, is_locale_conf_decl, is_login_defs_decl,
         is_logrotate_decl, is_loki_json_decl, is_machine_info_decl, is_makepkg_conf_decl,
-        is_mdbook_toml_decl, is_meilisearch_json_decl, is_milvus_json_decl, is_mintlify_json_decl,
-        is_mise_toml_decl, is_mkinitcpio_conf_decl, is_mocha_json_decl, is_mockoon_json_decl,
-        is_mockserver_json_decl, is_modprobe_conf_decl, is_mountebank_json_decl,
-        is_mutants_toml_decl, is_mypy_ini_decl, is_mysql_cnf_decl, is_named_conf_decl,
-        is_nest_cli_json_decl, is_netlify_toml_decl, is_networks_file_decl,
+        is_marqo_json_decl, is_mdbook_toml_decl, is_meilisearch_json_decl, is_milvus_json_decl,
+        is_mintlify_json_decl, is_mise_toml_decl, is_mkinitcpio_conf_decl, is_mocha_json_decl,
+        is_mockoon_json_decl, is_mockserver_json_decl, is_modprobe_conf_decl,
+        is_mountebank_json_decl, is_mutants_toml_decl, is_mypy_ini_decl, is_mysql_cnf_decl,
+        is_named_conf_decl, is_nest_cli_json_decl, is_netlify_toml_decl, is_networks_file_decl,
         is_neutralino_json_decl, is_nextest_toml_decl, is_nftables_decl, is_nginx_conf_decl,
         is_nightwatch_json_decl, is_nixpacks_toml_decl, is_nm_connection_decl, is_npmrc_decl,
         is_nsswitch_conf_decl, is_nx_json_decl, is_nyc_json_decl, is_openapi_json_decl,
@@ -129993,6 +130192,12 @@ mod func_like_line_tests {
         assert!(is_prettier_json_decl(r#""printWidth": 80"#));
         assert!(!is_lancedb_json_decl(r#""basePath": ".""#));
         assert!(is_karma_json_decl(r#""basePath": ".""#));
+        assert!(!is_lancedb_json_decl(r#""searchableAttributes": ["#));
+        assert!(is_marqo_json_decl(r#""searchableAttributes": ["#));
+        assert!(!is_lancedb_json_decl(r#""scoreModifiers": {"#));
+        assert!(is_marqo_json_decl(r#""scoreModifiers": {"#));
+        assert!(!is_lancedb_json_decl(r#""searchMethod": "TENSOR""#));
+        assert!(is_marqo_json_decl(r#""searchMethod": "TENSOR""#));
         assert!(line_is_func_like(r#""vector_column_name": "vec""#));
         assert!(line_is_func_like(r#""nprobes": 20"#));
         assert!(line_is_func_like(r#""refine_factor": 10"#));
@@ -130178,6 +130383,14 @@ mod func_like_line_tests {
         assert!(is_prettier_json_decl(r#""printWidth": 80"#));
         assert!(!is_lancedb_json_decl(r#""basePath": ".""#));
         assert!(is_karma_json_decl(r#""basePath": ".""#));
+        assert!(!is_lancedb_json_decl(r#""searchableAttributes": ["#));
+        assert!(is_marqo_json_decl(r#""searchableAttributes": ["#));
+        assert!(!is_lancedb_json_decl(r#""scoreModifiers": {"#));
+        assert!(is_marqo_json_decl(r#""scoreModifiers": {"#));
+        assert!(!is_lancedb_json_decl(r#""searchMethod": "TENSOR""#));
+        assert!(is_marqo_json_decl(r#""searchMethod": "TENSOR""#));
+        assert!(!is_lancedb_json_decl(r#""approximateThreshold": 0.05"#));
+        assert!(is_marqo_json_decl(r#""approximateThreshold": 0.05"#));
         assert!(line_is_func_like(r#""vector_column_name": "vec""#));
         assert!(line_is_func_like(r#""nprobes": 20"#));
         assert!(line_is_func_like(r#""refine_factor": 10"#));
@@ -130193,6 +130406,245 @@ mod func_like_line_tests {
         assert!(line_is_func_like(r#""source_column": "text""#));
         assert!(line_is_func_like(r#""target_columns": ["#));
         assert!(line_is_func_like(r#""embedding_functions": {"#));
+    }
+
+    #[test]
+    fn marqo_json_keys_smoke() {
+        assert!(is_marqo_json_decl(r#""searchableAttributes": ["#));
+        assert!(is_marqo_json_decl(r#""attributesToRetrieve": ["#));
+        assert!(is_marqo_json_decl(r#""tensorFields": ["#));
+        assert!(is_marqo_json_decl(r#""scoreModifiers": {"#));
+        assert!(is_marqo_json_decl(r#""hybridParameters": {"#));
+        assert!(is_marqo_json_decl(r#""imageDownloadHeaders": {"#));
+        assert!(is_marqo_json_decl(r#""mediaDownloadHeaders": {"#));
+        assert!(is_marqo_json_decl(r#""searchMethod": "TENSOR""#));
+        assert!(is_marqo_json_decl(r#""searchMethod": "LEXICAL""#));
+        assert!(is_marqo_json_decl(r#""searchMethod": "HYBRID""#));
+        assert!(is_marqo_json_decl(r#""interpolationMethod": "slerp""#));
+        assert!(is_marqo_json_decl(r#""interpolationMethod": "nlerp""#));
+        assert!(is_marqo_json_decl(r#""interpolationMethod": "lerp""#));
+        assert!(is_marqo_json_decl(r#""showHighlights": true"#));
+        assert!(is_marqo_json_decl(r#""showHighlights": false"#));
+        assert!(is_marqo_json_decl(r#""excludeInputDocuments": true"#));
+        assert!(is_marqo_json_decl(r#""excludeInputDocuments": false"#));
+        assert!(is_marqo_json_decl(r#""allowMissingDocuments": true"#));
+        assert!(is_marqo_json_decl(r#""allowMissingDocuments": false"#));
+        assert!(is_marqo_json_decl(r#""allowMissingEmbeddings": true"#));
+        assert!(is_marqo_json_decl(r#""allowMissingEmbeddings": false"#));
+        assert!(is_marqo_json_decl(r#""approximate": true"#));
+        assert!(is_marqo_json_decl(r#""approximate": false"#));
+        assert!(is_marqo_json_decl(r#""efSearch": 0"#));
+        assert!(is_marqo_json_decl(r#""efSearch": 2000"#));
+        assert!(is_marqo_json_decl(r#""approximateThreshold": 0"#));
+        assert!(is_marqo_json_decl(r#""approximateThreshold": 0.05"#));
+        assert!(is_marqo_json_decl(r#""approximateThreshold": 1"#));
+        // Distinctive neighbours stay out of this scanner.
+        assert!(!is_marqo_json_decl(r#""vector_column_name": "vec""#));
+        assert!(is_lancedb_json_decl(r#""vector_column_name": "vec""#));
+        assert!(!is_marqo_json_decl(r#""nprobes": 20"#));
+        assert!(is_lancedb_json_decl(r#""nprobes": 20"#));
+        assert!(!is_marqo_json_decl(r#""annsField": "vec""#));
+        assert!(is_milvus_json_decl(r#""annsField": "vec""#));
+        assert!(!is_marqo_json_decl(r#""n_results": 10"#));
+        assert!(is_chroma_json_decl(r#""n_results": 10"#));
+        assert!(!is_marqo_json_decl(r#""topK": 10"#));
+        assert!(is_pinecone_json_decl(r#""topK": 10"#));
+        assert!(!is_marqo_json_decl(r#""nearVector": {"#));
+        assert!(is_weaviate_json_decl(r#""nearVector": {"#));
+        assert!(!is_marqo_json_decl(r#""vectors_count": 100"#));
+        assert!(is_qdrant_json_decl(r#""vectors_count": 100"#));
+        assert!(!is_marqo_json_decl(r#""processingTimeMS": 12"#));
+        assert!(is_algolia_json_decl(r#""processingTimeMS": 12"#));
+        assert!(!is_marqo_json_decl(r#""processingTimeMs": 12"#));
+        assert!(is_meilisearch_json_decl(r#""processingTimeMs": 12"#));
+        assert!(!is_marqo_json_decl(r#""search_time_ms": 12"#));
+        assert!(is_typesense_json_decl(r#""search_time_ms": 12"#));
+        assert!(!is_marqo_json_decl(r#""responseHeader": {"#));
+        assert!(is_solr_json_decl(r#""responseHeader": {"#));
+        assert!(!is_marqo_json_decl(r#""track_total_hits": true"#));
+        assert!(is_elasticsearch_json_decl(r#""track_total_hits": true"#));
+        assert!(!is_marqo_json_decl(r#""printWidth": 80"#));
+        assert!(is_prettier_json_decl(r#""printWidth": 80"#));
+        assert!(!is_marqo_json_decl(r#""basePath": ".""#));
+        assert!(is_karma_json_decl(r#""basePath": ".""#));
+        assert!(line_is_func_like(r#""searchableAttributes": ["#));
+        assert!(line_is_func_like(r#""attributesToRetrieve": ["#));
+        assert!(line_is_func_like(r#""tensorFields": ["#));
+        assert!(line_is_func_like(r#""scoreModifiers": {"#));
+        assert!(line_is_func_like(r#""hybridParameters": {"#));
+        assert!(line_is_func_like(r#""imageDownloadHeaders": {"#));
+        assert!(line_is_func_like(r#""mediaDownloadHeaders": {"#));
+        assert!(line_is_func_like(r#""searchMethod": "HYBRID""#));
+        assert!(line_is_func_like(r#""interpolationMethod": "nlerp""#));
+        assert!(line_is_func_like(r#""showHighlights": false"#));
+        assert!(line_is_func_like(r#""excludeInputDocuments": true"#));
+        assert!(line_is_func_like(r#""allowMissingDocuments": false"#));
+        assert!(line_is_func_like(r#""allowMissingEmbeddings": true"#));
+        assert!(line_is_func_like(r#""approximate": false"#));
+        assert!(line_is_func_like(r#""efSearch": 2000"#));
+        assert!(line_is_func_like(r#""approximateThreshold": 0.05"#));
+    }
+
+    #[test]
+    fn marqo_json_keys_count() {
+        assert!(is_marqo_json_decl(r#""searchableAttributes": ["#));
+        assert!(is_marqo_json_decl(r#""searchableAttributes": [,"#));
+        assert!(is_marqo_json_decl(r#""searchableAttributes": [ // s"#));
+        assert!(!is_marqo_json_decl(r#""searchableAttributes": {"#));
+        assert!(!is_marqo_json_decl(r#""searchableAttributes": true"#));
+        assert!(is_marqo_json_decl(r#""attributesToRetrieve": ["#));
+        assert!(is_marqo_json_decl(r#""attributesToRetrieve": [,"#));
+        assert!(!is_marqo_json_decl(r#""attributesToRetrieve": {"#));
+        assert!(is_marqo_json_decl(r#""tensorFields": ["#));
+        assert!(is_marqo_json_decl(r#""tensorFields": [,"#));
+        assert!(!is_marqo_json_decl(r#""tensorFields": {"#));
+        assert!(is_marqo_json_decl(r#""scoreModifiers": {"#));
+        assert!(is_marqo_json_decl(r#""scoreModifiers": {,"#));
+        assert!(is_marqo_json_decl(r#""scoreModifiers": { // s"#));
+        assert!(!is_marqo_json_decl(r#""scoreModifiers": ["#));
+        assert!(!is_marqo_json_decl(r#""scoreModifiers": true"#));
+        assert!(is_marqo_json_decl(r#""hybridParameters": {"#));
+        assert!(is_marqo_json_decl(r#""hybridParameters": {,"#));
+        assert!(!is_marqo_json_decl(r#""hybridParameters": ["#));
+        assert!(is_marqo_json_decl(r#""imageDownloadHeaders": {"#));
+        assert!(is_marqo_json_decl(r#""imageDownloadHeaders": {,"#));
+        assert!(!is_marqo_json_decl(r#""imageDownloadHeaders": ["#));
+        assert!(is_marqo_json_decl(r#""mediaDownloadHeaders": {"#));
+        assert!(is_marqo_json_decl(r#""mediaDownloadHeaders": {,"#));
+        assert!(!is_marqo_json_decl(r#""mediaDownloadHeaders": ["#));
+        assert!(is_marqo_json_decl(r#""searchMethod": "TENSOR""#));
+        assert!(is_marqo_json_decl(r#""searchMethod": "LEXICAL""#));
+        assert!(is_marqo_json_decl(r#""searchMethod": "HYBRID""#));
+        assert!(is_marqo_json_decl(r#""searchMethod": "TENSOR","#));
+        assert!(is_marqo_json_decl(r#""searchMethod": "TENSOR" // m"#));
+        assert!(!is_marqo_json_decl(r#""searchMethod": "tensor""#));
+        assert!(!is_marqo_json_decl(r#""searchMethod": "KEYWORD""#));
+        assert!(!is_marqo_json_decl(r#""searchMethod": {"#));
+        assert!(!is_marqo_json_decl(r#""searchMethod": true"#));
+        assert!(is_marqo_json_decl(r#""interpolationMethod": "slerp""#));
+        assert!(is_marqo_json_decl(r#""interpolationMethod": "nlerp""#));
+        assert!(is_marqo_json_decl(r#""interpolationMethod": "lerp""#));
+        assert!(is_marqo_json_decl(r#""interpolationMethod": "slerp","#));
+        assert!(!is_marqo_json_decl(r#""interpolationMethod": "SLERP""#));
+        assert!(!is_marqo_json_decl(r#""interpolationMethod": "linear""#));
+        assert!(!is_marqo_json_decl(r#""interpolationMethod": {"#));
+        assert!(is_marqo_json_decl(r#""showHighlights": true"#));
+        assert!(is_marqo_json_decl(r#""showHighlights": false"#));
+        assert!(is_marqo_json_decl(r#""showHighlights": true,"#));
+        assert!(is_marqo_json_decl(r#""showHighlights": false // h"#));
+        assert!(!is_marqo_json_decl(r#""showHighlights": {"#));
+        assert!(!is_marqo_json_decl(r#""showHighlights": 1"#));
+        assert!(is_marqo_json_decl(r#""excludeInputDocuments": true"#));
+        assert!(is_marqo_json_decl(r#""excludeInputDocuments": false"#));
+        assert!(is_marqo_json_decl(r#""excludeInputDocuments": true,"#));
+        assert!(!is_marqo_json_decl(r#""excludeInputDocuments": {"#));
+        assert!(!is_marqo_json_decl(r#""excludeInputDocuments": 1"#));
+        assert!(is_marqo_json_decl(r#""allowMissingDocuments": true"#));
+        assert!(is_marqo_json_decl(r#""allowMissingDocuments": false"#));
+        assert!(is_marqo_json_decl(r#""allowMissingDocuments": true,"#));
+        assert!(!is_marqo_json_decl(r#""allowMissingDocuments": {"#));
+        assert!(is_marqo_json_decl(r#""allowMissingEmbeddings": true"#));
+        assert!(is_marqo_json_decl(r#""allowMissingEmbeddings": false"#));
+        assert!(is_marqo_json_decl(r#""allowMissingEmbeddings": true,"#));
+        assert!(!is_marqo_json_decl(r#""allowMissingEmbeddings": {"#));
+        assert!(is_marqo_json_decl(r#""approximate": true"#));
+        assert!(is_marqo_json_decl(r#""approximate": false"#));
+        assert!(is_marqo_json_decl(r#""approximate": true,"#));
+        assert!(!is_marqo_json_decl(r#""approximate": {"#));
+        assert!(!is_marqo_json_decl(r#""approximate": 1"#));
+        assert!(is_marqo_json_decl(r#""efSearch": 0"#));
+        assert!(is_marqo_json_decl(r#""efSearch": 2000"#));
+        assert!(is_marqo_json_decl(r#""efSearch": 2000,"#));
+        assert!(is_marqo_json_decl(r#""efSearch": 2000 // e"#));
+        assert!(!is_marqo_json_decl(r#""efSearch": 00"#));
+        assert!(!is_marqo_json_decl(r#""efSearch": 02000"#));
+        assert!(!is_marqo_json_decl(r#""efSearch": true"#));
+        assert!(!is_marqo_json_decl(r#""efSearch": {"#));
+        assert!(is_marqo_json_decl(r#""approximateThreshold": 0"#));
+        assert!(is_marqo_json_decl(r#""approximateThreshold": 0.05"#));
+        assert!(is_marqo_json_decl(r#""approximateThreshold": 1"#));
+        assert!(is_marqo_json_decl(r#""approximateThreshold": 0.05,"#));
+        assert!(is_marqo_json_decl(r#""approximateThreshold": 0.05 // a"#));
+        assert!(!is_marqo_json_decl(r#""approximateThreshold": 00"#));
+        assert!(!is_marqo_json_decl(r#""approximateThreshold": 01"#));
+        assert!(!is_marqo_json_decl(r#""approximateThreshold": 0."#));
+        assert!(!is_marqo_json_decl(r#""approximateThreshold": true"#));
+        assert!(!is_marqo_json_decl(r#""approximateThreshold": {"#));
+        assert!(!is_marqo_json_decl(r#""approximateThreshold": "0.05""#));
+        // Incomplete / bare keys stay out.
+        assert!(!is_marqo_json_decl(r#""searchableAttributes""#));
+        assert!(!is_marqo_json_decl(r#""attributesToRetrieve""#));
+        assert!(!is_marqo_json_decl(r#""tensorFields""#));
+        assert!(!is_marqo_json_decl(r#""scoreModifiers""#));
+        assert!(!is_marqo_json_decl(r#""hybridParameters""#));
+        assert!(!is_marqo_json_decl(r#""imageDownloadHeaders""#));
+        assert!(!is_marqo_json_decl(r#""mediaDownloadHeaders""#));
+        assert!(!is_marqo_json_decl(r#""searchMethod""#));
+        assert!(!is_marqo_json_decl(r#""interpolationMethod""#));
+        assert!(!is_marqo_json_decl(r#""showHighlights""#));
+        assert!(!is_marqo_json_decl(r#""excludeInputDocuments""#));
+        assert!(!is_marqo_json_decl(r#""allowMissingDocuments""#));
+        assert!(!is_marqo_json_decl(r#""allowMissingEmbeddings""#));
+        assert!(!is_marqo_json_decl(r#""approximate""#));
+        assert!(!is_marqo_json_decl(r#""efSearch""#));
+        assert!(!is_marqo_json_decl(r#""approximateThreshold""#));
+        // Generic / neighbouring stay out.
+        assert!(!is_marqo_json_decl(
+            r#""$schema": "https://json-schema.org/draft/2020-12/schema""#
+        ));
+        assert!(!is_marqo_json_decl(r#""name": "docs""#));
+        assert!(!is_marqo_json_decl(r#""id": "idx-1""#));
+        assert!(!is_marqo_json_decl(r#""q": "shoes""#));
+        assert!(!is_marqo_json_decl(r#""filter": "type:a""#));
+        assert!(!is_marqo_json_decl(r#""limit": 10"#));
+        assert!(!is_marqo_json_decl(r#""offset": 0"#));
+        assert!(!is_marqo_json_decl(r#""documents": ["#));
+        assert!(!is_marqo_json_decl(r#""context": {"#));
+        assert!(!is_marqo_json_decl(r#""vector": ["#));
+        assert!(!is_marqo_json_decl(r#""vector_column_name": "vec""#));
+        assert!(is_lancedb_json_decl(r#""vector_column_name": "vec""#));
+        assert!(!is_marqo_json_decl(r#""nprobes": 20"#));
+        assert!(is_lancedb_json_decl(r#""nprobes": 20"#));
+        assert!(!is_marqo_json_decl(r#""annsField": "vec""#));
+        assert!(is_milvus_json_decl(r#""annsField": "vec""#));
+        assert!(!is_marqo_json_decl(r#""n_results": 10"#));
+        assert!(is_chroma_json_decl(r#""n_results": 10"#));
+        assert!(!is_marqo_json_decl(r#""topK": 10"#));
+        assert!(is_pinecone_json_decl(r#""topK": 10"#));
+        assert!(!is_marqo_json_decl(r#""nearVector": {"#));
+        assert!(is_weaviate_json_decl(r#""nearVector": {"#));
+        assert!(!is_marqo_json_decl(r#""vectors_count": 100"#));
+        assert!(is_qdrant_json_decl(r#""vectors_count": 100"#));
+        assert!(!is_marqo_json_decl(r#""processingTimeMS": 12"#));
+        assert!(is_algolia_json_decl(r#""processingTimeMS": 12"#));
+        assert!(!is_marqo_json_decl(r#""processingTimeMs": 12"#));
+        assert!(is_meilisearch_json_decl(r#""processingTimeMs": 12"#));
+        assert!(!is_marqo_json_decl(r#""search_time_ms": 12"#));
+        assert!(is_typesense_json_decl(r#""search_time_ms": 12"#));
+        assert!(!is_marqo_json_decl(r#""responseHeader": {"#));
+        assert!(is_solr_json_decl(r#""responseHeader": {"#));
+        assert!(!is_marqo_json_decl(r#""track_total_hits": true"#));
+        assert!(is_elasticsearch_json_decl(r#""track_total_hits": true"#));
+        assert!(!is_marqo_json_decl(r#""printWidth": 80"#));
+        assert!(is_prettier_json_decl(r#""printWidth": 80"#));
+        assert!(!is_marqo_json_decl(r#""basePath": ".""#));
+        assert!(is_karma_json_decl(r#""basePath": ".""#));
+        assert!(line_is_func_like(r#""searchableAttributes": ["#));
+        assert!(line_is_func_like(r#""attributesToRetrieve": ["#));
+        assert!(line_is_func_like(r#""tensorFields": ["#));
+        assert!(line_is_func_like(r#""scoreModifiers": {"#));
+        assert!(line_is_func_like(r#""hybridParameters": {"#));
+        assert!(line_is_func_like(r#""imageDownloadHeaders": {"#));
+        assert!(line_is_func_like(r#""mediaDownloadHeaders": {"#));
+        assert!(line_is_func_like(r#""searchMethod": "LEXICAL""#));
+        assert!(line_is_func_like(r#""interpolationMethod": "lerp""#));
+        assert!(line_is_func_like(r#""showHighlights": true"#));
+        assert!(line_is_func_like(r#""excludeInputDocuments": false"#));
+        assert!(line_is_func_like(r#""allowMissingDocuments": true"#));
+        assert!(line_is_func_like(r#""allowMissingEmbeddings": false"#));
+        assert!(line_is_func_like(r#""approximate": true"#));
+        assert!(line_is_func_like(r#""efSearch": 0"#));
+        assert!(line_is_func_like(r#""approximateThreshold": 1"#));
     }
 
     #[test]
