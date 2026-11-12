@@ -32487,6 +32487,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_coveo_json_decl(s)
             || is_constructor_io_json_decl(s)
             || is_bloomreach_json_decl(s)
+            || is_klevu_json_decl(s)
             || is_gomod_decl(s)
             || is_gemfile_decl(s)
             || is_brewfile_decl(s)
@@ -32884,6 +32885,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_coveo_json_decl(s)
         || is_constructor_io_json_decl(s)
         || is_bloomreach_json_decl(s)
+        || is_klevu_json_decl(s)
         || is_gomod_decl(s)
         || is_gemfile_decl(s)
         || is_brewfile_decl(s)
@@ -64875,8 +64877,9 @@ fn coveo_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool {
 /// Qdrant `"vectors_count"` / Algolia `"processingTimeMS"` / Meilisearch
 /// `"processingTimeMs"` / Typesense `"search_time_ms"` / Solr
 /// `"responseHeader"` / Elasticsearch `"track_total_hits"` / Bloomreach
-/// Discovery `"domain_key"` / `"_br_uid_2"` / `"request_type"` / prettier
-/// `"printWidth"` / karma `"basePath"` stay out.
+/// Discovery `"domain_key"` / `"_br_uid_2"` / `"request_type"` / Klevu
+/// `"recordQueries"` / `"typeOfRequest"` / prettier `"printWidth"` /
+/// karma `"basePath"` stay out.
 fn is_constructor_io_json_decl(s: &str) -> bool {
     let s = s.trim_start();
     let Some(rest) = s.strip_prefix('"') else {
@@ -65023,8 +65026,9 @@ fn constructor_io_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool {
 /// `"n_results"` / Pinecone `"topK"` / Weaviate `"nearVector"` / Qdrant
 /// `"vectors_count"` / Algolia `"processingTimeMS"` / Meilisearch
 /// `"processingTimeMs"` / Typesense `"search_time_ms"` / Solr
-/// `"responseHeader"` / Elasticsearch `"track_total_hits"` / prettier
-/// `"printWidth"` / karma `"basePath"` stay out.
+/// `"responseHeader"` / Elasticsearch `"track_total_hits"` / Klevu
+/// `"recordQueries"` / `"typeOfRequest"` / prettier `"printWidth"` /
+/// karma `"basePath"` stay out.
 fn is_bloomreach_json_decl(s: &str) -> bool {
     let s = s.trim_start();
     let Some(rest) = s.strip_prefix('"') else {
@@ -65134,6 +65138,178 @@ fn bloomreach_json_search_type_and_tail_ok(after_colon: &str) -> bool {
         return false;
     }
     package_json_tail_ok(&rest[end + 1..])
+}
+
+/// Klevu Query API search / recommend / suggest JSON keys:
+/// `"recordQueries": [`, `"typeOfRequest": "SEARCH"` / `"CATNAV"` /
+/// `"RECS_FOR_YOU"` / `"RECS_SIMILAR"` / `"RECS_ALSO_VIEWED"` /
+/// `"RECS_TRENDING"` / `"RECS_BOUGHT_TOGETHER"` / `"SUGGESTED_SEARCHES"` /
+/// `"AUTOCOMPLETE"`, `"typeOfRecords": [`, `"typeOfSearch": "WILDCARD_AND"` /
+/// `"AND"` / `"OR"` / `"FUZZY_AND"` / `"FUZZY_OR"` / `"WILDCARD_OR"` /
+/// `"EXACT"`, `"totalResultsFound": 0` / `100`, `"nextOffset": 0` / `12`,
+/// `"noOfResults": 0` / `12`, `"apiKeys": [`, `"qTime": 0` / `12`,
+/// `"groupByFields": [`, `"filtersToReturn": {`, `"searchPrefs": {`,
+/// `"priceFieldSuffix": "…"`, `"kmcConfig": {`, `"queryResults": [`.
+/// Optional trailing `,` and `//` / `/*` comment. Incomplete quotes /
+/// missing `:` stay out. Generic `"$schema"` / `"name"` / `"id"` / `"q"` /
+/// `"query"` / `"filter"` / `"filters"` / `"limit"` / `"offset"` / `"page"` /
+/// `"results"` / `"facets"` / `"term"` / `"settings"` / Bloomreach Discovery
+/// `"domain_key"` / `"_br_uid_2"` / `"request_type"` / Constructor.io
+/// `"result_sources"` / `"num_results_per_page"` / Coveo `"searchHub"` /
+/// `"organizationId"` / Azure AI Search `"@odata.count"` / `"searchMode"` /
+/// Vespa `"yql"` / `"searchChain"` / Marqo `"searchableAttributes"` /
+/// `"searchMethod"` / LanceDB `"vector_column_name"` / `"nprobes"` / Milvus
+/// `"annsField"` / Chroma `"n_results"` / Pinecone `"topK"` / Weaviate
+/// `"nearVector"` / Qdrant `"vectors_count"` / Algolia `"processingTimeMS"` /
+/// Meilisearch `"processingTimeMs"` / Typesense `"search_time_ms"` / Solr
+/// `"responseHeader"` / Elasticsearch `"track_total_hits"` / prettier
+/// `"printWidth"` / karma `"basePath"` stay out.
+fn is_klevu_json_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    let Some(rest) = s.strip_prefix('"') else {
+        return false;
+    };
+    let Some(end) = rest.find('"') else {
+        return false;
+    };
+    let key = &rest[..end];
+    if !klevu_json_key_ok(key) {
+        return false;
+    }
+    let after_key = rest[end + 1..].trim_start();
+    let Some(after_colon) = after_key.strip_prefix(':') else {
+        return false;
+    };
+    let after_colon = after_colon.trim_start();
+    klevu_json_value_and_tail_ok(key, after_colon)
+}
+
+fn klevu_json_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "recordQueries"
+            | "typeOfRequest"
+            | "typeOfRecords"
+            | "typeOfSearch"
+            | "totalResultsFound"
+            | "nextOffset"
+            | "noOfResults"
+            | "apiKeys"
+            | "qTime"
+            | "groupByFields"
+            | "filtersToReturn"
+            | "searchPrefs"
+            | "priceFieldSuffix"
+            | "kmcConfig"
+            | "queryResults"
+    )
+}
+
+fn klevu_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool {
+    let bytes = after_colon.as_bytes();
+    let Some(first) = bytes.first().copied() else {
+        return false;
+    };
+    match first {
+        b'{' => {
+            if !matches!(key, "filtersToReturn" | "searchPrefs" | "kmcConfig") {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[1..])
+        }
+        b'[' => {
+            if !matches!(
+                key,
+                "recordQueries" | "typeOfRecords" | "apiKeys" | "groupByFields" | "queryResults"
+            ) {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[1..])
+        }
+        b'"' => match key {
+            "priceFieldSuffix" => klevu_json_nonempty_string_and_tail_ok(after_colon),
+            "typeOfRequest" => klevu_json_type_of_request_and_tail_ok(after_colon),
+            "typeOfSearch" => klevu_json_type_of_search_and_tail_ok(after_colon),
+            _ => false,
+        },
+        b'0'..=b'9' => klevu_json_uint_and_tail_ok(key, after_colon),
+        _ => false,
+    }
+}
+
+fn klevu_json_nonempty_string_and_tail_ok(after_colon: &str) -> bool {
+    let rest = &after_colon[1..];
+    let Some(end) = rest.find('"') else {
+        return false;
+    };
+    let value = &rest[..end];
+    if value.is_empty() || value.contains('\n') {
+        return false;
+    }
+    package_json_tail_ok(&rest[end + 1..])
+}
+
+fn klevu_json_type_of_request_and_tail_ok(after_colon: &str) -> bool {
+    let rest = &after_colon[1..];
+    let Some(end) = rest.find('"') else {
+        return false;
+    };
+    let value = &rest[..end];
+    if !matches!(
+        value,
+        "SEARCH"
+            | "CATNAV"
+            | "RECS_FOR_YOU"
+            | "RECS_SIMILAR"
+            | "RECS_ALSO_VIEWED"
+            | "RECS_TRENDING"
+            | "RECS_BOUGHT_TOGETHER"
+            | "SUGGESTED_SEARCHES"
+            | "AUTOCOMPLETE"
+    ) {
+        return false;
+    }
+    package_json_tail_ok(&rest[end + 1..])
+}
+
+fn klevu_json_type_of_search_and_tail_ok(after_colon: &str) -> bool {
+    let rest = &after_colon[1..];
+    let Some(end) = rest.find('"') else {
+        return false;
+    };
+    let value = &rest[..end];
+    if !matches!(
+        value,
+        "WILDCARD_AND" | "AND" | "OR" | "FUZZY_AND" | "FUZZY_OR" | "WILDCARD_OR" | "EXACT"
+    ) {
+        return false;
+    }
+    package_json_tail_ok(&rest[end + 1..])
+}
+
+fn klevu_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool {
+    if !matches!(
+        key,
+        "totalResultsFound" | "nextOffset" | "noOfResults" | "qTime"
+    ) {
+        return false;
+    }
+    let bytes = after_colon.as_bytes();
+    let mut i = 0usize;
+    if i >= bytes.len() || !bytes[i].is_ascii_digit() {
+        return false;
+    }
+    if bytes[i] == b'0' {
+        i += 1;
+        if i < bytes.len() && bytes[i].is_ascii_digit() {
+            return false;
+        }
+    } else {
+        while i < bytes.len() && bytes[i].is_ascii_digit() {
+            i += 1;
+        }
+    }
+    package_json_tail_ok(&after_colon[i..])
 }
 
 /// go.mod / go.work directives: `module example.com/foo`, `go 1.22`,
@@ -95777,13 +95953,13 @@ mod func_like_line_tests {
         is_hoverfly_json_decl, is_hypothesis_ini_decl, is_importlinter_ini_decl,
         is_insomnia_json_decl, is_interrogate_ini_decl, is_ionic_json_decl, is_ipsec_conf_decl,
         is_isort_ini_decl, is_jaeger_json_decl, is_jasmine_json_decl, is_jest_json_decl,
-        is_jsdoc_json_decl, is_karma_json_decl, is_keepalived_decl, is_knip_json_decl,
-        is_krb5_conf_decl, is_lancedb_json_decl, is_lerna_json_decl, is_lightdm_conf_decl,
-        is_limits_conf_decl, is_lint_staged_json_decl, is_locale_conf_decl, is_login_defs_decl,
-        is_logrotate_decl, is_loki_json_decl, is_machine_info_decl, is_makepkg_conf_decl,
-        is_marqo_json_decl, is_mdbook_toml_decl, is_meilisearch_json_decl, is_milvus_json_decl,
-        is_mintlify_json_decl, is_mise_toml_decl, is_mkinitcpio_conf_decl, is_mocha_json_decl,
-        is_mockoon_json_decl, is_mockserver_json_decl, is_modprobe_conf_decl,
+        is_jsdoc_json_decl, is_karma_json_decl, is_keepalived_decl, is_klevu_json_decl,
+        is_knip_json_decl, is_krb5_conf_decl, is_lancedb_json_decl, is_lerna_json_decl,
+        is_lightdm_conf_decl, is_limits_conf_decl, is_lint_staged_json_decl, is_locale_conf_decl,
+        is_login_defs_decl, is_logrotate_decl, is_loki_json_decl, is_machine_info_decl,
+        is_makepkg_conf_decl, is_marqo_json_decl, is_mdbook_toml_decl, is_meilisearch_json_decl,
+        is_milvus_json_decl, is_mintlify_json_decl, is_mise_toml_decl, is_mkinitcpio_conf_decl,
+        is_mocha_json_decl, is_mockoon_json_decl, is_mockserver_json_decl, is_modprobe_conf_decl,
         is_mountebank_json_decl, is_mutants_toml_decl, is_mypy_ini_decl, is_mysql_cnf_decl,
         is_named_conf_decl, is_nest_cli_json_decl, is_netlify_toml_decl, is_networks_file_decl,
         is_neutralino_json_decl, is_nextest_toml_decl, is_nftables_decl, is_nginx_conf_decl,
@@ -132737,6 +132913,10 @@ mod func_like_line_tests {
         assert!(is_prettier_json_decl(r#""printWidth": 80"#));
         assert!(!is_bloomreach_json_decl(r#""basePath": ".""#));
         assert!(is_karma_json_decl(r#""basePath": ".""#));
+        assert!(!is_bloomreach_json_decl(r#""recordQueries": ["#));
+        assert!(is_klevu_json_decl(r#""recordQueries": ["#));
+        assert!(!is_bloomreach_json_decl(r#""typeOfRequest": "SEARCH""#));
+        assert!(is_klevu_json_decl(r#""typeOfRequest": "SEARCH""#));
         assert!(line_is_func_like(r#""domain_key": "example_com""#));
         assert!(line_is_func_like(r#""_br_uid_2": "uid=123:v=1""#));
         assert!(line_is_func_like(r#""request_id": "req-1""#));
@@ -132918,6 +133098,10 @@ mod func_like_line_tests {
         assert!(is_prettier_json_decl(r#""printWidth": 80"#));
         assert!(!is_bloomreach_json_decl(r#""basePath": ".""#));
         assert!(is_karma_json_decl(r#""basePath": ".""#));
+        assert!(!is_bloomreach_json_decl(r#""recordQueries": ["#));
+        assert!(is_klevu_json_decl(r#""recordQueries": ["#));
+        assert!(!is_bloomreach_json_decl(r#""typeOfRequest": "SEARCH""#));
+        assert!(is_klevu_json_decl(r#""typeOfRequest": "SEARCH""#));
         assert!(line_is_func_like(r#""domain_key": "example_com""#));
         assert!(line_is_func_like(r#""_br_uid_2": "uid=123""#));
         assert!(line_is_func_like(r#""request_id": "req-1""#));
@@ -132933,6 +133117,310 @@ mod func_like_line_tests {
         assert!(line_is_func_like(r#""view_id": "desktop""#));
         assert!(line_is_func_like(r#""cat_id": "cat1""#));
         assert!(line_is_func_like(r#""ref_url": "https://example.com/""#));
+    }
+
+    #[test]
+    fn klevu_json_keys_smoke() {
+        assert!(is_klevu_json_decl(r#""recordQueries": ["#));
+        assert!(is_klevu_json_decl(r#""typeOfRequest": "SEARCH""#));
+        assert!(is_klevu_json_decl(r#""typeOfRequest": "CATNAV""#));
+        assert!(is_klevu_json_decl(r#""typeOfRequest": "RECS_FOR_YOU""#));
+        assert!(is_klevu_json_decl(r#""typeOfRequest": "RECS_SIMILAR""#));
+        assert!(is_klevu_json_decl(r#""typeOfRequest": "RECS_ALSO_VIEWED""#));
+        assert!(is_klevu_json_decl(r#""typeOfRequest": "RECS_TRENDING""#));
+        assert!(is_klevu_json_decl(
+            r#""typeOfRequest": "RECS_BOUGHT_TOGETHER""#
+        ));
+        assert!(is_klevu_json_decl(
+            r#""typeOfRequest": "SUGGESTED_SEARCHES""#
+        ));
+        assert!(is_klevu_json_decl(r#""typeOfRequest": "AUTOCOMPLETE""#));
+        assert!(is_klevu_json_decl(r#""typeOfRecords": ["#));
+        assert!(is_klevu_json_decl(r#""typeOfSearch": "WILDCARD_AND""#));
+        assert!(is_klevu_json_decl(r#""typeOfSearch": "AND""#));
+        assert!(is_klevu_json_decl(r#""typeOfSearch": "OR""#));
+        assert!(is_klevu_json_decl(r#""typeOfSearch": "FUZZY_AND""#));
+        assert!(is_klevu_json_decl(r#""typeOfSearch": "FUZZY_OR""#));
+        assert!(is_klevu_json_decl(r#""typeOfSearch": "WILDCARD_OR""#));
+        assert!(is_klevu_json_decl(r#""typeOfSearch": "EXACT""#));
+        assert!(is_klevu_json_decl(r#""totalResultsFound": 100"#));
+        assert!(is_klevu_json_decl(r#""nextOffset": 12"#));
+        assert!(is_klevu_json_decl(r#""noOfResults": 12"#));
+        assert!(is_klevu_json_decl(r#""apiKeys": ["#));
+        assert!(is_klevu_json_decl(r#""qTime": 12"#));
+        assert!(is_klevu_json_decl(r#""groupByFields": ["#));
+        assert!(is_klevu_json_decl(r#""filtersToReturn": {"#));
+        assert!(is_klevu_json_decl(r#""searchPrefs": {"#));
+        assert!(is_klevu_json_decl(r#""priceFieldSuffix": "GBP""#));
+        assert!(is_klevu_json_decl(r#""kmcConfig": {"#));
+        assert!(is_klevu_json_decl(r#""queryResults": ["#));
+        assert!(!is_klevu_json_decl(r#""domain_key": "example_com""#));
+        assert!(is_bloomreach_json_decl(r#""domain_key": "example_com""#));
+        assert!(!is_klevu_json_decl(r#""_br_uid_2": "uid=123""#));
+        assert!(is_bloomreach_json_decl(r#""_br_uid_2": "uid=123""#));
+        assert!(!is_klevu_json_decl(r#""request_type": "search""#));
+        assert!(is_bloomreach_json_decl(r#""request_type": "search""#));
+        assert!(!is_klevu_json_decl(r#""result_sources": {"#));
+        assert!(is_constructor_io_json_decl(r#""result_sources": {"#));
+        assert!(!is_klevu_json_decl(r#""num_results_per_page": 30"#));
+        assert!(is_constructor_io_json_decl(r#""num_results_per_page": 30"#));
+        assert!(!is_klevu_json_decl(r#""searchHub": "default""#));
+        assert!(is_coveo_json_decl(r#""searchHub": "default""#));
+        assert!(!is_klevu_json_decl(r#""organizationId": "org""#));
+        assert!(is_coveo_json_decl(r#""organizationId": "org""#));
+        assert!(!is_klevu_json_decl(r#""@odata.count": 10"#));
+        assert!(is_azure_search_json_decl(r#""@odata.count": 10"#));
+        assert!(!is_klevu_json_decl(r#""searchMode": "any""#));
+        assert!(is_azure_search_json_decl(r#""searchMode": "any""#));
+        assert!(!is_klevu_json_decl(
+            r#""yql": "select * from sources * where true""#
+        ));
+        assert!(is_vespa_json_decl(
+            r#""yql": "select * from sources * where true""#
+        ));
+        assert!(!is_klevu_json_decl(r#""searchableAttributes": ["#));
+        assert!(is_marqo_json_decl(r#""searchableAttributes": ["#));
+        assert!(!is_klevu_json_decl(r#""vector_column_name": "vec""#));
+        assert!(is_lancedb_json_decl(r#""vector_column_name": "vec""#));
+        assert!(!is_klevu_json_decl(r#""annsField": "vec""#));
+        assert!(is_milvus_json_decl(r#""annsField": "vec""#));
+        assert!(!is_klevu_json_decl(r#""n_results": 10"#));
+        assert!(is_chroma_json_decl(r#""n_results": 10"#));
+        assert!(!is_klevu_json_decl(r#""topK": 10"#));
+        assert!(is_pinecone_json_decl(r#""topK": 10"#));
+        assert!(!is_klevu_json_decl(r#""nearVector": {"#));
+        assert!(is_weaviate_json_decl(r#""nearVector": {"#));
+        assert!(!is_klevu_json_decl(r#""vectors_count": 100"#));
+        assert!(is_qdrant_json_decl(r#""vectors_count": 100"#));
+        assert!(!is_klevu_json_decl(r#""processingTimeMS": 12"#));
+        assert!(is_algolia_json_decl(r#""processingTimeMS": 12"#));
+        assert!(!is_klevu_json_decl(r#""processingTimeMs": 12"#));
+        assert!(is_meilisearch_json_decl(r#""processingTimeMs": 12"#));
+        assert!(!is_klevu_json_decl(r#""search_time_ms": 12"#));
+        assert!(is_typesense_json_decl(r#""search_time_ms": 12"#));
+        assert!(!is_klevu_json_decl(r#""responseHeader": {"#));
+        assert!(is_solr_json_decl(r#""responseHeader": {"#));
+        assert!(!is_klevu_json_decl(r#""track_total_hits": true"#));
+        assert!(is_elasticsearch_json_decl(r#""track_total_hits": true"#));
+        assert!(!is_klevu_json_decl(r#""printWidth": 80"#));
+        assert!(is_prettier_json_decl(r#""printWidth": 80"#));
+        assert!(!is_klevu_json_decl(r#""basePath": ".""#));
+        assert!(is_karma_json_decl(r#""basePath": ".""#));
+        assert!(line_is_func_like(r#""recordQueries": ["#));
+        assert!(line_is_func_like(r#""typeOfRequest": "SEARCH""#));
+        assert!(line_is_func_like(r#""typeOfRecords": ["#));
+        assert!(line_is_func_like(r#""typeOfSearch": "WILDCARD_AND""#));
+        assert!(line_is_func_like(r#""totalResultsFound": 100"#));
+        assert!(line_is_func_like(r#""nextOffset": 12"#));
+        assert!(line_is_func_like(r#""noOfResults": 12"#));
+        assert!(line_is_func_like(r#""apiKeys": ["#));
+        assert!(line_is_func_like(r#""qTime": 12"#));
+        assert!(line_is_func_like(r#""groupByFields": ["#));
+        assert!(line_is_func_like(r#""filtersToReturn": {"#));
+        assert!(line_is_func_like(r#""searchPrefs": {"#));
+        assert!(line_is_func_like(r#""priceFieldSuffix": "GBP""#));
+        assert!(line_is_func_like(r#""kmcConfig": {"#));
+        assert!(line_is_func_like(r#""queryResults": ["#));
+    }
+
+    #[test]
+    fn klevu_json_keys_count() {
+        assert!(is_klevu_json_decl(r#""recordQueries": ["#));
+        assert!(is_klevu_json_decl(r#""recordQueries": [,"#));
+        assert!(is_klevu_json_decl(r#""recordQueries": [ // r"#));
+        assert!(!is_klevu_json_decl(r#""recordQueries": {"#));
+        assert!(!is_klevu_json_decl(r#""recordQueries": true"#));
+        assert!(!is_klevu_json_decl(r#""recordQueries": "x""#));
+        assert!(is_klevu_json_decl(r#""typeOfRequest": "SEARCH""#));
+        assert!(is_klevu_json_decl(r#""typeOfRequest": "CATNAV""#));
+        assert!(is_klevu_json_decl(r#""typeOfRequest": "RECS_FOR_YOU""#));
+        assert!(is_klevu_json_decl(r#""typeOfRequest": "RECS_SIMILAR""#));
+        assert!(is_klevu_json_decl(r#""typeOfRequest": "RECS_ALSO_VIEWED""#));
+        assert!(is_klevu_json_decl(r#""typeOfRequest": "RECS_TRENDING""#));
+        assert!(is_klevu_json_decl(
+            r#""typeOfRequest": "RECS_BOUGHT_TOGETHER""#
+        ));
+        assert!(is_klevu_json_decl(
+            r#""typeOfRequest": "SUGGESTED_SEARCHES""#
+        ));
+        assert!(is_klevu_json_decl(r#""typeOfRequest": "AUTOCOMPLETE""#));
+        assert!(is_klevu_json_decl(r#""typeOfRequest": "SEARCH","#));
+        assert!(is_klevu_json_decl(r#""typeOfRequest": "SEARCH" // t"#));
+        assert!(!is_klevu_json_decl(r#""typeOfRequest": "search""#));
+        assert!(!is_klevu_json_decl(r#""typeOfRequest": "Search""#));
+        assert!(!is_klevu_json_decl(r#""typeOfRequest": {"#));
+        assert!(!is_klevu_json_decl(r#""typeOfRequest": """#));
+        assert!(is_klevu_json_decl(r#""typeOfRecords": ["#));
+        assert!(is_klevu_json_decl(r#""typeOfRecords": [,"#));
+        assert!(!is_klevu_json_decl(r#""typeOfRecords": {"#));
+        assert!(!is_klevu_json_decl(r#""typeOfRecords": true"#));
+        assert!(is_klevu_json_decl(r#""typeOfSearch": "WILDCARD_AND""#));
+        assert!(is_klevu_json_decl(r#""typeOfSearch": "AND""#));
+        assert!(is_klevu_json_decl(r#""typeOfSearch": "OR""#));
+        assert!(is_klevu_json_decl(r#""typeOfSearch": "FUZZY_AND""#));
+        assert!(is_klevu_json_decl(r#""typeOfSearch": "FUZZY_OR""#));
+        assert!(is_klevu_json_decl(r#""typeOfSearch": "WILDCARD_OR""#));
+        assert!(is_klevu_json_decl(r#""typeOfSearch": "EXACT""#));
+        assert!(is_klevu_json_decl(r#""typeOfSearch": "AND","#));
+        assert!(!is_klevu_json_decl(r#""typeOfSearch": "and""#));
+        assert!(!is_klevu_json_decl(r#""typeOfSearch": "WILDCARD""#));
+        assert!(!is_klevu_json_decl(r#""typeOfSearch": {"#));
+        assert!(!is_klevu_json_decl(r#""typeOfSearch": """#));
+        assert!(is_klevu_json_decl(r#""totalResultsFound": 0"#));
+        assert!(is_klevu_json_decl(r#""totalResultsFound": 100"#));
+        assert!(is_klevu_json_decl(r#""totalResultsFound": 100,"#));
+        assert!(is_klevu_json_decl(r#""totalResultsFound": 100 // n"#));
+        assert!(!is_klevu_json_decl(r#""totalResultsFound": 00"#));
+        assert!(!is_klevu_json_decl(r#""totalResultsFound": 01"#));
+        assert!(!is_klevu_json_decl(r#""totalResultsFound": true"#));
+        assert!(!is_klevu_json_decl(r#""totalResultsFound": {"#));
+        assert!(!is_klevu_json_decl(r#""totalResultsFound": "100""#));
+        assert!(is_klevu_json_decl(r#""nextOffset": 0"#));
+        assert!(is_klevu_json_decl(r#""nextOffset": 12"#));
+        assert!(is_klevu_json_decl(r#""nextOffset": 12,"#));
+        assert!(!is_klevu_json_decl(r#""nextOffset": 00"#));
+        assert!(!is_klevu_json_decl(r#""nextOffset": true"#));
+        assert!(is_klevu_json_decl(r#""noOfResults": 0"#));
+        assert!(is_klevu_json_decl(r#""noOfResults": 12"#));
+        assert!(is_klevu_json_decl(r#""noOfResults": 12,"#));
+        assert!(!is_klevu_json_decl(r#""noOfResults": 00"#));
+        assert!(!is_klevu_json_decl(r#""noOfResults": true"#));
+        assert!(is_klevu_json_decl(r#""apiKeys": ["#));
+        assert!(is_klevu_json_decl(r#""apiKeys": [,"#));
+        assert!(!is_klevu_json_decl(r#""apiKeys": {"#));
+        assert!(!is_klevu_json_decl(r#""apiKeys": true"#));
+        assert!(is_klevu_json_decl(r#""qTime": 0"#));
+        assert!(is_klevu_json_decl(r#""qTime": 12"#));
+        assert!(is_klevu_json_decl(r#""qTime": 12,"#));
+        assert!(!is_klevu_json_decl(r#""qTime": 00"#));
+        assert!(!is_klevu_json_decl(r#""qTime": true"#));
+        assert!(is_klevu_json_decl(r#""groupByFields": ["#));
+        assert!(is_klevu_json_decl(r#""groupByFields": [,"#));
+        assert!(!is_klevu_json_decl(r#""groupByFields": {"#));
+        assert!(!is_klevu_json_decl(r#""groupByFields": true"#));
+        assert!(is_klevu_json_decl(r#""filtersToReturn": {"#));
+        assert!(is_klevu_json_decl(r#""filtersToReturn": {,"#));
+        assert!(is_klevu_json_decl(r#""filtersToReturn": { // f"#));
+        assert!(!is_klevu_json_decl(r#""filtersToReturn": ["#));
+        assert!(!is_klevu_json_decl(r#""filtersToReturn": true"#));
+        assert!(is_klevu_json_decl(r#""searchPrefs": {"#));
+        assert!(is_klevu_json_decl(r#""searchPrefs": {,"#));
+        assert!(!is_klevu_json_decl(r#""searchPrefs": ["#));
+        assert!(!is_klevu_json_decl(r#""searchPrefs": true"#));
+        assert!(is_klevu_json_decl(r#""priceFieldSuffix": "GBP""#));
+        assert!(is_klevu_json_decl(r#""priceFieldSuffix": "GBP","#));
+        assert!(is_klevu_json_decl(r#""priceFieldSuffix": "GBP" // p"#));
+        assert!(!is_klevu_json_decl(r#""priceFieldSuffix": {"#));
+        assert!(!is_klevu_json_decl(r#""priceFieldSuffix": """#));
+        assert!(!is_klevu_json_decl(r#""priceFieldSuffix": true"#));
+        assert!(is_klevu_json_decl(r#""kmcConfig": {"#));
+        assert!(is_klevu_json_decl(r#""kmcConfig": {,"#));
+        assert!(!is_klevu_json_decl(r#""kmcConfig": ["#));
+        assert!(!is_klevu_json_decl(r#""kmcConfig": true"#));
+        assert!(is_klevu_json_decl(r#""queryResults": ["#));
+        assert!(is_klevu_json_decl(r#""queryResults": [,"#));
+        assert!(!is_klevu_json_decl(r#""queryResults": {"#));
+        assert!(!is_klevu_json_decl(r#""queryResults": true"#));
+        // Incomplete / bare keys stay out.
+        assert!(!is_klevu_json_decl(r#""recordQueries""#));
+        assert!(!is_klevu_json_decl(r#""typeOfRequest""#));
+        assert!(!is_klevu_json_decl(r#""typeOfRecords""#));
+        assert!(!is_klevu_json_decl(r#""typeOfSearch""#));
+        assert!(!is_klevu_json_decl(r#""totalResultsFound""#));
+        assert!(!is_klevu_json_decl(r#""nextOffset""#));
+        assert!(!is_klevu_json_decl(r#""noOfResults""#));
+        assert!(!is_klevu_json_decl(r#""apiKeys""#));
+        assert!(!is_klevu_json_decl(r#""qTime""#));
+        assert!(!is_klevu_json_decl(r#""groupByFields""#));
+        assert!(!is_klevu_json_decl(r#""filtersToReturn""#));
+        assert!(!is_klevu_json_decl(r#""searchPrefs""#));
+        assert!(!is_klevu_json_decl(r#""priceFieldSuffix""#));
+        assert!(!is_klevu_json_decl(r#""kmcConfig""#));
+        assert!(!is_klevu_json_decl(r#""queryResults""#));
+        // Generic / neighbouring stay out.
+        assert!(!is_klevu_json_decl(
+            r#""$schema": "https://json-schema.org/draft/2020-12/schema""#
+        ));
+        assert!(!is_klevu_json_decl(r#""name": "docs""#));
+        assert!(!is_klevu_json_decl(r#""id": "idx-1""#));
+        assert!(!is_klevu_json_decl(r#""q": "shoes""#));
+        assert!(!is_klevu_json_decl(r#""query": "shoes""#));
+        assert!(!is_klevu_json_decl(r#""filter": "type eq 'a'""#));
+        assert!(!is_klevu_json_decl(r#""filters": {"#));
+        assert!(!is_klevu_json_decl(r#""limit": 10"#));
+        assert!(!is_klevu_json_decl(r#""offset": 0"#));
+        assert!(!is_klevu_json_decl(r#""page": 1"#));
+        assert!(!is_klevu_json_decl(r#""results": ["#));
+        assert!(!is_klevu_json_decl(r#""facets": ["#));
+        assert!(!is_klevu_json_decl(r#""term": "shoes""#));
+        assert!(!is_klevu_json_decl(r#""settings": {"#));
+        assert!(!is_klevu_json_decl(r#""domain_key": "example_com""#));
+        assert!(is_bloomreach_json_decl(r#""domain_key": "example_com""#));
+        assert!(!is_klevu_json_decl(r#""_br_uid_2": "uid=123""#));
+        assert!(is_bloomreach_json_decl(r#""_br_uid_2": "uid=123""#));
+        assert!(!is_klevu_json_decl(r#""request_type": "search""#));
+        assert!(is_bloomreach_json_decl(r#""request_type": "search""#));
+        assert!(!is_klevu_json_decl(r#""result_sources": {"#));
+        assert!(is_constructor_io_json_decl(r#""result_sources": {"#));
+        assert!(!is_klevu_json_decl(r#""num_results_per_page": 30"#));
+        assert!(is_constructor_io_json_decl(r#""num_results_per_page": 30"#));
+        assert!(!is_klevu_json_decl(r#""searchHub": "default""#));
+        assert!(is_coveo_json_decl(r#""searchHub": "default""#));
+        assert!(!is_klevu_json_decl(r#""organizationId": "org""#));
+        assert!(is_coveo_json_decl(r#""organizationId": "org""#));
+        assert!(!is_klevu_json_decl(r#""@odata.count": 10"#));
+        assert!(is_azure_search_json_decl(r#""@odata.count": 10"#));
+        assert!(!is_klevu_json_decl(r#""searchMode": "any""#));
+        assert!(is_azure_search_json_decl(r#""searchMode": "any""#));
+        assert!(!is_klevu_json_decl(
+            r#""yql": "select * from sources * where true""#
+        ));
+        assert!(is_vespa_json_decl(
+            r#""yql": "select * from sources * where true""#
+        ));
+        assert!(!is_klevu_json_decl(r#""searchableAttributes": ["#));
+        assert!(is_marqo_json_decl(r#""searchableAttributes": ["#));
+        assert!(!is_klevu_json_decl(r#""vector_column_name": "vec""#));
+        assert!(is_lancedb_json_decl(r#""vector_column_name": "vec""#));
+        assert!(!is_klevu_json_decl(r#""annsField": "vec""#));
+        assert!(is_milvus_json_decl(r#""annsField": "vec""#));
+        assert!(!is_klevu_json_decl(r#""n_results": 10"#));
+        assert!(is_chroma_json_decl(r#""n_results": 10"#));
+        assert!(!is_klevu_json_decl(r#""topK": 10"#));
+        assert!(is_pinecone_json_decl(r#""topK": 10"#));
+        assert!(!is_klevu_json_decl(r#""nearVector": {"#));
+        assert!(is_weaviate_json_decl(r#""nearVector": {"#));
+        assert!(!is_klevu_json_decl(r#""vectors_count": 100"#));
+        assert!(is_qdrant_json_decl(r#""vectors_count": 100"#));
+        assert!(!is_klevu_json_decl(r#""processingTimeMS": 12"#));
+        assert!(is_algolia_json_decl(r#""processingTimeMS": 12"#));
+        assert!(!is_klevu_json_decl(r#""processingTimeMs": 12"#));
+        assert!(is_meilisearch_json_decl(r#""processingTimeMs": 12"#));
+        assert!(!is_klevu_json_decl(r#""search_time_ms": 12"#));
+        assert!(is_typesense_json_decl(r#""search_time_ms": 12"#));
+        assert!(!is_klevu_json_decl(r#""responseHeader": {"#));
+        assert!(is_solr_json_decl(r#""responseHeader": {"#));
+        assert!(!is_klevu_json_decl(r#""track_total_hits": true"#));
+        assert!(is_elasticsearch_json_decl(r#""track_total_hits": true"#));
+        assert!(!is_klevu_json_decl(r#""printWidth": 80"#));
+        assert!(is_prettier_json_decl(r#""printWidth": 80"#));
+        assert!(!is_klevu_json_decl(r#""basePath": ".""#));
+        assert!(is_karma_json_decl(r#""basePath": ".""#));
+        assert!(line_is_func_like(r#""recordQueries": ["#));
+        assert!(line_is_func_like(r#""typeOfRequest": "SEARCH""#));
+        assert!(line_is_func_like(r#""typeOfRecords": ["#));
+        assert!(line_is_func_like(r#""typeOfSearch": "WILDCARD_AND""#));
+        assert!(line_is_func_like(r#""totalResultsFound": 100"#));
+        assert!(line_is_func_like(r#""nextOffset": 12"#));
+        assert!(line_is_func_like(r#""noOfResults": 12"#));
+        assert!(line_is_func_like(r#""apiKeys": ["#));
+        assert!(line_is_func_like(r#""qTime": 12"#));
+        assert!(line_is_func_like(r#""groupByFields": ["#));
+        assert!(line_is_func_like(r#""filtersToReturn": {"#));
+        assert!(line_is_func_like(r#""searchPrefs": {"#));
+        assert!(line_is_func_like(r#""priceFieldSuffix": "GBP""#));
+        assert!(line_is_func_like(r#""kmcConfig": {"#));
+        assert!(line_is_func_like(r#""queryResults": ["#));
     }
 
     #[test]

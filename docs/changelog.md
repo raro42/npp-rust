@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.820] — 2026-11-12
+
+View:
+
+- **Function List** lists Klevu Query API search / recommend / suggest JSON keys: `"recordQueries": [`, `"typeOfRequest": "SEARCH"` / `"CATNAV"` / `"RECS_FOR_YOU"` / `"RECS_SIMILAR"` / `"RECS_ALSO_VIEWED"` / `"RECS_TRENDING"` / `"RECS_BOUGHT_TOGETHER"` / `"SUGGESTED_SEARCHES"` / `"AUTOCOMPLETE"`, `"typeOfRecords": [`, `"typeOfSearch": "WILDCARD_AND"` / `"AND"` / `"OR"` / `"FUZZY_AND"` / `"FUZZY_OR"` / `"WILDCARD_OR"` / `"EXACT"`, `"totalResultsFound": 0` / `100`, `"nextOffset": 0` / `12`, `"noOfResults": 0` / `12`, `"apiKeys": [`, `"qTime": 0` / `12`, `"groupByFields": [`, `"filtersToReturn": {`, `"searchPrefs": {`, `"priceFieldSuffix": "…"`, `"kmcConfig": {`, `"queryResults": [`. Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing `:` stay out. Generic `"$schema"` / `"name"` / `"id"` / `"q"` / `"query"` / `"filter"` / `"filters"` / `"limit"` / `"offset"` / `"page"` / `"results"` / `"facets"` / `"term"` / `"settings"` / Bloomreach Discovery `"domain_key"` / `"_br_uid_2"` / `"request_type"` / Constructor.io `"result_sources"` / `"num_results_per_page"` / Coveo `"searchHub"` / `"organizationId"` / Azure AI Search `"@odata.count"` / `"searchMode"` / Vespa `"yql"` / `"searchChain"` / Marqo `"searchableAttributes"` / `"searchMethod"` / LanceDB `"vector_column_name"` / `"nprobes"` / Milvus `"annsField"` / Chroma `"n_results"` / Pinecone `"topK"` / Weaviate `"nearVector"` / Qdrant `"vectors_count"` / Algolia `"processingTimeMS"` / Meilisearch `"processingTimeMs"` / Typesense `"search_time_ms"` / Solr `"responseHeader"` / Elasticsearch `"track_total_hits"` / prettier `"printWidth"` / karma `"basePath"` stay out. `"typeOfRequest"` / `"typeOfSearch"` only match their Klevu enums. `"priceFieldSuffix"` requires a non-empty quoted string. Numeric `"totalResultsFound"` / `"nextOffset"` / `"noOfResults"` / `"qTime"` reject leading zeros beyond `0`.
+
 ## [0.3.819] — 2026-11-12
 
 View:
