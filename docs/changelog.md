@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.815] — 2026-11-12
+
+View:
+
+- **Function List** lists Vespa query JSON keys: `"yql": "select …"`, `"searchChain": "vespa"`, `"recall": "…"`, `"restrict": "…"`, `"ranking": {`, `"presentation": {`, `"collapse": {`, `"grouping": {`, `"trace": {`, `"streaming": {`, `"nocache": true` / `false`, `"groupingSessionCache": true` / `false`, `"tracelevel": 0` / `3`, `"timeout": 1.5` / `"1.5s"` / `"500ms"`. Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing `:` stay out. Generic `"$schema"` / `"name"` / `"id"` / `"query"` / `"hits"` / `"offset"` / `"filter"` / `"limit"` / `"vector"` / Marqo `"searchableAttributes"` / `"searchMethod"` / LanceDB `"vector_column_name"` / `"nprobes"` / Milvus `"annsField"` / Chroma `"n_results"` / Pinecone `"topK"` / Weaviate `"nearVector"` / Qdrant `"vectors_count"` / Algolia `"processingTimeMS"` / Meilisearch `"processingTimeMs"` / Typesense `"search_time_ms"` / Solr `"responseHeader"` / Elasticsearch `"track_total_hits"` / prettier `"printWidth"` / karma `"basePath"` stay out. `"yql"` / `"searchChain"` / `"recall"` / `"restrict"` / string `"timeout"` require a non-empty quoted string. Numeric `"tracelevel"` rejects leading zeros beyond `0`. Numeric `"timeout"` allows a simple decimal (no exponent).
+
 ## [0.3.814] — 2026-11-12
 
 View:

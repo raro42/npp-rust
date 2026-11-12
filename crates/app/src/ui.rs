@@ -32482,6 +32482,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_milvus_json_decl(s)
             || is_lancedb_json_decl(s)
             || is_marqo_json_decl(s)
+            || is_vespa_json_decl(s)
             || is_gomod_decl(s)
             || is_gemfile_decl(s)
             || is_brewfile_decl(s)
@@ -32874,6 +32875,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_milvus_json_decl(s)
         || is_lancedb_json_decl(s)
         || is_marqo_json_decl(s)
+        || is_vespa_json_decl(s)
         || is_gomod_decl(s)
         || is_gemfile_decl(s)
         || is_brewfile_decl(s)
@@ -64324,6 +64326,163 @@ fn marqo_json_bool_and_tail_ok(after_colon: &str) -> bool {
     false
 }
 
+/// Vespa query JSON keys: `"yql": "select …"`, `"searchChain": "vespa"`,
+/// `"recall": "…"`, `"restrict": "…"`, `"ranking": {`, `"presentation": {`,
+/// `"collapse": {`, `"grouping": {`, `"trace": {`, `"streaming": {`,
+/// `"nocache": true` / `false`, `"groupingSessionCache": true` / `false`,
+/// `"tracelevel": 0` / `3`, `"timeout": 1.5` / `"1.5s"`.
+/// Optional trailing `,` and `//` / `/*` comment. Incomplete quotes /
+/// missing `:` stay out. Generic `"name"` / `"id"` / `"query"` / `"hits"` /
+/// `"offset"` / `"filter"` / `"limit"` / `"vector"` / Marqo
+/// `"searchableAttributes"` / `"searchMethod"` / LanceDB
+/// `"vector_column_name"` / `"nprobes"` / Milvus `"annsField"` / Chroma
+/// `"n_results"` / Pinecone `"topK"` stay out.
+fn is_vespa_json_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    let Some(rest) = s.strip_prefix('"') else {
+        return false;
+    };
+    let Some(end) = rest.find('"') else {
+        return false;
+    };
+    let key = &rest[..end];
+    if !vespa_json_key_ok(key) {
+        return false;
+    }
+    let after_key = rest[end + 1..].trim_start();
+    let Some(after_colon) = after_key.strip_prefix(':') else {
+        return false;
+    };
+    let after_colon = after_colon.trim_start();
+    vespa_json_value_and_tail_ok(key, after_colon)
+}
+
+fn vespa_json_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "yql"
+            | "searchChain"
+            | "recall"
+            | "restrict"
+            | "ranking"
+            | "presentation"
+            | "collapse"
+            | "grouping"
+            | "trace"
+            | "streaming"
+            | "nocache"
+            | "groupingSessionCache"
+            | "tracelevel"
+            | "timeout"
+    )
+}
+
+fn vespa_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool {
+    let bytes = after_colon.as_bytes();
+    let Some(first) = bytes.first().copied() else {
+        return false;
+    };
+    match first {
+        b'{' => {
+            if !matches!(
+                key,
+                "ranking" | "presentation" | "collapse" | "grouping" | "trace" | "streaming"
+            ) {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[1..])
+        }
+        b'"' => match key {
+            "yql" | "searchChain" | "recall" | "restrict" | "timeout" => {
+                vespa_json_nonempty_string_and_tail_ok(after_colon)
+            }
+            _ => false,
+        },
+        b't' | b'f' => {
+            if !matches!(key, "nocache" | "groupingSessionCache") {
+                return false;
+            }
+            vespa_json_bool_and_tail_ok(after_colon)
+        }
+        b'0'..=b'9' => vespa_json_number_and_tail_ok(key, after_colon),
+        _ => false,
+    }
+}
+
+fn vespa_json_nonempty_string_and_tail_ok(after_colon: &str) -> bool {
+    let rest = &after_colon[1..];
+    let Some(end) = rest.find('"') else {
+        return false;
+    };
+    let value = &rest[..end];
+    if value.is_empty() || value.contains('\n') {
+        return false;
+    }
+    package_json_tail_ok(&rest[end + 1..])
+}
+
+fn vespa_json_number_and_tail_ok(key: &str, after_colon: &str) -> bool {
+    match key {
+        "tracelevel" => vespa_json_uint_and_tail_ok(after_colon),
+        "timeout" => vespa_json_decimal_and_tail_ok(after_colon),
+        _ => false,
+    }
+}
+
+fn vespa_json_uint_and_tail_ok(after_colon: &str) -> bool {
+    let bytes = after_colon.as_bytes();
+    let mut i = 0usize;
+    if i >= bytes.len() || !bytes[i].is_ascii_digit() {
+        return false;
+    }
+    if bytes[i] == b'0' {
+        i += 1;
+        if i < bytes.len() && bytes[i].is_ascii_digit() {
+            return false;
+        }
+    } else {
+        while i < bytes.len() && bytes[i].is_ascii_digit() {
+            i += 1;
+        }
+    }
+    package_json_tail_ok(&after_colon[i..])
+}
+
+fn vespa_json_decimal_and_tail_ok(after_colon: &str) -> bool {
+    let bytes = after_colon.as_bytes();
+    let mut i = 0;
+    while i < bytes.len() && bytes[i].is_ascii_digit() {
+        i += 1;
+    }
+    if i == 0 || i > 12 {
+        return false;
+    }
+    if i > 1 && bytes[0] == b'0' {
+        return false;
+    }
+    if i < bytes.len() && bytes[i] == b'.' {
+        i += 1;
+        let frac_start = i;
+        while i < bytes.len() && bytes[i].is_ascii_digit() {
+            i += 1;
+        }
+        if i == frac_start || i - frac_start > 12 {
+            return false;
+        }
+    }
+    package_json_tail_ok(&after_colon[i..])
+}
+
+fn vespa_json_bool_and_tail_ok(after_colon: &str) -> bool {
+    if let Some(rest) = after_colon.strip_prefix("true") {
+        return package_json_tail_ok(rest);
+    }
+    if let Some(rest) = after_colon.strip_prefix("false") {
+        return package_json_tail_ok(rest);
+    }
+    false
+}
+
 /// go.mod / go.work directives: `module example.com/foo`, `go 1.22`,
 /// `toolchain go1.22.1`, `require (` / `require path v1.2.3`,
 /// `exclude (` / single-line, `replace (` / `replace old => new`,
@@ -95007,9 +95166,9 @@ mod func_like_line_tests {
         is_turbo_json_decl, is_ty_toml_decl, is_typedoc_json_decl, is_typesense_json_decl,
         is_typos_toml_decl, is_udev_rule_decl, is_unbound_nsd_conf_decl, is_uniffi_toml_decl,
         is_unimport_ini_decl, is_uv_toml_decl, is_vconsole_conf_decl, is_vector_toml_decl,
-        is_vercel_json_decl, is_versioneer_ini_decl, is_versionrc_json_decl, is_vitest_json_decl,
-        is_vscode_launch_json_decl, is_vscode_tasks_json_decl, is_vulture_ini_decl,
-        is_wails_json_decl, is_wdio_json_decl, is_weaviate_json_decl,
+        is_vercel_json_decl, is_versioneer_ini_decl, is_versionrc_json_decl, is_vespa_json_decl,
+        is_vitest_json_decl, is_vscode_launch_json_decl, is_vscode_tasks_json_decl,
+        is_vulture_ini_decl, is_wails_json_decl, is_wdio_json_decl, is_weaviate_json_decl,
         is_webextension_manifest_json_decl, is_wireguard_config_decl, is_wiremock_json_decl,
         is_wrangler_toml_decl, is_xmake_decl, is_xorg_conf_decl, is_yaak_json_decl,
         is_yapf_ini_decl, is_yarnrc_yml_decl, is_yum_repo_decl, is_zest_releaser_ini_decl,
@@ -130629,6 +130788,16 @@ mod func_like_line_tests {
         assert!(is_prettier_json_decl(r#""printWidth": 80"#));
         assert!(!is_marqo_json_decl(r#""basePath": ".""#));
         assert!(is_karma_json_decl(r#""basePath": ".""#));
+        assert!(!is_marqo_json_decl(
+            r#""yql": "select * from sources * where true""#
+        ));
+        assert!(is_vespa_json_decl(
+            r#""yql": "select * from sources * where true""#
+        ));
+        assert!(!is_marqo_json_decl(r#""searchChain": "vespa""#));
+        assert!(is_vespa_json_decl(r#""searchChain": "vespa""#));
+        assert!(!is_marqo_json_decl(r#""ranking": {"#));
+        assert!(is_vespa_json_decl(r#""ranking": {"#));
         assert!(line_is_func_like(r#""searchableAttributes": ["#));
         assert!(line_is_func_like(r#""attributesToRetrieve": ["#));
         assert!(line_is_func_like(r#""tensorFields": ["#));
@@ -130645,6 +130814,236 @@ mod func_like_line_tests {
         assert!(line_is_func_like(r#""approximate": true"#));
         assert!(line_is_func_like(r#""efSearch": 0"#));
         assert!(line_is_func_like(r#""approximateThreshold": 1"#));
+    }
+
+    #[test]
+    fn vespa_json_keys_smoke() {
+        assert!(is_vespa_json_decl(
+            r#""yql": "select * from sources * where true""#
+        ));
+        assert!(is_vespa_json_decl(r#""searchChain": "vespa""#));
+        assert!(is_vespa_json_decl(r#""recall": "id:ns:type::doc1""#));
+        assert!(is_vespa_json_decl(r#""restrict": "music""#));
+        assert!(is_vespa_json_decl(r#""ranking": {"#));
+        assert!(is_vespa_json_decl(r#""presentation": {"#));
+        assert!(is_vespa_json_decl(r#""collapse": {"#));
+        assert!(is_vespa_json_decl(r#""grouping": {"#));
+        assert!(is_vespa_json_decl(r#""trace": {"#));
+        assert!(is_vespa_json_decl(r#""streaming": {"#));
+        assert!(is_vespa_json_decl(r#""nocache": true"#));
+        assert!(is_vespa_json_decl(r#""nocache": false"#));
+        assert!(is_vespa_json_decl(r#""groupingSessionCache": true"#));
+        assert!(is_vespa_json_decl(r#""groupingSessionCache": false"#));
+        assert!(is_vespa_json_decl(r#""tracelevel": 0"#));
+        assert!(is_vespa_json_decl(r#""tracelevel": 3"#));
+        assert!(is_vespa_json_decl(r#""timeout": 1.5"#));
+        assert!(is_vespa_json_decl(r#""timeout": "1.5s""#));
+        // Distinctive neighbours stay out of this scanner.
+        assert!(!is_vespa_json_decl(r#""searchableAttributes": ["#));
+        assert!(is_marqo_json_decl(r#""searchableAttributes": ["#));
+        assert!(!is_vespa_json_decl(r#""searchMethod": "TENSOR""#));
+        assert!(is_marqo_json_decl(r#""searchMethod": "TENSOR""#));
+        assert!(!is_vespa_json_decl(r#""vector_column_name": "vec""#));
+        assert!(is_lancedb_json_decl(r#""vector_column_name": "vec""#));
+        assert!(!is_vespa_json_decl(r#""nprobes": 20"#));
+        assert!(is_lancedb_json_decl(r#""nprobes": 20"#));
+        assert!(!is_vespa_json_decl(r#""annsField": "vec""#));
+        assert!(is_milvus_json_decl(r#""annsField": "vec""#));
+        assert!(!is_vespa_json_decl(r#""n_results": 10"#));
+        assert!(is_chroma_json_decl(r#""n_results": 10"#));
+        assert!(!is_vespa_json_decl(r#""topK": 10"#));
+        assert!(is_pinecone_json_decl(r#""topK": 10"#));
+        assert!(!is_vespa_json_decl(r#""nearVector": {"#));
+        assert!(is_weaviate_json_decl(r#""nearVector": {"#));
+        assert!(!is_vespa_json_decl(r#""vectors_count": 100"#));
+        assert!(is_qdrant_json_decl(r#""vectors_count": 100"#));
+        assert!(!is_vespa_json_decl(r#""processingTimeMS": 12"#));
+        assert!(is_algolia_json_decl(r#""processingTimeMS": 12"#));
+        assert!(!is_vespa_json_decl(r#""processingTimeMs": 12"#));
+        assert!(is_meilisearch_json_decl(r#""processingTimeMs": 12"#));
+        assert!(!is_vespa_json_decl(r#""search_time_ms": 12"#));
+        assert!(is_typesense_json_decl(r#""search_time_ms": 12"#));
+        assert!(!is_vespa_json_decl(r#""responseHeader": {"#));
+        assert!(is_solr_json_decl(r#""responseHeader": {"#));
+        assert!(!is_vespa_json_decl(r#""track_total_hits": true"#));
+        assert!(is_elasticsearch_json_decl(r#""track_total_hits": true"#));
+        assert!(!is_vespa_json_decl(r#""printWidth": 80"#));
+        assert!(is_prettier_json_decl(r#""printWidth": 80"#));
+        assert!(!is_vespa_json_decl(r#""basePath": ".""#));
+        assert!(is_karma_json_decl(r#""basePath": ".""#));
+        assert!(line_is_func_like(
+            r#""yql": "select * from sources * where true""#
+        ));
+        assert!(line_is_func_like(r#""searchChain": "vespa""#));
+        assert!(line_is_func_like(r#""recall": "id:ns:type::doc1""#));
+        assert!(line_is_func_like(r#""restrict": "music""#));
+        assert!(line_is_func_like(r#""ranking": {"#));
+        assert!(line_is_func_like(r#""presentation": {"#));
+        assert!(line_is_func_like(r#""collapse": {"#));
+        assert!(line_is_func_like(r#""grouping": {"#));
+        assert!(line_is_func_like(r#""trace": {"#));
+        assert!(line_is_func_like(r#""streaming": {"#));
+        assert!(line_is_func_like(r#""nocache": false"#));
+        assert!(line_is_func_like(r#""groupingSessionCache": true"#));
+        assert!(line_is_func_like(r#""tracelevel": 3"#));
+        assert!(line_is_func_like(r#""timeout": 1.5"#));
+        assert!(line_is_func_like(r#""timeout": "1.5s""#));
+    }
+
+    #[test]
+    fn vespa_json_keys_count() {
+        assert!(is_vespa_json_decl(
+            r#""yql": "select * from sources * where true""#
+        ));
+        assert!(is_vespa_json_decl(
+            r#""yql": "select * from sources * where true","#
+        ));
+        assert!(is_vespa_json_decl(
+            r#""yql": "select * from sources * where true" // y"#
+        ));
+        assert!(!is_vespa_json_decl(r#""yql": {"#));
+        assert!(!is_vespa_json_decl(r#""yql": true"#));
+        assert!(!is_vespa_json_decl(r#""yql": """#));
+        assert!(is_vespa_json_decl(r#""searchChain": "vespa""#));
+        assert!(is_vespa_json_decl(r#""searchChain": "vespa","#));
+        assert!(!is_vespa_json_decl(r#""searchChain": {"#));
+        assert!(!is_vespa_json_decl(r#""searchChain": """#));
+        assert!(is_vespa_json_decl(r#""recall": "id:ns:type::doc1""#));
+        assert!(is_vespa_json_decl(r#""recall": "id:ns:type::doc1","#));
+        assert!(!is_vespa_json_decl(r#""recall": {"#));
+        assert!(is_vespa_json_decl(r#""restrict": "music""#));
+        assert!(is_vespa_json_decl(r#""restrict": "music","#));
+        assert!(!is_vespa_json_decl(r#""restrict": {"#));
+        assert!(is_vespa_json_decl(r#""ranking": {"#));
+        assert!(is_vespa_json_decl(r#""ranking": {,"#));
+        assert!(is_vespa_json_decl(r#""ranking": { // r"#));
+        assert!(!is_vespa_json_decl(r#""ranking": ["#));
+        assert!(!is_vespa_json_decl(r#""ranking": true"#));
+        assert!(is_vespa_json_decl(r#""presentation": {"#));
+        assert!(is_vespa_json_decl(r#""presentation": {,"#));
+        assert!(!is_vespa_json_decl(r#""presentation": ["#));
+        assert!(is_vespa_json_decl(r#""collapse": {"#));
+        assert!(is_vespa_json_decl(r#""collapse": {,"#));
+        assert!(!is_vespa_json_decl(r#""collapse": ["#));
+        assert!(is_vespa_json_decl(r#""grouping": {"#));
+        assert!(is_vespa_json_decl(r#""grouping": {,"#));
+        assert!(!is_vespa_json_decl(r#""grouping": ["#));
+        assert!(is_vespa_json_decl(r#""trace": {"#));
+        assert!(is_vespa_json_decl(r#""trace": {,"#));
+        assert!(!is_vespa_json_decl(r#""trace": ["#));
+        assert!(is_vespa_json_decl(r#""streaming": {"#));
+        assert!(is_vespa_json_decl(r#""streaming": {,"#));
+        assert!(!is_vespa_json_decl(r#""streaming": ["#));
+        assert!(is_vespa_json_decl(r#""nocache": true"#));
+        assert!(is_vespa_json_decl(r#""nocache": false"#));
+        assert!(is_vespa_json_decl(r#""nocache": true,"#));
+        assert!(is_vespa_json_decl(r#""nocache": false // n"#));
+        assert!(!is_vespa_json_decl(r#""nocache": {"#));
+        assert!(!is_vespa_json_decl(r#""nocache": 1"#));
+        assert!(is_vespa_json_decl(r#""groupingSessionCache": true"#));
+        assert!(is_vespa_json_decl(r#""groupingSessionCache": false"#));
+        assert!(is_vespa_json_decl(r#""groupingSessionCache": true,"#));
+        assert!(!is_vespa_json_decl(r#""groupingSessionCache": {"#));
+        assert!(!is_vespa_json_decl(r#""groupingSessionCache": 1"#));
+        assert!(is_vespa_json_decl(r#""tracelevel": 0"#));
+        assert!(is_vespa_json_decl(r#""tracelevel": 3"#));
+        assert!(is_vespa_json_decl(r#""tracelevel": 3,"#));
+        assert!(is_vespa_json_decl(r#""tracelevel": 3 // t"#));
+        assert!(!is_vespa_json_decl(r#""tracelevel": 00"#));
+        assert!(!is_vespa_json_decl(r#""tracelevel": 03"#));
+        assert!(!is_vespa_json_decl(r#""tracelevel": true"#));
+        assert!(!is_vespa_json_decl(r#""tracelevel": {"#));
+        assert!(!is_vespa_json_decl(r#""tracelevel": "3""#));
+        assert!(is_vespa_json_decl(r#""timeout": 0"#));
+        assert!(is_vespa_json_decl(r#""timeout": 1"#));
+        assert!(is_vespa_json_decl(r#""timeout": 1.5"#));
+        assert!(is_vespa_json_decl(r#""timeout": 1.5,"#));
+        assert!(is_vespa_json_decl(r#""timeout": 1.5 // t"#));
+        assert!(is_vespa_json_decl(r#""timeout": "1.5s""#));
+        assert!(is_vespa_json_decl(r#""timeout": "500ms""#));
+        assert!(is_vespa_json_decl(r#""timeout": "1.5s","#));
+        assert!(!is_vespa_json_decl(r#""timeout": 00"#));
+        assert!(!is_vespa_json_decl(r#""timeout": 01"#));
+        assert!(!is_vespa_json_decl(r#""timeout": 0."#));
+        assert!(!is_vespa_json_decl(r#""timeout": true"#));
+        assert!(!is_vespa_json_decl(r#""timeout": {"#));
+        assert!(!is_vespa_json_decl(r#""timeout": """#));
+        // Incomplete / bare keys stay out.
+        assert!(!is_vespa_json_decl(r#""yql""#));
+        assert!(!is_vespa_json_decl(r#""searchChain""#));
+        assert!(!is_vespa_json_decl(r#""recall""#));
+        assert!(!is_vespa_json_decl(r#""restrict""#));
+        assert!(!is_vespa_json_decl(r#""ranking""#));
+        assert!(!is_vespa_json_decl(r#""presentation""#));
+        assert!(!is_vespa_json_decl(r#""collapse""#));
+        assert!(!is_vespa_json_decl(r#""grouping""#));
+        assert!(!is_vespa_json_decl(r#""trace""#));
+        assert!(!is_vespa_json_decl(r#""streaming""#));
+        assert!(!is_vespa_json_decl(r#""nocache""#));
+        assert!(!is_vespa_json_decl(r#""groupingSessionCache""#));
+        assert!(!is_vespa_json_decl(r#""tracelevel""#));
+        assert!(!is_vespa_json_decl(r#""timeout""#));
+        // Generic / neighbouring stay out.
+        assert!(!is_vespa_json_decl(
+            r#""$schema": "https://json-schema.org/draft/2020-12/schema""#
+        ));
+        assert!(!is_vespa_json_decl(r#""name": "docs""#));
+        assert!(!is_vespa_json_decl(r#""id": "idx-1""#));
+        assert!(!is_vespa_json_decl(r#""query": "shoes""#));
+        assert!(!is_vespa_json_decl(r#""hits": 10"#));
+        assert!(!is_vespa_json_decl(r#""offset": 0"#));
+        assert!(!is_vespa_json_decl(r#""filter": "type:a""#));
+        assert!(!is_vespa_json_decl(r#""limit": 10"#));
+        assert!(!is_vespa_json_decl(r#""vector": ["#));
+        assert!(!is_vespa_json_decl(r#""searchableAttributes": ["#));
+        assert!(is_marqo_json_decl(r#""searchableAttributes": ["#));
+        assert!(!is_vespa_json_decl(r#""searchMethod": "TENSOR""#));
+        assert!(is_marqo_json_decl(r#""searchMethod": "TENSOR""#));
+        assert!(!is_vespa_json_decl(r#""vector_column_name": "vec""#));
+        assert!(is_lancedb_json_decl(r#""vector_column_name": "vec""#));
+        assert!(!is_vespa_json_decl(r#""nprobes": 20"#));
+        assert!(is_lancedb_json_decl(r#""nprobes": 20"#));
+        assert!(!is_vespa_json_decl(r#""annsField": "vec""#));
+        assert!(is_milvus_json_decl(r#""annsField": "vec""#));
+        assert!(!is_vespa_json_decl(r#""n_results": 10"#));
+        assert!(is_chroma_json_decl(r#""n_results": 10"#));
+        assert!(!is_vespa_json_decl(r#""topK": 10"#));
+        assert!(is_pinecone_json_decl(r#""topK": 10"#));
+        assert!(!is_vespa_json_decl(r#""nearVector": {"#));
+        assert!(is_weaviate_json_decl(r#""nearVector": {"#));
+        assert!(!is_vespa_json_decl(r#""vectors_count": 100"#));
+        assert!(is_qdrant_json_decl(r#""vectors_count": 100"#));
+        assert!(!is_vespa_json_decl(r#""processingTimeMS": 12"#));
+        assert!(is_algolia_json_decl(r#""processingTimeMS": 12"#));
+        assert!(!is_vespa_json_decl(r#""processingTimeMs": 12"#));
+        assert!(is_meilisearch_json_decl(r#""processingTimeMs": 12"#));
+        assert!(!is_vespa_json_decl(r#""search_time_ms": 12"#));
+        assert!(is_typesense_json_decl(r#""search_time_ms": 12"#));
+        assert!(!is_vespa_json_decl(r#""responseHeader": {"#));
+        assert!(is_solr_json_decl(r#""responseHeader": {"#));
+        assert!(!is_vespa_json_decl(r#""track_total_hits": true"#));
+        assert!(is_elasticsearch_json_decl(r#""track_total_hits": true"#));
+        assert!(!is_vespa_json_decl(r#""printWidth": 80"#));
+        assert!(is_prettier_json_decl(r#""printWidth": 80"#));
+        assert!(!is_vespa_json_decl(r#""basePath": ".""#));
+        assert!(is_karma_json_decl(r#""basePath": ".""#));
+        assert!(line_is_func_like(
+            r#""yql": "select * from sources * where true""#
+        ));
+        assert!(line_is_func_like(r#""searchChain": "vespa""#));
+        assert!(line_is_func_like(r#""recall": "id:ns:type::doc1""#));
+        assert!(line_is_func_like(r#""restrict": "music""#));
+        assert!(line_is_func_like(r#""ranking": {"#));
+        assert!(line_is_func_like(r#""presentation": {"#));
+        assert!(line_is_func_like(r#""collapse": {"#));
+        assert!(line_is_func_like(r#""grouping": {"#));
+        assert!(line_is_func_like(r#""trace": {"#));
+        assert!(line_is_func_like(r#""streaming": {"#));
+        assert!(line_is_func_like(r#""nocache": true"#));
+        assert!(line_is_func_like(r#""groupingSessionCache": false"#));
+        assert!(line_is_func_like(r#""tracelevel": 0"#));
+        assert!(line_is_func_like(r#""timeout": 1.5"#));
+        assert!(line_is_func_like(r#""timeout": "500ms""#));
     }
 
     #[test]

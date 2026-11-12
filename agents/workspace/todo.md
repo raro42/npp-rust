@@ -1292,3 +1292,5 @@
 009 keep: Function List LanceDB vector_column_name/nprobes/refine_factor/num_partitions/num_sub_vectors/index_cache_size/with_row_id/fast_search/bypass_vector_index/prefilter/distance_type/index_type/source_column/target_columns/embedding_functions (v0.3.813)
 
 009 keep: Function List Marqo searchableAttributes/attributesToRetrieve/tensorFields/scoreModifiers/hybridParameters/imageDownloadHeaders/mediaDownloadHeaders/searchMethod/interpolationMethod/showHighlights/excludeInputDocuments/allowMissingDocuments/allowMissingEmbeddings/approximate/efSearch/approximateThreshold (v0.3.814)
+
+009 keep: Function List Vespa yql/searchChain/recall/restrict/ranking/presentation/collapse/grouping/trace/streaming/nocache/groupingSessionCache/tracelevel/timeout (v0.3.815)
