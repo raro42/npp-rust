@@ -1,3 +1,5 @@
+009 keep: Function List Pinecone topK/includeMetadata/includeValues/sparseValues/sparseVector/namespaces/usage/totalVectorCount/vectorCount/upsertedCount/readUnits/indexFullness/deletion_protection/vector_type (v0.3.810)
+
 009 keep: Function List Weaviate nearVector/nearObject/nearText/invertedIndexConfig/vectorIndexConfig/vectorIndexType/shardingConfig/multiTenancyConfig/replicationConfig/moduleConfig/creationTimeUnix/lastUpdateTimeUnix/indexFilterable/indexSearchable/tokenization (v0.3.809)
 
 009 keep: Function List Qdrant vectors_count/indexed_vectors_count/points_count/segments_count/optimizer_status/payload_schema/hnsw_config/wal_config/optimizer_config/quantization_config/score_threshold/with_payload/with_vector/hnsw_ef/indexed_only (v0.3.808)

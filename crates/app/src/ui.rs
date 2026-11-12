@@ -32477,6 +32477,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_algolia_json_decl(s)
             || is_qdrant_json_decl(s)
             || is_weaviate_json_decl(s)
+            || is_pinecone_json_decl(s)
             || is_gomod_decl(s)
             || is_gemfile_decl(s)
             || is_brewfile_decl(s)
@@ -32864,6 +32865,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_algolia_json_decl(s)
         || is_qdrant_json_decl(s)
         || is_weaviate_json_decl(s)
+        || is_pinecone_json_decl(s)
         || is_gomod_decl(s)
         || is_gemfile_decl(s)
         || is_brewfile_decl(s)
@@ -62853,7 +62855,11 @@ fn algolia_json_bool_and_tail_ok(after_colon: &str) -> bool {
 /// `"vectorIndexConfig"` / `"vectorIndexType"` / `"shardingConfig"` /
 /// `"multiTenancyConfig"` / `"replicationConfig"` / `"moduleConfig"` /
 /// `"creationTimeUnix"` / `"lastUpdateTimeUnix"` / `"indexFilterable"` /
-/// `"indexSearchable"` / `"tokenization"` stay out.
+/// `"indexSearchable"` / `"tokenization"` / Pinecone `"topK"` /
+/// `"includeMetadata"` / `"includeValues"` / `"sparseValues"` /
+/// `"sparseVector"` / `"namespaces"` / `"usage"` / `"totalVectorCount"` /
+/// `"vectorCount"` / `"upsertedCount"` / `"readUnits"` / `"indexFullness"` /
+/// `"deletion_protection"` / `"vector_type"` stay out.
 /// `"optimizer_status"` only matches `"ok"` as a string (or `{`).
 /// Numeric `"vectors_count"` / `"indexed_vectors_count"` /
 /// `"points_count"` / `"segments_count"` / `"hnsw_ef"` reject leading
@@ -63076,7 +63082,11 @@ fn qdrant_json_bool_and_tail_ok(after_colon: &str) -> bool {
 /// mintlify `"topbarLinks"` / Compodoc `"theme": "material"` / redocly
 /// `"apis"` / spectral `"functionsDir"` / openapitools
 /// `"generator-cli"` / Knip `"entry"` / prettier `"printWidth"` /
-/// package.json `"bin"` / karma `"basePath"` stay out.
+/// package.json `"bin"` / karma `"basePath"` / Pinecone `"topK"` /
+/// `"includeMetadata"` / `"includeValues"` / `"sparseValues"` /
+/// `"sparseVector"` / `"namespaces"` / `"usage"` / `"totalVectorCount"` /
+/// `"vectorCount"` / `"upsertedCount"` / `"readUnits"` / `"indexFullness"` /
+/// `"deletion_protection"` / `"vector_type"` stay out.
 /// `"vectorIndexType"` only matches `hnsw` / `flat` / `dynamic`.
 /// `"tokenization"` only matches its Weaviate enums. Numeric
 /// `"creationTimeUnix"` / `"lastUpdateTimeUnix"` reject leading zeros
@@ -63222,6 +63232,241 @@ fn weaviate_json_uint_and_tail_ok(after_colon: &str) -> bool {
 }
 
 fn weaviate_json_bool_and_tail_ok(after_colon: &str) -> bool {
+    if let Some(rest) = after_colon.strip_prefix("true") {
+        return package_json_tail_ok(rest);
+    }
+    if let Some(rest) = after_colon.strip_prefix("false") {
+        return package_json_tail_ok(rest);
+    }
+    false
+}
+
+/// Pinecone query / index / stats JSON keys:
+/// `"topK": 0` / `10`,
+/// `"includeMetadata": true` / `false`,
+/// `"includeValues": true` / `false`,
+/// `"sparseValues": {`,
+/// `"sparseVector": {`,
+/// `"namespaces": {`,
+/// `"usage": {`,
+/// `"totalVectorCount": 0` / `100`,
+/// `"vectorCount": 0` / `5`,
+/// `"upsertedCount": 0` / `3`,
+/// `"readUnits": 0` / `5`,
+/// `"indexFullness": 0` / `0.1` / `1`,
+/// `"deletion_protection": "enabled"` / `"disabled"`,
+/// `"vector_type": "dense"` / `"sparse"`.
+/// Optional trailing `,` and `//` / `/*` comment. Incomplete quotes /
+/// missing `:` stay out. Generic `"$schema"` / `"name"` / `"id"` /
+/// `"vector"` / `"filter"` / `"matches"` / `"namespace"` / `"host"` /
+/// `"dimension"` / `"metric"` / `"spec"` / `"status"` / `"score"` /
+/// `"metadata"` / Weaviate `"nearVector"` / `"nearObject"` / `"nearText"` /
+/// `"invertedIndexConfig"` / `"vectorIndexConfig"` / `"vectorIndexType"` /
+/// `"shardingConfig"` / `"multiTenancyConfig"` / `"replicationConfig"` /
+/// `"moduleConfig"` / `"creationTimeUnix"` / `"lastUpdateTimeUnix"` /
+/// `"indexFilterable"` / `"indexSearchable"` / `"tokenization"` / Qdrant
+/// `"vectors_count"` / `"indexed_vectors_count"` / `"points_count"` /
+/// `"segments_count"` / `"optimizer_status"` / `"payload_schema"` /
+/// `"hnsw_config"` / `"wal_config"` / `"optimizer_config"` /
+/// `"quantization_config"` / `"score_threshold"` / `"with_payload"` /
+/// `"with_vector"` / `"hnsw_ef"` / `"indexed_only"` / Algolia
+/// `"processingTimeMS"` / `"nbPages"` / `"serverTimeMS"` / `"queryID"` /
+/// `"indexUsed"` / `"aroundLatLng"` / `"highlightPreTag"` /
+/// `"facets_stats"` / `"renderingContent"` / `"appliedRules"` /
+/// `"attributesToHighlight"` / `"getRankingInfo"` / `"clickAnalytics"` /
+/// `"enablePersonalization"` / `"removeWordsIfNoResults"` / Meilisearch
+/// `"processingTimeMs"` / `"estimatedTotalHits"` / `"exhaustiveNbHits"` /
+/// `"nbHits"` / `"hitsPerPage"` / `"facetDistribution"` / `"facetStats"` /
+/// `"exhaustiveFacetsCount"` / `"rankingScoreThreshold"` /
+/// `"showRankingScore"` / `"matchingStrategy"` / `"attributesToSearchOn"` /
+/// Typesense `"search_time_ms"` / `"out_of"` / `"search_cutoff"` /
+/// `"grouped_hits"` / `"facet_counts": [` / `"default_sorting_field"` /
+/// `"enable_nested_fields"` / `"token_separators"` / `"symbols_to_index"` /
+/// `"drop_tokens_threshold"` / `"typo_tokens_threshold"` /
+/// `"prioritize_exact_match"` / `"exhaustive_search"` / Solr
+/// `"responseHeader"` / `"numFound"` / `"numFoundExact"` / `"QTime"` /
+/// `"zkConnected"` / `"facet_counts": {` / `"highlighting"` /
+/// `"spellcheck"` / `"grouped"` / `"nextCursorMark"` / Elasticsearch
+/// `"track_total_hits"` / `"min_score"` / `"post_filter"` /
+/// `"runtime_mappings"` / `"script_fields"` / `"docvalue_fields"` /
+/// `"seq_no_primary_term"` / `"_scroll_id"` / `"_shards"` / Grafana
+/// alerting `"noDataState"` / `"execErrState"` / `"datasourceUid"` /
+/// `"folderUID"` / `"relativeTimeRange"` / `"grafana_alert"` /
+/// `"contactPoints"` / `"muteTimes"` / `"isPaused"` / Grafana
+/// dashboard `"schemaVersion"` / `"graphTooltip"` / `"templating"` /
+/// `"gnetId"` / Grafana datasource `"access"` / `"basicAuth"` /
+/// `"jsonData"` / `"deleteDatasources"` / Alertmanager `"groupKey"` /
+/// `"truncatedAlerts"` / Prometheus `"totalQueryableSamples"` / Loki
+/// `"bytesProcessedPerSecond"` / Tempo `"rootServiceName"` / Jaeger
+/// `"traceID"` / Zipkin `"localEndpoint"` / OTLP `"resourceSpans"` /
+/// HAR `"startedDateTime"` / OpenAPI `"openapi"` / AsyncAPI
+/// `"asyncapi"` / `"channels": {` / Pact `"consumer"` / MockServer
+/// `"httpRequest"` / Hoverfly `"hoverflyVersion"` / Mountebank
+/// `"imposters"` / WireMock `"scenarioName"` / Mockoon
+/// `"lastMigration"` / Hoppscotch `"preRequestScript"` / Yaak
+/// `"yaakVersion"` / Bruno `"brunoConfig"` / Thunder Client `"client"` /
+/// Postman `"_postman_id"` / Insomnia `"__export_format"` / ReDoc
+/// `"disableSearch"` / RapiDoc `"specUrl"` / swagger-ui `"dom_id"` /
+/// scalar `"layout": "modern"` / Elements `"layout": "sidebar"` /
+/// mintlify `"topbarLinks"` / Compodoc `"theme": "material"` / redocly
+/// `"apis"` / spectral `"functionsDir"` / openapitools
+/// `"generator-cli"` / Knip `"entry"` / prettier `"printWidth"` /
+/// package.json `"bin"` / karma `"basePath"` stay out.
+/// `"deletion_protection"` only matches `enabled` / `disabled`.
+/// `"vector_type"` only matches `dense` / `sparse`. Numeric
+/// `"topK"` / `"totalVectorCount"` / `"vectorCount"` / `"upsertedCount"` /
+/// `"readUnits"` reject leading zeros beyond `0`. `"indexFullness"`
+/// allows a simple decimal (no exponent).
+fn is_pinecone_json_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    let Some(rest) = s.strip_prefix('"') else {
+        return false;
+    };
+    let Some(end) = rest.find('"') else {
+        return false;
+    };
+    let key = &rest[..end];
+    if !pinecone_json_key_ok(key) {
+        return false;
+    }
+    let after_key = rest[end + 1..].trim_start();
+    let Some(after_colon) = after_key.strip_prefix(':') else {
+        return false;
+    };
+    let after_colon = after_colon.trim_start();
+    pinecone_json_value_and_tail_ok(key, after_colon)
+}
+
+fn pinecone_json_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "topK"
+            | "includeMetadata"
+            | "includeValues"
+            | "sparseValues"
+            | "sparseVector"
+            | "namespaces"
+            | "usage"
+            | "totalVectorCount"
+            | "vectorCount"
+            | "upsertedCount"
+            | "readUnits"
+            | "indexFullness"
+            | "deletion_protection"
+            | "vector_type"
+    )
+}
+
+fn pinecone_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool {
+    let bytes = after_colon.as_bytes();
+    let Some(first) = bytes.first().copied() else {
+        return false;
+    };
+    match first {
+        b'{' => {
+            if !matches!(
+                key,
+                "sparseValues" | "sparseVector" | "namespaces" | "usage"
+            ) {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[1..])
+        }
+        b'"' => match key {
+            "deletion_protection" => pinecone_json_deletion_protection_and_tail_ok(after_colon),
+            "vector_type" => pinecone_json_vector_type_and_tail_ok(after_colon),
+            _ => false,
+        },
+        b't' | b'f' => {
+            if !matches!(key, "includeMetadata" | "includeValues") {
+                return false;
+            }
+            pinecone_json_bool_and_tail_ok(after_colon)
+        }
+        b'0'..=b'9' => pinecone_json_number_and_tail_ok(key, after_colon),
+        _ => false,
+    }
+}
+
+fn pinecone_json_deletion_protection_and_tail_ok(after_colon: &str) -> bool {
+    let rest = &after_colon[1..];
+    let Some(end) = rest.find('"') else {
+        return false;
+    };
+    let value = &rest[..end];
+    if !matches!(value, "enabled" | "disabled") {
+        return false;
+    }
+    package_json_tail_ok(&rest[end + 1..])
+}
+
+fn pinecone_json_vector_type_and_tail_ok(after_colon: &str) -> bool {
+    let rest = &after_colon[1..];
+    let Some(end) = rest.find('"') else {
+        return false;
+    };
+    let value = &rest[..end];
+    if !matches!(value, "dense" | "sparse") {
+        return false;
+    }
+    package_json_tail_ok(&rest[end + 1..])
+}
+
+fn pinecone_json_number_and_tail_ok(key: &str, after_colon: &str) -> bool {
+    match key {
+        "topK" | "totalVectorCount" | "vectorCount" | "upsertedCount" | "readUnits" => {
+            pinecone_json_uint_and_tail_ok(after_colon)
+        }
+        "indexFullness" => pinecone_json_index_fullness_and_tail_ok(after_colon),
+        _ => false,
+    }
+}
+
+fn pinecone_json_uint_and_tail_ok(after_colon: &str) -> bool {
+    let bytes = after_colon.as_bytes();
+    let mut i = 0usize;
+    if i >= bytes.len() || !bytes[i].is_ascii_digit() {
+        return false;
+    }
+    if bytes[i] == b'0' {
+        i += 1;
+        if i < bytes.len() && bytes[i].is_ascii_digit() {
+            return false;
+        }
+    } else {
+        while i < bytes.len() && bytes[i].is_ascii_digit() {
+            i += 1;
+        }
+    }
+    package_json_tail_ok(&after_colon[i..])
+}
+
+fn pinecone_json_index_fullness_and_tail_ok(after_colon: &str) -> bool {
+    let bytes = after_colon.as_bytes();
+    let mut i = 0;
+    while i < bytes.len() && bytes[i].is_ascii_digit() {
+        i += 1;
+    }
+    if i == 0 || i > 12 {
+        return false;
+    }
+    if i > 1 && bytes[0] == b'0' {
+        return false;
+    }
+    if i < bytes.len() && bytes[i] == b'.' {
+        i += 1;
+        let frac_start = i;
+        while i < bytes.len() && bytes[i].is_ascii_digit() {
+            i += 1;
+        }
+        if i == frac_start || i - frac_start > 12 {
+            return false;
+        }
+    }
+    package_json_tail_ok(&after_colon[i..])
+}
+
+fn pinecone_json_bool_and_tail_ok(after_colon: &str) -> bool {
     if let Some(rest) = after_colon.strip_prefix("true") {
         return package_json_tail_ok(rest);
     }
@@ -93885,23 +94130,24 @@ mod func_like_line_tests {
         is_openapitools_json_decl, is_openvpn_decl, is_os_release_decl, is_otlp_json_decl,
         is_oxlint_json_decl, is_package_json_decl, is_pacman_conf_decl, is_pact_json_decl,
         is_pam_conf_decl, is_parcel_json_decl, is_paru_conf_decl, is_passwd_group_file_decl,
-        is_pdm_toml_decl, is_php_ini_decl, is_pip_conf_decl, is_pipfile_decl, is_pixi_toml_decl,
-        is_playwright_json_decl, is_podfile_decl, is_poetry_toml_decl, is_postcss_json_decl,
-        is_postman_json_decl, is_premake_decl, is_prettier_json_decl, is_prometheus_json_decl,
-        is_protocols_file_decl, is_pycln_ini_decl, is_pycodestyle_ini_decl, is_pydoclint_ini_decl,
-        is_pydocstyle_ini_decl, is_pylama_ini_decl, is_pylint_ini_decl, is_pypirc_ini_decl,
-        is_pyproject_toml_decl, is_pyre_configuration_decl, is_pyright_toml_decl,
-        is_pyrightconfig_json_decl, is_pytest_ini_decl, is_pytype_ini_decl, is_pyupgrade_ini_decl,
-        is_qdrant_json_decl, is_radon_ini_decl, is_railway_toml_decl, is_rake_decl,
-        is_rapidoc_json_decl, is_redoc_json_decl, is_redocly_json_decl, is_refurb_toml_decl,
-        is_release_it_json_decl, is_release_please_json_decl, is_release_toml_decl,
-        is_renovate_json_decl, is_resolv_conf_decl, is_rpc_file_decl, is_rstcheck_ini_decl,
-        is_rsyslog_decl, is_ruff_toml_decl, is_rush_json_decl, is_rust_toolchain_toml_decl,
-        is_rustfmt_toml_decl, is_samba_conf_decl, is_samconfig_toml_decl, is_scalar_json_decl,
-        is_scons_decl, is_scriv_ini_decl, is_sddm_conf_decl, is_semantic_release_ini_decl,
-        is_semantic_release_json_decl, is_services_file_decl, is_setup_cfg_decl,
-        is_setuptools_scm_ini_decl, is_simple_git_hooks_json_decl, is_solr_json_decl,
-        is_spectral_json_decl, is_sqlfluff_ini_decl, is_ssh_config_decl, is_sssd_conf_decl,
+        is_pdm_toml_decl, is_php_ini_decl, is_pinecone_json_decl, is_pip_conf_decl,
+        is_pipfile_decl, is_pixi_toml_decl, is_playwright_json_decl, is_podfile_decl,
+        is_poetry_toml_decl, is_postcss_json_decl, is_postman_json_decl, is_premake_decl,
+        is_prettier_json_decl, is_prometheus_json_decl, is_protocols_file_decl, is_pycln_ini_decl,
+        is_pycodestyle_ini_decl, is_pydoclint_ini_decl, is_pydocstyle_ini_decl, is_pylama_ini_decl,
+        is_pylint_ini_decl, is_pypirc_ini_decl, is_pyproject_toml_decl, is_pyre_configuration_decl,
+        is_pyright_toml_decl, is_pyrightconfig_json_decl, is_pytest_ini_decl, is_pytype_ini_decl,
+        is_pyupgrade_ini_decl, is_qdrant_json_decl, is_radon_ini_decl, is_railway_toml_decl,
+        is_rake_decl, is_rapidoc_json_decl, is_redoc_json_decl, is_redocly_json_decl,
+        is_refurb_toml_decl, is_release_it_json_decl, is_release_please_json_decl,
+        is_release_toml_decl, is_renovate_json_decl, is_resolv_conf_decl, is_rpc_file_decl,
+        is_rstcheck_ini_decl, is_rsyslog_decl, is_ruff_toml_decl, is_rush_json_decl,
+        is_rust_toolchain_toml_decl, is_rustfmt_toml_decl, is_samba_conf_decl,
+        is_samconfig_toml_decl, is_scalar_json_decl, is_scons_decl, is_scriv_ini_decl,
+        is_sddm_conf_decl, is_semantic_release_ini_decl, is_semantic_release_json_decl,
+        is_services_file_decl, is_setup_cfg_decl, is_setuptools_scm_ini_decl,
+        is_simple_git_hooks_json_decl, is_solr_json_decl, is_spectral_json_decl,
+        is_sqlfluff_ini_decl, is_ssh_config_decl, is_sssd_conf_decl,
         is_stoplight_elements_json_decl, is_stryker_json_decl, is_stylelint_json_decl,
         is_subuid_subgid_decl, is_sudoers_decl, is_supabase_toml_decl, is_supervisord_conf_decl,
         is_swagger_ui_json_decl, is_swc_json_decl, is_syncpack_json_decl, is_sysctl_conf_decl,
@@ -127961,6 +128207,12 @@ mod func_like_line_tests {
         assert!(is_prettier_json_decl(r#""printWidth": 80"#));
         assert!(!is_weaviate_json_decl(r#""basePath": ".""#));
         assert!(is_karma_json_decl(r#""basePath": ".""#));
+        assert!(!is_weaviate_json_decl(r#""topK": 10"#));
+        assert!(is_pinecone_json_decl(r#""topK": 10"#));
+        assert!(!is_weaviate_json_decl(r#""includeMetadata": true"#));
+        assert!(is_pinecone_json_decl(r#""includeMetadata": true"#));
+        assert!(!is_weaviate_json_decl(r#""indexFullness": 0.1"#));
+        assert!(is_pinecone_json_decl(r#""indexFullness": 0.1"#));
         assert!(line_is_func_like(r#""nearVector": {"#));
         assert!(line_is_func_like(r#""nearObject": {"#));
         assert!(line_is_func_like(r#""nearText": {"#));
@@ -128154,6 +128406,22 @@ mod func_like_line_tests {
         assert!(is_prettier_json_decl(r#""printWidth": 80"#));
         assert!(!is_weaviate_json_decl(r#""basePath": ".""#));
         assert!(is_karma_json_decl(r#""basePath": ".""#));
+        assert!(!is_weaviate_json_decl(r#""topK": 10"#));
+        assert!(is_pinecone_json_decl(r#""topK": 10"#));
+        assert!(!is_weaviate_json_decl(r#""includeMetadata": true"#));
+        assert!(is_pinecone_json_decl(r#""includeMetadata": true"#));
+        assert!(!is_weaviate_json_decl(r#""sparseValues": {"#));
+        assert!(is_pinecone_json_decl(r#""sparseValues": {"#));
+        assert!(!is_weaviate_json_decl(r#""totalVectorCount": 100"#));
+        assert!(is_pinecone_json_decl(r#""totalVectorCount": 100"#));
+        assert!(!is_weaviate_json_decl(r#""indexFullness": 0.1"#));
+        assert!(is_pinecone_json_decl(r#""indexFullness": 0.1"#));
+        assert!(!is_weaviate_json_decl(
+            r#""deletion_protection": "enabled""#
+        ));
+        assert!(is_pinecone_json_decl(r#""deletion_protection": "enabled""#));
+        assert!(!is_weaviate_json_decl(r#""vector_type": "dense""#));
+        assert!(is_pinecone_json_decl(r#""vector_type": "dense""#));
         assert!(line_is_func_like(r#""nearVector": {"#));
         assert!(line_is_func_like(r#""nearObject": {"#));
         assert!(line_is_func_like(r#""nearText": {"#));
@@ -128169,6 +128437,245 @@ mod func_like_line_tests {
         assert!(line_is_func_like(r#""indexFilterable": false"#));
         assert!(line_is_func_like(r#""indexSearchable": true"#));
         assert!(line_is_func_like(r#""tokenization": "trigram""#));
+    }
+
+    #[test]
+    fn pinecone_json_keys_smoke() {
+        assert!(is_pinecone_json_decl(r#""topK": 0"#));
+        assert!(is_pinecone_json_decl(r#""topK": 10"#));
+        assert!(is_pinecone_json_decl(r#""includeMetadata": true"#));
+        assert!(is_pinecone_json_decl(r#""includeMetadata": false"#));
+        assert!(is_pinecone_json_decl(r#""includeValues": true"#));
+        assert!(is_pinecone_json_decl(r#""includeValues": false"#));
+        assert!(is_pinecone_json_decl(r#""sparseValues": {"#));
+        assert!(is_pinecone_json_decl(r#""sparseVector": {"#));
+        assert!(is_pinecone_json_decl(r#""namespaces": {"#));
+        assert!(is_pinecone_json_decl(r#""usage": {"#));
+        assert!(is_pinecone_json_decl(r#""totalVectorCount": 0"#));
+        assert!(is_pinecone_json_decl(r#""totalVectorCount": 100"#));
+        assert!(is_pinecone_json_decl(r#""vectorCount": 0"#));
+        assert!(is_pinecone_json_decl(r#""vectorCount": 5"#));
+        assert!(is_pinecone_json_decl(r#""upsertedCount": 0"#));
+        assert!(is_pinecone_json_decl(r#""upsertedCount": 3"#));
+        assert!(is_pinecone_json_decl(r#""readUnits": 0"#));
+        assert!(is_pinecone_json_decl(r#""readUnits": 5"#));
+        assert!(is_pinecone_json_decl(r#""indexFullness": 0"#));
+        assert!(is_pinecone_json_decl(r#""indexFullness": 0.1"#));
+        assert!(is_pinecone_json_decl(r#""indexFullness": 1"#));
+        assert!(is_pinecone_json_decl(r#""deletion_protection": "enabled""#));
+        assert!(is_pinecone_json_decl(
+            r#""deletion_protection": "disabled""#
+        ));
+        assert!(is_pinecone_json_decl(r#""vector_type": "dense""#));
+        assert!(is_pinecone_json_decl(r#""vector_type": "sparse""#));
+        // Distinctive neighbours stay out of this scanner.
+        assert!(!is_pinecone_json_decl(r#""nearVector": {"#));
+        assert!(is_weaviate_json_decl(r#""nearVector": {"#));
+        assert!(!is_pinecone_json_decl(r#""vectorIndexType": "hnsw""#));
+        assert!(is_weaviate_json_decl(r#""vectorIndexType": "hnsw""#));
+        assert!(!is_pinecone_json_decl(r#""tokenization": "word""#));
+        assert!(is_weaviate_json_decl(r#""tokenization": "word""#));
+        assert!(!is_pinecone_json_decl(r#""vectors_count": 100"#));
+        assert!(is_qdrant_json_decl(r#""vectors_count": 100"#));
+        assert!(!is_pinecone_json_decl(r#""score_threshold": 0.5"#));
+        assert!(is_qdrant_json_decl(r#""score_threshold": 0.5"#));
+        assert!(!is_pinecone_json_decl(r#""processingTimeMS": 12"#));
+        assert!(is_algolia_json_decl(r#""processingTimeMS": 12"#));
+        assert!(!is_pinecone_json_decl(r#""processingTimeMs": 12"#));
+        assert!(is_meilisearch_json_decl(r#""processingTimeMs": 12"#));
+        assert!(!is_pinecone_json_decl(r#""search_time_ms": 12"#));
+        assert!(is_typesense_json_decl(r#""search_time_ms": 12"#));
+        assert!(!is_pinecone_json_decl(r#""responseHeader": {"#));
+        assert!(is_solr_json_decl(r#""responseHeader": {"#));
+        assert!(!is_pinecone_json_decl(r#""track_total_hits": true"#));
+        assert!(is_elasticsearch_json_decl(r#""track_total_hits": true"#));
+        assert!(!is_pinecone_json_decl(r#""printWidth": 80"#));
+        assert!(is_prettier_json_decl(r#""printWidth": 80"#));
+        assert!(!is_pinecone_json_decl(r#""basePath": ".""#));
+        assert!(is_karma_json_decl(r#""basePath": ".""#));
+        assert!(line_is_func_like(r#""topK": 10"#));
+        assert!(line_is_func_like(r#""includeMetadata": true"#));
+        assert!(line_is_func_like(r#""includeValues": false"#));
+        assert!(line_is_func_like(r#""sparseValues": {"#));
+        assert!(line_is_func_like(r#""sparseVector": {"#));
+        assert!(line_is_func_like(r#""namespaces": {"#));
+        assert!(line_is_func_like(r#""usage": {"#));
+        assert!(line_is_func_like(r#""totalVectorCount": 0"#));
+        assert!(line_is_func_like(r#""vectorCount": 5"#));
+        assert!(line_is_func_like(r#""upsertedCount": 3"#));
+        assert!(line_is_func_like(r#""readUnits": 5"#));
+        assert!(line_is_func_like(r#""indexFullness": 0.1"#));
+        assert!(line_is_func_like(r#""deletion_protection": "enabled""#));
+        assert!(line_is_func_like(r#""vector_type": "dense""#));
+    }
+
+    #[test]
+    fn pinecone_json_keys_count() {
+        assert!(is_pinecone_json_decl(r#""topK": 0"#));
+        assert!(is_pinecone_json_decl(r#""topK": 10"#));
+        assert!(is_pinecone_json_decl(r#""topK": 10,"#));
+        assert!(is_pinecone_json_decl(r#""topK": 10 // k"#));
+        assert!(!is_pinecone_json_decl(r#""topK": 00"#));
+        assert!(!is_pinecone_json_decl(r#""topK": 01"#));
+        assert!(!is_pinecone_json_decl(r#""topK": true"#));
+        assert!(!is_pinecone_json_decl(r#""topK": {"#));
+        assert!(!is_pinecone_json_decl(r#""topK": "10""#));
+        assert!(is_pinecone_json_decl(r#""includeMetadata": true"#));
+        assert!(is_pinecone_json_decl(r#""includeMetadata": false"#));
+        assert!(is_pinecone_json_decl(r#""includeMetadata": true,"#));
+        assert!(is_pinecone_json_decl(r#""includeMetadata": false // m"#));
+        assert!(!is_pinecone_json_decl(r#""includeMetadata": {"#));
+        assert!(!is_pinecone_json_decl(r#""includeMetadata": 1"#));
+        assert!(is_pinecone_json_decl(r#""includeValues": true"#));
+        assert!(is_pinecone_json_decl(r#""includeValues": false"#));
+        assert!(is_pinecone_json_decl(r#""includeValues": true,"#));
+        assert!(!is_pinecone_json_decl(r#""includeValues": {"#));
+        assert!(is_pinecone_json_decl(r#""sparseValues": {"#));
+        assert!(is_pinecone_json_decl(r#""sparseValues": {,"#));
+        assert!(is_pinecone_json_decl(r#""sparseValues": { // s"#));
+        assert!(!is_pinecone_json_decl(r#""sparseValues": ["#));
+        assert!(!is_pinecone_json_decl(r#""sparseValues": true"#));
+        assert!(is_pinecone_json_decl(r#""sparseVector": {"#));
+        assert!(is_pinecone_json_decl(r#""sparseVector": {,"#));
+        assert!(is_pinecone_json_decl(r#""sparseVector": { // s"#));
+        assert!(!is_pinecone_json_decl(r#""sparseVector": ["#));
+        assert!(is_pinecone_json_decl(r#""namespaces": {"#));
+        assert!(is_pinecone_json_decl(r#""namespaces": {,"#));
+        assert!(is_pinecone_json_decl(r#""namespaces": { // n"#));
+        assert!(!is_pinecone_json_decl(r#""namespaces": ["#));
+        assert!(is_pinecone_json_decl(r#""usage": {"#));
+        assert!(is_pinecone_json_decl(r#""usage": {,"#));
+        assert!(is_pinecone_json_decl(r#""usage": { // u"#));
+        assert!(!is_pinecone_json_decl(r#""usage": ["#));
+        assert!(is_pinecone_json_decl(r#""totalVectorCount": 0"#));
+        assert!(is_pinecone_json_decl(r#""totalVectorCount": 100"#));
+        assert!(is_pinecone_json_decl(r#""totalVectorCount": 100,"#));
+        assert!(!is_pinecone_json_decl(r#""totalVectorCount": 00"#));
+        assert!(!is_pinecone_json_decl(r#""totalVectorCount": 01"#));
+        assert!(!is_pinecone_json_decl(r#""totalVectorCount": true"#));
+        assert!(is_pinecone_json_decl(r#""vectorCount": 0"#));
+        assert!(is_pinecone_json_decl(r#""vectorCount": 5"#));
+        assert!(is_pinecone_json_decl(r#""vectorCount": 5,"#));
+        assert!(!is_pinecone_json_decl(r#""vectorCount": 05"#));
+        assert!(is_pinecone_json_decl(r#""upsertedCount": 0"#));
+        assert!(is_pinecone_json_decl(r#""upsertedCount": 3"#));
+        assert!(is_pinecone_json_decl(r#""upsertedCount": 3,"#));
+        assert!(!is_pinecone_json_decl(r#""upsertedCount": 03"#));
+        assert!(is_pinecone_json_decl(r#""readUnits": 0"#));
+        assert!(is_pinecone_json_decl(r#""readUnits": 5"#));
+        assert!(is_pinecone_json_decl(r#""readUnits": 5,"#));
+        assert!(!is_pinecone_json_decl(r#""readUnits": 05"#));
+        assert!(is_pinecone_json_decl(r#""indexFullness": 0"#));
+        assert!(is_pinecone_json_decl(r#""indexFullness": 0.1"#));
+        assert!(is_pinecone_json_decl(r#""indexFullness": 1"#));
+        assert!(is_pinecone_json_decl(r#""indexFullness": 0.1,"#));
+        assert!(is_pinecone_json_decl(r#""indexFullness": 0.1 // i"#));
+        assert!(!is_pinecone_json_decl(r#""indexFullness": 00"#));
+        assert!(!is_pinecone_json_decl(r#""indexFullness": 01"#));
+        assert!(!is_pinecone_json_decl(r#""indexFullness": 0."#));
+        assert!(!is_pinecone_json_decl(r#""indexFullness": true"#));
+        assert!(!is_pinecone_json_decl(r#""indexFullness": {"#));
+        assert!(!is_pinecone_json_decl(r#""indexFullness": "0.1""#));
+        assert!(is_pinecone_json_decl(r#""deletion_protection": "enabled""#));
+        assert!(is_pinecone_json_decl(
+            r#""deletion_protection": "disabled""#
+        ));
+        assert!(is_pinecone_json_decl(
+            r#""deletion_protection": "enabled","#
+        ));
+        assert!(is_pinecone_json_decl(
+            r#""deletion_protection": "disabled" // d"#
+        ));
+        assert!(!is_pinecone_json_decl(r#""deletion_protection": "on""#));
+        assert!(!is_pinecone_json_decl(r#""deletion_protection": """#));
+        assert!(!is_pinecone_json_decl(r#""deletion_protection": true"#));
+        assert!(!is_pinecone_json_decl(r#""deletion_protection": {"#));
+        assert!(is_pinecone_json_decl(r#""vector_type": "dense""#));
+        assert!(is_pinecone_json_decl(r#""vector_type": "sparse""#));
+        assert!(is_pinecone_json_decl(r#""vector_type": "dense","#));
+        assert!(is_pinecone_json_decl(r#""vector_type": "sparse" // v"#));
+        assert!(!is_pinecone_json_decl(r#""vector_type": "hybrid""#));
+        assert!(!is_pinecone_json_decl(r#""vector_type": """#));
+        assert!(!is_pinecone_json_decl(r#""vector_type": true"#));
+        assert!(!is_pinecone_json_decl(r#""vector_type": {"#));
+        // Incomplete / bare keys stay out.
+        assert!(!is_pinecone_json_decl(r#""topK""#));
+        assert!(!is_pinecone_json_decl(r#""includeMetadata""#));
+        assert!(!is_pinecone_json_decl(r#""includeValues""#));
+        assert!(!is_pinecone_json_decl(r#""sparseValues""#));
+        assert!(!is_pinecone_json_decl(r#""sparseVector""#));
+        assert!(!is_pinecone_json_decl(r#""namespaces""#));
+        assert!(!is_pinecone_json_decl(r#""usage""#));
+        assert!(!is_pinecone_json_decl(r#""totalVectorCount""#));
+        assert!(!is_pinecone_json_decl(r#""vectorCount""#));
+        assert!(!is_pinecone_json_decl(r#""upsertedCount""#));
+        assert!(!is_pinecone_json_decl(r#""readUnits""#));
+        assert!(!is_pinecone_json_decl(r#""indexFullness""#));
+        assert!(!is_pinecone_json_decl(r#""deletion_protection""#));
+        assert!(!is_pinecone_json_decl(r#""vector_type""#));
+        // Generic / neighbouring stay out.
+        assert!(!is_pinecone_json_decl(
+            r#""$schema": "https://json-schema.org/draft/2020-12/schema""#
+        ));
+        assert!(!is_pinecone_json_decl(r#""name": "example-index""#));
+        assert!(!is_pinecone_json_decl(r#""id": "vec-1""#));
+        assert!(!is_pinecone_json_decl(r#""vector": ["#));
+        assert!(!is_pinecone_json_decl(r#""filter": {"#));
+        assert!(!is_pinecone_json_decl(r#""matches": ["#));
+        assert!(!is_pinecone_json_decl(r#""namespace": "ns""#));
+        assert!(!is_pinecone_json_decl(r#""host": "example.pinecone.io""#));
+        assert!(!is_pinecone_json_decl(r#""dimension": 1536"#));
+        assert!(!is_pinecone_json_decl(r#""metric": "cosine""#));
+        assert!(!is_pinecone_json_decl(r#""spec": {"#));
+        assert!(!is_pinecone_json_decl(r#""status": {"#));
+        assert!(!is_pinecone_json_decl(r#""score": 0.9"#));
+        assert!(!is_pinecone_json_decl(r#""metadata": {"#));
+        assert!(!is_pinecone_json_decl(r#""nearVector": {"#));
+        assert!(is_weaviate_json_decl(r#""nearVector": {"#));
+        assert!(!is_pinecone_json_decl(r#""creationTimeUnix": 0"#));
+        assert!(is_weaviate_json_decl(r#""creationTimeUnix": 0"#));
+        assert!(!is_pinecone_json_decl(r#""vectors_count": 100"#));
+        assert!(is_qdrant_json_decl(r#""vectors_count": 100"#));
+        assert!(!is_pinecone_json_decl(r#""hnsw_config": {"#));
+        assert!(is_qdrant_json_decl(r#""hnsw_config": {"#));
+        assert!(!is_pinecone_json_decl(r#""processingTimeMS": 12"#));
+        assert!(is_algolia_json_decl(r#""processingTimeMS": 12"#));
+        assert!(!is_pinecone_json_decl(r#""nbPages": 20"#));
+        assert!(is_algolia_json_decl(r#""nbPages": 20"#));
+        assert!(!is_pinecone_json_decl(r#""processingTimeMs": 12"#));
+        assert!(is_meilisearch_json_decl(r#""processingTimeMs": 12"#));
+        assert!(!is_pinecone_json_decl(r#""facetDistribution": {"#));
+        assert!(is_meilisearch_json_decl(r#""facetDistribution": {"#));
+        assert!(!is_pinecone_json_decl(r#""search_time_ms": 12"#));
+        assert!(is_typesense_json_decl(r#""search_time_ms": 12"#));
+        assert!(!is_pinecone_json_decl(r#""out_of": 100"#));
+        assert!(is_typesense_json_decl(r#""out_of": 100"#));
+        assert!(!is_pinecone_json_decl(r#""responseHeader": {"#));
+        assert!(is_solr_json_decl(r#""responseHeader": {"#));
+        assert!(!is_pinecone_json_decl(r#""numFound": 10"#));
+        assert!(is_solr_json_decl(r#""numFound": 10"#));
+        assert!(!is_pinecone_json_decl(r#""track_total_hits": true"#));
+        assert!(is_elasticsearch_json_decl(r#""track_total_hits": true"#));
+        assert!(!is_pinecone_json_decl(r#""min_score": 0.5"#));
+        assert!(is_elasticsearch_json_decl(r#""min_score": 0.5"#));
+        assert!(!is_pinecone_json_decl(r#""printWidth": 80"#));
+        assert!(is_prettier_json_decl(r#""printWidth": 80"#));
+        assert!(!is_pinecone_json_decl(r#""basePath": ".""#));
+        assert!(is_karma_json_decl(r#""basePath": ".""#));
+        assert!(line_is_func_like(r#""topK": 10"#));
+        assert!(line_is_func_like(r#""includeMetadata": true"#));
+        assert!(line_is_func_like(r#""includeValues": false"#));
+        assert!(line_is_func_like(r#""sparseValues": {"#));
+        assert!(line_is_func_like(r#""sparseVector": {"#));
+        assert!(line_is_func_like(r#""namespaces": {"#));
+        assert!(line_is_func_like(r#""usage": {"#));
+        assert!(line_is_func_like(r#""totalVectorCount": 0"#));
+        assert!(line_is_func_like(r#""vectorCount": 5"#));
+        assert!(line_is_func_like(r#""upsertedCount": 3"#));
+        assert!(line_is_func_like(r#""readUnits": 5"#));
+        assert!(line_is_func_like(r#""indexFullness": 0.1"#));
+        assert!(line_is_func_like(r#""deletion_protection": "disabled""#));
+        assert!(line_is_func_like(r#""vector_type": "sparse""#));
     }
 
     #[test]
