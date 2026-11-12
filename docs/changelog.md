@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.821] — 2026-11-13
+
+View:
+
+- **Function List** lists Doofinder Search API request / response JSON keys: `"hashid": "…"`, `"query_name": "match_and"` / `"match_or"` / `"fuzzy"`, `"custom_results_id": 0` / `5`, `"dynamic_boosting_rule_id": 0` / `3`, `"rpp": 0` / `24`, `"dfid": "…"`, `"filter_execution": "and"` / `"or"`, `"auto_filters": true` / `false`, `"excluded_results": true` / `false`, `"custom_results": true` / `false`, `"top_facet": true` / `false`, `"with_variants": [`, `"skip_auto_filters": [`, `"skip_top_facet": [`, `"indices": [`, `"df_variants": [`, `"df_grouping_id": "…"`. Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing `:` stay out. Generic `"$schema"` / `"name"` / `"id"` / `"q"` / `"query"` / `"filter"` / `"filters"` / `"limit"` / `"offset"` / `"page"` / `"results"` / `"facets"` / `"session_id"` / `"user_id"` / `"total"` / `"count"` / Klevu `"recordQueries"` / `"typeOfRequest"` / Bloomreach Discovery `"domain_key"` / `"_br_uid_2"` / `"request_type"` / Constructor.io `"result_sources"` / `"num_results_per_page"` / Coveo `"searchHub"` / `"organizationId"` / Azure AI Search `"@odata.count"` / `"searchMode"` / Vespa `"yql"` / `"searchChain"` / Marqo `"searchableAttributes"` / `"searchMethod"` / LanceDB `"vector_column_name"` / `"nprobes"` / Milvus `"annsField"` / Chroma `"n_results"` / Pinecone `"topK"` / Weaviate `"nearVector"` / Qdrant `"vectors_count"` / Algolia `"processingTimeMS"` / Meilisearch `"processingTimeMs"` / Typesense `"search_time_ms"` / Solr `"responseHeader"` / Elasticsearch `"track_total_hits"` / prettier `"printWidth"` / karma `"basePath"` stay out. `"query_name"` / `"filter_execution"` only match their Doofinder enums. String keys require a non-empty quoted string. Bool keys only match `true` / `false`. Numeric `"custom_results_id"` / `"dynamic_boosting_rule_id"` / `"rpp"` reject leading zeros beyond `0`.
+
 ## [0.3.820] — 2026-11-12
 
 View:

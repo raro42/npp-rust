@@ -1303,4 +1303,6 @@
 
 009 keep: Function List Bloomreach Discovery domain_key/_br_uid_2/request_id/request_type/search_type/autoCorrectQuery/keywordRedirect/did_you_mean/category_map/efq/widget_id/widget_type/view_id/cat_id/ref_url (v0.3.819)
 
+009 keep: Function List Doofinder hashid/query_name/custom_results_id/dynamic_boosting_rule_id/rpp/dfid/filter_execution/auto_filters/excluded_results/custom_results/top_facet/with_variants/skip_auto_filters/skip_top_facet/indices/df_variants/df_grouping_id (v0.3.821)
+
 009 keep: Function List Klevu recordQueries/typeOfRequest/typeOfRecords/typeOfSearch/totalResultsFound/nextOffset/noOfResults/apiKeys/qTime/groupByFields/filtersToReturn/searchPrefs/priceFieldSuffix/kmcConfig/queryResults (v0.3.820)

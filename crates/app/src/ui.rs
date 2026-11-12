@@ -32488,6 +32488,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_constructor_io_json_decl(s)
             || is_bloomreach_json_decl(s)
             || is_klevu_json_decl(s)
+            || is_doofinder_json_decl(s)
             || is_gomod_decl(s)
             || is_gemfile_decl(s)
             || is_brewfile_decl(s)
@@ -32886,6 +32887,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_constructor_io_json_decl(s)
         || is_bloomreach_json_decl(s)
         || is_klevu_json_decl(s)
+        || is_doofinder_json_decl(s)
         || is_gomod_decl(s)
         || is_gemfile_decl(s)
         || is_brewfile_decl(s)
@@ -65162,7 +65164,8 @@ fn bloomreach_json_search_type_and_tail_ok(after_colon: &str) -> bool {
 /// `"annsField"` / Chroma `"n_results"` / Pinecone `"topK"` / Weaviate
 /// `"nearVector"` / Qdrant `"vectors_count"` / Algolia `"processingTimeMS"` /
 /// Meilisearch `"processingTimeMs"` / Typesense `"search_time_ms"` / Solr
-/// `"responseHeader"` / Elasticsearch `"track_total_hits"` / prettier
+/// `"responseHeader"` / Elasticsearch `"track_total_hits"` / Doofinder
+/// `"hashid"` / `"query_name"` / `"custom_results_id"` / prettier
 /// `"printWidth"` / karma `"basePath"` stay out.
 fn is_klevu_json_decl(s: &str) -> bool {
     let s = s.trim_start();
@@ -65291,6 +65294,184 @@ fn klevu_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool {
     if !matches!(
         key,
         "totalResultsFound" | "nextOffset" | "noOfResults" | "qTime"
+    ) {
+        return false;
+    }
+    let bytes = after_colon.as_bytes();
+    let mut i = 0usize;
+    if i >= bytes.len() || !bytes[i].is_ascii_digit() {
+        return false;
+    }
+    if bytes[i] == b'0' {
+        i += 1;
+        if i < bytes.len() && bytes[i].is_ascii_digit() {
+            return false;
+        }
+    } else {
+        while i < bytes.len() && bytes[i].is_ascii_digit() {
+            i += 1;
+        }
+    }
+    package_json_tail_ok(&after_colon[i..])
+}
+
+/// Doofinder Search API request / response JSON keys:
+/// `"hashid": "…"`, `"query_name": "match_and"` / `"match_or"` / `"fuzzy"`,
+/// `"custom_results_id": 0` / `5`, `"dynamic_boosting_rule_id": 0` / `3`,
+/// `"rpp": 0` / `24`, `"dfid": "…"`, `"filter_execution": "and"` / `"or"`,
+/// `"auto_filters": true` / `false`, `"excluded_results": true` / `false`,
+/// `"custom_results": true` / `false`, `"top_facet": true` / `false`,
+/// `"with_variants": [`, `"skip_auto_filters": [`, `"skip_top_facet": [`,
+/// `"indices": [`, `"df_variants": [`, `"df_grouping_id": "…"`.
+/// Optional trailing `,` and `//` / `/*` comment. Incomplete quotes /
+/// missing `:` stay out. Generic `"$schema"` / `"name"` / `"id"` / `"q"` /
+/// `"query"` / `"filter"` / `"filters"` / `"limit"` / `"offset"` / `"page"` /
+/// `"results"` / `"facets"` / `"session_id"` / `"user_id"` / `"total"` /
+/// `"count"` / Klevu `"recordQueries"` / `"typeOfRequest"` / Bloomreach
+/// Discovery `"domain_key"` / `"_br_uid_2"` / `"request_type"` /
+/// Constructor.io `"result_sources"` / `"num_results_per_page"` / Coveo
+/// `"searchHub"` / `"organizationId"` / Azure AI Search `"@odata.count"` /
+/// `"searchMode"` / Vespa `"yql"` / `"searchChain"` / Marqo
+/// `"searchableAttributes"` / `"searchMethod"` / LanceDB
+/// `"vector_column_name"` / `"nprobes"` / Milvus `"annsField"` / Chroma
+/// `"n_results"` / Pinecone `"topK"` / Weaviate `"nearVector"` / Qdrant
+/// `"vectors_count"` / Algolia `"processingTimeMS"` / Meilisearch
+/// `"processingTimeMs"` / Typesense `"search_time_ms"` / Solr
+/// `"responseHeader"` / Elasticsearch `"track_total_hits"` / prettier
+/// `"printWidth"` / karma `"basePath"` stay out.
+fn is_doofinder_json_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    let Some(rest) = s.strip_prefix('"') else {
+        return false;
+    };
+    let Some(end) = rest.find('"') else {
+        return false;
+    };
+    let key = &rest[..end];
+    if !doofinder_json_key_ok(key) {
+        return false;
+    }
+    let after_key = rest[end + 1..].trim_start();
+    let Some(after_colon) = after_key.strip_prefix(':') else {
+        return false;
+    };
+    let after_colon = after_colon.trim_start();
+    doofinder_json_value_and_tail_ok(key, after_colon)
+}
+
+fn doofinder_json_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "hashid"
+            | "query_name"
+            | "custom_results_id"
+            | "dynamic_boosting_rule_id"
+            | "rpp"
+            | "dfid"
+            | "filter_execution"
+            | "auto_filters"
+            | "excluded_results"
+            | "custom_results"
+            | "top_facet"
+            | "with_variants"
+            | "skip_auto_filters"
+            | "skip_top_facet"
+            | "indices"
+            | "df_variants"
+            | "df_grouping_id"
+    )
+}
+
+fn doofinder_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool {
+    let bytes = after_colon.as_bytes();
+    let Some(first) = bytes.first().copied() else {
+        return false;
+    };
+    match first {
+        b'[' => {
+            if !matches!(
+                key,
+                "with_variants"
+                    | "skip_auto_filters"
+                    | "skip_top_facet"
+                    | "indices"
+                    | "df_variants"
+            ) {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[1..])
+        }
+        b'"' => match key {
+            "hashid" | "dfid" | "df_grouping_id" => {
+                doofinder_json_nonempty_string_and_tail_ok(after_colon)
+            }
+            "query_name" => doofinder_json_query_name_and_tail_ok(after_colon),
+            "filter_execution" => doofinder_json_filter_execution_and_tail_ok(after_colon),
+            _ => false,
+        },
+        b't' | b'f' => doofinder_json_bool_and_tail_ok(key, after_colon),
+        b'0'..=b'9' => doofinder_json_uint_and_tail_ok(key, after_colon),
+        _ => false,
+    }
+}
+
+fn doofinder_json_nonempty_string_and_tail_ok(after_colon: &str) -> bool {
+    let rest = &after_colon[1..];
+    let Some(end) = rest.find('"') else {
+        return false;
+    };
+    let value = &rest[..end];
+    if value.is_empty() || value.contains('\n') {
+        return false;
+    }
+    package_json_tail_ok(&rest[end + 1..])
+}
+
+fn doofinder_json_query_name_and_tail_ok(after_colon: &str) -> bool {
+    let rest = &after_colon[1..];
+    let Some(end) = rest.find('"') else {
+        return false;
+    };
+    let value = &rest[..end];
+    if !matches!(value, "match_and" | "match_or" | "fuzzy") {
+        return false;
+    }
+    package_json_tail_ok(&rest[end + 1..])
+}
+
+fn doofinder_json_filter_execution_and_tail_ok(after_colon: &str) -> bool {
+    let rest = &after_colon[1..];
+    let Some(end) = rest.find('"') else {
+        return false;
+    };
+    let value = &rest[..end];
+    if !matches!(value, "and" | "or") {
+        return false;
+    }
+    package_json_tail_ok(&rest[end + 1..])
+}
+
+fn doofinder_json_bool_and_tail_ok(key: &str, after_colon: &str) -> bool {
+    if !matches!(
+        key,
+        "auto_filters" | "excluded_results" | "custom_results" | "top_facet"
+    ) {
+        return false;
+    }
+    let rest = if let Some(rest) = after_colon.strip_prefix("true") {
+        rest
+    } else if let Some(rest) = after_colon.strip_prefix("false") {
+        rest
+    } else {
+        return false;
+    };
+    package_json_tail_ok(rest)
+}
+
+fn doofinder_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool {
+    if !matches!(
+        key,
+        "custom_results_id" | "dynamic_boosting_rule_id" | "rpp"
     ) {
         return false;
     }
@@ -95941,27 +96122,28 @@ mod func_like_line_tests {
         is_default_grub_decl, is_deno_json_decl, is_deny_toml_decl, is_desktop_entry_decl,
         is_detox_json_decl, is_devcontainer_json_decl, is_dhcpd_decl, is_dioxus_toml_decl,
         is_dist_toml_decl, is_doc8_ini_decl, is_docformatter_ini_decl, is_docfx_json_decl,
-        is_dovecot_decl, is_dprint_json_decl, is_dracut_conf_decl, is_eas_json_decl,
-        is_editorconfig_decl, is_elasticsearch_json_decl, is_electron_builder_json_decl,
-        is_electron_forge_json_decl, is_esdoc_json_decl, is_eslint_json_decl, is_ethers_file_decl,
-        is_expo_json_decl, is_fail2ban_conf_decl, is_firebase_json_decl, is_flake8_ini_decl,
-        is_fluent_bit_decl, is_fly_toml_decl, is_flynt_ini_decl, is_freeradius_decl, is_fstab_decl,
-        is_gdm_conf_decl, is_gemfile_decl, is_gitconfig_decl, is_gomod_decl,
-        is_grafana_alerting_json_decl, is_grafana_dashboard_json_decl,
-        is_grafana_datasource_json_decl, is_grafana_ini_decl, is_haproxy_decl, is_har_json_decl,
-        is_hatch_toml_decl, is_hoppscotch_json_decl, is_hosts_access_decl, is_hosts_file_decl,
-        is_hoverfly_json_decl, is_hypothesis_ini_decl, is_importlinter_ini_decl,
-        is_insomnia_json_decl, is_interrogate_ini_decl, is_ionic_json_decl, is_ipsec_conf_decl,
-        is_isort_ini_decl, is_jaeger_json_decl, is_jasmine_json_decl, is_jest_json_decl,
-        is_jsdoc_json_decl, is_karma_json_decl, is_keepalived_decl, is_klevu_json_decl,
-        is_knip_json_decl, is_krb5_conf_decl, is_lancedb_json_decl, is_lerna_json_decl,
-        is_lightdm_conf_decl, is_limits_conf_decl, is_lint_staged_json_decl, is_locale_conf_decl,
-        is_login_defs_decl, is_logrotate_decl, is_loki_json_decl, is_machine_info_decl,
-        is_makepkg_conf_decl, is_marqo_json_decl, is_mdbook_toml_decl, is_meilisearch_json_decl,
-        is_milvus_json_decl, is_mintlify_json_decl, is_mise_toml_decl, is_mkinitcpio_conf_decl,
-        is_mocha_json_decl, is_mockoon_json_decl, is_mockserver_json_decl, is_modprobe_conf_decl,
-        is_mountebank_json_decl, is_mutants_toml_decl, is_mypy_ini_decl, is_mysql_cnf_decl,
-        is_named_conf_decl, is_nest_cli_json_decl, is_netlify_toml_decl, is_networks_file_decl,
+        is_doofinder_json_decl, is_dovecot_decl, is_dprint_json_decl, is_dracut_conf_decl,
+        is_eas_json_decl, is_editorconfig_decl, is_elasticsearch_json_decl,
+        is_electron_builder_json_decl, is_electron_forge_json_decl, is_esdoc_json_decl,
+        is_eslint_json_decl, is_ethers_file_decl, is_expo_json_decl, is_fail2ban_conf_decl,
+        is_firebase_json_decl, is_flake8_ini_decl, is_fluent_bit_decl, is_fly_toml_decl,
+        is_flynt_ini_decl, is_freeradius_decl, is_fstab_decl, is_gdm_conf_decl, is_gemfile_decl,
+        is_gitconfig_decl, is_gomod_decl, is_grafana_alerting_json_decl,
+        is_grafana_dashboard_json_decl, is_grafana_datasource_json_decl, is_grafana_ini_decl,
+        is_haproxy_decl, is_har_json_decl, is_hatch_toml_decl, is_hoppscotch_json_decl,
+        is_hosts_access_decl, is_hosts_file_decl, is_hoverfly_json_decl, is_hypothesis_ini_decl,
+        is_importlinter_ini_decl, is_insomnia_json_decl, is_interrogate_ini_decl,
+        is_ionic_json_decl, is_ipsec_conf_decl, is_isort_ini_decl, is_jaeger_json_decl,
+        is_jasmine_json_decl, is_jest_json_decl, is_jsdoc_json_decl, is_karma_json_decl,
+        is_keepalived_decl, is_klevu_json_decl, is_knip_json_decl, is_krb5_conf_decl,
+        is_lancedb_json_decl, is_lerna_json_decl, is_lightdm_conf_decl, is_limits_conf_decl,
+        is_lint_staged_json_decl, is_locale_conf_decl, is_login_defs_decl, is_logrotate_decl,
+        is_loki_json_decl, is_machine_info_decl, is_makepkg_conf_decl, is_marqo_json_decl,
+        is_mdbook_toml_decl, is_meilisearch_json_decl, is_milvus_json_decl, is_mintlify_json_decl,
+        is_mise_toml_decl, is_mkinitcpio_conf_decl, is_mocha_json_decl, is_mockoon_json_decl,
+        is_mockserver_json_decl, is_modprobe_conf_decl, is_mountebank_json_decl,
+        is_mutants_toml_decl, is_mypy_ini_decl, is_mysql_cnf_decl, is_named_conf_decl,
+        is_nest_cli_json_decl, is_netlify_toml_decl, is_networks_file_decl,
         is_neutralino_json_decl, is_nextest_toml_decl, is_nftables_decl, is_nginx_conf_decl,
         is_nightwatch_json_decl, is_nixpacks_toml_decl, is_nm_connection_decl, is_npmrc_decl,
         is_nsswitch_conf_decl, is_nx_json_decl, is_nyc_json_decl, is_openapi_json_decl,
@@ -133206,6 +133388,14 @@ mod func_like_line_tests {
         assert!(is_prettier_json_decl(r#""printWidth": 80"#));
         assert!(!is_klevu_json_decl(r#""basePath": ".""#));
         assert!(is_karma_json_decl(r#""basePath": ".""#));
+        assert!(!is_klevu_json_decl(
+            r#""hashid": "d8fdeab7fce96a19d3fc7b0ca7a1e98b""#
+        ));
+        assert!(is_doofinder_json_decl(
+            r#""hashid": "d8fdeab7fce96a19d3fc7b0ca7a1e98b""#
+        ));
+        assert!(!is_klevu_json_decl(r#""query_name": "fuzzy""#));
+        assert!(is_doofinder_json_decl(r#""query_name": "fuzzy""#));
         assert!(line_is_func_like(r#""recordQueries": ["#));
         assert!(line_is_func_like(r#""typeOfRequest": "SEARCH""#));
         assert!(line_is_func_like(r#""typeOfRecords": ["#));
@@ -133406,6 +133596,16 @@ mod func_like_line_tests {
         assert!(is_prettier_json_decl(r#""printWidth": 80"#));
         assert!(!is_klevu_json_decl(r#""basePath": ".""#));
         assert!(is_karma_json_decl(r#""basePath": ".""#));
+        assert!(!is_klevu_json_decl(
+            r#""hashid": "d8fdeab7fce96a19d3fc7b0ca7a1e98b""#
+        ));
+        assert!(is_doofinder_json_decl(
+            r#""hashid": "d8fdeab7fce96a19d3fc7b0ca7a1e98b""#
+        ));
+        assert!(!is_klevu_json_decl(r#""query_name": "fuzzy""#));
+        assert!(is_doofinder_json_decl(r#""query_name": "fuzzy""#));
+        assert!(!is_klevu_json_decl(r#""custom_results_id": 5"#));
+        assert!(is_doofinder_json_decl(r#""custom_results_id": 5"#));
         assert!(line_is_func_like(r#""recordQueries": ["#));
         assert!(line_is_func_like(r#""typeOfRequest": "SEARCH""#));
         assert!(line_is_func_like(r#""typeOfRecords": ["#));
@@ -133421,6 +133621,323 @@ mod func_like_line_tests {
         assert!(line_is_func_like(r#""priceFieldSuffix": "GBP""#));
         assert!(line_is_func_like(r#""kmcConfig": {"#));
         assert!(line_is_func_like(r#""queryResults": ["#));
+    }
+
+    #[test]
+    fn doofinder_json_keys_smoke() {
+        assert!(is_doofinder_json_decl(
+            r#""hashid": "d8fdeab7fce96a19d3fc7b0ca7a1e98b""#
+        ));
+        assert!(is_doofinder_json_decl(r#""query_name": "match_and""#));
+        assert!(is_doofinder_json_decl(r#""query_name": "match_or""#));
+        assert!(is_doofinder_json_decl(r#""query_name": "fuzzy""#));
+        assert!(is_doofinder_json_decl(r#""custom_results_id": 5"#));
+        assert!(is_doofinder_json_decl(r#""dynamic_boosting_rule_id": 3"#));
+        assert!(is_doofinder_json_decl(r#""rpp": 24"#));
+        assert!(is_doofinder_json_decl(
+            r#""dfid": "1234567890abcdef1234567890abcdef@product@1234567890abcdef""#
+        ));
+        assert!(is_doofinder_json_decl(r#""filter_execution": "and""#));
+        assert!(is_doofinder_json_decl(r#""filter_execution": "or""#));
+        assert!(is_doofinder_json_decl(r#""auto_filters": true"#));
+        assert!(is_doofinder_json_decl(r#""excluded_results": false"#));
+        assert!(is_doofinder_json_decl(r#""custom_results": true"#));
+        assert!(is_doofinder_json_decl(r#""top_facet": false"#));
+        assert!(is_doofinder_json_decl(r#""with_variants": ["#));
+        assert!(is_doofinder_json_decl(r#""skip_auto_filters": ["#));
+        assert!(is_doofinder_json_decl(r#""skip_top_facet": ["#));
+        assert!(is_doofinder_json_decl(r#""indices": ["#));
+        assert!(is_doofinder_json_decl(r#""df_variants": ["#));
+        assert!(is_doofinder_json_decl(r#""df_grouping_id": "group-1""#));
+        assert!(!is_doofinder_json_decl(r#""recordQueries": ["#));
+        assert!(is_klevu_json_decl(r#""recordQueries": ["#));
+        assert!(!is_doofinder_json_decl(r#""typeOfRequest": "SEARCH""#));
+        assert!(is_klevu_json_decl(r#""typeOfRequest": "SEARCH""#));
+        assert!(!is_doofinder_json_decl(r#""domain_key": "example_com""#));
+        assert!(is_bloomreach_json_decl(r#""domain_key": "example_com""#));
+        assert!(!is_doofinder_json_decl(r#""result_sources": {"#));
+        assert!(is_constructor_io_json_decl(r#""result_sources": {"#));
+        assert!(!is_doofinder_json_decl(r#""searchHub": "default""#));
+        assert!(is_coveo_json_decl(r#""searchHub": "default""#));
+        assert!(!is_doofinder_json_decl(r#""@odata.count": 10"#));
+        assert!(is_azure_search_json_decl(r#""@odata.count": 10"#));
+        assert!(!is_doofinder_json_decl(
+            r#""yql": "select * from sources * where true""#
+        ));
+        assert!(is_vespa_json_decl(
+            r#""yql": "select * from sources * where true""#
+        ));
+        assert!(!is_doofinder_json_decl(r#""searchableAttributes": ["#));
+        assert!(is_marqo_json_decl(r#""searchableAttributes": ["#));
+        assert!(!is_doofinder_json_decl(r#""vector_column_name": "vec""#));
+        assert!(is_lancedb_json_decl(r#""vector_column_name": "vec""#));
+        assert!(!is_doofinder_json_decl(r#""annsField": "vec""#));
+        assert!(is_milvus_json_decl(r#""annsField": "vec""#));
+        assert!(!is_doofinder_json_decl(r#""n_results": 10"#));
+        assert!(is_chroma_json_decl(r#""n_results": 10"#));
+        assert!(!is_doofinder_json_decl(r#""topK": 10"#));
+        assert!(is_pinecone_json_decl(r#""topK": 10"#));
+        assert!(!is_doofinder_json_decl(r#""nearVector": {"#));
+        assert!(is_weaviate_json_decl(r#""nearVector": {"#));
+        assert!(!is_doofinder_json_decl(r#""vectors_count": 100"#));
+        assert!(is_qdrant_json_decl(r#""vectors_count": 100"#));
+        assert!(!is_doofinder_json_decl(r#""processingTimeMS": 12"#));
+        assert!(is_algolia_json_decl(r#""processingTimeMS": 12"#));
+        assert!(!is_doofinder_json_decl(r#""processingTimeMs": 12"#));
+        assert!(is_meilisearch_json_decl(r#""processingTimeMs": 12"#));
+        assert!(!is_doofinder_json_decl(r#""search_time_ms": 12"#));
+        assert!(is_typesense_json_decl(r#""search_time_ms": 12"#));
+        assert!(!is_doofinder_json_decl(r#""responseHeader": {"#));
+        assert!(is_solr_json_decl(r#""responseHeader": {"#));
+        assert!(!is_doofinder_json_decl(r#""track_total_hits": true"#));
+        assert!(is_elasticsearch_json_decl(r#""track_total_hits": true"#));
+        assert!(!is_doofinder_json_decl(r#""printWidth": 80"#));
+        assert!(is_prettier_json_decl(r#""printWidth": 80"#));
+        assert!(!is_doofinder_json_decl(r#""basePath": ".""#));
+        assert!(is_karma_json_decl(r#""basePath": ".""#));
+        assert!(line_is_func_like(
+            r#""hashid": "d8fdeab7fce96a19d3fc7b0ca7a1e98b""#
+        ));
+        assert!(line_is_func_like(r#""query_name": "fuzzy""#));
+        assert!(line_is_func_like(r#""custom_results_id": 5"#));
+        assert!(line_is_func_like(r#""dynamic_boosting_rule_id": 3"#));
+        assert!(line_is_func_like(r#""rpp": 24"#));
+        assert!(line_is_func_like(
+            r#""dfid": "1234567890abcdef1234567890abcdef@product@1234567890abcdef""#
+        ));
+        assert!(line_is_func_like(r#""filter_execution": "and""#));
+        assert!(line_is_func_like(r#""auto_filters": true"#));
+        assert!(line_is_func_like(r#""excluded_results": false"#));
+        assert!(line_is_func_like(r#""custom_results": true"#));
+        assert!(line_is_func_like(r#""top_facet": false"#));
+        assert!(line_is_func_like(r#""with_variants": ["#));
+        assert!(line_is_func_like(r#""skip_auto_filters": ["#));
+        assert!(line_is_func_like(r#""skip_top_facet": ["#));
+        assert!(line_is_func_like(r#""indices": ["#));
+        assert!(line_is_func_like(r#""df_variants": ["#));
+        assert!(line_is_func_like(r#""df_grouping_id": "group-1""#));
+    }
+
+    #[test]
+    fn doofinder_json_keys_count() {
+        assert!(is_doofinder_json_decl(
+            r#""hashid": "d8fdeab7fce96a19d3fc7b0ca7a1e98b""#
+        ));
+        assert!(is_doofinder_json_decl(
+            r#""hashid": "d8fdeab7fce96a19d3fc7b0ca7a1e98b","#
+        ));
+        assert!(is_doofinder_json_decl(
+            r#""hashid": "d8fdeab7fce96a19d3fc7b0ca7a1e98b" // h"#
+        ));
+        assert!(!is_doofinder_json_decl(r#""hashid": {"#));
+        assert!(!is_doofinder_json_decl(r#""hashid": """#));
+        assert!(!is_doofinder_json_decl(r#""hashid": true"#));
+        assert!(is_doofinder_json_decl(r#""query_name": "match_and""#));
+        assert!(is_doofinder_json_decl(r#""query_name": "match_or""#));
+        assert!(is_doofinder_json_decl(r#""query_name": "fuzzy""#));
+        assert!(is_doofinder_json_decl(r#""query_name": "fuzzy","#));
+        assert!(is_doofinder_json_decl(r#""query_name": "fuzzy" // q"#));
+        assert!(!is_doofinder_json_decl(r#""query_name": "Match_and""#));
+        assert!(!is_doofinder_json_decl(r#""query_name": "exact""#));
+        assert!(!is_doofinder_json_decl(r#""query_name": {"#));
+        assert!(!is_doofinder_json_decl(r#""query_name": """#));
+        assert!(is_doofinder_json_decl(r#""custom_results_id": 0"#));
+        assert!(is_doofinder_json_decl(r#""custom_results_id": 5"#));
+        assert!(is_doofinder_json_decl(r#""custom_results_id": 5,"#));
+        assert!(is_doofinder_json_decl(r#""custom_results_id": 5 // c"#));
+        assert!(!is_doofinder_json_decl(r#""custom_results_id": 00"#));
+        assert!(!is_doofinder_json_decl(r#""custom_results_id": 01"#));
+        assert!(!is_doofinder_json_decl(r#""custom_results_id": true"#));
+        assert!(!is_doofinder_json_decl(r#""custom_results_id": {"#));
+        assert!(!is_doofinder_json_decl(r#""custom_results_id": "5""#));
+        assert!(is_doofinder_json_decl(r#""dynamic_boosting_rule_id": 0"#));
+        assert!(is_doofinder_json_decl(r#""dynamic_boosting_rule_id": 3"#));
+        assert!(is_doofinder_json_decl(r#""dynamic_boosting_rule_id": 3,"#));
+        assert!(!is_doofinder_json_decl(r#""dynamic_boosting_rule_id": 00"#));
+        assert!(!is_doofinder_json_decl(
+            r#""dynamic_boosting_rule_id": true"#
+        ));
+        assert!(is_doofinder_json_decl(r#""rpp": 0"#));
+        assert!(is_doofinder_json_decl(r#""rpp": 24"#));
+        assert!(is_doofinder_json_decl(r#""rpp": 24,"#));
+        assert!(!is_doofinder_json_decl(r#""rpp": 00"#));
+        assert!(!is_doofinder_json_decl(r#""rpp": true"#));
+        assert!(!is_doofinder_json_decl(r#""rpp": "24""#));
+        assert!(is_doofinder_json_decl(
+            r#""dfid": "1234567890abcdef1234567890abcdef@product@1234567890abcdef""#
+        ));
+        assert!(is_doofinder_json_decl(
+            r#""dfid": "1234567890abcdef1234567890abcdef@product@1234567890abcdef","#
+        ));
+        assert!(!is_doofinder_json_decl(r#""dfid": {"#));
+        assert!(!is_doofinder_json_decl(r#""dfid": """#));
+        assert!(!is_doofinder_json_decl(r#""dfid": true"#));
+        assert!(is_doofinder_json_decl(r#""filter_execution": "and""#));
+        assert!(is_doofinder_json_decl(r#""filter_execution": "or""#));
+        assert!(is_doofinder_json_decl(r#""filter_execution": "and","#));
+        assert!(!is_doofinder_json_decl(r#""filter_execution": "AND""#));
+        assert!(!is_doofinder_json_decl(r#""filter_execution": "xor""#));
+        assert!(!is_doofinder_json_decl(r#""filter_execution": {"#));
+        assert!(!is_doofinder_json_decl(r#""filter_execution": """#));
+        assert!(is_doofinder_json_decl(r#""auto_filters": true"#));
+        assert!(is_doofinder_json_decl(r#""auto_filters": false"#));
+        assert!(is_doofinder_json_decl(r#""auto_filters": true,"#));
+        assert!(is_doofinder_json_decl(r#""auto_filters": true // a"#));
+        assert!(!is_doofinder_json_decl(r#""auto_filters": ["#));
+        assert!(!is_doofinder_json_decl(r#""auto_filters": "true""#));
+        assert!(!is_doofinder_json_decl(r#""auto_filters": 1"#));
+        assert!(is_doofinder_json_decl(r#""excluded_results": true"#));
+        assert!(is_doofinder_json_decl(r#""excluded_results": false"#));
+        assert!(!is_doofinder_json_decl(r#""excluded_results": ["#));
+        assert!(is_doofinder_json_decl(r#""custom_results": true"#));
+        assert!(is_doofinder_json_decl(r#""custom_results": false"#));
+        assert!(!is_doofinder_json_decl(r#""custom_results": ["#));
+        assert!(is_doofinder_json_decl(r#""top_facet": true"#));
+        assert!(is_doofinder_json_decl(r#""top_facet": false"#));
+        assert!(!is_doofinder_json_decl(r#""top_facet": ["#));
+        assert!(is_doofinder_json_decl(r#""with_variants": ["#));
+        assert!(is_doofinder_json_decl(r#""with_variants": [,"#));
+        assert!(is_doofinder_json_decl(r#""with_variants": [ // w"#));
+        assert!(!is_doofinder_json_decl(r#""with_variants": {"#));
+        assert!(!is_doofinder_json_decl(r#""with_variants": true"#));
+        assert!(is_doofinder_json_decl(r#""skip_auto_filters": ["#));
+        assert!(is_doofinder_json_decl(r#""skip_auto_filters": [,"#));
+        assert!(!is_doofinder_json_decl(r#""skip_auto_filters": {"#));
+        assert!(!is_doofinder_json_decl(r#""skip_auto_filters": true"#));
+        assert!(is_doofinder_json_decl(r#""skip_top_facet": ["#));
+        assert!(is_doofinder_json_decl(r#""skip_top_facet": [,"#));
+        assert!(!is_doofinder_json_decl(r#""skip_top_facet": {"#));
+        assert!(!is_doofinder_json_decl(r#""skip_top_facet": true"#));
+        assert!(is_doofinder_json_decl(r#""indices": ["#));
+        assert!(is_doofinder_json_decl(r#""indices": [,"#));
+        assert!(!is_doofinder_json_decl(r#""indices": {"#));
+        assert!(!is_doofinder_json_decl(r#""indices": true"#));
+        assert!(is_doofinder_json_decl(r#""df_variants": ["#));
+        assert!(is_doofinder_json_decl(r#""df_variants": [,"#));
+        assert!(!is_doofinder_json_decl(r#""df_variants": {"#));
+        assert!(!is_doofinder_json_decl(r#""df_variants": true"#));
+        assert!(is_doofinder_json_decl(r#""df_grouping_id": "group-1""#));
+        assert!(is_doofinder_json_decl(r#""df_grouping_id": "group-1","#));
+        assert!(is_doofinder_json_decl(
+            r#""df_grouping_id": "group-1" // g"#
+        ));
+        assert!(!is_doofinder_json_decl(r#""df_grouping_id": {"#));
+        assert!(!is_doofinder_json_decl(r#""df_grouping_id": """#));
+        assert!(!is_doofinder_json_decl(r#""df_grouping_id": true"#));
+        // Incomplete / bare keys stay out.
+        assert!(!is_doofinder_json_decl(r#""hashid""#));
+        assert!(!is_doofinder_json_decl(r#""query_name""#));
+        assert!(!is_doofinder_json_decl(r#""custom_results_id""#));
+        assert!(!is_doofinder_json_decl(r#""dynamic_boosting_rule_id""#));
+        assert!(!is_doofinder_json_decl(r#""rpp""#));
+        assert!(!is_doofinder_json_decl(r#""dfid""#));
+        assert!(!is_doofinder_json_decl(r#""filter_execution""#));
+        assert!(!is_doofinder_json_decl(r#""auto_filters""#));
+        assert!(!is_doofinder_json_decl(r#""excluded_results""#));
+        assert!(!is_doofinder_json_decl(r#""custom_results""#));
+        assert!(!is_doofinder_json_decl(r#""top_facet""#));
+        assert!(!is_doofinder_json_decl(r#""with_variants""#));
+        assert!(!is_doofinder_json_decl(r#""skip_auto_filters""#));
+        assert!(!is_doofinder_json_decl(r#""skip_top_facet""#));
+        assert!(!is_doofinder_json_decl(r#""indices""#));
+        assert!(!is_doofinder_json_decl(r#""df_variants""#));
+        assert!(!is_doofinder_json_decl(r#""df_grouping_id""#));
+        // Generic / neighbouring stay out.
+        assert!(!is_doofinder_json_decl(
+            r#""$schema": "https://json-schema.org/draft/2020-12/schema""#
+        ));
+        assert!(!is_doofinder_json_decl(r#""name": "docs""#));
+        assert!(!is_doofinder_json_decl(r#""id": "idx-1""#));
+        assert!(!is_doofinder_json_decl(r#""q": "shoes""#));
+        assert!(!is_doofinder_json_decl(r#""query": "shoes""#));
+        assert!(!is_doofinder_json_decl(r#""filter": "type eq 'a'""#));
+        assert!(!is_doofinder_json_decl(r#""filters": {"#));
+        assert!(!is_doofinder_json_decl(r#""limit": 10"#));
+        assert!(!is_doofinder_json_decl(r#""offset": 0"#));
+        assert!(!is_doofinder_json_decl(r#""page": 1"#));
+        assert!(!is_doofinder_json_decl(r#""results": ["#));
+        assert!(!is_doofinder_json_decl(r#""facets": ["#));
+        assert!(!is_doofinder_json_decl(r#""session_id": "abc""#));
+        assert!(!is_doofinder_json_decl(r#""user_id": "u1""#));
+        assert!(!is_doofinder_json_decl(r#""total": 31"#));
+        assert!(!is_doofinder_json_decl(r#""count": 31"#));
+        assert!(!is_doofinder_json_decl(r#""recordQueries": ["#));
+        assert!(is_klevu_json_decl(r#""recordQueries": ["#));
+        assert!(!is_doofinder_json_decl(r#""typeOfRequest": "SEARCH""#));
+        assert!(is_klevu_json_decl(r#""typeOfRequest": "SEARCH""#));
+        assert!(!is_doofinder_json_decl(r#""domain_key": "example_com""#));
+        assert!(is_bloomreach_json_decl(r#""domain_key": "example_com""#));
+        assert!(!is_doofinder_json_decl(r#""_br_uid_2": "uid=123""#));
+        assert!(is_bloomreach_json_decl(r#""_br_uid_2": "uid=123""#));
+        assert!(!is_doofinder_json_decl(r#""request_type": "search""#));
+        assert!(is_bloomreach_json_decl(r#""request_type": "search""#));
+        assert!(!is_doofinder_json_decl(r#""result_sources": {"#));
+        assert!(is_constructor_io_json_decl(r#""result_sources": {"#));
+        assert!(!is_doofinder_json_decl(r#""num_results_per_page": 30"#));
+        assert!(is_constructor_io_json_decl(r#""num_results_per_page": 30"#));
+        assert!(!is_doofinder_json_decl(r#""searchHub": "default""#));
+        assert!(is_coveo_json_decl(r#""searchHub": "default""#));
+        assert!(!is_doofinder_json_decl(r#""organizationId": "org""#));
+        assert!(is_coveo_json_decl(r#""organizationId": "org""#));
+        assert!(!is_doofinder_json_decl(r#""@odata.count": 10"#));
+        assert!(is_azure_search_json_decl(r#""@odata.count": 10"#));
+        assert!(!is_doofinder_json_decl(r#""searchMode": "any""#));
+        assert!(is_azure_search_json_decl(r#""searchMode": "any""#));
+        assert!(!is_doofinder_json_decl(
+            r#""yql": "select * from sources * where true""#
+        ));
+        assert!(is_vespa_json_decl(
+            r#""yql": "select * from sources * where true""#
+        ));
+        assert!(!is_doofinder_json_decl(r#""searchableAttributes": ["#));
+        assert!(is_marqo_json_decl(r#""searchableAttributes": ["#));
+        assert!(!is_doofinder_json_decl(r#""vector_column_name": "vec""#));
+        assert!(is_lancedb_json_decl(r#""vector_column_name": "vec""#));
+        assert!(!is_doofinder_json_decl(r#""annsField": "vec""#));
+        assert!(is_milvus_json_decl(r#""annsField": "vec""#));
+        assert!(!is_doofinder_json_decl(r#""n_results": 10"#));
+        assert!(is_chroma_json_decl(r#""n_results": 10"#));
+        assert!(!is_doofinder_json_decl(r#""topK": 10"#));
+        assert!(is_pinecone_json_decl(r#""topK": 10"#));
+        assert!(!is_doofinder_json_decl(r#""nearVector": {"#));
+        assert!(is_weaviate_json_decl(r#""nearVector": {"#));
+        assert!(!is_doofinder_json_decl(r#""vectors_count": 100"#));
+        assert!(is_qdrant_json_decl(r#""vectors_count": 100"#));
+        assert!(!is_doofinder_json_decl(r#""processingTimeMS": 12"#));
+        assert!(is_algolia_json_decl(r#""processingTimeMS": 12"#));
+        assert!(!is_doofinder_json_decl(r#""processingTimeMs": 12"#));
+        assert!(is_meilisearch_json_decl(r#""processingTimeMs": 12"#));
+        assert!(!is_doofinder_json_decl(r#""search_time_ms": 12"#));
+        assert!(is_typesense_json_decl(r#""search_time_ms": 12"#));
+        assert!(!is_doofinder_json_decl(r#""responseHeader": {"#));
+        assert!(is_solr_json_decl(r#""responseHeader": {"#));
+        assert!(!is_doofinder_json_decl(r#""track_total_hits": true"#));
+        assert!(is_elasticsearch_json_decl(r#""track_total_hits": true"#));
+        assert!(!is_doofinder_json_decl(r#""printWidth": 80"#));
+        assert!(is_prettier_json_decl(r#""printWidth": 80"#));
+        assert!(!is_doofinder_json_decl(r#""basePath": ".""#));
+        assert!(is_karma_json_decl(r#""basePath": ".""#));
+        assert!(line_is_func_like(
+            r#""hashid": "d8fdeab7fce96a19d3fc7b0ca7a1e98b""#
+        ));
+        assert!(line_is_func_like(r#""query_name": "fuzzy""#));
+        assert!(line_is_func_like(r#""custom_results_id": 5"#));
+        assert!(line_is_func_like(r#""dynamic_boosting_rule_id": 3"#));
+        assert!(line_is_func_like(r#""rpp": 24"#));
+        assert!(line_is_func_like(
+            r#""dfid": "1234567890abcdef1234567890abcdef@product@1234567890abcdef""#
+        ));
+        assert!(line_is_func_like(r#""filter_execution": "and""#));
+        assert!(line_is_func_like(r#""auto_filters": true"#));
+        assert!(line_is_func_like(r#""excluded_results": false"#));
+        assert!(line_is_func_like(r#""custom_results": true"#));
+        assert!(line_is_func_like(r#""top_facet": false"#));
+        assert!(line_is_func_like(r#""with_variants": ["#));
+        assert!(line_is_func_like(r#""skip_auto_filters": ["#));
+        assert!(line_is_func_like(r#""skip_top_facet": ["#));
+        assert!(line_is_func_like(r#""indices": ["#));
+        assert!(line_is_func_like(r#""df_variants": ["#));
+        assert!(line_is_func_like(r#""df_grouping_id": "group-1""#));
     }
 
     #[test]
