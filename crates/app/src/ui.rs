@@ -32484,6 +32484,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_marqo_json_decl(s)
             || is_vespa_json_decl(s)
             || is_azure_search_json_decl(s)
+            || is_coveo_json_decl(s)
             || is_gomod_decl(s)
             || is_gemfile_decl(s)
             || is_brewfile_decl(s)
@@ -32878,6 +32879,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_marqo_json_decl(s)
         || is_vespa_json_decl(s)
         || is_azure_search_json_decl(s)
+        || is_coveo_json_decl(s)
         || is_gomod_decl(s)
         || is_gemfile_decl(s)
         || is_brewfile_decl(s)
@@ -64504,8 +64506,9 @@ fn vespa_json_bool_and_tail_ok(after_colon: &str) -> bool {
 /// `"n_results"` / Pinecone `"topK"` / Weaviate `"nearVector"` / Qdrant
 /// `"vectors_count"` / Algolia `"processingTimeMS"` / Meilisearch
 /// `"processingTimeMs"` / Typesense `"search_time_ms"` / Solr
-/// `"responseHeader"` / Elasticsearch `"track_total_hits"` / prettier
-/// `"printWidth"` / karma `"basePath"` stay out.
+/// `"responseHeader"` / Elasticsearch `"track_total_hits"` / Coveo
+/// `"searchHub"` / `"organizationId"` / prettier `"printWidth"` / karma
+/// `"basePath"` stay out.
 fn is_azure_search_json_decl(s: &str) -> bool {
     let s = s.trim_start();
     let Some(rest) = s.strip_prefix('"') else {
@@ -64696,6 +64699,151 @@ fn azure_search_json_decimal_and_tail_ok(after_colon: &str) -> bool {
         }
         if i == frac_start || i - frac_start > 12 {
             return false;
+        }
+    }
+    package_json_tail_ok(&after_colon[i..])
+}
+
+/// Coveo Search API request / response JSON keys:
+/// `"searchHub": "…"`, `"pipeline": "…"`, `"organizationId": "…"`,
+/// `"numberOfResults": 0` / `10`, `"firstResult": 0` / `50`,
+/// `"enableQuerySyntax": true` / `false`, `"excerptLength": 0` / `200`,
+/// `"enableDidYouMean": true` / `false`,
+/// `"enableDuplicateFiltering": true` / `false`,
+/// `"aq": "…"`, `"cq": "…"`, `"dq": "…"`, `"lq": "…"`,
+/// `"partialMatch": true` / `false`, `"totalCountFiltered": 0` / `42`,
+/// `"indexDuration": 0` / `12`, `"searchUid": "…"`,
+/// `"queryPipeline": "…"`.
+/// Optional trailing `,` and `//` / `/*` comment. Incomplete quotes /
+/// missing `:` stay out. Generic `"$schema"` / `"name"` / `"id"` / `"q"` /
+/// `"query"` / `"filter"` / `"limit"` / `"offset"` / `"locale"` / `"tab"` /
+/// `"results"` / `"totalCount"` / `"duration"` / Azure AI Search
+/// `"@odata.count"` / `"@search.score"` / `"searchMode"` / Vespa `"yql"` /
+/// `"searchChain"` / Marqo `"searchableAttributes"` / `"searchMethod"` /
+/// LanceDB `"vector_column_name"` / `"nprobes"` / Milvus `"annsField"` /
+/// Chroma `"n_results"` / Pinecone `"topK"` / Weaviate `"nearVector"` /
+/// Qdrant `"vectors_count"` / Algolia `"processingTimeMS"` / Meilisearch
+/// `"processingTimeMs"` / Typesense `"search_time_ms"` / Solr
+/// `"responseHeader"` / Elasticsearch `"track_total_hits"` / prettier
+/// `"printWidth"` / karma `"basePath"` stay out.
+fn is_coveo_json_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    let Some(rest) = s.strip_prefix('"') else {
+        return false;
+    };
+    let Some(end) = rest.find('"') else {
+        return false;
+    };
+    let key = &rest[..end];
+    if !coveo_json_key_ok(key) {
+        return false;
+    }
+    let after_key = rest[end + 1..].trim_start();
+    let Some(after_colon) = after_key.strip_prefix(':') else {
+        return false;
+    };
+    let after_colon = after_colon.trim_start();
+    coveo_json_value_and_tail_ok(key, after_colon)
+}
+
+fn coveo_json_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "searchHub"
+            | "pipeline"
+            | "organizationId"
+            | "numberOfResults"
+            | "firstResult"
+            | "enableQuerySyntax"
+            | "excerptLength"
+            | "enableDidYouMean"
+            | "enableDuplicateFiltering"
+            | "aq"
+            | "cq"
+            | "dq"
+            | "lq"
+            | "partialMatch"
+            | "totalCountFiltered"
+            | "indexDuration"
+            | "searchUid"
+            | "queryPipeline"
+    )
+}
+
+fn coveo_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool {
+    let bytes = after_colon.as_bytes();
+    let Some(first) = bytes.first().copied() else {
+        return false;
+    };
+    match first {
+        b'"' => match key {
+            "searchHub" | "pipeline" | "organizationId" | "aq" | "cq" | "dq" | "lq"
+            | "searchUid" | "queryPipeline" => coveo_json_nonempty_string_and_tail_ok(after_colon),
+            _ => false,
+        },
+        b't' | b'f' => {
+            if !matches!(
+                key,
+                "enableQuerySyntax"
+                    | "enableDidYouMean"
+                    | "enableDuplicateFiltering"
+                    | "partialMatch"
+            ) {
+                return false;
+            }
+            coveo_json_bool_and_tail_ok(after_colon)
+        }
+        b'0'..=b'9' => coveo_json_uint_and_tail_ok(key, after_colon),
+        _ => false,
+    }
+}
+
+fn coveo_json_nonempty_string_and_tail_ok(after_colon: &str) -> bool {
+    let rest = &after_colon[1..];
+    let Some(end) = rest.find('"') else {
+        return false;
+    };
+    let value = &rest[..end];
+    if value.is_empty() || value.contains('\n') {
+        return false;
+    }
+    package_json_tail_ok(&rest[end + 1..])
+}
+
+fn coveo_json_bool_and_tail_ok(after_colon: &str) -> bool {
+    if let Some(rest) = after_colon.strip_prefix("true") {
+        return package_json_tail_ok(rest);
+    }
+    if let Some(rest) = after_colon.strip_prefix("false") {
+        return package_json_tail_ok(rest);
+    }
+    false
+}
+
+fn coveo_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool {
+    if !matches!(
+        key,
+        "numberOfResults"
+            | "firstResult"
+            | "excerptLength"
+            | "totalCountFiltered"
+            | "indexDuration"
+    ) {
+        return false;
+    }
+    let bytes = after_colon.as_bytes();
+    let mut i = 0usize;
+    if i >= bytes.len() || !bytes[i].is_ascii_digit() {
+        return false;
+    }
+    if bytes[i] == b'0' {
+        i += 1;
+        if i < bytes.len() && bytes[i].is_ascii_digit() {
+            return false;
+        }
+    } else {
+        while i < bytes.len() && bytes[i].is_ascii_digit() {
+            i += 1;
         }
     }
     package_json_tail_ok(&after_colon[i..])
@@ -95324,13 +95472,13 @@ mod func_like_line_tests {
         is_check_manifest_ini_decl, is_check_wheel_contents_ini_decl, is_chroma_json_decl,
         is_cibuildwheel_ini_decl, is_cliff_toml_decl, is_clippy_toml_decl, is_codecept_json_decl,
         is_codespell_ini_decl, is_commitizen_ini_decl, is_commitlint_json_decl,
-        is_compodoc_json_decl, is_composer_json_decl, is_coverage_ini_decl, is_cross_toml_decl,
-        is_crypttab_decl, is_cspell_json_decl, is_cucumber_json_decl, is_cypress_json_decl,
-        is_darglint_ini_decl, is_default_grub_decl, is_deno_json_decl, is_deny_toml_decl,
-        is_desktop_entry_decl, is_detox_json_decl, is_devcontainer_json_decl, is_dhcpd_decl,
-        is_dioxus_toml_decl, is_dist_toml_decl, is_doc8_ini_decl, is_docformatter_ini_decl,
-        is_docfx_json_decl, is_dovecot_decl, is_dprint_json_decl, is_dracut_conf_decl,
-        is_eas_json_decl, is_editorconfig_decl, is_elasticsearch_json_decl,
+        is_compodoc_json_decl, is_composer_json_decl, is_coveo_json_decl, is_coverage_ini_decl,
+        is_cross_toml_decl, is_crypttab_decl, is_cspell_json_decl, is_cucumber_json_decl,
+        is_cypress_json_decl, is_darglint_ini_decl, is_default_grub_decl, is_deno_json_decl,
+        is_deny_toml_decl, is_desktop_entry_decl, is_detox_json_decl, is_devcontainer_json_decl,
+        is_dhcpd_decl, is_dioxus_toml_decl, is_dist_toml_decl, is_doc8_ini_decl,
+        is_docformatter_ini_decl, is_docfx_json_decl, is_dovecot_decl, is_dprint_json_decl,
+        is_dracut_conf_decl, is_eas_json_decl, is_editorconfig_decl, is_elasticsearch_json_decl,
         is_electron_builder_json_decl, is_electron_forge_json_decl, is_esdoc_json_decl,
         is_eslint_json_decl, is_ethers_file_decl, is_expo_json_decl, is_fail2ban_conf_decl,
         is_firebase_json_decl, is_flake8_ini_decl, is_fluent_bit_decl, is_fly_toml_decl,
@@ -131605,6 +131753,313 @@ mod func_like_line_tests {
         assert!(line_is_func_like(r#""vectorFilterMode": "preFilter""#));
         assert!(line_is_func_like(r#""semanticErrorHandling": "partial""#));
         assert!(line_is_func_like(r#""semanticMaxWaitInMilliseconds": 0"#));
+        assert!(!is_azure_search_json_decl(r#""searchHub": "default""#));
+        assert!(is_coveo_json_decl(r#""searchHub": "default""#));
+        assert!(!is_azure_search_json_decl(r#""organizationId": "org""#));
+        assert!(is_coveo_json_decl(r#""organizationId": "org""#));
+        assert!(!is_azure_search_json_decl(r#""totalCountFiltered": 42"#));
+        assert!(is_coveo_json_decl(r#""totalCountFiltered": 42"#));
+    }
+
+    #[test]
+    fn coveo_json_keys_smoke() {
+        assert!(is_coveo_json_decl(r#""searchHub": "default""#));
+        assert!(is_coveo_json_decl(r#""pipeline": "default""#));
+        assert!(is_coveo_json_decl(r#""organizationId": "myorg""#));
+        assert!(is_coveo_json_decl(r#""numberOfResults": 0"#));
+        assert!(is_coveo_json_decl(r#""numberOfResults": 10"#));
+        assert!(is_coveo_json_decl(r#""firstResult": 0"#));
+        assert!(is_coveo_json_decl(r#""firstResult": 50"#));
+        assert!(is_coveo_json_decl(r#""enableQuerySyntax": true"#));
+        assert!(is_coveo_json_decl(r#""enableQuerySyntax": false"#));
+        assert!(is_coveo_json_decl(r#""excerptLength": 0"#));
+        assert!(is_coveo_json_decl(r#""excerptLength": 200"#));
+        assert!(is_coveo_json_decl(r#""enableDidYouMean": true"#));
+        assert!(is_coveo_json_decl(r#""enableDidYouMean": false"#));
+        assert!(is_coveo_json_decl(r#""enableDuplicateFiltering": true"#));
+        assert!(is_coveo_json_decl(r#""enableDuplicateFiltering": false"#));
+        assert!(is_coveo_json_decl(r#""aq": "@source==Docs""#));
+        assert!(is_coveo_json_decl(r#""cq": "@language==en""#));
+        assert!(is_coveo_json_decl(r#""dq": "@filetype==pdf""#));
+        assert!(is_coveo_json_decl(r#""lq": "long natural language query""#));
+        assert!(is_coveo_json_decl(r#""partialMatch": true"#));
+        assert!(is_coveo_json_decl(r#""partialMatch": false"#));
+        assert!(is_coveo_json_decl(r#""totalCountFiltered": 0"#));
+        assert!(is_coveo_json_decl(r#""totalCountFiltered": 42"#));
+        assert!(is_coveo_json_decl(r#""indexDuration": 0"#));
+        assert!(is_coveo_json_decl(r#""indexDuration": 12"#));
+        assert!(is_coveo_json_decl(
+            r#""searchUid": "a1b2c3d4-e5f6-7890-abcd-ef1234567890""#
+        ));
+        assert!(is_coveo_json_decl(r#""queryPipeline": "default""#));
+        // Distinctive neighbours stay out of this scanner.
+        assert!(!is_coveo_json_decl(r#""@odata.count": 10"#));
+        assert!(is_azure_search_json_decl(r#""@odata.count": 10"#));
+        assert!(!is_coveo_json_decl(r#""@search.score": 1.5"#));
+        assert!(is_azure_search_json_decl(r#""@search.score": 1.5"#));
+        assert!(!is_coveo_json_decl(r#""searchMode": "any""#));
+        assert!(is_azure_search_json_decl(r#""searchMode": "any""#));
+        assert!(!is_coveo_json_decl(
+            r#""yql": "select * from sources * where true""#
+        ));
+        assert!(is_vespa_json_decl(
+            r#""yql": "select * from sources * where true""#
+        ));
+        assert!(!is_coveo_json_decl(r#""searchChain": "vespa""#));
+        assert!(is_vespa_json_decl(r#""searchChain": "vespa""#));
+        assert!(!is_coveo_json_decl(r#""searchableAttributes": ["#));
+        assert!(is_marqo_json_decl(r#""searchableAttributes": ["#));
+        assert!(!is_coveo_json_decl(r#""searchMethod": "TENSOR""#));
+        assert!(is_marqo_json_decl(r#""searchMethod": "TENSOR""#));
+        assert!(!is_coveo_json_decl(r#""vector_column_name": "vec""#));
+        assert!(is_lancedb_json_decl(r#""vector_column_name": "vec""#));
+        assert!(!is_coveo_json_decl(r#""nprobes": 20"#));
+        assert!(is_lancedb_json_decl(r#""nprobes": 20"#));
+        assert!(!is_coveo_json_decl(r#""annsField": "vec""#));
+        assert!(is_milvus_json_decl(r#""annsField": "vec""#));
+        assert!(!is_coveo_json_decl(r#""n_results": 10"#));
+        assert!(is_chroma_json_decl(r#""n_results": 10"#));
+        assert!(!is_coveo_json_decl(r#""topK": 10"#));
+        assert!(is_pinecone_json_decl(r#""topK": 10"#));
+        assert!(!is_coveo_json_decl(r#""nearVector": {"#));
+        assert!(is_weaviate_json_decl(r#""nearVector": {"#));
+        assert!(!is_coveo_json_decl(r#""vectors_count": 100"#));
+        assert!(is_qdrant_json_decl(r#""vectors_count": 100"#));
+        assert!(!is_coveo_json_decl(r#""processingTimeMS": 12"#));
+        assert!(is_algolia_json_decl(r#""processingTimeMS": 12"#));
+        assert!(!is_coveo_json_decl(r#""processingTimeMs": 12"#));
+        assert!(is_meilisearch_json_decl(r#""processingTimeMs": 12"#));
+        assert!(!is_coveo_json_decl(r#""search_time_ms": 12"#));
+        assert!(is_typesense_json_decl(r#""search_time_ms": 12"#));
+        assert!(!is_coveo_json_decl(r#""responseHeader": {"#));
+        assert!(is_solr_json_decl(r#""responseHeader": {"#));
+        assert!(!is_coveo_json_decl(r#""track_total_hits": true"#));
+        assert!(is_elasticsearch_json_decl(r#""track_total_hits": true"#));
+        assert!(!is_coveo_json_decl(r#""printWidth": 80"#));
+        assert!(is_prettier_json_decl(r#""printWidth": 80"#));
+        assert!(!is_coveo_json_decl(r#""basePath": ".""#));
+        assert!(is_karma_json_decl(r#""basePath": ".""#));
+        assert!(line_is_func_like(r#""searchHub": "default""#));
+        assert!(line_is_func_like(r#""pipeline": "default""#));
+        assert!(line_is_func_like(r#""organizationId": "myorg""#));
+        assert!(line_is_func_like(r#""numberOfResults": 10"#));
+        assert!(line_is_func_like(r#""firstResult": 50"#));
+        assert!(line_is_func_like(r#""enableQuerySyntax": true"#));
+        assert!(line_is_func_like(r#""excerptLength": 200"#));
+        assert!(line_is_func_like(r#""enableDidYouMean": false"#));
+        assert!(line_is_func_like(r#""enableDuplicateFiltering": true"#));
+        assert!(line_is_func_like(r#""aq": "@source==Docs""#));
+        assert!(line_is_func_like(r#""cq": "@language==en""#));
+        assert!(line_is_func_like(r#""dq": "@filetype==pdf""#));
+        assert!(line_is_func_like(r#""lq": "long natural language query""#));
+        assert!(line_is_func_like(r#""partialMatch": true"#));
+        assert!(line_is_func_like(r#""totalCountFiltered": 42"#));
+        assert!(line_is_func_like(r#""indexDuration": 12"#));
+        assert!(line_is_func_like(
+            r#""searchUid": "a1b2c3d4-e5f6-7890-abcd-ef1234567890""#
+        ));
+        assert!(line_is_func_like(r#""queryPipeline": "default""#));
+    }
+
+    #[test]
+    fn coveo_json_keys_count() {
+        assert!(is_coveo_json_decl(r#""searchHub": "default""#));
+        assert!(is_coveo_json_decl(r#""searchHub": "default","#));
+        assert!(is_coveo_json_decl(r#""searchHub": "default" // h"#));
+        assert!(!is_coveo_json_decl(r#""searchHub": {"#));
+        assert!(!is_coveo_json_decl(r#""searchHub": """#));
+        assert!(!is_coveo_json_decl(r#""searchHub": true"#));
+        assert!(is_coveo_json_decl(r#""pipeline": "default""#));
+        assert!(is_coveo_json_decl(r#""pipeline": "default","#));
+        assert!(!is_coveo_json_decl(r#""pipeline": {"#));
+        assert!(!is_coveo_json_decl(r#""pipeline": """#));
+        assert!(is_coveo_json_decl(r#""organizationId": "myorg""#));
+        assert!(is_coveo_json_decl(r#""organizationId": "myorg","#));
+        assert!(!is_coveo_json_decl(r#""organizationId": {"#));
+        assert!(!is_coveo_json_decl(r#""organizationId": """#));
+        assert!(is_coveo_json_decl(r#""numberOfResults": 0"#));
+        assert!(is_coveo_json_decl(r#""numberOfResults": 10"#));
+        assert!(is_coveo_json_decl(r#""numberOfResults": 10,"#));
+        assert!(is_coveo_json_decl(r#""numberOfResults": 10 // n"#));
+        assert!(!is_coveo_json_decl(r#""numberOfResults": 00"#));
+        assert!(!is_coveo_json_decl(r#""numberOfResults": 01"#));
+        assert!(!is_coveo_json_decl(r#""numberOfResults": true"#));
+        assert!(!is_coveo_json_decl(r#""numberOfResults": {"#));
+        assert!(!is_coveo_json_decl(r#""numberOfResults": "10""#));
+        assert!(is_coveo_json_decl(r#""firstResult": 0"#));
+        assert!(is_coveo_json_decl(r#""firstResult": 50"#));
+        assert!(is_coveo_json_decl(r#""firstResult": 50,"#));
+        assert!(!is_coveo_json_decl(r#""firstResult": 00"#));
+        assert!(!is_coveo_json_decl(r#""firstResult": true"#));
+        assert!(is_coveo_json_decl(r#""enableQuerySyntax": true"#));
+        assert!(is_coveo_json_decl(r#""enableQuerySyntax": false"#));
+        assert!(is_coveo_json_decl(r#""enableQuerySyntax": true,"#));
+        assert!(is_coveo_json_decl(r#""enableQuerySyntax": false // q"#));
+        assert!(!is_coveo_json_decl(r#""enableQuerySyntax": "true""#));
+        assert!(!is_coveo_json_decl(r#""enableQuerySyntax": 1"#));
+        assert!(!is_coveo_json_decl(r#""enableQuerySyntax": {"#));
+        assert!(is_coveo_json_decl(r#""excerptLength": 0"#));
+        assert!(is_coveo_json_decl(r#""excerptLength": 200"#));
+        assert!(is_coveo_json_decl(r#""excerptLength": 200,"#));
+        assert!(!is_coveo_json_decl(r#""excerptLength": 00"#));
+        assert!(!is_coveo_json_decl(r#""excerptLength": true"#));
+        assert!(is_coveo_json_decl(r#""enableDidYouMean": true"#));
+        assert!(is_coveo_json_decl(r#""enableDidYouMean": false"#));
+        assert!(is_coveo_json_decl(r#""enableDidYouMean": true,"#));
+        assert!(!is_coveo_json_decl(r#""enableDidYouMean": "true""#));
+        assert!(is_coveo_json_decl(r#""enableDuplicateFiltering": true"#));
+        assert!(is_coveo_json_decl(r#""enableDuplicateFiltering": false"#));
+        assert!(is_coveo_json_decl(r#""enableDuplicateFiltering": true,"#));
+        assert!(!is_coveo_json_decl(r#""enableDuplicateFiltering": "true""#));
+        assert!(is_coveo_json_decl(r#""aq": "@source==Docs""#));
+        assert!(is_coveo_json_decl(r#""aq": "@source==Docs","#));
+        assert!(!is_coveo_json_decl(r#""aq": {"#));
+        assert!(!is_coveo_json_decl(r#""aq": """#));
+        assert!(is_coveo_json_decl(r#""cq": "@language==en""#));
+        assert!(is_coveo_json_decl(r#""cq": "@language==en","#));
+        assert!(!is_coveo_json_decl(r#""cq": {"#));
+        assert!(!is_coveo_json_decl(r#""cq": """#));
+        assert!(is_coveo_json_decl(r#""dq": "@filetype==pdf""#));
+        assert!(is_coveo_json_decl(r#""dq": "@filetype==pdf","#));
+        assert!(!is_coveo_json_decl(r#""dq": {"#));
+        assert!(!is_coveo_json_decl(r#""dq": """#));
+        assert!(is_coveo_json_decl(r#""lq": "long natural language query""#));
+        assert!(is_coveo_json_decl(
+            r#""lq": "long natural language query","#
+        ));
+        assert!(!is_coveo_json_decl(r#""lq": {"#));
+        assert!(!is_coveo_json_decl(r#""lq": """#));
+        assert!(is_coveo_json_decl(r#""partialMatch": true"#));
+        assert!(is_coveo_json_decl(r#""partialMatch": false"#));
+        assert!(is_coveo_json_decl(r#""partialMatch": true,"#));
+        assert!(!is_coveo_json_decl(r#""partialMatch": "true""#));
+        assert!(!is_coveo_json_decl(r#""partialMatch": 1"#));
+        assert!(is_coveo_json_decl(r#""totalCountFiltered": 0"#));
+        assert!(is_coveo_json_decl(r#""totalCountFiltered": 42"#));
+        assert!(is_coveo_json_decl(r#""totalCountFiltered": 42,"#));
+        assert!(is_coveo_json_decl(r#""totalCountFiltered": 42 // t"#));
+        assert!(!is_coveo_json_decl(r#""totalCountFiltered": 00"#));
+        assert!(!is_coveo_json_decl(r#""totalCountFiltered": 042"#));
+        assert!(!is_coveo_json_decl(r#""totalCountFiltered": true"#));
+        assert!(!is_coveo_json_decl(r#""totalCountFiltered": {"#));
+        assert!(is_coveo_json_decl(r#""indexDuration": 0"#));
+        assert!(is_coveo_json_decl(r#""indexDuration": 12"#));
+        assert!(is_coveo_json_decl(r#""indexDuration": 12,"#));
+        assert!(!is_coveo_json_decl(r#""indexDuration": 00"#));
+        assert!(!is_coveo_json_decl(r#""indexDuration": true"#));
+        assert!(is_coveo_json_decl(
+            r#""searchUid": "a1b2c3d4-e5f6-7890-abcd-ef1234567890""#
+        ));
+        assert!(is_coveo_json_decl(
+            r#""searchUid": "a1b2c3d4-e5f6-7890-abcd-ef1234567890","#
+        ));
+        assert!(!is_coveo_json_decl(r#""searchUid": {"#));
+        assert!(!is_coveo_json_decl(r#""searchUid": """#));
+        assert!(is_coveo_json_decl(r#""queryPipeline": "default""#));
+        assert!(is_coveo_json_decl(r#""queryPipeline": "default","#));
+        assert!(!is_coveo_json_decl(r#""queryPipeline": {"#));
+        assert!(!is_coveo_json_decl(r#""queryPipeline": """#));
+        // Incomplete / bare keys stay out.
+        assert!(!is_coveo_json_decl(r#""searchHub""#));
+        assert!(!is_coveo_json_decl(r#""pipeline""#));
+        assert!(!is_coveo_json_decl(r#""organizationId""#));
+        assert!(!is_coveo_json_decl(r#""numberOfResults""#));
+        assert!(!is_coveo_json_decl(r#""firstResult""#));
+        assert!(!is_coveo_json_decl(r#""enableQuerySyntax""#));
+        assert!(!is_coveo_json_decl(r#""excerptLength""#));
+        assert!(!is_coveo_json_decl(r#""enableDidYouMean""#));
+        assert!(!is_coveo_json_decl(r#""enableDuplicateFiltering""#));
+        assert!(!is_coveo_json_decl(r#""aq""#));
+        assert!(!is_coveo_json_decl(r#""cq""#));
+        assert!(!is_coveo_json_decl(r#""dq""#));
+        assert!(!is_coveo_json_decl(r#""lq""#));
+        assert!(!is_coveo_json_decl(r#""partialMatch""#));
+        assert!(!is_coveo_json_decl(r#""totalCountFiltered""#));
+        assert!(!is_coveo_json_decl(r#""indexDuration""#));
+        assert!(!is_coveo_json_decl(r#""searchUid""#));
+        assert!(!is_coveo_json_decl(r#""queryPipeline""#));
+        // Generic / neighbouring stay out.
+        assert!(!is_coveo_json_decl(
+            r#""$schema": "https://json-schema.org/draft/2020-12/schema""#
+        ));
+        assert!(!is_coveo_json_decl(r#""name": "docs""#));
+        assert!(!is_coveo_json_decl(r#""id": "idx-1""#));
+        assert!(!is_coveo_json_decl(r#""q": "shoes""#));
+        assert!(!is_coveo_json_decl(r#""query": "shoes""#));
+        assert!(!is_coveo_json_decl(r#""filter": "type eq 'a'""#));
+        assert!(!is_coveo_json_decl(r#""limit": 10"#));
+        assert!(!is_coveo_json_decl(r#""offset": 0"#));
+        assert!(!is_coveo_json_decl(r#""locale": "en""#));
+        assert!(!is_coveo_json_decl(r#""tab": "All""#));
+        assert!(!is_coveo_json_decl(r#""results": ["#));
+        assert!(!is_coveo_json_decl(r#""totalCount": 42"#));
+        assert!(!is_coveo_json_decl(r#""duration": 12"#));
+        assert!(!is_coveo_json_decl(r#""@odata.count": 10"#));
+        assert!(is_azure_search_json_decl(r#""@odata.count": 10"#));
+        assert!(!is_coveo_json_decl(r#""@search.score": 1.5"#));
+        assert!(is_azure_search_json_decl(r#""@search.score": 1.5"#));
+        assert!(!is_coveo_json_decl(r#""searchMode": "any""#));
+        assert!(is_azure_search_json_decl(r#""searchMode": "any""#));
+        assert!(!is_coveo_json_decl(
+            r#""yql": "select * from sources * where true""#
+        ));
+        assert!(is_vespa_json_decl(
+            r#""yql": "select * from sources * where true""#
+        ));
+        assert!(!is_coveo_json_decl(r#""searchChain": "vespa""#));
+        assert!(is_vespa_json_decl(r#""searchChain": "vespa""#));
+        assert!(!is_coveo_json_decl(r#""searchableAttributes": ["#));
+        assert!(is_marqo_json_decl(r#""searchableAttributes": ["#));
+        assert!(!is_coveo_json_decl(r#""searchMethod": "TENSOR""#));
+        assert!(is_marqo_json_decl(r#""searchMethod": "TENSOR""#));
+        assert!(!is_coveo_json_decl(r#""vector_column_name": "vec""#));
+        assert!(is_lancedb_json_decl(r#""vector_column_name": "vec""#));
+        assert!(!is_coveo_json_decl(r#""nprobes": 20"#));
+        assert!(is_lancedb_json_decl(r#""nprobes": 20"#));
+        assert!(!is_coveo_json_decl(r#""annsField": "vec""#));
+        assert!(is_milvus_json_decl(r#""annsField": "vec""#));
+        assert!(!is_coveo_json_decl(r#""n_results": 10"#));
+        assert!(is_chroma_json_decl(r#""n_results": 10"#));
+        assert!(!is_coveo_json_decl(r#""topK": 10"#));
+        assert!(is_pinecone_json_decl(r#""topK": 10"#));
+        assert!(!is_coveo_json_decl(r#""nearVector": {"#));
+        assert!(is_weaviate_json_decl(r#""nearVector": {"#));
+        assert!(!is_coveo_json_decl(r#""vectors_count": 100"#));
+        assert!(is_qdrant_json_decl(r#""vectors_count": 100"#));
+        assert!(!is_coveo_json_decl(r#""processingTimeMS": 12"#));
+        assert!(is_algolia_json_decl(r#""processingTimeMS": 12"#));
+        assert!(!is_coveo_json_decl(r#""processingTimeMs": 12"#));
+        assert!(is_meilisearch_json_decl(r#""processingTimeMs": 12"#));
+        assert!(!is_coveo_json_decl(r#""search_time_ms": 12"#));
+        assert!(is_typesense_json_decl(r#""search_time_ms": 12"#));
+        assert!(!is_coveo_json_decl(r#""responseHeader": {"#));
+        assert!(is_solr_json_decl(r#""responseHeader": {"#));
+        assert!(!is_coveo_json_decl(r#""track_total_hits": true"#));
+        assert!(is_elasticsearch_json_decl(r#""track_total_hits": true"#));
+        assert!(!is_coveo_json_decl(r#""printWidth": 80"#));
+        assert!(is_prettier_json_decl(r#""printWidth": 80"#));
+        assert!(!is_coveo_json_decl(r#""basePath": ".""#));
+        assert!(is_karma_json_decl(r#""basePath": ".""#));
+        assert!(line_is_func_like(r#""searchHub": "default""#));
+        assert!(line_is_func_like(r#""pipeline": "default""#));
+        assert!(line_is_func_like(r#""organizationId": "myorg""#));
+        assert!(line_is_func_like(r#""numberOfResults": 10"#));
+        assert!(line_is_func_like(r#""firstResult": 50"#));
+        assert!(line_is_func_like(r#""enableQuerySyntax": true"#));
+        assert!(line_is_func_like(r#""excerptLength": 200"#));
+        assert!(line_is_func_like(r#""enableDidYouMean": false"#));
+        assert!(line_is_func_like(r#""enableDuplicateFiltering": true"#));
+        assert!(line_is_func_like(r#""aq": "@source==Docs""#));
+        assert!(line_is_func_like(r#""cq": "@language==en""#));
+        assert!(line_is_func_like(r#""dq": "@filetype==pdf""#));
+        assert!(line_is_func_like(r#""lq": "long natural language query""#));
+        assert!(line_is_func_like(r#""partialMatch": true"#));
+        assert!(line_is_func_like(r#""totalCountFiltered": 42"#));
+        assert!(line_is_func_like(r#""indexDuration": 12"#));
+        assert!(line_is_func_like(
+            r#""searchUid": "a1b2c3d4-e5f6-7890-abcd-ef1234567890""#
+        ));
+        assert!(line_is_func_like(r#""queryPipeline": "default""#));
     }
 
     #[test]

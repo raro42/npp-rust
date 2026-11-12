@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.817] — 2026-11-12
+
+View:
+
+- **Function List** lists Coveo Search API request / response JSON keys: `"searchHub": "…"`, `"pipeline": "…"`, `"organizationId": "…"`, `"numberOfResults": 0` / `10`, `"firstResult": 0` / `50`, `"enableQuerySyntax": true` / `false`, `"excerptLength": 0` / `200`, `"enableDidYouMean": true` / `false`, `"enableDuplicateFiltering": true` / `false`, `"aq": "…"`, `"cq": "…"`, `"dq": "…"`, `"lq": "…"`, `"partialMatch": true` / `false`, `"totalCountFiltered": 0` / `42`, `"indexDuration": 0` / `12`, `"searchUid": "…"`, `"queryPipeline": "…"`. Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing `:` stay out. Generic `"$schema"` / `"name"` / `"id"` / `"q"` / `"query"` / `"filter"` / `"limit"` / `"offset"` / `"locale"` / `"tab"` / `"results"` / `"totalCount"` / `"duration"` / Azure AI Search `"@odata.count"` / `"@search.score"` / `"searchMode"` / Vespa `"yql"` / `"searchChain"` / Marqo `"searchableAttributes"` / `"searchMethod"` / LanceDB `"vector_column_name"` / `"nprobes"` / Milvus `"annsField"` / Chroma `"n_results"` / Pinecone `"topK"` / Weaviate `"nearVector"` / Qdrant `"vectors_count"` / Algolia `"processingTimeMS"` / Meilisearch `"processingTimeMs"` / Typesense `"search_time_ms"` / Solr `"responseHeader"` / Elasticsearch `"track_total_hits"` / prettier `"printWidth"` / karma `"basePath"` stay out. String keys require a non-empty quoted string. Bool keys only match `true` / `false`. Numeric keys reject leading zeros beyond `0`.
+
 ## [0.3.816] — 2026-11-12
 
 View:
