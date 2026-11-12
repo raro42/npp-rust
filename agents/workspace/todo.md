@@ -1272,3 +1272,5 @@
 009 keep: Function List Elasticsearch/OpenSearch track_total_hits/min_score/post_filter/runtime_mappings/script_fields/docvalue_fields/seq_no_primary_term/_scroll_id/_shards (v0.3.803)
 
 009 keep: Function List Solr responseHeader/numFound/numFoundExact/QTime/zkConnected/facet_counts/highlighting/spellcheck/grouped/nextCursorMark (v0.3.804)
+
+009 keep: Function List Meilisearch processingTimeMs/estimatedTotalHits/exhaustiveNbHits/nbHits/hitsPerPage/facetDistribution/facetStats/exhaustiveFacetsCount/rankingScoreThreshold/showRankingScore/matchingStrategy/attributesToSearchOn (v0.3.805)
