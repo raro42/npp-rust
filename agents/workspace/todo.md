@@ -1324,3 +1324,5 @@
 009 keep: Function List Searchspring resultLayout/filterSummary/merchandising/defaultPerPage/facet_active/is_elevated/facetsHide/triggeredCampaigns/removeRefineQuery/filterLabel/didYouMean/multiple/relatedSearches/facet_match/search_match/totalPages (v0.3.822)
 
 009 keep: Function List Voyado Elevate primaryList/navigation/autoCorrect/visibleNotification/recommendationLists/productGroups/didYouMean/channels/stores/sessionKey/customerKey/priceId/present/notify/touchpoint/origin/sortBy (v0.3.827)
+
+009 keep: Function List Unbxd searchMetaData/suggestionGroups/inFields/keywordSuggestions/topQueries/popularProducts/promotedSuggestions/numberOfProducts/searchEndPoint/browseEndPoint/doctype/facet.multiselect (v0.3.831)
