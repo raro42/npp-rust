@@ -1,3 +1,5 @@
+009 keep: Function List AddSearch processing_time_ms/rangeFacets/postfixWildcard/collectAnalytics/analyticsTag/fuzzy/thumbnail_external_src/meta_description/meta_categories/custom_fields/document_type/numFacets/enableLogicalOperators/shuffleAndLimitTo/priceFromCents/priceToCents/cacheResponseWithTtlSeconds (v0.3.839)
+
 009 keep: Function List Nosto emptyQueryMatchesAll/exclusionBehaviour/outOfStockBehaviour/personalizationBoost/personalizationWeight/showPrivateFields/customFacets/queryFields/relevanceWeight/categoryPath/variationId/sessionParams/preFilter/customRules/thumbUrl (v0.3.836)
 
 009 keep: Function List Tweakwise nrofitems/nrofpages/currentpage/filtereditemcount/redirects/facetsettings/attributeurl/urlfilter/searchterm/displaytitle/productkey/recommendationtype/iscollapsed/iscategory/issearch/containsbuckets/containsclickpoints/selectiontype (v0.3.834)
