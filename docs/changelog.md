@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.827] — 2026-11-13
+
+View:
+
+- **Function List** lists Voyado Elevate Storefront / Search JSON keys: `"primaryList": {`, `"navigation": {`, `"autoCorrect": {`, `"visibleNotification": {`, `"recommendationLists": [`, `"productGroups": [`, `"didYouMean": [`, `"channels": [`, `"stores": [`, `"sessionKey": "…"`, `"customerKey": "…"`, `"priceId": "…"`, `"present": "…"`, `"notify": true` / `false`, `"touchpoint": "desktop"` / `"mobile"` / `"app"`, `"origin": "SEARCH_PAGE"` / `"PRODUCT_PAGE"` / `"CART_PAGE"` / `"LANDING_PAGE"` / `"CATEGORY_PAGE"` / `"OTHER"`, `"sortBy": "RELEVANCE"` / `"NEWEST_FIRST"` / `"PRICE_ASCENDING"` / `"PRICE_DESCENDING"` / `"DISCOUNT"` / `"TOP_RATED"`. Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing `:` stay out. Generic `"$schema"` / `"name"` / `"id"` / `"q"` / `"query"` / `"filter"` / `"filters"` / `"limit"` / `"offset"` / `"page"` / `"skip"` / `"results"` / `"facets"` / `"hits"` / `"customData"` / `"market"` / `"locale"` / `"totalHits"` / FactFinder `"searchResult"` / `"fieldRoles"` / `"useAsn"` / Hawksearch `"ClientGuid"` / `"NofResults"` / GroupBy `"totalRecordCount"` / `"availableNavigation"` / Luigi's Box `"corrected_query"` / `"total_hits"` / Searchspring `"resultLayout"` / `"filterSummary"` / `"didYouMean": {` / Doofinder `"hashid"` / `"query_name"` / Klevu `"recordQueries"` / Bloomreach Discovery `"domain_key"` / Constructor.io `"result_sources"` / Coveo `"searchHub"` / Azure AI Search `"@odata.count"` / Vespa `"yql"` / Marqo `"searchableAttributes"` / LanceDB `"vector_column_name"` / Milvus `"annsField"` / Chroma `"n_results"` / Pinecone `"topK"` / Weaviate `"nearVector"` / Qdrant `"vectors_count"` / Algolia `"processingTimeMS"` / Meilisearch `"processingTimeMs"` / Typesense `"search_time_ms"` / Solr `"responseHeader"` / Elasticsearch `"track_total_hits"` / prettier `"printWidth"` / karma `"basePath"` stay out. `"touchpoint"` / `"origin"` / `"sortBy"` only match their Elevate enums. String keys require a non-empty quoted string. Bool `"notify"` only matches `true` / `false`. `"didYouMean"` only matches an array opener (Searchspring object form stays out).
+
 ## [0.3.826] — 2026-11-13
 
 View:

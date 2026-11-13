@@ -1316,3 +1316,5 @@
 009 keep: Function List Klevu recordQueries/typeOfRequest/typeOfRecords/typeOfSearch/totalResultsFound/nextOffset/noOfResults/apiKeys/qTime/groupByFields/filtersToReturn/searchPrefs/priceFieldSuffix/kmcConfig/queryResults (v0.3.820)
 
 009 keep: Function List Searchspring resultLayout/filterSummary/merchandising/defaultPerPage/facet_active/is_elevated/facetsHide/triggeredCampaigns/removeRefineQuery/filterLabel/didYouMean/multiple/relatedSearches/facet_match/search_match/totalPages (v0.3.822)
+
+009 keep: Function List Voyado Elevate primaryList/navigation/autoCorrect/visibleNotification/recommendationLists/productGroups/didYouMean/channels/stores/sessionKey/customerKey/priceId/present/notify/touchpoint/origin/sortBy (v0.3.827)

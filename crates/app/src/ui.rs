@@ -32494,6 +32494,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_groupby_json_decl(s)
             || is_hawksearch_json_decl(s)
             || is_factfinder_json_decl(s)
+            || is_voyado_elevate_json_decl(s)
             || is_gomod_decl(s)
             || is_gemfile_decl(s)
             || is_brewfile_decl(s)
@@ -32898,6 +32899,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_groupby_json_decl(s)
         || is_hawksearch_json_decl(s)
         || is_factfinder_json_decl(s)
+        || is_voyado_elevate_json_decl(s)
         || is_gomod_decl(s)
         || is_gemfile_decl(s)
         || is_brewfile_decl(s)
@@ -66035,7 +66037,8 @@ fn groupby_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool {
 /// `"vectors_count"` / Algolia `"processingTimeMS"` / Meilisearch
 /// `"processingTimeMs"` / Typesense `"search_time_ms"` / Solr
 /// `"responseHeader"` / Elasticsearch `"track_total_hits"` / FactFinder
-/// `"searchResult"` / `"fieldRoles"` / `"useAsn"` / prettier
+/// `"searchResult"` / `"fieldRoles"` / `"useAsn"` / Voyado Elevate
+/// `"primaryList"` / `"sessionKey"` / `"touchpoint"` / prettier
 /// `"printWidth"` / karma `"basePath"` stay out.
 fn is_hawksearch_json_decl(s: &str) -> bool {
     let s = s.trim_start();
@@ -66202,7 +66205,8 @@ fn hawksearch_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool {
 /// `"n_results"` / Pinecone `"topK"` / Weaviate `"nearVector"` / Qdrant
 /// `"vectors_count"` / Algolia `"processingTimeMS"` / Meilisearch
 /// `"processingTimeMs"` / Typesense `"search_time_ms"` / Solr
-/// `"responseHeader"` / Elasticsearch `"track_total_hits"` / prettier
+/// `"responseHeader"` / Elasticsearch `"track_total_hits"` / Voyado Elevate
+/// `"primaryList"` / `"sessionKey"` / `"touchpoint"` / prettier
 /// `"printWidth"` / karma `"basePath"` stay out.
 /// `"filterStyle"` only matches its FactFinder enums. `"searchField"`
 /// requires a non-empty quoted string. Bool keys only match `true` /
@@ -66359,6 +66363,193 @@ fn factfinder_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool {
         }
     }
     package_json_tail_ok(&after_colon[i..])
+}
+
+/// Voyado Elevate Storefront / Search JSON keys:
+/// `"primaryList": {`, `"navigation": {`, `"autoCorrect": {`,
+/// `"visibleNotification": {`, `"recommendationLists": [`,
+/// `"productGroups": [`, `"didYouMean": [`, `"channels": [`,
+/// `"stores": [`, `"sessionKey": "…"`, `"customerKey": "…"`,
+/// `"priceId": "…"`, `"present": "…"`, `"notify": true` / `false`,
+/// `"touchpoint": "desktop"` / `"mobile"` / `"app"`,
+/// `"origin": "SEARCH_PAGE"` / `"PRODUCT_PAGE"` / `"CART_PAGE"` /
+/// `"LANDING_PAGE"` / `"CATEGORY_PAGE"` / `"OTHER"`,
+/// `"sortBy": "RELEVANCE"` / `"NEWEST_FIRST"` / `"PRICE_ASCENDING"` /
+/// `"PRICE_DESCENDING"` / `"DISCOUNT"` / `"TOP_RATED"`.
+/// Optional trailing `,` and `//` / `/*` comment. Incomplete quotes /
+/// missing `:` stay out. Generic `"$schema"` / `"name"` / `"id"` / `"q"` /
+/// `"query"` / `"filter"` / `"filters"` / `"limit"` / `"offset"` / `"page"` /
+/// `"skip"` / `"results"` / `"facets"` / `"hits"` / `"customData"` /
+/// `"market"` / `"locale"` / `"totalHits"` / FactFinder `"searchResult"` /
+/// `"fieldRoles"` / `"useAsn"` / Hawksearch `"ClientGuid"` / `"NofResults"` /
+/// GroupBy `"totalRecordCount"` / `"availableNavigation"` / Luigi's Box
+/// `"corrected_query"` / `"total_hits"` / Searchspring `"resultLayout"` /
+/// `"filterSummary"` / `"didYouMean": {` / Doofinder `"hashid"` /
+/// `"query_name"` / Klevu `"recordQueries"` / Bloomreach Discovery
+/// `"domain_key"` / Constructor.io `"result_sources"` / Coveo `"searchHub"` /
+/// Azure AI Search `"@odata.count"` / Vespa `"yql"` / Marqo
+/// `"searchableAttributes"` / LanceDB `"vector_column_name"` / Milvus
+/// `"annsField"` / Chroma `"n_results"` / Pinecone `"topK"` / Weaviate
+/// `"nearVector"` / Qdrant `"vectors_count"` / Algolia `"processingTimeMS"` /
+/// Meilisearch `"processingTimeMs"` / Typesense `"search_time_ms"` / Solr
+/// `"responseHeader"` / Elasticsearch `"track_total_hits"` / prettier
+/// `"printWidth"` / karma `"basePath"` stay out.
+/// `"touchpoint"` / `"origin"` / `"sortBy"` only match their Elevate enums.
+/// String keys require a non-empty quoted string. Bool `"notify"` only
+/// matches `true` / `false`. `"didYouMean"` only matches an array opener
+/// (Searchspring object form stays out).
+fn is_voyado_elevate_json_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    let Some(rest) = s.strip_prefix('"') else {
+        return false;
+    };
+    let Some(end) = rest.find('"') else {
+        return false;
+    };
+    let key = &rest[..end];
+    if !voyado_elevate_json_key_ok(key) {
+        return false;
+    }
+    let after_key = rest[end + 1..].trim_start();
+    let Some(after_colon) = after_key.strip_prefix(':') else {
+        return false;
+    };
+    let after_colon = after_colon.trim_start();
+    voyado_elevate_json_value_and_tail_ok(key, after_colon)
+}
+
+fn voyado_elevate_json_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "primaryList"
+            | "navigation"
+            | "autoCorrect"
+            | "visibleNotification"
+            | "recommendationLists"
+            | "productGroups"
+            | "didYouMean"
+            | "channels"
+            | "stores"
+            | "sessionKey"
+            | "customerKey"
+            | "priceId"
+            | "present"
+            | "notify"
+            | "touchpoint"
+            | "origin"
+            | "sortBy"
+    )
+}
+
+fn voyado_elevate_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool {
+    let bytes = after_colon.as_bytes();
+    let Some(first) = bytes.first().copied() else {
+        return false;
+    };
+    match first {
+        b'{' => {
+            if !matches!(
+                key,
+                "primaryList" | "navigation" | "autoCorrect" | "visibleNotification"
+            ) {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[1..])
+        }
+        b'[' => {
+            if !matches!(
+                key,
+                "recommendationLists" | "productGroups" | "didYouMean" | "channels" | "stores"
+            ) {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[1..])
+        }
+        b'"' => match key {
+            "touchpoint" => voyado_elevate_json_touchpoint_and_tail_ok(after_colon),
+            "origin" => voyado_elevate_json_origin_and_tail_ok(after_colon),
+            "sortBy" => voyado_elevate_json_sort_by_and_tail_ok(after_colon),
+            "sessionKey" | "customerKey" | "priceId" | "present" => {
+                voyado_elevate_json_nonempty_string_and_tail_ok(after_colon)
+            }
+            _ => false,
+        },
+        b't' | b'f' => voyado_elevate_json_bool_and_tail_ok(key, after_colon),
+        _ => false,
+    }
+}
+
+fn voyado_elevate_json_nonempty_string_and_tail_ok(after_colon: &str) -> bool {
+    let rest = &after_colon[1..];
+    let Some(end) = rest.find('"') else {
+        return false;
+    };
+    let value = &rest[..end];
+    if value.is_empty() || value.contains('\n') {
+        return false;
+    }
+    package_json_tail_ok(&rest[end + 1..])
+}
+
+fn voyado_elevate_json_touchpoint_and_tail_ok(after_colon: &str) -> bool {
+    let rest = &after_colon[1..];
+    let Some(end) = rest.find('"') else {
+        return false;
+    };
+    let value = &rest[..end];
+    if !matches!(value, "desktop" | "mobile" | "app") {
+        return false;
+    }
+    package_json_tail_ok(&rest[end + 1..])
+}
+
+fn voyado_elevate_json_origin_and_tail_ok(after_colon: &str) -> bool {
+    let rest = &after_colon[1..];
+    let Some(end) = rest.find('"') else {
+        return false;
+    };
+    let value = &rest[..end];
+    if !matches!(
+        value,
+        "SEARCH_PAGE" | "PRODUCT_PAGE" | "CART_PAGE" | "LANDING_PAGE" | "CATEGORY_PAGE" | "OTHER"
+    ) {
+        return false;
+    }
+    package_json_tail_ok(&rest[end + 1..])
+}
+
+fn voyado_elevate_json_sort_by_and_tail_ok(after_colon: &str) -> bool {
+    let rest = &after_colon[1..];
+    let Some(end) = rest.find('"') else {
+        return false;
+    };
+    let value = &rest[..end];
+    if !matches!(
+        value,
+        "RELEVANCE"
+            | "NEWEST_FIRST"
+            | "PRICE_ASCENDING"
+            | "PRICE_DESCENDING"
+            | "DISCOUNT"
+            | "TOP_RATED"
+    ) {
+        return false;
+    }
+    package_json_tail_ok(&rest[end + 1..])
+}
+
+fn voyado_elevate_json_bool_and_tail_ok(key: &str, after_colon: &str) -> bool {
+    if key != "notify" {
+        return false;
+    }
+    let rest = if let Some(rest) = after_colon.strip_prefix("true") {
+        rest
+    } else if let Some(rest) = after_colon.strip_prefix("false") {
+        rest
+    } else {
+        return false;
+    };
+    package_json_tail_ok(rest)
 }
 
 /// go.mod / go.work directives: `module example.com/foo`, `go 1.22`,
@@ -97048,8 +97239,8 @@ mod func_like_line_tests {
         is_unbound_nsd_conf_decl, is_uniffi_toml_decl, is_unimport_ini_decl, is_uv_toml_decl,
         is_vconsole_conf_decl, is_vector_toml_decl, is_vercel_json_decl, is_versioneer_ini_decl,
         is_versionrc_json_decl, is_vespa_json_decl, is_vitest_json_decl,
-        is_vscode_launch_json_decl, is_vscode_tasks_json_decl, is_vulture_ini_decl,
-        is_wails_json_decl, is_wdio_json_decl, is_weaviate_json_decl,
+        is_voyado_elevate_json_decl, is_vscode_launch_json_decl, is_vscode_tasks_json_decl,
+        is_vulture_ini_decl, is_wails_json_decl, is_wdio_json_decl, is_weaviate_json_decl,
         is_webextension_manifest_json_decl, is_wireguard_config_decl, is_wiremock_json_decl,
         is_wrangler_toml_decl, is_xmake_decl, is_xorg_conf_decl, is_yaak_json_decl,
         is_yapf_ini_decl, is_yarnrc_yml_decl, is_yum_repo_decl, is_zest_releaser_ini_decl,
@@ -135802,6 +135993,12 @@ mod func_like_line_tests {
         assert!(is_factfinder_json_decl(r#""fieldRoles": {"#));
         assert!(!is_hawksearch_json_decl(r#""useAsn": true"#));
         assert!(is_factfinder_json_decl(r#""useAsn": true"#));
+        assert!(!is_hawksearch_json_decl(r#""primaryList": {"#));
+        assert!(is_voyado_elevate_json_decl(r#""primaryList": {"#));
+        assert!(!is_hawksearch_json_decl(r#""sessionKey": "abc""#));
+        assert!(is_voyado_elevate_json_decl(r#""sessionKey": "abc""#));
+        assert!(!is_hawksearch_json_decl(r#""touchpoint": "desktop""#));
+        assert!(is_voyado_elevate_json_decl(r#""touchpoint": "desktop""#));
         assert!(line_is_func_like(
             r#""ClientGuid": "11111111-2222-3333-4444-555555555555""#
         ));
@@ -136050,6 +136247,12 @@ mod func_like_line_tests {
         assert!(is_factfinder_json_decl(r#""fieldRoles": {"#));
         assert!(!is_hawksearch_json_decl(r#""useAsn": true"#));
         assert!(is_factfinder_json_decl(r#""useAsn": true"#));
+        assert!(!is_hawksearch_json_decl(r#""primaryList": {"#));
+        assert!(is_voyado_elevate_json_decl(r#""primaryList": {"#));
+        assert!(!is_hawksearch_json_decl(r#""sessionKey": "abc""#));
+        assert!(is_voyado_elevate_json_decl(r#""sessionKey": "abc""#));
+        assert!(!is_hawksearch_json_decl(r#""touchpoint": "desktop""#));
+        assert!(is_voyado_elevate_json_decl(r#""touchpoint": "desktop""#));
         assert!(line_is_func_like(
             r#""ClientGuid": "11111111-2222-3333-4444-555555555555""#
         ));
@@ -136168,6 +136371,12 @@ mod func_like_line_tests {
         assert!(is_prettier_json_decl(r#""printWidth": 80"#));
         assert!(!is_factfinder_json_decl(r#""basePath": ".""#));
         assert!(is_karma_json_decl(r#""basePath": ".""#));
+        assert!(!is_factfinder_json_decl(r#""primaryList": {"#));
+        assert!(is_voyado_elevate_json_decl(r#""primaryList": {"#));
+        assert!(!is_factfinder_json_decl(r#""sessionKey": "abc""#));
+        assert!(is_voyado_elevate_json_decl(r#""sessionKey": "abc""#));
+        assert!(!is_factfinder_json_decl(r#""touchpoint": "desktop""#));
+        assert!(is_voyado_elevate_json_decl(r#""touchpoint": "desktop""#));
         assert!(line_is_func_like(r#""searchResult": {"#));
         assert!(line_is_func_like(r#""fieldRoles": {"#));
         assert!(line_is_func_like(r#""searchControlParams": {"#));
@@ -136401,6 +136610,12 @@ mod func_like_line_tests {
         assert!(is_prettier_json_decl(r#""printWidth": 80"#));
         assert!(!is_factfinder_json_decl(r#""basePath": ".""#));
         assert!(is_karma_json_decl(r#""basePath": ".""#));
+        assert!(!is_factfinder_json_decl(r#""primaryList": {"#));
+        assert!(is_voyado_elevate_json_decl(r#""primaryList": {"#));
+        assert!(!is_factfinder_json_decl(r#""sessionKey": "abc""#));
+        assert!(is_voyado_elevate_json_decl(r#""sessionKey": "abc""#));
+        assert!(!is_factfinder_json_decl(r#""touchpoint": "desktop""#));
+        assert!(is_voyado_elevate_json_decl(r#""touchpoint": "desktop""#));
         assert!(line_is_func_like(r#""searchResult": {"#));
         assert!(line_is_func_like(r#""fieldRoles": {"#));
         assert!(line_is_func_like(r#""searchControlParams": {"#));
@@ -136422,6 +136637,337 @@ mod func_like_line_tests {
         assert!(line_is_func_like(r#""searchField": "Name""#));
         assert!(line_is_func_like(r#""clusterLevel": 2"#));
         assert!(line_is_func_like(r#""detailedLinks": 5"#));
+    }
+
+    #[test]
+    fn voyado_elevate_json_keys_smoke() {
+        assert!(is_voyado_elevate_json_decl(r#""primaryList": {"#));
+        assert!(is_voyado_elevate_json_decl(r#""navigation": {"#));
+        assert!(is_voyado_elevate_json_decl(r#""autoCorrect": {"#));
+        assert!(is_voyado_elevate_json_decl(r#""visibleNotification": {"#));
+        assert!(is_voyado_elevate_json_decl(r#""recommendationLists": ["#));
+        assert!(is_voyado_elevate_json_decl(r#""productGroups": ["#));
+        assert!(is_voyado_elevate_json_decl(r#""didYouMean": ["#));
+        assert!(is_voyado_elevate_json_decl(r#""channels": ["#));
+        assert!(is_voyado_elevate_json_decl(r#""stores": ["#));
+        assert!(is_voyado_elevate_json_decl(r#""sessionKey": "sess-1""#));
+        assert!(is_voyado_elevate_json_decl(r#""customerKey": "cust-1""#));
+        assert!(is_voyado_elevate_json_decl(r#""priceId": "default""#));
+        assert!(is_voyado_elevate_json_decl(r#""present": "products""#));
+        assert!(is_voyado_elevate_json_decl(r#""notify": true"#));
+        assert!(is_voyado_elevate_json_decl(r#""touchpoint": "desktop""#));
+        assert!(is_voyado_elevate_json_decl(r#""origin": "SEARCH_PAGE""#));
+        assert!(is_voyado_elevate_json_decl(r#""sortBy": "RELEVANCE""#));
+        assert!(!is_voyado_elevate_json_decl(r#""didYouMean": {"#));
+        assert!(is_searchspring_json_decl(r#""didYouMean": {"#));
+        assert!(!is_voyado_elevate_json_decl(r#""searchResult": {"#));
+        assert!(is_factfinder_json_decl(r#""searchResult": {"#));
+        assert!(!is_voyado_elevate_json_decl(r#""fieldRoles": {"#));
+        assert!(is_factfinder_json_decl(r#""fieldRoles": {"#));
+        assert!(!is_voyado_elevate_json_decl(r#""useAsn": true"#));
+        assert!(is_factfinder_json_decl(r#""useAsn": true"#));
+        assert!(!is_voyado_elevate_json_decl(
+            r#""ClientGuid": "11111111-2222-3333-4444-555555555555""#
+        ));
+        assert!(is_hawksearch_json_decl(
+            r#""ClientGuid": "11111111-2222-3333-4444-555555555555""#
+        ));
+        assert!(!is_voyado_elevate_json_decl(r#""NofResults": 2400"#));
+        assert!(is_hawksearch_json_decl(r#""NofResults": 2400"#));
+        assert!(!is_voyado_elevate_json_decl(r#""totalRecordCount": 128"#));
+        assert!(is_groupby_json_decl(r#""totalRecordCount": 128"#));
+        assert!(!is_voyado_elevate_json_decl(r#""availableNavigation": ["#));
+        assert!(is_groupby_json_decl(r#""availableNavigation": ["#));
+        assert!(!is_voyado_elevate_json_decl(
+            r#""corrected_query": "putter""#
+        ));
+        assert!(is_luigisbox_json_decl(r#""corrected_query": "putter""#));
+        assert!(!is_voyado_elevate_json_decl(r#""resultLayout": "grid""#));
+        assert!(is_searchspring_json_decl(r#""resultLayout": "grid""#));
+        assert!(!is_voyado_elevate_json_decl(
+            r#""hashid": "d8fdeab7fce96a19d3fc7b0ca7a1e98b""#
+        ));
+        assert!(is_doofinder_json_decl(
+            r#""hashid": "d8fdeab7fce96a19d3fc7b0ca7a1e98b""#
+        ));
+        assert!(!is_voyado_elevate_json_decl(r#""recordQueries": ["#));
+        assert!(is_klevu_json_decl(r#""recordQueries": ["#));
+        assert!(!is_voyado_elevate_json_decl(
+            r#""domain_key": "example_com""#
+        ));
+        assert!(is_bloomreach_json_decl(r#""domain_key": "example_com""#));
+        assert!(!is_voyado_elevate_json_decl(r#""result_sources": {"#));
+        assert!(is_constructor_io_json_decl(r#""result_sources": {"#));
+        assert!(!is_voyado_elevate_json_decl(r#""searchHub": "default""#));
+        assert!(is_coveo_json_decl(r#""searchHub": "default""#));
+        assert!(!is_voyado_elevate_json_decl(r#""@odata.count": 10"#));
+        assert!(is_azure_search_json_decl(r#""@odata.count": 10"#));
+        assert!(!is_voyado_elevate_json_decl(
+            r#""yql": "select * from sources * where true""#
+        ));
+        assert!(is_vespa_json_decl(
+            r#""yql": "select * from sources * where true""#
+        ));
+        assert!(!is_voyado_elevate_json_decl(r#""searchableAttributes": ["#));
+        assert!(is_marqo_json_decl(r#""searchableAttributes": ["#));
+        assert!(!is_voyado_elevate_json_decl(
+            r#""vector_column_name": "vec""#
+        ));
+        assert!(is_lancedb_json_decl(r#""vector_column_name": "vec""#));
+        assert!(!is_voyado_elevate_json_decl(r#""annsField": "vec""#));
+        assert!(is_milvus_json_decl(r#""annsField": "vec""#));
+        assert!(!is_voyado_elevate_json_decl(r#""n_results": 10"#));
+        assert!(is_chroma_json_decl(r#""n_results": 10"#));
+        assert!(!is_voyado_elevate_json_decl(r#""topK": 10"#));
+        assert!(is_pinecone_json_decl(r#""topK": 10"#));
+        assert!(!is_voyado_elevate_json_decl(r#""nearVector": {"#));
+        assert!(is_weaviate_json_decl(r#""nearVector": {"#));
+        assert!(!is_voyado_elevate_json_decl(r#""vectors_count": 100"#));
+        assert!(is_qdrant_json_decl(r#""vectors_count": 100"#));
+        assert!(!is_voyado_elevate_json_decl(r#""processingTimeMS": 12"#));
+        assert!(is_algolia_json_decl(r#""processingTimeMS": 12"#));
+        assert!(!is_voyado_elevate_json_decl(r#""processingTimeMs": 12"#));
+        assert!(is_meilisearch_json_decl(r#""processingTimeMs": 12"#));
+        assert!(!is_voyado_elevate_json_decl(r#""search_time_ms": 12"#));
+        assert!(is_typesense_json_decl(r#""search_time_ms": 12"#));
+        assert!(!is_voyado_elevate_json_decl(r#""responseHeader": {"#));
+        assert!(is_solr_json_decl(r#""responseHeader": {"#));
+        assert!(!is_voyado_elevate_json_decl(r#""track_total_hits": true"#));
+        assert!(is_elasticsearch_json_decl(r#""track_total_hits": true"#));
+        assert!(!is_voyado_elevate_json_decl(r#""printWidth": 80"#));
+        assert!(is_prettier_json_decl(r#""printWidth": 80"#));
+        assert!(!is_voyado_elevate_json_decl(r#""basePath": ".""#));
+        assert!(is_karma_json_decl(r#""basePath": ".""#));
+        assert!(line_is_func_like(r#""primaryList": {"#));
+        assert!(line_is_func_like(r#""navigation": {"#));
+        assert!(line_is_func_like(r#""autoCorrect": {"#));
+        assert!(line_is_func_like(r#""visibleNotification": {"#));
+        assert!(line_is_func_like(r#""recommendationLists": ["#));
+        assert!(line_is_func_like(r#""productGroups": ["#));
+        assert!(line_is_func_like(r#""didYouMean": ["#));
+        assert!(line_is_func_like(r#""channels": ["#));
+        assert!(line_is_func_like(r#""stores": ["#));
+        assert!(line_is_func_like(r#""sessionKey": "sess-1""#));
+        assert!(line_is_func_like(r#""customerKey": "cust-1""#));
+        assert!(line_is_func_like(r#""priceId": "default""#));
+        assert!(line_is_func_like(r#""present": "products""#));
+        assert!(line_is_func_like(r#""notify": true"#));
+        assert!(line_is_func_like(r#""touchpoint": "desktop""#));
+        assert!(line_is_func_like(r#""origin": "SEARCH_PAGE""#));
+        assert!(line_is_func_like(r#""sortBy": "RELEVANCE""#));
+    }
+
+    #[test]
+    fn voyado_elevate_json_keys_count() {
+        assert!(is_voyado_elevate_json_decl(r#""primaryList": {"#));
+        assert!(is_voyado_elevate_json_decl(r#""primaryList": {,"#));
+        assert!(is_voyado_elevate_json_decl(r#""primaryList": { // p"#));
+        assert!(!is_voyado_elevate_json_decl(r#""primaryList": ["#));
+        assert!(!is_voyado_elevate_json_decl(r#""primaryList": true"#));
+        assert!(is_voyado_elevate_json_decl(r#""navigation": {"#));
+        assert!(is_voyado_elevate_json_decl(r#""navigation": {,"#));
+        assert!(!is_voyado_elevate_json_decl(r#""navigation": ["#));
+        assert!(is_voyado_elevate_json_decl(r#""autoCorrect": {"#));
+        assert!(!is_voyado_elevate_json_decl(r#""autoCorrect": ["#));
+        assert!(is_voyado_elevate_json_decl(r#""visibleNotification": {"#));
+        assert!(!is_voyado_elevate_json_decl(r#""visibleNotification": ["#));
+        assert!(is_voyado_elevate_json_decl(r#""recommendationLists": ["#));
+        assert!(is_voyado_elevate_json_decl(r#""recommendationLists": [,"#));
+        assert!(!is_voyado_elevate_json_decl(r#""recommendationLists": {"#));
+        assert!(is_voyado_elevate_json_decl(r#""productGroups": ["#));
+        assert!(!is_voyado_elevate_json_decl(r#""productGroups": {"#));
+        assert!(is_voyado_elevate_json_decl(r#""didYouMean": ["#));
+        assert!(is_voyado_elevate_json_decl(r#""didYouMean": [,"#));
+        assert!(!is_voyado_elevate_json_decl(r#""didYouMean": {"#));
+        assert!(is_searchspring_json_decl(r#""didYouMean": {"#));
+        assert!(is_voyado_elevate_json_decl(r#""channels": ["#));
+        assert!(!is_voyado_elevate_json_decl(r#""channels": {"#));
+        assert!(is_voyado_elevate_json_decl(r#""stores": ["#));
+        assert!(!is_voyado_elevate_json_decl(r#""stores": {"#));
+        assert!(is_voyado_elevate_json_decl(r#""sessionKey": "sess-1""#));
+        assert!(is_voyado_elevate_json_decl(r#""sessionKey": "sess-1","#));
+        assert!(is_voyado_elevate_json_decl(
+            r#""sessionKey": "sess-1" // s"#
+        ));
+        assert!(!is_voyado_elevate_json_decl(r#""sessionKey": """#));
+        assert!(!is_voyado_elevate_json_decl(r#""sessionKey": {"#));
+        assert!(is_voyado_elevate_json_decl(r#""customerKey": "cust-1""#));
+        assert!(!is_voyado_elevate_json_decl(r#""customerKey": """#));
+        assert!(is_voyado_elevate_json_decl(r#""priceId": "default""#));
+        assert!(!is_voyado_elevate_json_decl(r#""priceId": """#));
+        assert!(is_voyado_elevate_json_decl(r#""present": "products""#));
+        assert!(!is_voyado_elevate_json_decl(r#""present": """#));
+        assert!(is_voyado_elevate_json_decl(r#""notify": true"#));
+        assert!(is_voyado_elevate_json_decl(r#""notify": false"#));
+        assert!(is_voyado_elevate_json_decl(r#""notify": true,"#));
+        assert!(is_voyado_elevate_json_decl(r#""notify": false // n"#));
+        assert!(!is_voyado_elevate_json_decl(r#""notify": {"#));
+        assert!(!is_voyado_elevate_json_decl(r#""notify": 1"#));
+        assert!(!is_voyado_elevate_json_decl(r#""notify": "true""#));
+        assert!(is_voyado_elevate_json_decl(r#""touchpoint": "desktop""#));
+        assert!(is_voyado_elevate_json_decl(r#""touchpoint": "mobile""#));
+        assert!(is_voyado_elevate_json_decl(r#""touchpoint": "app""#));
+        assert!(is_voyado_elevate_json_decl(r#""touchpoint": "desktop","#));
+        assert!(!is_voyado_elevate_json_decl(r#""touchpoint": "web""#));
+        assert!(!is_voyado_elevate_json_decl(r#""touchpoint": "Desktop""#));
+        assert!(!is_voyado_elevate_json_decl(r#""touchpoint": {"#));
+        assert!(!is_voyado_elevate_json_decl(r#""touchpoint": """#));
+        assert!(is_voyado_elevate_json_decl(r#""origin": "SEARCH_PAGE""#));
+        assert!(is_voyado_elevate_json_decl(r#""origin": "PRODUCT_PAGE""#));
+        assert!(is_voyado_elevate_json_decl(r#""origin": "CART_PAGE""#));
+        assert!(is_voyado_elevate_json_decl(r#""origin": "LANDING_PAGE""#));
+        assert!(is_voyado_elevate_json_decl(r#""origin": "CATEGORY_PAGE""#));
+        assert!(is_voyado_elevate_json_decl(r#""origin": "OTHER""#));
+        assert!(is_voyado_elevate_json_decl(r#""origin": "SEARCH_PAGE","#));
+        assert!(!is_voyado_elevate_json_decl(r#""origin": "HOME_PAGE""#));
+        assert!(!is_voyado_elevate_json_decl(r#""origin": "search_page""#));
+        assert!(!is_voyado_elevate_json_decl(r#""origin": {"#));
+        assert!(is_voyado_elevate_json_decl(r#""sortBy": "RELEVANCE""#));
+        assert!(is_voyado_elevate_json_decl(r#""sortBy": "NEWEST_FIRST""#));
+        assert!(is_voyado_elevate_json_decl(
+            r#""sortBy": "PRICE_ASCENDING""#
+        ));
+        assert!(is_voyado_elevate_json_decl(
+            r#""sortBy": "PRICE_DESCENDING""#
+        ));
+        assert!(is_voyado_elevate_json_decl(r#""sortBy": "DISCOUNT""#));
+        assert!(is_voyado_elevate_json_decl(r#""sortBy": "TOP_RATED""#));
+        assert!(is_voyado_elevate_json_decl(r#""sortBy": "RELEVANCE","#));
+        assert!(!is_voyado_elevate_json_decl(r#""sortBy": "relevance""#));
+        assert!(!is_voyado_elevate_json_decl(r#""sortBy": "PRICE""#));
+        assert!(!is_voyado_elevate_json_decl(r#""sortBy": {"#));
+        assert!(!is_voyado_elevate_json_decl(r#""primaryList""#));
+        assert!(!is_voyado_elevate_json_decl(r#""navigation""#));
+        assert!(!is_voyado_elevate_json_decl(r#""autoCorrect""#));
+        assert!(!is_voyado_elevate_json_decl(r#""visibleNotification""#));
+        assert!(!is_voyado_elevate_json_decl(r#""recommendationLists""#));
+        assert!(!is_voyado_elevate_json_decl(r#""productGroups""#));
+        assert!(!is_voyado_elevate_json_decl(r#""didYouMean""#));
+        assert!(!is_voyado_elevate_json_decl(r#""channels""#));
+        assert!(!is_voyado_elevate_json_decl(r#""stores""#));
+        assert!(!is_voyado_elevate_json_decl(r#""sessionKey""#));
+        assert!(!is_voyado_elevate_json_decl(r#""customerKey""#));
+        assert!(!is_voyado_elevate_json_decl(r#""priceId""#));
+        assert!(!is_voyado_elevate_json_decl(r#""present""#));
+        assert!(!is_voyado_elevate_json_decl(r#""notify""#));
+        assert!(!is_voyado_elevate_json_decl(r#""touchpoint""#));
+        assert!(!is_voyado_elevate_json_decl(r#""origin""#));
+        assert!(!is_voyado_elevate_json_decl(r#""sortBy""#));
+        assert!(!is_voyado_elevate_json_decl(
+            r#""$schema": "https://example.com""#
+        ));
+        assert!(!is_voyado_elevate_json_decl(r#""name": "docs""#));
+        assert!(!is_voyado_elevate_json_decl(r#""id": "idx-1""#));
+        assert!(!is_voyado_elevate_json_decl(r#""q": "shoes""#));
+        assert!(!is_voyado_elevate_json_decl(r#""query": "shoes""#));
+        assert!(!is_voyado_elevate_json_decl(r#""filter": "type eq 'a'""#));
+        assert!(!is_voyado_elevate_json_decl(r#""filters": ["#));
+        assert!(!is_voyado_elevate_json_decl(r#""limit": 10"#));
+        assert!(!is_voyado_elevate_json_decl(r#""offset": 0"#));
+        assert!(!is_voyado_elevate_json_decl(r#""skip": 0"#));
+        assert!(!is_voyado_elevate_json_decl(r#""page": 1"#));
+        assert!(!is_voyado_elevate_json_decl(r#""results": {"#));
+        assert!(!is_voyado_elevate_json_decl(r#""facets": ["#));
+        assert!(!is_voyado_elevate_json_decl(r#""hits": ["#));
+        assert!(!is_voyado_elevate_json_decl(r#""customData": {"#));
+        assert!(!is_voyado_elevate_json_decl(r#""market": "SE""#));
+        assert!(!is_voyado_elevate_json_decl(r#""locale": "sv-SE""#));
+        assert!(!is_voyado_elevate_json_decl(r#""totalHits": 42"#));
+        assert!(!is_voyado_elevate_json_decl(r#""searchResult": {"#));
+        assert!(is_factfinder_json_decl(r#""searchResult": {"#));
+        assert!(!is_voyado_elevate_json_decl(r#""useAsn": true"#));
+        assert!(is_factfinder_json_decl(r#""useAsn": true"#));
+        assert!(!is_voyado_elevate_json_decl(
+            r#""ClientGuid": "11111111-2222-3333-4444-555555555555""#
+        ));
+        assert!(is_hawksearch_json_decl(
+            r#""ClientGuid": "11111111-2222-3333-4444-555555555555""#
+        ));
+        assert!(!is_voyado_elevate_json_decl(r#""NofResults": 2400"#));
+        assert!(is_hawksearch_json_decl(r#""NofResults": 2400"#));
+        assert!(!is_voyado_elevate_json_decl(r#""totalRecordCount": 128"#));
+        assert!(is_groupby_json_decl(r#""totalRecordCount": 128"#));
+        assert!(!is_voyado_elevate_json_decl(r#""availableNavigation": ["#));
+        assert!(is_groupby_json_decl(r#""availableNavigation": ["#));
+        assert!(!is_voyado_elevate_json_decl(
+            r#""corrected_query": "putter""#
+        ));
+        assert!(is_luigisbox_json_decl(r#""corrected_query": "putter""#));
+        assert!(!is_voyado_elevate_json_decl(r#""total_hits": 223"#));
+        assert!(is_luigisbox_json_decl(r#""total_hits": 223"#));
+        assert!(!is_voyado_elevate_json_decl(r#""resultLayout": "grid""#));
+        assert!(is_searchspring_json_decl(r#""resultLayout": "grid""#));
+        assert!(!is_voyado_elevate_json_decl(
+            r#""hashid": "d8fdeab7fce96a19d3fc7b0ca7a1e98b""#
+        ));
+        assert!(is_doofinder_json_decl(
+            r#""hashid": "d8fdeab7fce96a19d3fc7b0ca7a1e98b""#
+        ));
+        assert!(!is_voyado_elevate_json_decl(r#""recordQueries": ["#));
+        assert!(is_klevu_json_decl(r#""recordQueries": ["#));
+        assert!(!is_voyado_elevate_json_decl(
+            r#""domain_key": "example_com""#
+        ));
+        assert!(is_bloomreach_json_decl(r#""domain_key": "example_com""#));
+        assert!(!is_voyado_elevate_json_decl(r#""result_sources": {"#));
+        assert!(is_constructor_io_json_decl(r#""result_sources": {"#));
+        assert!(!is_voyado_elevate_json_decl(r#""searchHub": "default""#));
+        assert!(is_coveo_json_decl(r#""searchHub": "default""#));
+        assert!(!is_voyado_elevate_json_decl(r#""@odata.count": 10"#));
+        assert!(is_azure_search_json_decl(r#""@odata.count": 10"#));
+        assert!(!is_voyado_elevate_json_decl(
+            r#""yql": "select * from sources * where true""#
+        ));
+        assert!(is_vespa_json_decl(
+            r#""yql": "select * from sources * where true""#
+        ));
+        assert!(!is_voyado_elevate_json_decl(r#""searchableAttributes": ["#));
+        assert!(is_marqo_json_decl(r#""searchableAttributes": ["#));
+        assert!(!is_voyado_elevate_json_decl(
+            r#""vector_column_name": "vec""#
+        ));
+        assert!(is_lancedb_json_decl(r#""vector_column_name": "vec""#));
+        assert!(!is_voyado_elevate_json_decl(r#""annsField": "vec""#));
+        assert!(is_milvus_json_decl(r#""annsField": "vec""#));
+        assert!(!is_voyado_elevate_json_decl(r#""n_results": 10"#));
+        assert!(is_chroma_json_decl(r#""n_results": 10"#));
+        assert!(!is_voyado_elevate_json_decl(r#""topK": 10"#));
+        assert!(is_pinecone_json_decl(r#""topK": 10"#));
+        assert!(!is_voyado_elevate_json_decl(r#""nearVector": {"#));
+        assert!(is_weaviate_json_decl(r#""nearVector": {"#));
+        assert!(!is_voyado_elevate_json_decl(r#""vectors_count": 100"#));
+        assert!(is_qdrant_json_decl(r#""vectors_count": 100"#));
+        assert!(!is_voyado_elevate_json_decl(r#""processingTimeMS": 12"#));
+        assert!(is_algolia_json_decl(r#""processingTimeMS": 12"#));
+        assert!(!is_voyado_elevate_json_decl(r#""processingTimeMs": 12"#));
+        assert!(is_meilisearch_json_decl(r#""processingTimeMs": 12"#));
+        assert!(!is_voyado_elevate_json_decl(r#""search_time_ms": 12"#));
+        assert!(is_typesense_json_decl(r#""search_time_ms": 12"#));
+        assert!(!is_voyado_elevate_json_decl(r#""responseHeader": {"#));
+        assert!(is_solr_json_decl(r#""responseHeader": {"#));
+        assert!(!is_voyado_elevate_json_decl(r#""track_total_hits": true"#));
+        assert!(is_elasticsearch_json_decl(r#""track_total_hits": true"#));
+        assert!(!is_voyado_elevate_json_decl(r#""printWidth": 80"#));
+        assert!(is_prettier_json_decl(r#""printWidth": 80"#));
+        assert!(!is_voyado_elevate_json_decl(r#""basePath": ".""#));
+        assert!(is_karma_json_decl(r#""basePath": ".""#));
+        assert!(line_is_func_like(r#""primaryList": {"#));
+        assert!(line_is_func_like(r#""navigation": {"#));
+        assert!(line_is_func_like(r#""autoCorrect": {"#));
+        assert!(line_is_func_like(r#""visibleNotification": {"#));
+        assert!(line_is_func_like(r#""recommendationLists": ["#));
+        assert!(line_is_func_like(r#""productGroups": ["#));
+        assert!(line_is_func_like(r#""didYouMean": ["#));
+        assert!(line_is_func_like(r#""channels": ["#));
+        assert!(line_is_func_like(r#""stores": ["#));
+        assert!(line_is_func_like(r#""sessionKey": "sess-1""#));
+        assert!(line_is_func_like(r#""customerKey": "cust-1""#));
+        assert!(line_is_func_like(r#""priceId": "default""#));
+        assert!(line_is_func_like(r#""present": "products""#));
+        assert!(line_is_func_like(r#""notify": true"#));
+        assert!(line_is_func_like(r#""touchpoint": "desktop""#));
+        assert!(line_is_func_like(r#""origin": "SEARCH_PAGE""#));
+        assert!(line_is_func_like(r#""sortBy": "RELEVANCE""#));
     }
 
     #[test]
