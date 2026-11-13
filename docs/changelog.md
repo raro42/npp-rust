@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.841] — 2026-11-13
+
+View:
+
+- **Function List** lists Fuse.js options / result JSON keys: `"isCaseSensitive": true` / `false`, `"ignoreDiacritics": true` / `false`, `"includeScore": true` / `false`, `"includeMatches": true` / `false`, `"shouldSort": true` / `false`, `"findAllMatches": true` / `false`, `"useExtendedSearch": true` / `false`, `"ignoreLocation": true` / `false`, `"ignoreFieldNorm": true` / `false`, `"minMatchCharLength": 0` / `2`, `"refIndex": 0` / `3`. Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing `:` stay out. Generic `"$schema"` / `"name"` / `"id"` / `"q"` / `"query"` / `"keys"` / `"threshold"` / `"distance"` / `"location"` / `"score"` / `"item"` / `"matches"` / `"results"` / `"facets"` / Empathy.co `"partialResults"` / `"promoteds"` / `"queryTagging"` / `"modelName"` / AddSearch `"processing_time_ms"` / `"rangeFacets"` / `"postfixWildcard"` / Synerise `"clientUUID"` / `"sortByMetric"` / Fast Simon `"total_results"` / Nosto `"emptyQueryMatchesAll"` / Clerk.io `"product_data"` / Tweakwise `"nrofitems"` / Findify `"t_client"` / Searchanise `"totalItems"` / Unbxd `"searchMetaData"` / Loop54 `"makesSense"` / Yext `"experienceKey"` / Cludo `"TypedDocuments"` / Voyado Elevate `"primaryList"` / FactFinder `"searchResult"` / Hawksearch `"ClientGuid"` / `"NofResults"` / GroupBy `"totalRecordCount"` / Luigi's Box `"corrected_query"` / `"total_hits"` / Searchspring `"resultLayout"` / Doofinder `"hashid"` / Klevu `"recordQueries"` / Bloomreach Discovery `"domain_key"` / Constructor.io `"result_sources"` / Coveo `"searchHub"` / Azure AI Search `"@odata.count"` / Vespa `"yql"` / Marqo `"searchableAttributes"` / LanceDB `"vector_column_name"` / Milvus `"annsField"` / Chroma `"n_results"` / Pinecone `"topK"` / Weaviate `"nearVector"` / Qdrant `"vectors_count"` / Algolia `"processingTimeMS"` / Meilisearch `"processingTimeMs"` / Typesense `"search_time_ms"` / Solr `"responseHeader"` / Elasticsearch `"track_total_hits"` / prettier `"printWidth"` / karma `"basePath"` stay out. Bool keys only match `true` / `false`. Numeric keys reject leading zeros beyond `0`.
+
 ## [0.3.840] — 2026-11-13
 
 View:

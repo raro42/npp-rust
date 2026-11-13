@@ -32508,6 +32508,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_synerise_json_decl(s)
             || is_addsearch_json_decl(s)
             || is_empathy_json_decl(s)
+            || is_fuse_json_decl(s)
             || is_gomod_decl(s)
             || is_gemfile_decl(s)
             || is_brewfile_decl(s)
@@ -32926,6 +32927,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_synerise_json_decl(s)
         || is_addsearch_json_decl(s)
         || is_empathy_json_decl(s)
+        || is_fuse_json_decl(s)
         || is_gomod_decl(s)
         || is_gemfile_decl(s)
         || is_brewfile_decl(s)
@@ -68819,8 +68821,10 @@ fn synerise_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool {
 /// Elasticsearch `"track_total_hits"` / Empathy.co `"partialResults"` /
 /// `"promoteds"` / `"queryTagging"` / `"displayTagging"` /
 /// `"redirections"` / `"relatedTags"` / `"nextQueries"` /
-/// `"spellchecked"` / `"modelName"` / prettier `"printWidth"` /
-/// karma `"basePath"` stay out.
+/// `"spellchecked"` / `"modelName"` / Fuse.js `"includeScore"` /
+/// `"includeMatches"` / `"minMatchCharLength"` / `"useExtendedSearch"` /
+/// `"ignoreFieldNorm"` / prettier `"printWidth"` / karma `"basePath"`
+/// stay out.
 /// `"fuzzy"` only matches `"false"` / `"true"` / `"auto"`.
 /// `"document_type"` only matches its AddSearch hit enums. String keys
 /// require a non-empty quoted string. Bool keys only match `true` /
@@ -69023,8 +69027,10 @@ fn addsearch_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool {
 /// Weaviate `"nearVector"` / Qdrant `"vectors_count"` / Algolia
 /// `"processingTimeMS"` / Meilisearch `"processingTimeMs"` /
 /// Typesense `"search_time_ms"` / Solr `"responseHeader"` /
-/// Elasticsearch `"track_total_hits"` / prettier `"printWidth"` /
-/// karma `"basePath"` stay out.
+/// Elasticsearch `"track_total_hits"` / Fuse.js `"includeScore"` /
+/// `"includeMatches"` / `"minMatchCharLength"` / `"useExtendedSearch"` /
+/// `"ignoreFieldNorm"` / prettier `"printWidth"` / karma `"basePath"`
+/// stay out.
 /// `"modelName"` only matches its Empathy Interface X enums. String
 /// `"spellchecked"` requires a non-empty quoted string.
 fn is_empathy_json_decl(s: &str) -> bool {
@@ -69157,6 +69163,136 @@ fn empathy_json_model_name_and_tail_ok(after_colon: &str) -> bool {
         return false;
     }
     package_json_tail_ok(&rest[end + 1..])
+}
+
+/// Fuse.js options / result JSON keys:
+/// `"isCaseSensitive": true` / `false`, `"ignoreDiacritics": true` /
+/// `false`, `"includeScore": true` / `false`,
+/// `"includeMatches": true` / `false`, `"shouldSort": true` / `false`,
+/// `"findAllMatches": true` / `false`, `"useExtendedSearch": true` /
+/// `false`, `"ignoreLocation": true` / `false`,
+/// `"ignoreFieldNorm": true` / `false`, `"minMatchCharLength": 0` / `2`,
+/// `"refIndex": 0` / `3`. Optional trailing `,` and `//` / `/*` comment.
+/// Incomplete quotes / missing `:` stay out. Generic `"$schema"` /
+/// `"name"` / `"id"` / `"q"` / `"query"` / `"keys"` / `"threshold"` /
+/// `"distance"` / `"location"` / `"score"` / `"item"` / `"matches"` /
+/// `"results"` / `"facets"` / Empathy.co `"partialResults"` /
+/// `"promoteds"` / `"queryTagging"` / `"modelName"` / AddSearch
+/// `"processing_time_ms"` / `"rangeFacets"` / `"postfixWildcard"` /
+/// Synerise `"clientUUID"` / `"sortByMetric"` / Fast Simon
+/// `"total_results"` / Nosto `"emptyQueryMatchesAll"` / Clerk.io
+/// `"product_data"` / Tweakwise `"nrofitems"` / Findify `"t_client"` /
+/// Searchanise `"totalItems"` / Unbxd `"searchMetaData"` / Loop54
+/// `"makesSense"` / Yext `"experienceKey"` / Cludo `"TypedDocuments"` /
+/// Voyado Elevate `"primaryList"` / FactFinder `"searchResult"` /
+/// Hawksearch `"ClientGuid"` / `"NofResults"` / GroupBy
+/// `"totalRecordCount"` / Luigi's Box `"corrected_query"` /
+/// `"total_hits"` / Searchspring `"resultLayout"` / Doofinder
+/// `"hashid"` / Klevu `"recordQueries"` / Bloomreach Discovery
+/// `"domain_key"` / Constructor.io `"result_sources"` / Coveo
+/// `"searchHub"` / Azure AI Search `"@odata.count"` / Vespa `"yql"` /
+/// Marqo `"searchableAttributes"` / LanceDB `"vector_column_name"` /
+/// Milvus `"annsField"` / Chroma `"n_results"` / Pinecone `"topK"` /
+/// Weaviate `"nearVector"` / Qdrant `"vectors_count"` / Algolia
+/// `"processingTimeMS"` / Meilisearch `"processingTimeMs"` /
+/// Typesense `"search_time_ms"` / Solr `"responseHeader"` /
+/// Elasticsearch `"track_total_hits"` / prettier `"printWidth"` /
+/// karma `"basePath"` stay out. Bool keys only match `true` / `false`.
+/// Numeric keys reject leading zeros beyond `0`.
+fn is_fuse_json_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    let Some(rest) = s.strip_prefix('"') else {
+        return false;
+    };
+    let Some(end) = rest.find('"') else {
+        return false;
+    };
+    let key = &rest[..end];
+    if !fuse_json_key_ok(key) {
+        return false;
+    }
+    let after_key = rest[end + 1..].trim_start();
+    let Some(after_colon) = after_key.strip_prefix(':') else {
+        return false;
+    };
+    let after_colon = after_colon.trim_start();
+    fuse_json_value_and_tail_ok(key, after_colon)
+}
+
+fn fuse_json_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "isCaseSensitive"
+            | "ignoreDiacritics"
+            | "includeScore"
+            | "includeMatches"
+            | "shouldSort"
+            | "findAllMatches"
+            | "useExtendedSearch"
+            | "ignoreLocation"
+            | "ignoreFieldNorm"
+            | "minMatchCharLength"
+            | "refIndex"
+    )
+}
+
+fn fuse_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool {
+    let bytes = after_colon.as_bytes();
+    let Some(first) = bytes.first().copied() else {
+        return false;
+    };
+    match first {
+        b't' | b'f' => fuse_json_bool_and_tail_ok(key, after_colon),
+        b'0'..=b'9' => fuse_json_uint_and_tail_ok(key, after_colon),
+        _ => false,
+    }
+}
+
+fn fuse_json_bool_and_tail_ok(key: &str, after_colon: &str) -> bool {
+    if !matches!(
+        key,
+        "isCaseSensitive"
+            | "ignoreDiacritics"
+            | "includeScore"
+            | "includeMatches"
+            | "shouldSort"
+            | "findAllMatches"
+            | "useExtendedSearch"
+            | "ignoreLocation"
+            | "ignoreFieldNorm"
+    ) {
+        return false;
+    }
+    let rest = if let Some(rest) = after_colon.strip_prefix("true") {
+        rest
+    } else if let Some(rest) = after_colon.strip_prefix("false") {
+        rest
+    } else {
+        return false;
+    };
+    package_json_tail_ok(rest)
+}
+
+fn fuse_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool {
+    if !matches!(key, "minMatchCharLength" | "refIndex") {
+        return false;
+    }
+    let bytes = after_colon.as_bytes();
+    let mut i = 0usize;
+    if i >= bytes.len() || !bytes[i].is_ascii_digit() {
+        return false;
+    }
+    if bytes[i] == b'0' {
+        i += 1;
+        if i < bytes.len() && bytes[i].is_ascii_digit() {
+            return false;
+        }
+    } else {
+        while i < bytes.len() && bytes[i].is_ascii_digit() {
+            i += 1;
+        }
+    }
+    package_json_tail_ok(&after_colon[i..])
 }
 
 /// go.mod / go.work directives: `module example.com/foo`, `go 1.22`,
@@ -99783,7 +99919,7 @@ mod func_like_line_tests {
         is_ethers_file_decl, is_expo_json_decl, is_factfinder_json_decl, is_fail2ban_conf_decl,
         is_fastsimon_json_decl, is_findify_json_decl, is_firebase_json_decl, is_flake8_ini_decl,
         is_fluent_bit_decl, is_fly_toml_decl, is_flynt_ini_decl, is_freeradius_decl, is_fstab_decl,
-        is_gdm_conf_decl, is_gemfile_decl, is_gitconfig_decl, is_gomod_decl,
+        is_fuse_json_decl, is_gdm_conf_decl, is_gemfile_decl, is_gitconfig_decl, is_gomod_decl,
         is_grafana_alerting_json_decl, is_grafana_dashboard_json_decl,
         is_grafana_datasource_json_decl, is_grafana_ini_decl, is_groupby_json_decl,
         is_haproxy_decl, is_har_json_decl, is_hatch_toml_decl, is_hawksearch_json_decl,
@@ -143193,6 +143329,10 @@ mod func_like_line_tests {
         assert!(is_empathy_json_decl(r#""queryTagging": {"#));
         assert!(!is_addsearch_json_decl(r#""modelName": "Result""#));
         assert!(is_empathy_json_decl(r#""modelName": "Result""#));
+        assert!(!is_addsearch_json_decl(r#""includeScore": true"#));
+        assert!(is_fuse_json_decl(r#""includeScore": true"#));
+        assert!(!is_addsearch_json_decl(r#""minMatchCharLength": 2"#));
+        assert!(is_fuse_json_decl(r#""minMatchCharLength": 2"#));
         assert!(line_is_func_like(r#""processing_time_ms": 21"#));
         assert!(line_is_func_like(r#""rangeFacets": ["#));
         assert!(line_is_func_like(r#""postfixWildcard": true"#));
@@ -143303,6 +143443,16 @@ mod func_like_line_tests {
         assert!(is_prettier_json_decl(r#""printWidth": 80"#));
         assert!(!is_empathy_json_decl(r#""basePath": ".""#));
         assert!(is_karma_json_decl(r#""basePath": ".""#));
+        assert!(!is_empathy_json_decl(r#""includeScore": true"#));
+        assert!(is_fuse_json_decl(r#""includeScore": true"#));
+        assert!(!is_empathy_json_decl(r#""includeMatches": true"#));
+        assert!(is_fuse_json_decl(r#""includeMatches": true"#));
+        assert!(!is_empathy_json_decl(r#""minMatchCharLength": 2"#));
+        assert!(is_fuse_json_decl(r#""minMatchCharLength": 2"#));
+        assert!(!is_empathy_json_decl(r#""useExtendedSearch": true"#));
+        assert!(is_fuse_json_decl(r#""useExtendedSearch": true"#));
+        assert!(!is_empathy_json_decl(r#""ignoreFieldNorm": true"#));
+        assert!(is_fuse_json_decl(r#""ignoreFieldNorm": true"#));
     }
 
     #[test]
@@ -143466,6 +143616,16 @@ mod func_like_line_tests {
         assert!(is_prettier_json_decl(r#""printWidth": 80"#));
         assert!(!is_empathy_json_decl(r#""basePath": ".""#));
         assert!(is_karma_json_decl(r#""basePath": ".""#));
+        assert!(!is_empathy_json_decl(r#""includeScore": true"#));
+        assert!(is_fuse_json_decl(r#""includeScore": true"#));
+        assert!(!is_empathy_json_decl(r#""includeMatches": true"#));
+        assert!(is_fuse_json_decl(r#""includeMatches": true"#));
+        assert!(!is_empathy_json_decl(r#""minMatchCharLength": 2"#));
+        assert!(is_fuse_json_decl(r#""minMatchCharLength": 2"#));
+        assert!(!is_empathy_json_decl(r#""useExtendedSearch": true"#));
+        assert!(is_fuse_json_decl(r#""useExtendedSearch": true"#));
+        assert!(!is_empathy_json_decl(r#""ignoreFieldNorm": true"#));
+        assert!(is_fuse_json_decl(r#""ignoreFieldNorm": true"#));
         assert!(line_is_func_like(r#""partialResults": ["#));
         assert!(line_is_func_like(r#""promoteds": ["#));
         assert!(line_is_func_like(r#""queryTagging": {"#));
@@ -143474,6 +143634,242 @@ mod func_like_line_tests {
         assert!(line_is_func_like(r#""modelName": "Result""#));
         assert!(line_is_func_like(r#""relatedTags": ["#));
         assert!(line_is_func_like(r#""nextQueries": ["#));
+    }
+
+    #[test]
+    fn fuse_json_keys_smoke() {
+        assert!(is_fuse_json_decl(r#""isCaseSensitive": true"#));
+        assert!(is_fuse_json_decl(r#""ignoreDiacritics": true"#));
+        assert!(is_fuse_json_decl(r#""includeScore": true"#));
+        assert!(is_fuse_json_decl(r#""includeMatches": true"#));
+        assert!(is_fuse_json_decl(r#""shouldSort": false"#));
+        assert!(is_fuse_json_decl(r#""findAllMatches": true"#));
+        assert!(is_fuse_json_decl(r#""useExtendedSearch": true"#));
+        assert!(is_fuse_json_decl(r#""ignoreLocation": true"#));
+        assert!(is_fuse_json_decl(r#""ignoreFieldNorm": true"#));
+        assert!(is_fuse_json_decl(r#""minMatchCharLength": 2"#));
+        assert!(is_fuse_json_decl(r#""refIndex": 3"#));
+        assert!(!is_fuse_json_decl(r#""partialResults": ["#));
+        assert!(is_empathy_json_decl(r#""partialResults": ["#));
+        assert!(!is_fuse_json_decl(r#""processing_time_ms": 21"#));
+        assert!(is_addsearch_json_decl(r#""processing_time_ms": 21"#));
+        assert!(!is_fuse_json_decl(r#""clientUUID": "abc-123""#));
+        assert!(is_synerise_json_decl(r#""clientUUID": "abc-123""#));
+        assert!(!is_fuse_json_decl(r#""total_results": 223"#));
+        assert!(is_fastsimon_json_decl(r#""total_results": 223"#));
+        assert!(!is_fuse_json_decl(r#""emptyQueryMatchesAll": true"#));
+        assert!(is_nosto_json_decl(r#""emptyQueryMatchesAll": true"#));
+        assert!(!is_fuse_json_decl(r#""product_data": {"#));
+        assert!(is_clerk_io_json_decl(r#""product_data": {"#));
+        assert!(!is_fuse_json_decl(r#""nrofitems": 128"#));
+        assert!(is_tweakwise_json_decl(r#""nrofitems": 128"#));
+        assert!(!is_fuse_json_decl(r#""t_client": 1699900000000"#));
+        assert!(is_findify_json_decl(r#""t_client": 1699900000000"#));
+        assert!(!is_fuse_json_decl(r#""totalItems": 100"#));
+        assert!(is_searchanise_json_decl(r#""totalItems": 100"#));
+        assert!(!is_fuse_json_decl(r#""searchMetaData": {"#));
+        assert!(is_unbxd_json_decl(r#""searchMetaData": {"#));
+        assert!(!is_fuse_json_decl(r#""makesSense": true"#));
+        assert!(is_loop54_json_decl(r#""makesSense": true"#));
+        assert!(!is_fuse_json_decl(r#""experienceKey": "answers""#));
+        assert!(is_yext_json_decl(r#""experienceKey": "answers""#));
+        assert!(!is_fuse_json_decl(r#""TypedDocuments": ["#));
+        assert!(is_cludo_json_decl(r#""TypedDocuments": ["#));
+        assert!(!is_fuse_json_decl(r#""primaryList": {"#));
+        assert!(is_voyado_elevate_json_decl(r#""primaryList": {"#));
+        assert!(!is_fuse_json_decl(r#""searchResult": {"#));
+        assert!(is_factfinder_json_decl(r#""searchResult": {"#));
+        assert!(!is_fuse_json_decl(r#""NofResults": 2400"#));
+        assert!(is_hawksearch_json_decl(r#""NofResults": 2400"#));
+        assert!(!is_fuse_json_decl(r#""totalRecordCount": 128"#));
+        assert!(is_groupby_json_decl(r#""totalRecordCount": 128"#));
+        assert!(!is_fuse_json_decl(r#""corrected_query": "putter""#));
+        assert!(is_luigisbox_json_decl(r#""corrected_query": "putter""#));
+        assert!(!is_fuse_json_decl(r#""resultLayout": "grid""#));
+        assert!(is_searchspring_json_decl(r#""resultLayout": "grid""#));
+        assert!(!is_fuse_json_decl(r#""hashid": "abc""#));
+        assert!(is_doofinder_json_decl(r#""hashid": "abc""#));
+        assert!(!is_fuse_json_decl(r#""recordQueries": ["#));
+        assert!(is_klevu_json_decl(r#""recordQueries": ["#));
+        assert!(!is_fuse_json_decl(r#""domain_key": "example_com""#));
+        assert!(is_bloomreach_json_decl(r#""domain_key": "example_com""#));
+        assert!(!is_fuse_json_decl(r#""result_sources": {"#));
+        assert!(is_constructor_io_json_decl(r#""result_sources": {"#));
+        assert!(!is_fuse_json_decl(r#""searchHub": "default""#));
+        assert!(is_coveo_json_decl(r#""searchHub": "default""#));
+        assert!(!is_fuse_json_decl(r#""@odata.count": 10"#));
+        assert!(is_azure_search_json_decl(r#""@odata.count": 10"#));
+        assert!(!is_fuse_json_decl(
+            r#""yql": "select * from sources * where true""#
+        ));
+        assert!(is_vespa_json_decl(
+            r#""yql": "select * from sources * where true""#
+        ));
+        assert!(!is_fuse_json_decl(r#""searchableAttributes": ["#));
+        assert!(is_marqo_json_decl(r#""searchableAttributes": ["#));
+        assert!(!is_fuse_json_decl(r#""vector_column_name": "vec""#));
+        assert!(is_lancedb_json_decl(r#""vector_column_name": "vec""#));
+        assert!(!is_fuse_json_decl(r#""annsField": "vec""#));
+        assert!(is_milvus_json_decl(r#""annsField": "vec""#));
+        assert!(!is_fuse_json_decl(r#""n_results": 10"#));
+        assert!(is_chroma_json_decl(r#""n_results": 10"#));
+        assert!(!is_fuse_json_decl(r#""topK": 10"#));
+        assert!(is_pinecone_json_decl(r#""topK": 10"#));
+        assert!(!is_fuse_json_decl(r#""nearVector": {"#));
+        assert!(is_weaviate_json_decl(r#""nearVector": {"#));
+        assert!(!is_fuse_json_decl(r#""vectors_count": 100"#));
+        assert!(is_qdrant_json_decl(r#""vectors_count": 100"#));
+        assert!(!is_fuse_json_decl(r#""processingTimeMS": 12"#));
+        assert!(is_algolia_json_decl(r#""processingTimeMS": 12"#));
+        assert!(!is_fuse_json_decl(r#""processingTimeMs": 12"#));
+        assert!(is_meilisearch_json_decl(r#""processingTimeMs": 12"#));
+        assert!(!is_fuse_json_decl(r#""search_time_ms": 12"#));
+        assert!(is_typesense_json_decl(r#""search_time_ms": 12"#));
+        assert!(!is_fuse_json_decl(r#""responseHeader": {"#));
+        assert!(is_solr_json_decl(r#""responseHeader": {"#));
+        assert!(!is_fuse_json_decl(r#""track_total_hits": true"#));
+        assert!(is_elasticsearch_json_decl(r#""track_total_hits": true"#));
+        assert!(!is_fuse_json_decl(r#""printWidth": 80"#));
+        assert!(is_prettier_json_decl(r#""printWidth": 80"#));
+        assert!(!is_fuse_json_decl(r#""basePath": ".""#));
+        assert!(is_karma_json_decl(r#""basePath": ".""#));
+    }
+
+    #[test]
+    fn fuse_json_keys_count() {
+        assert!(is_fuse_json_decl(r#""isCaseSensitive": true"#));
+        assert!(is_fuse_json_decl(r#""isCaseSensitive": false"#));
+        assert!(is_fuse_json_decl(r#""isCaseSensitive": true,"#));
+        assert!(is_fuse_json_decl(r#""isCaseSensitive": true // c"#));
+        assert!(!is_fuse_json_decl(r#""isCaseSensitive": "true""#));
+        assert!(!is_fuse_json_decl(r#""isCaseSensitive": 1"#));
+        assert!(is_fuse_json_decl(r#""ignoreDiacritics": true"#));
+        assert!(is_fuse_json_decl(r#""includeScore": true"#));
+        assert!(is_fuse_json_decl(r#""includeMatches": false"#));
+        assert!(is_fuse_json_decl(r#""shouldSort": true"#));
+        assert!(is_fuse_json_decl(r#""findAllMatches": true"#));
+        assert!(is_fuse_json_decl(r#""useExtendedSearch": true"#));
+        assert!(is_fuse_json_decl(r#""ignoreLocation": false"#));
+        assert!(is_fuse_json_decl(r#""ignoreFieldNorm": true"#));
+        assert!(!is_fuse_json_decl(r#""ignoreFieldNorm": ["#));
+        assert!(!is_fuse_json_decl(r#""ignoreFieldNorm": {"#));
+        assert!(is_fuse_json_decl(r#""minMatchCharLength": 0"#));
+        assert!(is_fuse_json_decl(r#""minMatchCharLength": 2"#));
+        assert!(is_fuse_json_decl(r#""minMatchCharLength": 2,"#));
+        assert!(is_fuse_json_decl(r#""minMatchCharLength": 2 // c"#));
+        assert!(!is_fuse_json_decl(r#""minMatchCharLength": 02"#));
+        assert!(!is_fuse_json_decl(r#""minMatchCharLength": true"#));
+        assert!(!is_fuse_json_decl(r#""minMatchCharLength": "2""#));
+        assert!(is_fuse_json_decl(r#""refIndex": 0"#));
+        assert!(is_fuse_json_decl(r#""refIndex": 3"#));
+        assert!(!is_fuse_json_decl(r#""refIndex": 03"#));
+        assert!(!is_fuse_json_decl(r#""refIndex": true"#));
+        assert!(!is_fuse_json_decl(r#""includeScore""#));
+        assert!(!is_fuse_json_decl(r#""minMatchCharLength""#));
+        assert!(!is_fuse_json_decl(r#""$schema": "https://example.com""#));
+        assert!(!is_fuse_json_decl(r#""name": "docs""#));
+        assert!(!is_fuse_json_decl(r#""q": "shoes""#));
+        assert!(!is_fuse_json_decl(r#""query": "shoes""#));
+        assert!(!is_fuse_json_decl(r#""keys": ["#));
+        assert!(!is_fuse_json_decl(r#""threshold": 0"#));
+        assert!(!is_fuse_json_decl(r#""distance": 100"#));
+        assert!(!is_fuse_json_decl(r#""location": 0"#));
+        assert!(!is_fuse_json_decl(r#""score": 0"#));
+        assert!(!is_fuse_json_decl(r#""item": {"#));
+        assert!(!is_fuse_json_decl(r#""matches": ["#));
+        assert!(!is_fuse_json_decl(r#""results": ["#));
+        assert!(!is_fuse_json_decl(r#""facets": ["#));
+        assert!(!is_fuse_json_decl(r#""partialResults": ["#));
+        assert!(is_empathy_json_decl(r#""partialResults": ["#));
+        assert!(!is_fuse_json_decl(r#""processing_time_ms": 21"#));
+        assert!(is_addsearch_json_decl(r#""processing_time_ms": 21"#));
+        assert!(!is_fuse_json_decl(r#""clientUUID": "abc-123""#));
+        assert!(is_synerise_json_decl(r#""clientUUID": "abc-123""#));
+        assert!(!is_fuse_json_decl(r#""total_results": 223"#));
+        assert!(is_fastsimon_json_decl(r#""total_results": 223"#));
+        assert!(!is_fuse_json_decl(r#""emptyQueryMatchesAll": true"#));
+        assert!(is_nosto_json_decl(r#""emptyQueryMatchesAll": true"#));
+        assert!(!is_fuse_json_decl(r#""product_data": {"#));
+        assert!(is_clerk_io_json_decl(r#""product_data": {"#));
+        assert!(!is_fuse_json_decl(r#""nrofitems": 128"#));
+        assert!(is_tweakwise_json_decl(r#""nrofitems": 128"#));
+        assert!(!is_fuse_json_decl(r#""t_client": 1699900000000"#));
+        assert!(is_findify_json_decl(r#""t_client": 1699900000000"#));
+        assert!(!is_fuse_json_decl(r#""totalItems": 100"#));
+        assert!(is_searchanise_json_decl(r#""totalItems": 100"#));
+        assert!(!is_fuse_json_decl(r#""searchMetaData": {"#));
+        assert!(is_unbxd_json_decl(r#""searchMetaData": {"#));
+        assert!(!is_fuse_json_decl(r#""makesSense": true"#));
+        assert!(is_loop54_json_decl(r#""makesSense": true"#));
+        assert!(!is_fuse_json_decl(r#""experienceKey": "answers""#));
+        assert!(is_yext_json_decl(r#""experienceKey": "answers""#));
+        assert!(!is_fuse_json_decl(r#""TypedDocuments": ["#));
+        assert!(is_cludo_json_decl(r#""TypedDocuments": ["#));
+        assert!(!is_fuse_json_decl(r#""primaryList": {"#));
+        assert!(is_voyado_elevate_json_decl(r#""primaryList": {"#));
+        assert!(!is_fuse_json_decl(r#""searchResult": {"#));
+        assert!(is_factfinder_json_decl(r#""searchResult": {"#));
+        assert!(!is_fuse_json_decl(r#""NofResults": 2400"#));
+        assert!(is_hawksearch_json_decl(r#""NofResults": 2400"#));
+        assert!(!is_fuse_json_decl(r#""totalRecordCount": 128"#));
+        assert!(is_groupby_json_decl(r#""totalRecordCount": 128"#));
+        assert!(!is_fuse_json_decl(r#""corrected_query": "putter""#));
+        assert!(is_luigisbox_json_decl(r#""corrected_query": "putter""#));
+        assert!(!is_fuse_json_decl(r#""resultLayout": "grid""#));
+        assert!(is_searchspring_json_decl(r#""resultLayout": "grid""#));
+        assert!(!is_fuse_json_decl(r#""hashid": "abc""#));
+        assert!(is_doofinder_json_decl(r#""hashid": "abc""#));
+        assert!(!is_fuse_json_decl(r#""recordQueries": ["#));
+        assert!(is_klevu_json_decl(r#""recordQueries": ["#));
+        assert!(!is_fuse_json_decl(r#""domain_key": "example_com""#));
+        assert!(is_bloomreach_json_decl(r#""domain_key": "example_com""#));
+        assert!(!is_fuse_json_decl(r#""result_sources": {"#));
+        assert!(is_constructor_io_json_decl(r#""result_sources": {"#));
+        assert!(!is_fuse_json_decl(r#""searchHub": "default""#));
+        assert!(is_coveo_json_decl(r#""searchHub": "default""#));
+        assert!(!is_fuse_json_decl(r#""@odata.count": 10"#));
+        assert!(is_azure_search_json_decl(r#""@odata.count": 10"#));
+        assert!(!is_fuse_json_decl(
+            r#""yql": "select * from sources * where true""#
+        ));
+        assert!(is_vespa_json_decl(
+            r#""yql": "select * from sources * where true""#
+        ));
+        assert!(!is_fuse_json_decl(r#""searchableAttributes": ["#));
+        assert!(is_marqo_json_decl(r#""searchableAttributes": ["#));
+        assert!(!is_fuse_json_decl(r#""vector_column_name": "vec""#));
+        assert!(is_lancedb_json_decl(r#""vector_column_name": "vec""#));
+        assert!(!is_fuse_json_decl(r#""annsField": "vec""#));
+        assert!(is_milvus_json_decl(r#""annsField": "vec""#));
+        assert!(!is_fuse_json_decl(r#""n_results": 10"#));
+        assert!(is_chroma_json_decl(r#""n_results": 10"#));
+        assert!(!is_fuse_json_decl(r#""topK": 10"#));
+        assert!(is_pinecone_json_decl(r#""topK": 10"#));
+        assert!(!is_fuse_json_decl(r#""nearVector": {"#));
+        assert!(is_weaviate_json_decl(r#""nearVector": {"#));
+        assert!(!is_fuse_json_decl(r#""vectors_count": 100"#));
+        assert!(is_qdrant_json_decl(r#""vectors_count": 100"#));
+        assert!(!is_fuse_json_decl(r#""processingTimeMS": 12"#));
+        assert!(is_algolia_json_decl(r#""processingTimeMS": 12"#));
+        assert!(!is_fuse_json_decl(r#""processingTimeMs": 12"#));
+        assert!(is_meilisearch_json_decl(r#""processingTimeMs": 12"#));
+        assert!(!is_fuse_json_decl(r#""search_time_ms": 12"#));
+        assert!(is_typesense_json_decl(r#""search_time_ms": 12"#));
+        assert!(!is_fuse_json_decl(r#""responseHeader": {"#));
+        assert!(is_solr_json_decl(r#""responseHeader": {"#));
+        assert!(!is_fuse_json_decl(r#""track_total_hits": true"#));
+        assert!(is_elasticsearch_json_decl(r#""track_total_hits": true"#));
+        assert!(!is_fuse_json_decl(r#""printWidth": 80"#));
+        assert!(is_prettier_json_decl(r#""printWidth": 80"#));
+        assert!(!is_fuse_json_decl(r#""basePath": ".""#));
+        assert!(is_karma_json_decl(r#""basePath": ".""#));
+        assert!(line_is_func_like(r#""isCaseSensitive": true"#));
+        assert!(line_is_func_like(r#""includeScore": true"#));
+        assert!(line_is_func_like(r#""includeMatches": true"#));
+        assert!(line_is_func_like(r#""useExtendedSearch": true"#));
+        assert!(line_is_func_like(r#""ignoreFieldNorm": true"#));
+        assert!(line_is_func_like(r#""minMatchCharLength": 2"#));
+        assert!(line_is_func_like(r#""refIndex": 3"#));
     }
 
     #[test]
