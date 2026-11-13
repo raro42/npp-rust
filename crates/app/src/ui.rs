@@ -32504,6 +32504,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_tweakwise_json_decl(s)
             || is_clerk_io_json_decl(s)
             || is_nosto_json_decl(s)
+            || is_fastsimon_json_decl(s)
             || is_gomod_decl(s)
             || is_gemfile_decl(s)
             || is_brewfile_decl(s)
@@ -32918,6 +32919,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_tweakwise_json_decl(s)
         || is_clerk_io_json_decl(s)
         || is_nosto_json_decl(s)
+        || is_fastsimon_json_decl(s)
         || is_gomod_decl(s)
         || is_gemfile_decl(s)
         || is_brewfile_decl(s)
@@ -68079,7 +68081,11 @@ fn clerk_io_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool {
 /// Qdrant `"vectors_count"` / Algolia `"processingTimeMS"` /
 /// Meilisearch `"processingTimeMs"` / Typesense `"search_time_ms"` /
 /// Solr `"responseHeader"` / Elasticsearch `"track_total_hits"` /
-/// prettier `"printWidth"` / karma `"basePath"` stay out.
+/// Fast Simon `"total_results"` / `"facets_completed"` /
+/// `"pop_products_no_results"` / `"total_p"` /
+/// `"personalized_products"` / `"turbolink"` / `"storeID"` /
+/// `"sessionStart"` / prettier `"printWidth"` / karma `"basePath"`
+/// stay out.
 /// `"exclusionBehaviour"` / `"outOfStockBehaviour"` only match
 /// `"deboost"` / `"hide"` / `"none"`. String keys require a non-empty
 /// quoted string. Bool keys only match `true` / `false`. Numeric
@@ -68221,6 +68227,269 @@ fn nosto_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool {
         while i < bytes.len() && bytes[i].is_ascii_digit() {
             i += 1;
         }
+    }
+    package_json_tail_ok(&after_colon[i..])
+}
+
+/// Fast Simon Search / Smart Collections API JSON keys:
+/// `"total_results": 0` / `223`, `"facets_completed": true` / `false`,
+/// `"sort_by": "price_min_to_max"` / `"relevency"` / …,
+/// `"narrow": [`, `"pop_products_no_results": true` / `false`,
+/// `"total_p": 0` / `10`, `"personalized_products": [`,
+/// `"ancestor_categories": [`, `"avoid_tag_prefixes": "…"`,
+/// `"turbolink": "…"`, `"related_categories": [`,
+/// `"related_results": true` / `false`, `"banner_html": "…"`,
+/// `"storeID": 0` / `123`, `"sessionStart": 0` / `1699900000`,
+/// `"productsPerPage": 0` / `48`, `"narrowBy": [`,
+/// `"facetRequired": 0` / `1` / `2`, `"withAttributes": true` /
+/// `false`, `"recentTimestamps": {`, `"cartTimestamps": {`,
+/// `"searchWithinSearch": "…"`, `"hasShopifyMarkets": true` /
+/// `false`, `"companyLocationContext": 0` / `1`,
+/// `"withProductTypes": true` / `false`, `"abTestingVariations": {`,
+/// `"disableMerchandising": true` / `false`,
+/// `"disableStrategies": true` / `false`,
+/// `"disableMerchandisingRules": true` / `false`,
+/// `"isPersonalizedFiltersActive": true` / `false`,
+/// `"disableTurbolinks": true` / `false`,
+/// `"searchPersonalization": true` / `false`.
+/// Optional trailing `,` and `//` / `/*` comment. Incomplete quotes /
+/// missing `:` stay out. Generic `"$schema"` / `"name"` / `"id"` /
+/// `"q"` / `"query"` / `"Query"` / `"filter"` / `"filters"` /
+/// `"Filters"` / `"limit"` / `"offset"` / `"page"` / `"skip"` /
+/// `"take"` / `"rows"` / `"start"` / `"results"` / `"facets"` /
+/// `"hits"` / `"products"` / `"items"` / `"pages"` / `"categories"` /
+/// `"suggestions"` / `"response"` / `"banner"` / `"redirect"` /
+/// `"stats"` / `"apiKey"` / `"maxResults"` / `"key"` / `"status"` /
+/// `"result"` / `"count"` / `"language"` / `"term"` / `"uuid"` /
+/// `"cdn"` / `"userToken"` / `"title"` / `"merch"` / `"p"` /
+/// Nosto `"emptyQueryMatchesAll"` / `"exclusionBehaviour"` /
+/// `"outOfStockBehaviour"` / `"personalizationBoost"` /
+/// `"sessionParams"` / Clerk.io `"product_data"` / `"orderby"` /
+/// `"visitor"` / `"no_exact_match"` / `"longtail"` / Tweakwise
+/// `"nrofitems"` / `"nrofpages"` / `"currentpage"` /
+/// `"facetsettings"` / `"selectiontype"` / Findify `"t_client"` /
+/// `"rid"` / `"slot"` / `"item_ids"` / `"variant_item_id"` /
+/// `"product_url"` / `"compare_at"` / Searchanise `"totalItems"` /
+/// `"startIndex"` / `"itemsPerPage"` / `"currentItemCount"` /
+/// `"correctedQuery"` / Unbxd `"searchMetaData"` /
+/// `"numberOfProducts"` / `"doctype"` / Loop54 `"makesSense"` /
+/// `"relatedQueries"` / `"resultsOptions"` / Yext `"experienceKey"` /
+/// `"failedVerticals"` / `"locationBias"` / Cludo `"TypedDocuments"` /
+/// `"TotalDocument"` / `"QueryId"` / Voyado Elevate `"primaryList"` /
+/// `"sessionKey"` / `"touchpoint"` / FactFinder `"searchResult"` /
+/// `"fieldRoles"` / `"useAsn"` / Hawksearch `"ClientGuid"` /
+/// `"NofResults"` / GroupBy `"totalRecordCount"` /
+/// `"availableNavigation"` / Luigi's Box `"corrected_query"` /
+/// `"total_hits"` / Searchspring `"resultLayout"` / `"filterSummary"` /
+/// `"didYouMean": {` / Doofinder `"hashid"` / `"query_name"` / Klevu
+/// `"recordQueries"` / Bloomreach Discovery `"domain_key"` /
+/// Constructor.io `"result_sources"` / Coveo `"searchHub"` / Azure AI
+/// Search `"@odata.count"` / Vespa `"yql"` / Marqo
+/// `"searchableAttributes"` / LanceDB `"vector_column_name"` / Milvus
+/// `"annsField"` / Chroma `"n_results"` / Pinecone `"topK"` / Weaviate
+/// `"nearVector"` / Qdrant `"vectors_count"` / Algolia
+/// `"processingTimeMS"` / Meilisearch `"processingTimeMs"` / Typesense
+/// `"search_time_ms"` / Solr `"responseHeader"` / Elasticsearch
+/// `"track_total_hits"` / prettier `"printWidth"` / karma `"basePath"`
+/// stay out.
+/// `"sort_by"` only matches Fast Simon sort enums. `"facetRequired"`
+/// only matches `0` / `1` / `2`. String keys require a non-empty quoted
+/// string. Bool keys only match `true` / `false`. Numeric keys reject
+/// leading zeros beyond `0`.
+fn is_fastsimon_json_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    let Some(rest) = s.strip_prefix('"') else {
+        return false;
+    };
+    let Some(end) = rest.find('"') else {
+        return false;
+    };
+    let key = &rest[..end];
+    if !fastsimon_json_key_ok(key) {
+        return false;
+    }
+    let after_key = rest[end + 1..].trim_start();
+    let Some(after_colon) = after_key.strip_prefix(':') else {
+        return false;
+    };
+    let after_colon = after_colon.trim_start();
+    fastsimon_json_value_and_tail_ok(key, after_colon)
+}
+
+fn fastsimon_json_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "total_results"
+            | "facets_completed"
+            | "sort_by"
+            | "narrow"
+            | "pop_products_no_results"
+            | "total_p"
+            | "personalized_products"
+            | "ancestor_categories"
+            | "avoid_tag_prefixes"
+            | "turbolink"
+            | "related_categories"
+            | "related_results"
+            | "banner_html"
+            | "storeID"
+            | "sessionStart"
+            | "productsPerPage"
+            | "narrowBy"
+            | "facetRequired"
+            | "withAttributes"
+            | "recentTimestamps"
+            | "cartTimestamps"
+            | "searchWithinSearch"
+            | "hasShopifyMarkets"
+            | "companyLocationContext"
+            | "withProductTypes"
+            | "abTestingVariations"
+            | "disableMerchandising"
+            | "disableStrategies"
+            | "disableMerchandisingRules"
+            | "isPersonalizedFiltersActive"
+            | "disableTurbolinks"
+            | "searchPersonalization"
+    )
+}
+
+fn fastsimon_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool {
+    let bytes = after_colon.as_bytes();
+    let Some(first) = bytes.first().copied() else {
+        return false;
+    };
+    match first {
+        b'{' => {
+            if !matches!(
+                key,
+                "recentTimestamps" | "cartTimestamps" | "abTestingVariations"
+            ) {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[1..])
+        }
+        b'[' => {
+            if !matches!(
+                key,
+                "narrow"
+                    | "personalized_products"
+                    | "ancestor_categories"
+                    | "related_categories"
+                    | "narrowBy"
+            ) {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[1..])
+        }
+        b'"' => match key {
+            "sort_by" => fastsimon_json_sort_by_and_tail_ok(after_colon),
+            "avoid_tag_prefixes" | "turbolink" | "banner_html" | "searchWithinSearch" => {
+                fastsimon_json_nonempty_string_and_tail_ok(after_colon)
+            }
+            _ => false,
+        },
+        b't' | b'f' => fastsimon_json_bool_and_tail_ok(key, after_colon),
+        b'0'..=b'9' => fastsimon_json_uint_and_tail_ok(key, after_colon),
+        _ => false,
+    }
+}
+
+fn fastsimon_json_nonempty_string_and_tail_ok(after_colon: &str) -> bool {
+    let rest = &after_colon[1..];
+    let Some(end) = rest.find('"') else {
+        return false;
+    };
+    let value = &rest[..end];
+    if value.is_empty() || value.contains('\n') {
+        return false;
+    }
+    package_json_tail_ok(&rest[end + 1..])
+}
+
+fn fastsimon_json_sort_by_and_tail_ok(after_colon: &str) -> bool {
+    let rest = &after_colon[1..];
+    let Some(end) = rest.find('"') else {
+        return false;
+    };
+    let value = &rest[..end];
+    if !matches!(
+        value,
+        "price_min_to_max"
+            | "price_max_to_min"
+            | "creation_date"
+            | "creation_date_oldest"
+            | "popularity"
+            | "reviews"
+            | "a_to_z"
+            | "z_to_a"
+            | "relevency"
+            | "discount_min_to_max"
+            | "discount_max_to_min"
+    ) {
+        return false;
+    }
+    package_json_tail_ok(&rest[end + 1..])
+}
+
+fn fastsimon_json_bool_and_tail_ok(key: &str, after_colon: &str) -> bool {
+    if !matches!(
+        key,
+        "facets_completed"
+            | "pop_products_no_results"
+            | "related_results"
+            | "withAttributes"
+            | "hasShopifyMarkets"
+            | "withProductTypes"
+            | "disableMerchandising"
+            | "disableStrategies"
+            | "disableMerchandisingRules"
+            | "isPersonalizedFiltersActive"
+            | "disableTurbolinks"
+            | "searchPersonalization"
+    ) {
+        return false;
+    }
+    let rest = if let Some(rest) = after_colon.strip_prefix("true") {
+        rest
+    } else if let Some(rest) = after_colon.strip_prefix("false") {
+        rest
+    } else {
+        return false;
+    };
+    package_json_tail_ok(rest)
+}
+
+fn fastsimon_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool {
+    if !matches!(
+        key,
+        "total_results"
+            | "total_p"
+            | "storeID"
+            | "sessionStart"
+            | "productsPerPage"
+            | "companyLocationContext"
+            | "facetRequired"
+    ) {
+        return false;
+    }
+    let bytes = after_colon.as_bytes();
+    let mut i = 0usize;
+    if i >= bytes.len() || !bytes[i].is_ascii_digit() {
+        return false;
+    }
+    if bytes[i] == b'0' {
+        i += 1;
+        if i < bytes.len() && bytes[i].is_ascii_digit() {
+            return false;
+        }
+    } else {
+        while i < bytes.len() && bytes[i].is_ascii_digit() {
+            i += 1;
+        }
+    }
+    if key == "facetRequired" && (i != 1 || !matches!(bytes[0], b'0' | b'1' | b'2')) {
+        return false;
     }
     package_json_tail_ok(&after_colon[i..])
 }
@@ -98846,10 +99115,10 @@ mod func_like_line_tests {
         is_dracut_conf_decl, is_eas_json_decl, is_editorconfig_decl, is_elasticsearch_json_decl,
         is_electron_builder_json_decl, is_electron_forge_json_decl, is_esdoc_json_decl,
         is_eslint_json_decl, is_ethers_file_decl, is_expo_json_decl, is_factfinder_json_decl,
-        is_fail2ban_conf_decl, is_findify_json_decl, is_firebase_json_decl, is_flake8_ini_decl,
-        is_fluent_bit_decl, is_fly_toml_decl, is_flynt_ini_decl, is_freeradius_decl, is_fstab_decl,
-        is_gdm_conf_decl, is_gemfile_decl, is_gitconfig_decl, is_gomod_decl,
-        is_grafana_alerting_json_decl, is_grafana_dashboard_json_decl,
+        is_fail2ban_conf_decl, is_fastsimon_json_decl, is_findify_json_decl, is_firebase_json_decl,
+        is_flake8_ini_decl, is_fluent_bit_decl, is_fly_toml_decl, is_flynt_ini_decl,
+        is_freeradius_decl, is_fstab_decl, is_gdm_conf_decl, is_gemfile_decl, is_gitconfig_decl,
+        is_gomod_decl, is_grafana_alerting_json_decl, is_grafana_dashboard_json_decl,
         is_grafana_datasource_json_decl, is_grafana_ini_decl, is_groupby_json_decl,
         is_haproxy_decl, is_har_json_decl, is_hatch_toml_decl, is_hawksearch_json_decl,
         is_hoppscotch_json_decl, is_hosts_access_decl, is_hosts_file_decl, is_hoverfly_json_decl,
@@ -140932,6 +141201,14 @@ mod func_like_line_tests {
         assert!(is_nosto_json_decl(r#""sessionParams": {"#));
         assert!(!is_clerk_io_json_decl(r#""personalizationBoost": ["#));
         assert!(is_nosto_json_decl(r#""personalizationBoost": ["#));
+        assert!(!is_clerk_io_json_decl(r#""total_results": 223"#));
+        assert!(is_fastsimon_json_decl(r#""total_results": 223"#));
+        assert!(!is_clerk_io_json_decl(r#""facets_completed": true"#));
+        assert!(is_fastsimon_json_decl(r#""facets_completed": true"#));
+        assert!(!is_clerk_io_json_decl(r#""turbolink": "/search""#));
+        assert!(is_fastsimon_json_decl(r#""turbolink": "/search""#));
+        assert!(!is_clerk_io_json_decl(r#""storeID": 123"#));
+        assert!(is_fastsimon_json_decl(r#""storeID": 123"#));
         assert!(line_is_func_like(r#""product_data": {"#));
         assert!(line_is_func_like(r#""orderby": "price""#));
         assert!(line_is_func_like(r#""visitor": "auto""#));
@@ -141051,6 +141328,14 @@ mod func_like_line_tests {
         assert!(is_prettier_json_decl(r#""printWidth": 80"#));
         assert!(!is_nosto_json_decl(r#""basePath": ".""#));
         assert!(is_karma_json_decl(r#""basePath": ".""#));
+        assert!(!is_nosto_json_decl(r#""total_results": 223"#));
+        assert!(is_fastsimon_json_decl(r#""total_results": 223"#));
+        assert!(!is_nosto_json_decl(r#""facets_completed": true"#));
+        assert!(is_fastsimon_json_decl(r#""facets_completed": true"#));
+        assert!(!is_nosto_json_decl(r#""turbolink": "/search""#));
+        assert!(is_fastsimon_json_decl(r#""turbolink": "/search""#));
+        assert!(!is_nosto_json_decl(r#""storeID": 123"#));
+        assert!(is_fastsimon_json_decl(r#""storeID": 123"#));
         assert!(line_is_func_like(r#""emptyQueryMatchesAll": true"#));
         assert!(line_is_func_like(r#""exclusionBehaviour": "hide""#));
         assert!(line_is_func_like(r#""outOfStockBehaviour": "none""#));
@@ -141218,11 +141503,333 @@ mod func_like_line_tests {
         assert!(is_prettier_json_decl(r#""printWidth": 80"#));
         assert!(!is_nosto_json_decl(r#""basePath": ".""#));
         assert!(is_karma_json_decl(r#""basePath": ".""#));
+        assert!(!is_nosto_json_decl(r#""total_results": 223"#));
+        assert!(is_fastsimon_json_decl(r#""total_results": 223"#));
+        assert!(!is_nosto_json_decl(r#""facets_completed": true"#));
+        assert!(is_fastsimon_json_decl(r#""facets_completed": true"#));
+        assert!(!is_nosto_json_decl(r#""pop_products_no_results": false"#));
+        assert!(is_fastsimon_json_decl(
+            r#""pop_products_no_results": false"#
+        ));
+        assert!(!is_nosto_json_decl(r#""total_p": 10"#));
+        assert!(is_fastsimon_json_decl(r#""total_p": 10"#));
+        assert!(!is_nosto_json_decl(r#""personalized_products": ["#));
+        assert!(is_fastsimon_json_decl(r#""personalized_products": ["#));
+        assert!(!is_nosto_json_decl(r#""turbolink": "/search""#));
+        assert!(is_fastsimon_json_decl(r#""turbolink": "/search""#));
+        assert!(!is_nosto_json_decl(r#""storeID": 123"#));
+        assert!(is_fastsimon_json_decl(r#""storeID": 123"#));
+        assert!(!is_nosto_json_decl(r#""sessionStart": 1699900000"#));
+        assert!(is_fastsimon_json_decl(r#""sessionStart": 1699900000"#));
         assert!(line_is_func_like(r#""emptyQueryMatchesAll": true"#));
         assert!(line_is_func_like(r#""exclusionBehaviour": "hide""#));
         assert!(line_is_func_like(r#""sessionParams": {"#));
         assert!(line_is_func_like(r#""personalizationWeight": 1"#));
         assert!(line_is_func_like(r#""thumbUrl": "https://cdn/t.jpg""#));
+    }
+
+    #[test]
+    fn fastsimon_json_keys_smoke() {
+        assert!(is_fastsimon_json_decl(r#""total_results": 0"#));
+        assert!(is_fastsimon_json_decl(r#""total_results": 223"#));
+        assert!(is_fastsimon_json_decl(r#""facets_completed": true"#));
+        assert!(is_fastsimon_json_decl(r#""facets_completed": false"#));
+        assert!(is_fastsimon_json_decl(r#""sort_by": "price_min_to_max""#));
+        assert!(is_fastsimon_json_decl(r#""sort_by": "relevency""#));
+        assert!(is_fastsimon_json_decl(r#""narrow": ["#));
+        assert!(is_fastsimon_json_decl(r#""pop_products_no_results": true"#));
+        assert!(is_fastsimon_json_decl(r#""total_p": 10"#));
+        assert!(is_fastsimon_json_decl(r#""personalized_products": ["#));
+        assert!(is_fastsimon_json_decl(r#""ancestor_categories": ["#));
+        assert!(is_fastsimon_json_decl(r#""avoid_tag_prefixes": "fs_""#));
+        assert!(is_fastsimon_json_decl(r#""turbolink": "/search""#));
+        assert!(is_fastsimon_json_decl(r#""related_categories": ["#));
+        assert!(is_fastsimon_json_decl(r#""related_results": true"#));
+        assert!(is_fastsimon_json_decl(r#""banner_html": "<div/>""#));
+        assert!(is_fastsimon_json_decl(r#""storeID": 123"#));
+        assert!(is_fastsimon_json_decl(r#""sessionStart": 1699900000"#));
+        assert!(is_fastsimon_json_decl(r#""productsPerPage": 48"#));
+        assert!(is_fastsimon_json_decl(r#""narrowBy": ["#));
+        assert!(is_fastsimon_json_decl(r#""facetRequired": 0"#));
+        assert!(is_fastsimon_json_decl(r#""facetRequired": 1"#));
+        assert!(is_fastsimon_json_decl(r#""facetRequired": 2"#));
+        assert!(is_fastsimon_json_decl(r#""withAttributes": true"#));
+        assert!(is_fastsimon_json_decl(r#""recentTimestamps": {"#));
+        assert!(is_fastsimon_json_decl(r#""cartTimestamps": {"#));
+        assert!(is_fastsimon_json_decl(r#""searchWithinSearch": "red""#));
+        assert!(is_fastsimon_json_decl(r#""hasShopifyMarkets": false"#));
+        assert!(is_fastsimon_json_decl(r#""companyLocationContext": 1"#));
+        assert!(is_fastsimon_json_decl(r#""withProductTypes": true"#));
+        assert!(is_fastsimon_json_decl(r#""abTestingVariations": {"#));
+        assert!(is_fastsimon_json_decl(r#""disableMerchandising": true"#));
+        assert!(is_fastsimon_json_decl(r#""disableStrategies": false"#));
+        assert!(is_fastsimon_json_decl(
+            r#""disableMerchandisingRules": true"#
+        ));
+        assert!(is_fastsimon_json_decl(
+            r#""isPersonalizedFiltersActive": false"#
+        ));
+        assert!(is_fastsimon_json_decl(r#""disableTurbolinks": true"#));
+        assert!(is_fastsimon_json_decl(r#""searchPersonalization": false"#));
+        assert!(!is_fastsimon_json_decl(r#""emptyQueryMatchesAll": true"#));
+        assert!(!is_fastsimon_json_decl(r#""product_data": {"#));
+        assert!(!is_fastsimon_json_decl(r#""nrofitems": 128"#));
+        assert!(!is_fastsimon_json_decl(r#""t_client": 1699900000000"#));
+        assert!(!is_fastsimon_json_decl(r#""totalItems": 100"#));
+        assert!(!is_fastsimon_json_decl(r#""searchMetaData": {"#));
+        assert!(!is_fastsimon_json_decl(r#""makesSense": true"#));
+        assert!(!is_fastsimon_json_decl(r#""experienceKey": "answers""#));
+        assert!(!is_fastsimon_json_decl(r#""TypedDocuments": ["#));
+        assert!(!is_fastsimon_json_decl(r#""primaryList": {"#));
+        assert!(!is_fastsimon_json_decl(r#""searchResult": {"#));
+        assert!(!is_fastsimon_json_decl(r#""NofResults": 2400"#));
+        assert!(!is_fastsimon_json_decl(r#""totalRecordCount": 128"#));
+        assert!(!is_fastsimon_json_decl(r#""corrected_query": "putter""#));
+        assert!(!is_fastsimon_json_decl(r#""resultLayout": "grid""#));
+        assert!(!is_fastsimon_json_decl(r#""hashid": "abc""#));
+        assert!(!is_fastsimon_json_decl(r#""recordQueries": ["#));
+        assert!(!is_fastsimon_json_decl(r#""domain_key": "example_com""#));
+        assert!(!is_fastsimon_json_decl(r#""result_sources": {"#));
+        assert!(!is_fastsimon_json_decl(r#""searchHub": "default""#));
+        assert!(!is_fastsimon_json_decl(r#""@odata.count": 10"#));
+        assert!(!is_fastsimon_json_decl(
+            r#""yql": "select * from sources *"#
+        ));
+        assert!(!is_fastsimon_json_decl(r#""searchableAttributes": ["#));
+        assert!(!is_fastsimon_json_decl(r#""vector_column_name": "vec""#));
+        assert!(!is_fastsimon_json_decl(r#""annsField": "vec""#));
+        assert!(!is_fastsimon_json_decl(r#""n_results": 10"#));
+        assert!(!is_fastsimon_json_decl(r#""topK": 10"#));
+        assert!(!is_fastsimon_json_decl(r#""nearVector": {"#));
+        assert!(!is_fastsimon_json_decl(r#""vectors_count": 100"#));
+        assert!(!is_fastsimon_json_decl(r#""processingTimeMS": 12"#));
+        assert!(!is_fastsimon_json_decl(r#""processingTimeMs": 12"#));
+        assert!(!is_fastsimon_json_decl(r#""search_time_ms": 12"#));
+        assert!(!is_fastsimon_json_decl(r#""responseHeader": {"#));
+        assert!(!is_fastsimon_json_decl(r#""track_total_hits": true"#));
+        assert!(!is_fastsimon_json_decl(r#""printWidth": 80"#));
+        assert!(!is_fastsimon_json_decl(r#""basePath": ".""#));
+    }
+
+    #[test]
+    fn fastsimon_json_keys_count() {
+        assert!(is_fastsimon_json_decl(r#""total_results": 0"#));
+        assert!(is_fastsimon_json_decl(r#""total_results": 223"#));
+        assert!(is_fastsimon_json_decl(r#""total_results": 223,"#));
+        assert!(!is_fastsimon_json_decl(r#""total_results": 0223"#));
+        assert!(!is_fastsimon_json_decl(r#""total_results": true"#));
+        assert!(!is_fastsimon_json_decl(r#""total_results": ["#));
+        assert!(is_fastsimon_json_decl(r#""facets_completed": true"#));
+        assert!(is_fastsimon_json_decl(r#""facets_completed": false"#));
+        assert!(is_fastsimon_json_decl(r#""facets_completed": true,"#));
+        assert!(!is_fastsimon_json_decl(r#""facets_completed": 1"#));
+        assert!(is_fastsimon_json_decl(r#""sort_by": "price_min_to_max""#));
+        assert!(is_fastsimon_json_decl(r#""sort_by": "price_max_to_min""#));
+        assert!(is_fastsimon_json_decl(r#""sort_by": "creation_date""#));
+        assert!(is_fastsimon_json_decl(
+            r#""sort_by": "creation_date_oldest""#
+        ));
+        assert!(is_fastsimon_json_decl(r#""sort_by": "popularity""#));
+        assert!(is_fastsimon_json_decl(r#""sort_by": "reviews""#));
+        assert!(is_fastsimon_json_decl(r#""sort_by": "a_to_z""#));
+        assert!(is_fastsimon_json_decl(r#""sort_by": "z_to_a""#));
+        assert!(is_fastsimon_json_decl(r#""sort_by": "relevency""#));
+        assert!(is_fastsimon_json_decl(
+            r#""sort_by": "discount_min_to_max""#
+        ));
+        assert!(is_fastsimon_json_decl(
+            r#""sort_by": "discount_max_to_min""#
+        ));
+        assert!(is_fastsimon_json_decl(r#""sort_by": "relevency","#));
+        assert!(!is_fastsimon_json_decl(r#""sort_by": "relevance""#));
+        assert!(!is_fastsimon_json_decl(r#""sort_by": "RELEVENCY""#));
+        assert!(!is_fastsimon_json_decl(r#""sort_by": {"#));
+        assert!(is_fastsimon_json_decl(r#""narrow": ["#));
+        assert!(is_fastsimon_json_decl(r#""narrow": [ // c"#));
+        assert!(!is_fastsimon_json_decl(r#""narrow": {"#));
+        assert!(!is_fastsimon_json_decl(r#""narrow": "color""#));
+        assert!(is_fastsimon_json_decl(r#""pop_products_no_results": true"#));
+        assert!(is_fastsimon_json_decl(
+            r#""pop_products_no_results": false"#
+        ));
+        assert!(!is_fastsimon_json_decl(
+            r#""pop_products_no_results": "yes""#
+        ));
+        assert!(is_fastsimon_json_decl(r#""total_p": 0"#));
+        assert!(is_fastsimon_json_decl(r#""total_p": 10"#));
+        assert!(!is_fastsimon_json_decl(r#""total_p": 010"#));
+        assert!(is_fastsimon_json_decl(r#""personalized_products": ["#));
+        assert!(!is_fastsimon_json_decl(r#""personalized_products": {"#));
+        assert!(is_fastsimon_json_decl(r#""ancestor_categories": ["#));
+        assert!(!is_fastsimon_json_decl(r#""ancestor_categories": "root""#));
+        assert!(is_fastsimon_json_decl(r#""avoid_tag_prefixes": "fs_""#));
+        assert!(is_fastsimon_json_decl(r#""avoid_tag_prefixes": "fs_","#));
+        assert!(!is_fastsimon_json_decl(r#""avoid_tag_prefixes": """#));
+        assert!(!is_fastsimon_json_decl(r#""avoid_tag_prefixes": ["#));
+        assert!(is_fastsimon_json_decl(r#""turbolink": "/search""#));
+        assert!(is_fastsimon_json_decl(r#""turbolink": "/search" // c"#));
+        assert!(!is_fastsimon_json_decl(r#""turbolink": """#));
+        assert!(!is_fastsimon_json_decl(r#""turbolink": true"#));
+        assert!(is_fastsimon_json_decl(r#""related_categories": ["#));
+        assert!(!is_fastsimon_json_decl(r#""related_categories": {"#));
+        assert!(is_fastsimon_json_decl(r#""related_results": true"#));
+        assert!(is_fastsimon_json_decl(r#""related_results": false"#));
+        assert!(!is_fastsimon_json_decl(r#""related_results": 1"#));
+        assert!(is_fastsimon_json_decl(r#""banner_html": "<div/>""#));
+        assert!(!is_fastsimon_json_decl(r#""banner_html": """#));
+        assert!(is_fastsimon_json_decl(r#""storeID": 0"#));
+        assert!(is_fastsimon_json_decl(r#""storeID": 123"#));
+        assert!(!is_fastsimon_json_decl(r#""storeID": 0123"#));
+        assert!(!is_fastsimon_json_decl(r#""storeID": "123""#));
+        assert!(is_fastsimon_json_decl(r#""sessionStart": 0"#));
+        assert!(is_fastsimon_json_decl(r#""sessionStart": 1699900000"#));
+        assert!(!is_fastsimon_json_decl(r#""sessionStart": true"#));
+        assert!(is_fastsimon_json_decl(r#""productsPerPage": 48"#));
+        assert!(!is_fastsimon_json_decl(r#""productsPerPage": ["#));
+        assert!(is_fastsimon_json_decl(r#""narrowBy": ["#));
+        assert!(!is_fastsimon_json_decl(r#""narrowBy": {"#));
+        assert!(is_fastsimon_json_decl(r#""facetRequired": 0"#));
+        assert!(is_fastsimon_json_decl(r#""facetRequired": 1"#));
+        assert!(is_fastsimon_json_decl(r#""facetRequired": 2"#));
+        assert!(!is_fastsimon_json_decl(r#""facetRequired": 3"#));
+        assert!(!is_fastsimon_json_decl(r#""facetRequired": 10"#));
+        assert!(!is_fastsimon_json_decl(r#""facetRequired": true"#));
+        assert!(is_fastsimon_json_decl(r#""withAttributes": true"#));
+        assert!(is_fastsimon_json_decl(r#""withAttributes": false"#));
+        assert!(!is_fastsimon_json_decl(r#""withAttributes": "yes""#));
+        assert!(is_fastsimon_json_decl(r#""recentTimestamps": {"#));
+        assert!(is_fastsimon_json_decl(r#""recentTimestamps": { // c"#));
+        assert!(!is_fastsimon_json_decl(r#""recentTimestamps": ["#));
+        assert!(is_fastsimon_json_decl(r#""cartTimestamps": {"#));
+        assert!(!is_fastsimon_json_decl(r#""cartTimestamps": "x""#));
+        assert!(is_fastsimon_json_decl(r#""searchWithinSearch": "red""#));
+        assert!(!is_fastsimon_json_decl(r#""searchWithinSearch": """#));
+        assert!(is_fastsimon_json_decl(r#""hasShopifyMarkets": true"#));
+        assert!(is_fastsimon_json_decl(r#""hasShopifyMarkets": false"#));
+        assert!(!is_fastsimon_json_decl(r#""hasShopifyMarkets": 0"#));
+        assert!(is_fastsimon_json_decl(r#""companyLocationContext": 0"#));
+        assert!(is_fastsimon_json_decl(r#""companyLocationContext": 1"#));
+        assert!(!is_fastsimon_json_decl(r#""companyLocationContext": 01"#));
+        assert!(is_fastsimon_json_decl(r#""withProductTypes": true"#));
+        assert!(!is_fastsimon_json_decl(r#""withProductTypes": ["#));
+        assert!(is_fastsimon_json_decl(r#""abTestingVariations": {"#));
+        assert!(!is_fastsimon_json_decl(r#""abTestingVariations": ["#));
+        assert!(is_fastsimon_json_decl(r#""disableMerchandising": true"#));
+        assert!(is_fastsimon_json_decl(r#""disableStrategies": false"#));
+        assert!(is_fastsimon_json_decl(
+            r#""disableMerchandisingRules": true"#
+        ));
+        assert!(is_fastsimon_json_decl(
+            r#""isPersonalizedFiltersActive": false"#
+        ));
+        assert!(is_fastsimon_json_decl(r#""disableTurbolinks": true"#));
+        assert!(is_fastsimon_json_decl(r#""searchPersonalization": false"#));
+        assert!(!is_fastsimon_json_decl(r#""disableMerchandising": 1"#));
+        assert!(!is_fastsimon_json_decl(r#""total_results""#));
+        assert!(!is_fastsimon_json_decl(r#""sort_by""#));
+        assert!(!is_fastsimon_json_decl(
+            r#""$schema": "https://example.com""#
+        ));
+        assert!(!is_fastsimon_json_decl(r#""name": "docs""#));
+        assert!(!is_fastsimon_json_decl(r#""q": "shoes""#));
+        assert!(!is_fastsimon_json_decl(r#""Query": "shoes""#));
+        assert!(!is_fastsimon_json_decl(r#""query": "shoes""#));
+        assert!(!is_fastsimon_json_decl(r#""filters": ["#));
+        assert!(!is_fastsimon_json_decl(r#""Filters": {"#));
+        assert!(!is_fastsimon_json_decl(r#""items": ["#));
+        assert!(!is_fastsimon_json_decl(r#""facets": ["#));
+        assert!(!is_fastsimon_json_decl(r#""term": "shoes""#));
+        assert!(!is_fastsimon_json_decl(r#""uuid": "abc""#));
+        assert!(!is_fastsimon_json_decl(r#""cdn": 1"#));
+        assert!(!is_fastsimon_json_decl(r#""userToken": "u1""#));
+        assert!(!is_fastsimon_json_decl(r#""title": "Search""#));
+        assert!(!is_fastsimon_json_decl(r#""merch": {"#));
+        assert!(!is_fastsimon_json_decl(r#""p": 1"#));
+        assert!(!is_fastsimon_json_decl(r#""page": 1"#));
+        assert!(!is_fastsimon_json_decl(r#""apiKey": "secret""#));
+        assert!(!is_fastsimon_json_decl(r#""maxResults": 10"#));
+        assert!(!is_fastsimon_json_decl(r#""emptyQueryMatchesAll": true"#));
+        assert!(is_nosto_json_decl(r#""emptyQueryMatchesAll": true"#));
+        assert!(!is_fastsimon_json_decl(r#""product_data": {"#));
+        assert!(is_clerk_io_json_decl(r#""product_data": {"#));
+        assert!(!is_fastsimon_json_decl(r#""nrofitems": 128"#));
+        assert!(is_tweakwise_json_decl(r#""nrofitems": 128"#));
+        assert!(!is_fastsimon_json_decl(r#""t_client": 1699900000000"#));
+        assert!(is_findify_json_decl(r#""t_client": 1699900000000"#));
+        assert!(!is_fastsimon_json_decl(r#""totalItems": 100"#));
+        assert!(is_searchanise_json_decl(r#""totalItems": 100"#));
+        assert!(!is_fastsimon_json_decl(r#""searchMetaData": {"#));
+        assert!(is_unbxd_json_decl(r#""searchMetaData": {"#));
+        assert!(!is_fastsimon_json_decl(r#""makesSense": true"#));
+        assert!(is_loop54_json_decl(r#""makesSense": true"#));
+        assert!(!is_fastsimon_json_decl(r#""experienceKey": "answers""#));
+        assert!(is_yext_json_decl(r#""experienceKey": "answers""#));
+        assert!(!is_fastsimon_json_decl(r#""TypedDocuments": ["#));
+        assert!(is_cludo_json_decl(r#""TypedDocuments": ["#));
+        assert!(!is_fastsimon_json_decl(r#""primaryList": {"#));
+        assert!(is_voyado_elevate_json_decl(r#""primaryList": {"#));
+        assert!(!is_fastsimon_json_decl(r#""searchResult": {"#));
+        assert!(is_factfinder_json_decl(r#""searchResult": {"#));
+        assert!(!is_fastsimon_json_decl(r#""NofResults": 2400"#));
+        assert!(is_hawksearch_json_decl(r#""NofResults": 2400"#));
+        assert!(!is_fastsimon_json_decl(r#""totalRecordCount": 128"#));
+        assert!(is_groupby_json_decl(r#""totalRecordCount": 128"#));
+        assert!(!is_fastsimon_json_decl(r#""corrected_query": "putter""#));
+        assert!(is_luigisbox_json_decl(r#""corrected_query": "putter""#));
+        assert!(!is_fastsimon_json_decl(r#""resultLayout": "grid""#));
+        assert!(is_searchspring_json_decl(r#""resultLayout": "grid""#));
+        assert!(!is_fastsimon_json_decl(r#""hashid": "abc""#));
+        assert!(is_doofinder_json_decl(r#""hashid": "abc""#));
+        assert!(!is_fastsimon_json_decl(r#""recordQueries": ["#));
+        assert!(is_klevu_json_decl(r#""recordQueries": ["#));
+        assert!(!is_fastsimon_json_decl(r#""domain_key": "example_com""#));
+        assert!(is_bloomreach_json_decl(r#""domain_key": "example_com""#));
+        assert!(!is_fastsimon_json_decl(r#""result_sources": {"#));
+        assert!(is_constructor_io_json_decl(r#""result_sources": {"#));
+        assert!(!is_fastsimon_json_decl(r#""searchHub": "default""#));
+        assert!(is_coveo_json_decl(r#""searchHub": "default""#));
+        assert!(!is_fastsimon_json_decl(r#""@odata.count": 10"#));
+        assert!(is_azure_search_json_decl(r#""@odata.count": 10"#));
+        assert!(!is_fastsimon_json_decl(
+            r#""yql": "select * from sources * where true""#
+        ));
+        assert!(is_vespa_json_decl(
+            r#""yql": "select * from sources * where true""#
+        ));
+        assert!(!is_fastsimon_json_decl(r#""searchableAttributes": ["#));
+        assert!(is_marqo_json_decl(r#""searchableAttributes": ["#));
+        assert!(!is_fastsimon_json_decl(r#""vector_column_name": "vec""#));
+        assert!(is_lancedb_json_decl(r#""vector_column_name": "vec""#));
+        assert!(!is_fastsimon_json_decl(r#""annsField": "vec""#));
+        assert!(is_milvus_json_decl(r#""annsField": "vec""#));
+        assert!(!is_fastsimon_json_decl(r#""n_results": 10"#));
+        assert!(is_chroma_json_decl(r#""n_results": 10"#));
+        assert!(!is_fastsimon_json_decl(r#""topK": 10"#));
+        assert!(is_pinecone_json_decl(r#""topK": 10"#));
+        assert!(!is_fastsimon_json_decl(r#""nearVector": {"#));
+        assert!(is_weaviate_json_decl(r#""nearVector": {"#));
+        assert!(!is_fastsimon_json_decl(r#""vectors_count": 100"#));
+        assert!(is_qdrant_json_decl(r#""vectors_count": 100"#));
+        assert!(!is_fastsimon_json_decl(r#""processingTimeMS": 12"#));
+        assert!(is_algolia_json_decl(r#""processingTimeMS": 12"#));
+        assert!(!is_fastsimon_json_decl(r#""processingTimeMs": 12"#));
+        assert!(is_meilisearch_json_decl(r#""processingTimeMs": 12"#));
+        assert!(!is_fastsimon_json_decl(r#""search_time_ms": 12"#));
+        assert!(is_typesense_json_decl(r#""search_time_ms": 12"#));
+        assert!(!is_fastsimon_json_decl(r#""responseHeader": {"#));
+        assert!(is_solr_json_decl(r#""responseHeader": {"#));
+        assert!(!is_fastsimon_json_decl(r#""track_total_hits": true"#));
+        assert!(is_elasticsearch_json_decl(r#""track_total_hits": true"#));
+        assert!(!is_fastsimon_json_decl(r#""printWidth": 80"#));
+        assert!(is_prettier_json_decl(r#""printWidth": 80"#));
+        assert!(!is_fastsimon_json_decl(r#""basePath": ".""#));
+        assert!(is_karma_json_decl(r#""basePath": ".""#));
+        assert!(line_is_func_like(r#""total_results": 223"#));
+        assert!(line_is_func_like(r#""facets_completed": true"#));
+        assert!(line_is_func_like(r#""sort_by": "relevency""#));
+        assert!(line_is_func_like(r#""turbolink": "/search""#));
+        assert!(line_is_func_like(r#""storeID": 123"#));
+        assert!(line_is_func_like(r#""facetRequired": 2"#));
     }
 
     #[test]
