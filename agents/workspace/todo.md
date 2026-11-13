@@ -1326,3 +1326,5 @@
 009 keep: Function List Voyado Elevate primaryList/navigation/autoCorrect/visibleNotification/recommendationLists/productGroups/didYouMean/channels/stores/sessionKey/customerKey/priceId/present/notify/touchpoint/origin/sortBy (v0.3.827)
 
 009 keep: Function List Unbxd searchMetaData/suggestionGroups/inFields/keywordSuggestions/topQueries/popularProducts/promotedSuggestions/numberOfProducts/searchEndPoint/browseEndPoint/doctype/facet.multiselect (v0.3.831)
+
+009 keep: Function List Searchanise totalItems/startIndex/itemsPerPage/currentItemCount/categoryStartIndex/totalCategories/pageStartIndex/totalPages/correctedQuery (v0.3.832)
