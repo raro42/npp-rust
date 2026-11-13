@@ -1,3 +1,5 @@
+009 keep: Function List GroupBy totalRecordCount/availableNavigation/selectedNavigation/originalRequest/biasingProfile/customUrlParams/pruneRefinements/disableAutocorrection/matchStrategy/excludedNavigations/includedNavigations/orFields/returnBinary/includeMetaData/siteParams/biasing (v0.3.824)
+
 009 keep: Function List Luigi's Box corrected_query/total_hits/quicksearch_hits/suggested_facet/suggested_url/pin_note/hits_count/normalized_hits_count/accepted_filters/query_rewrite/next_page/tracker_id/quicksearch_types/hit_fields/promoted (v0.3.823)
 
 009 keep: Function List Milvus annsField/searchParams/outputFields/consistencyLevel/metricType/indexType/nlist/nprobe/efConstruction/shardsNum/enableDynamicField/autoID/numEntities/partitionNames/elementTypeParams (v0.3.812)

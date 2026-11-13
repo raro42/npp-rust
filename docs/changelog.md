@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.824] — 2026-11-13
+
+View:
+
+- **Function List** lists GroupBy Commerce Search API request / response JSON keys: `"totalRecordCount": 0` / `128`, `"availableNavigation": [`, `"selectedNavigation": [`, `"originalRequest": {`, `"biasingProfile": "…"`, `"customUrlParams": [`, `"pruneRefinements": true` / `false`, `"disableAutocorrection": true` / `false`, `"matchStrategy": {`, `"excludedNavigations": [`, `"includedNavigations": [`, `"orFields": [`, `"returnBinary": true` / `false`, `"includeMetaData": true` / `false`, `"siteParams": [`, `"biasing": {`. Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing `:` stay out. Generic `"$schema"` / `"name"` / `"id"` / `"q"` / `"query"` / `"filter"` / `"filters"` / `"limit"` / `"offset"` / `"page"` / `"results"` / `"facets"` / `"hits"` / `"collection"` / `"area"` / `"records"` / `"refinements"` / `"visitorId"` / `"sessionId"` / Luigi's Box `"corrected_query"` / `"total_hits"` / Searchspring `"resultLayout"` / `"filterSummary"` / Doofinder `"hashid"` / `"query_name"` / Klevu `"recordQueries"` / Bloomreach Discovery `"domain_key"` / Constructor.io `"result_sources"` / Coveo `"searchHub"` / Azure AI Search `"@odata.count"` / Vespa `"yql"` / Marqo `"searchableAttributes"` / LanceDB `"vector_column_name"` / Milvus `"annsField"` / Chroma `"n_results"` / Pinecone `"topK"` / Weaviate `"nearVector"` / Qdrant `"vectors_count"` / Algolia `"processingTimeMS"` / Meilisearch `"processingTimeMs"` / Typesense `"search_time_ms"` / Solr `"responseHeader"` / Elasticsearch `"track_total_hits"` / prettier `"printWidth"` / karma `"basePath"` stay out. `"biasingProfile"` requires a non-empty quoted string. Bool keys only match `true` / `false`. Numeric `"totalRecordCount"` rejects leading zeros beyond `0`.
+
 ## [0.3.823] — 2026-11-13
 
 View:
