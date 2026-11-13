@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.825] — 2026-11-13
+
+View:
+
+- **Function List** lists Hawksearch Search API request / response JSON keys: `"ClientGuid": "…"`, `"IndexName": "…"`, `"IsInPreview": true` / `false`, `"SmartBar": {`, `"FacetOverride": [`, `"FacetHierarchyLevelOverride": {`, `"FacetSelections": {`, `"NofResults": 0` / `2400`, `"NofPages": 0` / `12`, `"MaxPerPage": 0` / `24`, `"IsShowFirstLink": true` / `false`, `"IsShowLastLink": true` / `false`, `"NumberOfPageLinks": 0` / `5`, `"VisitorTargets": [`, `"TrackingId": "…"`, `"QueryUsedAllKeywords": true` / `false`, `"FeaturedItems": {`, `"SearchDuration": 0` / `15`, `"FieldOverride": [`, `"BestFragment": "…"`, `"ClientData": {`. Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing `:` stay out. Generic `"$schema"` / `"name"` / `"id"` / `"q"` / `"query"` / `"filter"` / `"filters"` / `"limit"` / `"offset"` / `"page"` / `"results"` / `"facets"` / `"Keyword"` / `"Results"` / `"Facets"` / `"Pagination"` / `"Sorting"` / `"Redirect"` / `"Merchandising"` / `"Success"` / `"Selections"` / `"DidYouMean"` / GroupBy `"totalRecordCount"` / `"availableNavigation"` / Luigi's Box `"corrected_query"` / `"total_hits"` / Searchspring `"resultLayout"` / `"filterSummary"` / Doofinder `"hashid"` / `"query_name"` / Klevu `"recordQueries"` / Bloomreach Discovery `"domain_key"` / Constructor.io `"result_sources"` / Coveo `"searchHub"` / Azure AI Search `"@odata.count"` / Vespa `"yql"` / Marqo `"searchableAttributes"` / LanceDB `"vector_column_name"` / Milvus `"annsField"` / Chroma `"n_results"` / Pinecone `"topK"` / Weaviate `"nearVector"` / Qdrant `"vectors_count"` / Algolia `"processingTimeMS"` / Meilisearch `"processingTimeMs"` / Typesense `"search_time_ms"` / Solr `"responseHeader"` / Elasticsearch `"track_total_hits"` / prettier `"printWidth"` / karma `"basePath"` stay out. String keys require a non-empty quoted string. Bool keys only match `true` / `false`. Numeric `"NofResults"` / `"NofPages"` / `"MaxPerPage"` / `"NumberOfPageLinks"` / `"SearchDuration"` reject leading zeros beyond `0`.
+
 ## [0.3.824] — 2026-11-13
 
 View:
