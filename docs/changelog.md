@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.830] — 2026-11-13
+
+View:
+
+- **Function List** lists Loop54 Search / CreateEvents API request / response JSON keys: `"relatedQueries": [`, `"spellingSuggestions": [`, `"relatedEntities": [`, `"events": [`, `"resultsOptions": {`, `"relatedQueriesOptions": {`, `"spellingSuggestionsOptions": {`, `"relatedEntitiesOptions": {`, `"customData": {`, `"makesSense": true` / `false`, `"requestId": "…"`, `"orderId": "…"`, `"entityType": "…"`, `"eventType": "click"` / `"addToCart"` / `"purchase"` / `"search"` / `"pageView"` / `"custom"`, `"orderTotal": 0` / `99`. Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing `:` stay out. Generic `"$schema"` / `"name"` / `"id"` / `"q"` / `"query"` / `"Query"` / `"filter"` / `"filters"` / `"Filters"` / `"limit"` / `"offset"` / `"page"` / `"skip"` / `"take"` / `"results"` / `"facets"` / `"hits"` / `"modules"` / `"queryId"` / `"userId"` / `"sessionId"` / `"apiKey"` / `"locale"` / `"input"` / Yext `"experienceKey"` / `"failedVerticals"` / `"locationBias"` / Cludo `"TypedDocuments"` / `"TotalDocument"` / `"QueryId"` / Voyado Elevate `"primaryList"` / `"sessionKey"` / `"touchpoint"` / FactFinder `"searchResult"` / `"fieldRoles"` / `"useAsn"` / Hawksearch `"ClientGuid"` / `"NofResults"` / GroupBy `"totalRecordCount"` / `"availableNavigation"` / Luigi's Box `"corrected_query"` / `"total_hits"` / Searchspring `"resultLayout"` / `"filterSummary"` / `"didYouMean": {` / Doofinder `"hashid"` / `"query_name"` / Klevu `"recordQueries"` / Bloomreach Discovery `"domain_key"` / Constructor.io `"result_sources"` / Coveo `"searchHub"` / Azure AI Search `"@odata.count"` / Vespa `"yql"` / Marqo `"searchableAttributes"` / LanceDB `"vector_column_name"` / Milvus `"annsField"` / Chroma `"n_results"` / Pinecone `"topK"` / Weaviate `"nearVector"` / Qdrant `"vectors_count"` / Algolia `"processingTimeMS"` / Meilisearch `"processingTimeMs"` / Typesense `"search_time_ms"` / Solr `"responseHeader"` / Elasticsearch `"track_total_hits"` / prettier `"printWidth"` / karma `"basePath"` stay out. `"eventType"` only matches its Loop54 enums. String keys require a non-empty quoted string. Bool `"makesSense"` only matches `true` / `false`. Numeric `"orderTotal"` rejects leading zeros beyond `0`.
+
 ## [0.3.829] — 2026-11-13
 
 View:

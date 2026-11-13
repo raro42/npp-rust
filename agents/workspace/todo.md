@@ -1,3 +1,5 @@
+009 keep: Function List Loop54 relatedQueries/spellingSuggestions/relatedEntities/events/resultsOptions/relatedQueriesOptions/spellingSuggestionsOptions/relatedEntitiesOptions/customData/makesSense/requestId/orderId/entityType/eventType/orderTotal (v0.3.830)
+
 009 keep: Function List Yext failedVerticals/searchIntents/appliedQueryFilters/verticalResults/highlightedFields/locationBias/directAnswer/alternativeVerticals/allResultsForVertical/facetFilters/experienceKey/verticalKey/verticalConfigId/referrerPageUrl/encodedState/businessId/queryDurationMillis/resultsCount/skipSpellCheck/sessionTrackingEnabled/retrieveFacets/ignoreQueryRules/queryTrigger/version/experienceVersion/source (v0.3.829)
 
 009 keep: Function List Cludo TypedDocuments/Banners/FacetsFields/Suggestions/DidYouMean/RangeFacets/TotalDocument/TotalBanner/ResponseTime/PageIndex/PageSize/QueryId/SearchId/FixedQuery/TemplateSiteKey/HostName/EnableOrdering/Operator (v0.3.828)
