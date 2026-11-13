@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.826] — 2026-11-13
+
+View:
+
+- **Function List** lists FactFinder (Omikron) Search / ASN JSON keys: `"searchResult": {`, `"fieldRoles": {`, `"searchControlParams": {`, `"sortItems": [`, `"asn": [`, `"flavours": [`, `"breadcrumbTrail": [`, `"selectedElements": [`, `"articleNumberSearch": true` / `false`, `"scoreOrdered": true` / `false`, `"singleWordResults": true` / `false`, `"useAsn": true` / `false`, `"useCampaigns": true` / `false`, `"idsOnly": true` / `false`, `"generateAdvisorTree": true` / `false`, `"disableCache": true` / `false`, `"useCache": true` / `false`, `"filterStyle": "DEFAULT"` / `"MULTISELECT"` / `"SLIDER"` / `"TREE"` / `"MULTISELECT_AND"` / `"COLOR"` / `"IMAGE"`, `"searchField": "…"`, `"clusterLevel": 0` / `2`, `"detailedLinks": 0` / `5`. Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing `:` stay out. Generic `"$schema"` / `"name"` / `"id"` / `"q"` / `"query"` / `"filter"` / `"filters"` / `"limit"` / `"offset"` / `"page"` / `"results"` / `"facets"` / `"hits"` / `"campaigns"` / `"channel"` / `"searchParams"` / `"totalHits"` / `"hitsPerPage"` / `"took"` / `"timedOut"` / Hawksearch `"ClientGuid"` / `"NofResults"` / GroupBy `"totalRecordCount"` / `"availableNavigation"` / Luigi's Box `"corrected_query"` / `"total_hits"` / Searchspring `"resultLayout"` / `"filterSummary"` / Doofinder `"hashid"` / `"query_name"` / Klevu `"recordQueries"` / Bloomreach Discovery `"domain_key"` / Constructor.io `"result_sources"` / Coveo `"searchHub"` / Azure AI Search `"@odata.count"` / Vespa `"yql"` / Marqo `"searchableAttributes"` / LanceDB `"vector_column_name"` / Milvus `"annsField"` / Chroma `"n_results"` / Pinecone `"topK"` / Weaviate `"nearVector"` / Qdrant `"vectors_count"` / Algolia `"processingTimeMS"` / Meilisearch `"processingTimeMs"` / Typesense `"search_time_ms"` / Solr `"responseHeader"` / Elasticsearch `"track_total_hits"` / prettier `"printWidth"` / karma `"basePath"` stay out. `"filterStyle"` only matches its FactFinder enums. `"searchField"` requires a non-empty quoted string. Bool keys only match `true` / `false`. Numeric `"clusterLevel"` / `"detailedLinks"` reject leading zeros beyond `0`.
+
 ## [0.3.825] — 2026-11-13
 
 View:

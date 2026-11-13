@@ -32493,6 +32493,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_luigisbox_json_decl(s)
             || is_groupby_json_decl(s)
             || is_hawksearch_json_decl(s)
+            || is_factfinder_json_decl(s)
             || is_gomod_decl(s)
             || is_gemfile_decl(s)
             || is_brewfile_decl(s)
@@ -32896,6 +32897,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_luigisbox_json_decl(s)
         || is_groupby_json_decl(s)
         || is_hawksearch_json_decl(s)
+        || is_factfinder_json_decl(s)
         || is_gomod_decl(s)
         || is_gemfile_decl(s)
         || is_brewfile_decl(s)
@@ -66032,7 +66034,8 @@ fn groupby_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool {
 /// `"n_results"` / Pinecone `"topK"` / Weaviate `"nearVector"` / Qdrant
 /// `"vectors_count"` / Algolia `"processingTimeMS"` / Meilisearch
 /// `"processingTimeMs"` / Typesense `"search_time_ms"` / Solr
-/// `"responseHeader"` / Elasticsearch `"track_total_hits"` / prettier
+/// `"responseHeader"` / Elasticsearch `"track_total_hits"` / FactFinder
+/// `"searchResult"` / `"fieldRoles"` / `"useAsn"` / prettier
 /// `"printWidth"` / karma `"basePath"` stay out.
 fn is_hawksearch_json_decl(s: &str) -> bool {
     let s = s.trim_start();
@@ -66152,6 +66155,192 @@ fn hawksearch_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool {
         key,
         "NofResults" | "NofPages" | "MaxPerPage" | "NumberOfPageLinks" | "SearchDuration"
     ) {
+        return false;
+    }
+    let bytes = after_colon.as_bytes();
+    let mut i = 0usize;
+    if i >= bytes.len() || !bytes[i].is_ascii_digit() {
+        return false;
+    }
+    if bytes[i] == b'0' {
+        i += 1;
+        if i < bytes.len() && bytes[i].is_ascii_digit() {
+            return false;
+        }
+    } else {
+        while i < bytes.len() && bytes[i].is_ascii_digit() {
+            i += 1;
+        }
+    }
+    package_json_tail_ok(&after_colon[i..])
+}
+
+/// FactFinder (Omikron) Search / ASN JSON keys:
+/// `"searchResult": {`, `"fieldRoles": {`, `"searchControlParams": {`,
+/// `"sortItems": [`, `"asn": [`, `"flavours": [`, `"breadcrumbTrail": [`,
+/// `"selectedElements": [`, `"articleNumberSearch": true` / `false`,
+/// `"scoreOrdered": true` / `false`, `"singleWordResults": true` / `false`,
+/// `"useAsn": true` / `false`, `"useCampaigns": true` / `false`,
+/// `"idsOnly": true` / `false`, `"generateAdvisorTree": true` / `false`,
+/// `"disableCache": true` / `false`, `"useCache": true` / `false`,
+/// `"filterStyle": "DEFAULT"` / `"MULTISELECT"` / `"SLIDER"` / `"TREE"` /
+/// `"MULTISELECT_AND"` / `"COLOR"` / `"IMAGE"`, `"searchField": "…"`,
+/// `"clusterLevel": 0` / `2`, `"detailedLinks": 0` / `5`.
+/// Optional trailing `,` and `//` / `/*` comment. Incomplete quotes /
+/// missing `:` stay out. Generic `"$schema"` / `"name"` / `"id"` / `"q"` /
+/// `"query"` / `"filter"` / `"filters"` / `"limit"` / `"offset"` / `"page"` /
+/// `"results"` / `"facets"` / `"hits"` / `"campaigns"` / `"channel"` /
+/// `"searchParams"` / `"totalHits"` / `"hitsPerPage"` / `"took"` /
+/// `"timedOut"` / Hawksearch `"ClientGuid"` / `"NofResults"` / GroupBy
+/// `"totalRecordCount"` / `"availableNavigation"` / Luigi's Box
+/// `"corrected_query"` / `"total_hits"` / Searchspring `"resultLayout"` /
+/// `"filterSummary"` / Doofinder `"hashid"` / `"query_name"` / Klevu
+/// `"recordQueries"` / Bloomreach Discovery `"domain_key"` / Constructor.io
+/// `"result_sources"` / Coveo `"searchHub"` / Azure AI Search
+/// `"@odata.count"` / Vespa `"yql"` / Marqo `"searchableAttributes"` /
+/// LanceDB `"vector_column_name"` / Milvus `"annsField"` / Chroma
+/// `"n_results"` / Pinecone `"topK"` / Weaviate `"nearVector"` / Qdrant
+/// `"vectors_count"` / Algolia `"processingTimeMS"` / Meilisearch
+/// `"processingTimeMs"` / Typesense `"search_time_ms"` / Solr
+/// `"responseHeader"` / Elasticsearch `"track_total_hits"` / prettier
+/// `"printWidth"` / karma `"basePath"` stay out.
+/// `"filterStyle"` only matches its FactFinder enums. `"searchField"`
+/// requires a non-empty quoted string. Bool keys only match `true` /
+/// `false`. Numeric `"clusterLevel"` / `"detailedLinks"` reject leading
+/// zeros beyond `0`.
+fn is_factfinder_json_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    let Some(rest) = s.strip_prefix('"') else {
+        return false;
+    };
+    let Some(end) = rest.find('"') else {
+        return false;
+    };
+    let key = &rest[..end];
+    if !factfinder_json_key_ok(key) {
+        return false;
+    }
+    let after_key = rest[end + 1..].trim_start();
+    let Some(after_colon) = after_key.strip_prefix(':') else {
+        return false;
+    };
+    let after_colon = after_colon.trim_start();
+    factfinder_json_value_and_tail_ok(key, after_colon)
+}
+
+fn factfinder_json_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "searchResult"
+            | "fieldRoles"
+            | "searchControlParams"
+            | "sortItems"
+            | "asn"
+            | "flavours"
+            | "breadcrumbTrail"
+            | "selectedElements"
+            | "articleNumberSearch"
+            | "scoreOrdered"
+            | "singleWordResults"
+            | "useAsn"
+            | "useCampaigns"
+            | "idsOnly"
+            | "generateAdvisorTree"
+            | "disableCache"
+            | "useCache"
+            | "filterStyle"
+            | "searchField"
+            | "clusterLevel"
+            | "detailedLinks"
+    )
+}
+
+fn factfinder_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool {
+    let bytes = after_colon.as_bytes();
+    let Some(first) = bytes.first().copied() else {
+        return false;
+    };
+    match first {
+        b'{' => {
+            if !matches!(key, "searchResult" | "fieldRoles" | "searchControlParams") {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[1..])
+        }
+        b'[' => {
+            if !matches!(
+                key,
+                "sortItems" | "asn" | "flavours" | "breadcrumbTrail" | "selectedElements"
+            ) {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[1..])
+        }
+        b'"' => match key {
+            "filterStyle" => factfinder_json_filter_style_and_tail_ok(after_colon),
+            "searchField" => factfinder_json_nonempty_string_and_tail_ok(after_colon),
+            _ => false,
+        },
+        b't' | b'f' => factfinder_json_bool_and_tail_ok(key, after_colon),
+        b'0'..=b'9' => factfinder_json_uint_and_tail_ok(key, after_colon),
+        _ => false,
+    }
+}
+
+fn factfinder_json_nonempty_string_and_tail_ok(after_colon: &str) -> bool {
+    let rest = &after_colon[1..];
+    let Some(end) = rest.find('"') else {
+        return false;
+    };
+    let value = &rest[..end];
+    if value.is_empty() || value.contains('\n') {
+        return false;
+    }
+    package_json_tail_ok(&rest[end + 1..])
+}
+
+fn factfinder_json_filter_style_and_tail_ok(after_colon: &str) -> bool {
+    let rest = &after_colon[1..];
+    let Some(end) = rest.find('"') else {
+        return false;
+    };
+    let value = &rest[..end];
+    if !matches!(
+        value,
+        "DEFAULT" | "MULTISELECT" | "SLIDER" | "TREE" | "MULTISELECT_AND" | "COLOR" | "IMAGE"
+    ) {
+        return false;
+    }
+    package_json_tail_ok(&rest[end + 1..])
+}
+
+fn factfinder_json_bool_and_tail_ok(key: &str, after_colon: &str) -> bool {
+    if !matches!(
+        key,
+        "articleNumberSearch"
+            | "scoreOrdered"
+            | "singleWordResults"
+            | "useAsn"
+            | "useCampaigns"
+            | "idsOnly"
+            | "generateAdvisorTree"
+            | "disableCache"
+            | "useCache"
+    ) {
+        return false;
+    }
+    let rest = if let Some(rest) = after_colon.strip_prefix("true") {
+        rest
+    } else if let Some(rest) = after_colon.strip_prefix("false") {
+        rest
+    } else {
+        return false;
+    };
+    package_json_tail_ok(rest)
+}
+
+fn factfinder_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool {
+    if !matches!(key, "clusterLevel" | "detailedLinks") {
         return false;
     }
     let bytes = after_colon.as_bytes();
@@ -96804,10 +96993,10 @@ mod func_like_line_tests {
         is_doofinder_json_decl, is_dovecot_decl, is_dprint_json_decl, is_dracut_conf_decl,
         is_eas_json_decl, is_editorconfig_decl, is_elasticsearch_json_decl,
         is_electron_builder_json_decl, is_electron_forge_json_decl, is_esdoc_json_decl,
-        is_eslint_json_decl, is_ethers_file_decl, is_expo_json_decl, is_fail2ban_conf_decl,
-        is_firebase_json_decl, is_flake8_ini_decl, is_fluent_bit_decl, is_fly_toml_decl,
-        is_flynt_ini_decl, is_freeradius_decl, is_fstab_decl, is_gdm_conf_decl, is_gemfile_decl,
-        is_gitconfig_decl, is_gomod_decl, is_grafana_alerting_json_decl,
+        is_eslint_json_decl, is_ethers_file_decl, is_expo_json_decl, is_factfinder_json_decl,
+        is_fail2ban_conf_decl, is_firebase_json_decl, is_flake8_ini_decl, is_fluent_bit_decl,
+        is_fly_toml_decl, is_flynt_ini_decl, is_freeradius_decl, is_fstab_decl, is_gdm_conf_decl,
+        is_gemfile_decl, is_gitconfig_decl, is_gomod_decl, is_grafana_alerting_json_decl,
         is_grafana_dashboard_json_decl, is_grafana_datasource_json_decl, is_grafana_ini_decl,
         is_groupby_json_decl, is_haproxy_decl, is_har_json_decl, is_hatch_toml_decl,
         is_hawksearch_json_decl, is_hoppscotch_json_decl, is_hosts_access_decl, is_hosts_file_decl,
@@ -135607,6 +135796,12 @@ mod func_like_line_tests {
         assert!(is_prettier_json_decl(r#""printWidth": 80"#));
         assert!(!is_hawksearch_json_decl(r#""basePath": ".""#));
         assert!(is_karma_json_decl(r#""basePath": ".""#));
+        assert!(!is_hawksearch_json_decl(r#""searchResult": {"#));
+        assert!(is_factfinder_json_decl(r#""searchResult": {"#));
+        assert!(!is_hawksearch_json_decl(r#""fieldRoles": {"#));
+        assert!(is_factfinder_json_decl(r#""fieldRoles": {"#));
+        assert!(!is_hawksearch_json_decl(r#""useAsn": true"#));
+        assert!(is_factfinder_json_decl(r#""useAsn": true"#));
         assert!(line_is_func_like(
             r#""ClientGuid": "11111111-2222-3333-4444-555555555555""#
         ));
@@ -135849,6 +136044,12 @@ mod func_like_line_tests {
         assert!(is_prettier_json_decl(r#""printWidth": 80"#));
         assert!(!is_hawksearch_json_decl(r#""basePath": ".""#));
         assert!(is_karma_json_decl(r#""basePath": ".""#));
+        assert!(!is_hawksearch_json_decl(r#""searchResult": {"#));
+        assert!(is_factfinder_json_decl(r#""searchResult": {"#));
+        assert!(!is_hawksearch_json_decl(r#""fieldRoles": {"#));
+        assert!(is_factfinder_json_decl(r#""fieldRoles": {"#));
+        assert!(!is_hawksearch_json_decl(r#""useAsn": true"#));
+        assert!(is_factfinder_json_decl(r#""useAsn": true"#));
         assert!(line_is_func_like(
             r#""ClientGuid": "11111111-2222-3333-4444-555555555555""#
         ));
@@ -135874,6 +136075,353 @@ mod func_like_line_tests {
         assert!(line_is_func_like(r#""FieldOverride": ["#));
         assert!(line_is_func_like(r#""BestFragment": "red jacket""#));
         assert!(line_is_func_like(r#""ClientData": {"#));
+    }
+
+    #[test]
+    fn factfinder_json_keys_smoke() {
+        assert!(is_factfinder_json_decl(r#""searchResult": {"#));
+        assert!(is_factfinder_json_decl(r#""fieldRoles": {"#));
+        assert!(is_factfinder_json_decl(r#""searchControlParams": {"#));
+        assert!(is_factfinder_json_decl(r#""sortItems": ["#));
+        assert!(is_factfinder_json_decl(r#""asn": ["#));
+        assert!(is_factfinder_json_decl(r#""flavours": ["#));
+        assert!(is_factfinder_json_decl(r#""breadcrumbTrail": ["#));
+        assert!(is_factfinder_json_decl(r#""selectedElements": ["#));
+        assert!(is_factfinder_json_decl(r#""articleNumberSearch": true"#));
+        assert!(is_factfinder_json_decl(r#""scoreOrdered": false"#));
+        assert!(is_factfinder_json_decl(r#""singleWordResults": true"#));
+        assert!(is_factfinder_json_decl(r#""useAsn": true"#));
+        assert!(is_factfinder_json_decl(r#""useCampaigns": false"#));
+        assert!(is_factfinder_json_decl(r#""idsOnly": false"#));
+        assert!(is_factfinder_json_decl(r#""generateAdvisorTree": true"#));
+        assert!(is_factfinder_json_decl(r#""disableCache": false"#));
+        assert!(is_factfinder_json_decl(r#""useCache": true"#));
+        assert!(is_factfinder_json_decl(r#""filterStyle": "MULTISELECT""#));
+        assert!(is_factfinder_json_decl(r#""searchField": "Name""#));
+        assert!(is_factfinder_json_decl(r#""clusterLevel": 2"#));
+        assert!(is_factfinder_json_decl(r#""detailedLinks": 5"#));
+        assert!(!is_factfinder_json_decl(
+            r#""ClientGuid": "11111111-2222-3333-4444-555555555555""#
+        ));
+        assert!(is_hawksearch_json_decl(
+            r#""ClientGuid": "11111111-2222-3333-4444-555555555555""#
+        ));
+        assert!(!is_factfinder_json_decl(r#""NofResults": 2400"#));
+        assert!(is_hawksearch_json_decl(r#""NofResults": 2400"#));
+        assert!(!is_factfinder_json_decl(r#""totalRecordCount": 128"#));
+        assert!(is_groupby_json_decl(r#""totalRecordCount": 128"#));
+        assert!(!is_factfinder_json_decl(r#""availableNavigation": ["#));
+        assert!(is_groupby_json_decl(r#""availableNavigation": ["#));
+        assert!(!is_factfinder_json_decl(r#""corrected_query": "putter""#));
+        assert!(is_luigisbox_json_decl(r#""corrected_query": "putter""#));
+        assert!(!is_factfinder_json_decl(r#""resultLayout": "grid""#));
+        assert!(is_searchspring_json_decl(r#""resultLayout": "grid""#));
+        assert!(!is_factfinder_json_decl(
+            r#""hashid": "d8fdeab7fce96a19d3fc7b0ca7a1e98b""#
+        ));
+        assert!(is_doofinder_json_decl(
+            r#""hashid": "d8fdeab7fce96a19d3fc7b0ca7a1e98b""#
+        ));
+        assert!(!is_factfinder_json_decl(r#""recordQueries": ["#));
+        assert!(is_klevu_json_decl(r#""recordQueries": ["#));
+        assert!(!is_factfinder_json_decl(r#""domain_key": "example_com""#));
+        assert!(is_bloomreach_json_decl(r#""domain_key": "example_com""#));
+        assert!(!is_factfinder_json_decl(r#""result_sources": {"#));
+        assert!(is_constructor_io_json_decl(r#""result_sources": {"#));
+        assert!(!is_factfinder_json_decl(r#""searchHub": "default""#));
+        assert!(is_coveo_json_decl(r#""searchHub": "default""#));
+        assert!(!is_factfinder_json_decl(r#""@odata.count": 10"#));
+        assert!(is_azure_search_json_decl(r#""@odata.count": 10"#));
+        assert!(!is_factfinder_json_decl(
+            r#""yql": "select * from sources * where true""#
+        ));
+        assert!(is_vespa_json_decl(
+            r#""yql": "select * from sources * where true""#
+        ));
+        assert!(!is_factfinder_json_decl(r#""searchableAttributes": ["#));
+        assert!(is_marqo_json_decl(r#""searchableAttributes": ["#));
+        assert!(!is_factfinder_json_decl(r#""vector_column_name": "vec""#));
+        assert!(is_lancedb_json_decl(r#""vector_column_name": "vec""#));
+        assert!(!is_factfinder_json_decl(r#""annsField": "vec""#));
+        assert!(is_milvus_json_decl(r#""annsField": "vec""#));
+        assert!(!is_factfinder_json_decl(r#""searchParams": {"#));
+        assert!(is_milvus_json_decl(r#""searchParams": {"#));
+        assert!(!is_factfinder_json_decl(r#""n_results": 10"#));
+        assert!(is_chroma_json_decl(r#""n_results": 10"#));
+        assert!(!is_factfinder_json_decl(r#""topK": 10"#));
+        assert!(is_pinecone_json_decl(r#""topK": 10"#));
+        assert!(!is_factfinder_json_decl(r#""nearVector": {"#));
+        assert!(is_weaviate_json_decl(r#""nearVector": {"#));
+        assert!(!is_factfinder_json_decl(r#""vectors_count": 100"#));
+        assert!(is_qdrant_json_decl(r#""vectors_count": 100"#));
+        assert!(!is_factfinder_json_decl(r#""processingTimeMS": 12"#));
+        assert!(is_algolia_json_decl(r#""processingTimeMS": 12"#));
+        assert!(!is_factfinder_json_decl(r#""processingTimeMs": 12"#));
+        assert!(is_meilisearch_json_decl(r#""processingTimeMs": 12"#));
+        assert!(!is_factfinder_json_decl(r#""search_time_ms": 12"#));
+        assert!(is_typesense_json_decl(r#""search_time_ms": 12"#));
+        assert!(!is_factfinder_json_decl(r#""responseHeader": {"#));
+        assert!(is_solr_json_decl(r#""responseHeader": {"#));
+        assert!(!is_factfinder_json_decl(r#""track_total_hits": true"#));
+        assert!(is_elasticsearch_json_decl(r#""track_total_hits": true"#));
+        assert!(!is_factfinder_json_decl(r#""printWidth": 80"#));
+        assert!(is_prettier_json_decl(r#""printWidth": 80"#));
+        assert!(!is_factfinder_json_decl(r#""basePath": ".""#));
+        assert!(is_karma_json_decl(r#""basePath": ".""#));
+        assert!(line_is_func_like(r#""searchResult": {"#));
+        assert!(line_is_func_like(r#""fieldRoles": {"#));
+        assert!(line_is_func_like(r#""searchControlParams": {"#));
+        assert!(line_is_func_like(r#""sortItems": ["#));
+        assert!(line_is_func_like(r#""asn": ["#));
+        assert!(line_is_func_like(r#""flavours": ["#));
+        assert!(line_is_func_like(r#""breadcrumbTrail": ["#));
+        assert!(line_is_func_like(r#""selectedElements": ["#));
+        assert!(line_is_func_like(r#""articleNumberSearch": true"#));
+        assert!(line_is_func_like(r#""scoreOrdered": false"#));
+        assert!(line_is_func_like(r#""singleWordResults": true"#));
+        assert!(line_is_func_like(r#""useAsn": true"#));
+        assert!(line_is_func_like(r#""useCampaigns": false"#));
+        assert!(line_is_func_like(r#""idsOnly": false"#));
+        assert!(line_is_func_like(r#""generateAdvisorTree": true"#));
+        assert!(line_is_func_like(r#""disableCache": false"#));
+        assert!(line_is_func_like(r#""useCache": true"#));
+        assert!(line_is_func_like(r#""filterStyle": "MULTISELECT""#));
+        assert!(line_is_func_like(r#""searchField": "Name""#));
+        assert!(line_is_func_like(r#""clusterLevel": 2"#));
+        assert!(line_is_func_like(r#""detailedLinks": 5"#));
+    }
+
+    #[test]
+    fn factfinder_json_keys_count() {
+        assert!(is_factfinder_json_decl(r#""searchResult": {"#));
+        assert!(is_factfinder_json_decl(r#""searchResult": {,"#));
+        assert!(is_factfinder_json_decl(r#""searchResult": { // s"#));
+        assert!(!is_factfinder_json_decl(r#""searchResult": ["#));
+        assert!(!is_factfinder_json_decl(r#""searchResult": true"#));
+        assert!(is_factfinder_json_decl(r#""fieldRoles": {"#));
+        assert!(is_factfinder_json_decl(r#""fieldRoles": {,"#));
+        assert!(!is_factfinder_json_decl(r#""fieldRoles": ["#));
+        assert!(is_factfinder_json_decl(r#""searchControlParams": {"#));
+        assert!(is_factfinder_json_decl(r#""searchControlParams": {,"#));
+        assert!(!is_factfinder_json_decl(r#""searchControlParams": ["#));
+        assert!(is_factfinder_json_decl(r#""sortItems": ["#));
+        assert!(is_factfinder_json_decl(r#""sortItems": [,"#));
+        assert!(!is_factfinder_json_decl(r#""sortItems": {"#));
+        assert!(is_factfinder_json_decl(r#""asn": ["#));
+        assert!(is_factfinder_json_decl(r#""asn": [,"#));
+        assert!(!is_factfinder_json_decl(r#""asn": {"#));
+        assert!(is_factfinder_json_decl(r#""flavours": ["#));
+        assert!(is_factfinder_json_decl(r#""flavours": [,"#));
+        assert!(!is_factfinder_json_decl(r#""flavours": {"#));
+        assert!(is_factfinder_json_decl(r#""breadcrumbTrail": ["#));
+        assert!(is_factfinder_json_decl(r#""breadcrumbTrail": [,"#));
+        assert!(!is_factfinder_json_decl(r#""breadcrumbTrail": {"#));
+        assert!(is_factfinder_json_decl(r#""selectedElements": ["#));
+        assert!(is_factfinder_json_decl(r#""selectedElements": [,"#));
+        assert!(!is_factfinder_json_decl(r#""selectedElements": {"#));
+        assert!(is_factfinder_json_decl(r#""articleNumberSearch": true"#));
+        assert!(is_factfinder_json_decl(r#""articleNumberSearch": false"#));
+        assert!(is_factfinder_json_decl(r#""articleNumberSearch": true,"#));
+        assert!(is_factfinder_json_decl(
+            r#""articleNumberSearch": true // a"#
+        ));
+        assert!(!is_factfinder_json_decl(r#""articleNumberSearch": {"#));
+        assert!(!is_factfinder_json_decl(r#""articleNumberSearch": 1"#));
+        assert!(is_factfinder_json_decl(r#""scoreOrdered": true"#));
+        assert!(is_factfinder_json_decl(r#""scoreOrdered": false"#));
+        assert!(!is_factfinder_json_decl(r#""scoreOrdered": ["#));
+        assert!(is_factfinder_json_decl(r#""singleWordResults": true"#));
+        assert!(is_factfinder_json_decl(r#""singleWordResults": false"#));
+        assert!(!is_factfinder_json_decl(r#""singleWordResults": "true""#));
+        assert!(is_factfinder_json_decl(r#""useAsn": true"#));
+        assert!(is_factfinder_json_decl(r#""useAsn": false"#));
+        assert!(is_factfinder_json_decl(r#""useAsn": true,"#));
+        assert!(!is_factfinder_json_decl(r#""useAsn": {"#));
+        assert!(is_factfinder_json_decl(r#""useCampaigns": true"#));
+        assert!(is_factfinder_json_decl(r#""useCampaigns": false"#));
+        assert!(!is_factfinder_json_decl(r#""useCampaigns": 0"#));
+        assert!(is_factfinder_json_decl(r#""idsOnly": true"#));
+        assert!(is_factfinder_json_decl(r#""idsOnly": false"#));
+        assert!(!is_factfinder_json_decl(r#""idsOnly": ["#));
+        assert!(is_factfinder_json_decl(r#""generateAdvisorTree": true"#));
+        assert!(is_factfinder_json_decl(r#""generateAdvisorTree": false"#));
+        assert!(!is_factfinder_json_decl(r#""generateAdvisorTree": {"#));
+        assert!(is_factfinder_json_decl(r#""disableCache": true"#));
+        assert!(is_factfinder_json_decl(r#""disableCache": false"#));
+        assert!(!is_factfinder_json_decl(r#""disableCache": "false""#));
+        assert!(is_factfinder_json_decl(r#""useCache": true"#));
+        assert!(is_factfinder_json_decl(r#""useCache": false"#));
+        assert!(!is_factfinder_json_decl(r#""useCache": 1"#));
+        assert!(is_factfinder_json_decl(r#""filterStyle": "DEFAULT""#));
+        assert!(is_factfinder_json_decl(r#""filterStyle": "MULTISELECT""#));
+        assert!(is_factfinder_json_decl(r#""filterStyle": "SLIDER""#));
+        assert!(is_factfinder_json_decl(r#""filterStyle": "TREE""#));
+        assert!(is_factfinder_json_decl(
+            r#""filterStyle": "MULTISELECT_AND""#
+        ));
+        assert!(is_factfinder_json_decl(r#""filterStyle": "COLOR""#));
+        assert!(is_factfinder_json_decl(r#""filterStyle": "IMAGE""#));
+        assert!(is_factfinder_json_decl(r#""filterStyle": "MULTISELECT","#));
+        assert!(is_factfinder_json_decl(
+            r#""filterStyle": "MULTISELECT" // f"#
+        ));
+        assert!(!is_factfinder_json_decl(r#""filterStyle": "union""#));
+        assert!(!is_factfinder_json_decl(r#""filterStyle": "multiselect""#));
+        assert!(!is_factfinder_json_decl(r#""filterStyle": {"#));
+        assert!(!is_factfinder_json_decl(r#""filterStyle": """#));
+        assert!(is_factfinder_json_decl(r#""searchField": "Name""#));
+        assert!(is_factfinder_json_decl(r#""searchField": "Name","#));
+        assert!(is_factfinder_json_decl(r#""searchField": "Name" // s"#));
+        assert!(!is_factfinder_json_decl(r#""searchField": """#));
+        assert!(!is_factfinder_json_decl(r#""searchField": {"#));
+        assert!(!is_factfinder_json_decl(r#""searchField": true"#));
+        assert!(is_factfinder_json_decl(r#""clusterLevel": 0"#));
+        assert!(is_factfinder_json_decl(r#""clusterLevel": 2"#));
+        assert!(is_factfinder_json_decl(r#""clusterLevel": 2,"#));
+        assert!(is_factfinder_json_decl(r#""clusterLevel": 2 // c"#));
+        assert!(!is_factfinder_json_decl(r#""clusterLevel": 00"#));
+        assert!(!is_factfinder_json_decl(r#""clusterLevel": 01"#));
+        assert!(!is_factfinder_json_decl(r#""clusterLevel": true"#));
+        assert!(!is_factfinder_json_decl(r#""clusterLevel": {"#));
+        assert!(!is_factfinder_json_decl(r#""clusterLevel": "2""#));
+        assert!(is_factfinder_json_decl(r#""detailedLinks": 0"#));
+        assert!(is_factfinder_json_decl(r#""detailedLinks": 5"#));
+        assert!(is_factfinder_json_decl(r#""detailedLinks": 5,"#));
+        assert!(!is_factfinder_json_decl(r#""detailedLinks": 05"#));
+        assert!(!is_factfinder_json_decl(r#""detailedLinks": ["#));
+        assert!(!is_factfinder_json_decl(r#""searchResult""#));
+        assert!(!is_factfinder_json_decl(r#""fieldRoles""#));
+        assert!(!is_factfinder_json_decl(r#""searchControlParams""#));
+        assert!(!is_factfinder_json_decl(r#""sortItems""#));
+        assert!(!is_factfinder_json_decl(r#""asn""#));
+        assert!(!is_factfinder_json_decl(r#""flavours""#));
+        assert!(!is_factfinder_json_decl(r#""breadcrumbTrail""#));
+        assert!(!is_factfinder_json_decl(r#""selectedElements""#));
+        assert!(!is_factfinder_json_decl(r#""articleNumberSearch""#));
+        assert!(!is_factfinder_json_decl(r#""scoreOrdered""#));
+        assert!(!is_factfinder_json_decl(r#""singleWordResults""#));
+        assert!(!is_factfinder_json_decl(r#""useAsn""#));
+        assert!(!is_factfinder_json_decl(r#""useCampaigns""#));
+        assert!(!is_factfinder_json_decl(r#""idsOnly""#));
+        assert!(!is_factfinder_json_decl(r#""generateAdvisorTree""#));
+        assert!(!is_factfinder_json_decl(r#""disableCache""#));
+        assert!(!is_factfinder_json_decl(r#""useCache""#));
+        assert!(!is_factfinder_json_decl(r#""filterStyle""#));
+        assert!(!is_factfinder_json_decl(r#""searchField""#));
+        assert!(!is_factfinder_json_decl(r#""clusterLevel""#));
+        assert!(!is_factfinder_json_decl(r#""detailedLinks""#));
+        assert!(!is_factfinder_json_decl(
+            r#""$schema": "https://example.com""#
+        ));
+        assert!(!is_factfinder_json_decl(r#""name": "docs""#));
+        assert!(!is_factfinder_json_decl(r#""id": "idx-1""#));
+        assert!(!is_factfinder_json_decl(r#""q": "shoes""#));
+        assert!(!is_factfinder_json_decl(r#""query": "shoes""#));
+        assert!(!is_factfinder_json_decl(r#""filter": "type eq 'a'""#));
+        assert!(!is_factfinder_json_decl(r#""filters": ["#));
+        assert!(!is_factfinder_json_decl(r#""limit": 10"#));
+        assert!(!is_factfinder_json_decl(r#""offset": 0"#));
+        assert!(!is_factfinder_json_decl(r#""page": 1"#));
+        assert!(!is_factfinder_json_decl(r#""results": {"#));
+        assert!(!is_factfinder_json_decl(r#""facets": ["#));
+        assert!(!is_factfinder_json_decl(r#""hits": ["#));
+        assert!(!is_factfinder_json_decl(r#""campaigns": ["#));
+        assert!(!is_factfinder_json_decl(r#""channel": "de""#));
+        assert!(!is_factfinder_json_decl(r#""searchParams": {"#));
+        assert!(is_milvus_json_decl(r#""searchParams": {"#));
+        assert!(!is_factfinder_json_decl(r#""totalHits": 42"#));
+        assert!(!is_factfinder_json_decl(r#""hitsPerPage": 24"#));
+        assert!(!is_factfinder_json_decl(r#""took": 12"#));
+        assert!(!is_factfinder_json_decl(r#""timedOut": false"#));
+        assert!(!is_factfinder_json_decl(
+            r#""ClientGuid": "11111111-2222-3333-4444-555555555555""#
+        ));
+        assert!(is_hawksearch_json_decl(
+            r#""ClientGuid": "11111111-2222-3333-4444-555555555555""#
+        ));
+        assert!(!is_factfinder_json_decl(r#""NofResults": 2400"#));
+        assert!(is_hawksearch_json_decl(r#""NofResults": 2400"#));
+        assert!(!is_factfinder_json_decl(r#""totalRecordCount": 128"#));
+        assert!(is_groupby_json_decl(r#""totalRecordCount": 128"#));
+        assert!(!is_factfinder_json_decl(r#""availableNavigation": ["#));
+        assert!(is_groupby_json_decl(r#""availableNavigation": ["#));
+        assert!(!is_factfinder_json_decl(r#""corrected_query": "putter""#));
+        assert!(is_luigisbox_json_decl(r#""corrected_query": "putter""#));
+        assert!(!is_factfinder_json_decl(r#""total_hits": 223"#));
+        assert!(is_luigisbox_json_decl(r#""total_hits": 223"#));
+        assert!(!is_factfinder_json_decl(r#""resultLayout": "grid""#));
+        assert!(is_searchspring_json_decl(r#""resultLayout": "grid""#));
+        assert!(!is_factfinder_json_decl(
+            r#""hashid": "d8fdeab7fce96a19d3fc7b0ca7a1e98b""#
+        ));
+        assert!(is_doofinder_json_decl(
+            r#""hashid": "d8fdeab7fce96a19d3fc7b0ca7a1e98b""#
+        ));
+        assert!(!is_factfinder_json_decl(r#""recordQueries": ["#));
+        assert!(is_klevu_json_decl(r#""recordQueries": ["#));
+        assert!(!is_factfinder_json_decl(r#""domain_key": "example_com""#));
+        assert!(is_bloomreach_json_decl(r#""domain_key": "example_com""#));
+        assert!(!is_factfinder_json_decl(r#""result_sources": {"#));
+        assert!(is_constructor_io_json_decl(r#""result_sources": {"#));
+        assert!(!is_factfinder_json_decl(r#""searchHub": "default""#));
+        assert!(is_coveo_json_decl(r#""searchHub": "default""#));
+        assert!(!is_factfinder_json_decl(r#""@odata.count": 10"#));
+        assert!(is_azure_search_json_decl(r#""@odata.count": 10"#));
+        assert!(!is_factfinder_json_decl(
+            r#""yql": "select * from sources * where true""#
+        ));
+        assert!(is_vespa_json_decl(
+            r#""yql": "select * from sources * where true""#
+        ));
+        assert!(!is_factfinder_json_decl(r#""searchableAttributes": ["#));
+        assert!(is_marqo_json_decl(r#""searchableAttributes": ["#));
+        assert!(!is_factfinder_json_decl(r#""vector_column_name": "vec""#));
+        assert!(is_lancedb_json_decl(r#""vector_column_name": "vec""#));
+        assert!(!is_factfinder_json_decl(r#""annsField": "vec""#));
+        assert!(is_milvus_json_decl(r#""annsField": "vec""#));
+        assert!(!is_factfinder_json_decl(r#""n_results": 10"#));
+        assert!(is_chroma_json_decl(r#""n_results": 10"#));
+        assert!(!is_factfinder_json_decl(r#""topK": 10"#));
+        assert!(is_pinecone_json_decl(r#""topK": 10"#));
+        assert!(!is_factfinder_json_decl(r#""nearVector": {"#));
+        assert!(is_weaviate_json_decl(r#""nearVector": {"#));
+        assert!(!is_factfinder_json_decl(r#""vectors_count": 100"#));
+        assert!(is_qdrant_json_decl(r#""vectors_count": 100"#));
+        assert!(!is_factfinder_json_decl(r#""processingTimeMS": 12"#));
+        assert!(is_algolia_json_decl(r#""processingTimeMS": 12"#));
+        assert!(!is_factfinder_json_decl(r#""processingTimeMs": 12"#));
+        assert!(is_meilisearch_json_decl(r#""processingTimeMs": 12"#));
+        assert!(!is_factfinder_json_decl(r#""search_time_ms": 12"#));
+        assert!(is_typesense_json_decl(r#""search_time_ms": 12"#));
+        assert!(!is_factfinder_json_decl(r#""responseHeader": {"#));
+        assert!(is_solr_json_decl(r#""responseHeader": {"#));
+        assert!(!is_factfinder_json_decl(r#""track_total_hits": true"#));
+        assert!(is_elasticsearch_json_decl(r#""track_total_hits": true"#));
+        assert!(!is_factfinder_json_decl(r#""printWidth": 80"#));
+        assert!(is_prettier_json_decl(r#""printWidth": 80"#));
+        assert!(!is_factfinder_json_decl(r#""basePath": ".""#));
+        assert!(is_karma_json_decl(r#""basePath": ".""#));
+        assert!(line_is_func_like(r#""searchResult": {"#));
+        assert!(line_is_func_like(r#""fieldRoles": {"#));
+        assert!(line_is_func_like(r#""searchControlParams": {"#));
+        assert!(line_is_func_like(r#""sortItems": ["#));
+        assert!(line_is_func_like(r#""asn": ["#));
+        assert!(line_is_func_like(r#""flavours": ["#));
+        assert!(line_is_func_like(r#""breadcrumbTrail": ["#));
+        assert!(line_is_func_like(r#""selectedElements": ["#));
+        assert!(line_is_func_like(r#""articleNumberSearch": true"#));
+        assert!(line_is_func_like(r#""scoreOrdered": false"#));
+        assert!(line_is_func_like(r#""singleWordResults": true"#));
+        assert!(line_is_func_like(r#""useAsn": true"#));
+        assert!(line_is_func_like(r#""useCampaigns": false"#));
+        assert!(line_is_func_like(r#""idsOnly": false"#));
+        assert!(line_is_func_like(r#""generateAdvisorTree": true"#));
+        assert!(line_is_func_like(r#""disableCache": false"#));
+        assert!(line_is_func_like(r#""useCache": true"#));
+        assert!(line_is_func_like(r#""filterStyle": "MULTISELECT""#));
+        assert!(line_is_func_like(r#""searchField": "Name""#));
+        assert!(line_is_func_like(r#""clusterLevel": 2"#));
+        assert!(line_is_func_like(r#""detailedLinks": 5"#));
     }
 
     #[test]
