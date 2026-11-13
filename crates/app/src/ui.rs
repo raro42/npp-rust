@@ -32509,6 +32509,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_addsearch_json_decl(s)
             || is_empathy_json_decl(s)
             || is_fuse_json_decl(s)
+            || is_minisearch_json_decl(s)
             || is_gomod_decl(s)
             || is_gemfile_decl(s)
             || is_brewfile_decl(s)
@@ -32928,6 +32929,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_addsearch_json_decl(s)
         || is_empathy_json_decl(s)
         || is_fuse_json_decl(s)
+        || is_minisearch_json_decl(s)
         || is_gomod_decl(s)
         || is_gemfile_decl(s)
         || is_brewfile_decl(s)
@@ -68823,7 +68825,9 @@ fn synerise_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool {
 /// `"redirections"` / `"relatedTags"` / `"nextQueries"` /
 /// `"spellchecked"` / `"modelName"` / Fuse.js `"includeScore"` /
 /// `"includeMatches"` / `"minMatchCharLength"` / `"useExtendedSearch"` /
-/// `"ignoreFieldNorm"` / prettier `"printWidth"` / karma `"basePath"`
+/// `"ignoreFieldNorm"` / MiniSearch `"storeFields"` /
+/// `"autoSuggestOptions"` / `"maxFuzzy"` / `"combineWith"` /
+/// `"serializationVersion"` / prettier `"printWidth"` / karma `"basePath"`
 /// stay out.
 /// `"fuzzy"` only matches `"false"` / `"true"` / `"auto"`.
 /// `"document_type"` only matches its AddSearch hit enums. String keys
@@ -69029,7 +69033,9 @@ fn addsearch_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool {
 /// Typesense `"search_time_ms"` / Solr `"responseHeader"` /
 /// Elasticsearch `"track_total_hits"` / Fuse.js `"includeScore"` /
 /// `"includeMatches"` / `"minMatchCharLength"` / `"useExtendedSearch"` /
-/// `"ignoreFieldNorm"` / prettier `"printWidth"` / karma `"basePath"`
+/// `"ignoreFieldNorm"` / MiniSearch `"storeFields"` /
+/// `"autoSuggestOptions"` / `"maxFuzzy"` / `"combineWith"` /
+/// `"serializationVersion"` / prettier `"printWidth"` / karma `"basePath"`
 /// stay out.
 /// `"modelName"` only matches its Empathy Interface X enums. String
 /// `"spellchecked"` requires a non-empty quoted string.
@@ -69196,7 +69202,9 @@ fn empathy_json_model_name_and_tail_ok(after_colon: &str) -> bool {
 /// Weaviate `"nearVector"` / Qdrant `"vectors_count"` / Algolia
 /// `"processingTimeMS"` / Meilisearch `"processingTimeMs"` /
 /// Typesense `"search_time_ms"` / Solr `"responseHeader"` /
-/// Elasticsearch `"track_total_hits"` / prettier `"printWidth"` /
+/// Elasticsearch `"track_total_hits"` / MiniSearch `"storeFields"` /
+/// `"autoSuggestOptions"` / `"maxFuzzy"` / `"combineWith"` /
+/// `"serializationVersion"` / prettier `"printWidth"` /
 /// karma `"basePath"` stay out. Bool keys only match `true` / `false`.
 /// Numeric keys reject leading zeros beyond `0`.
 fn is_fuse_json_decl(s: &str) -> bool {
@@ -69275,6 +69283,187 @@ fn fuse_json_bool_and_tail_ok(key: &str, after_colon: &str) -> bool {
 
 fn fuse_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool {
     if !matches!(key, "minMatchCharLength" | "refIndex") {
+        return false;
+    }
+    let bytes = after_colon.as_bytes();
+    let mut i = 0usize;
+    if i >= bytes.len() || !bytes[i].is_ascii_digit() {
+        return false;
+    }
+    if bytes[i] == b'0' {
+        i += 1;
+        if i < bytes.len() && bytes[i].is_ascii_digit() {
+            return false;
+        }
+    } else {
+        while i < bytes.len() && bytes[i].is_ascii_digit() {
+            i += 1;
+        }
+    }
+    package_json_tail_ok(&after_colon[i..])
+}
+
+/// MiniSearch options / serialized index / search JSON keys:
+/// `"storeFields": [`, `"searchOptions": {`,
+/// `"autoSuggestOptions": {`, `"autoVacuum": true` / `false` / `{`,
+/// `"maxFuzzy": 0` / `6`, `"combineWith": "AND"` / `"OR"` /
+/// `"AND_NOT"`, `"documentCount": 0` / `100`, `"dirtCount": 0` /
+/// `20`, `"serializationVersion": 0` / `2`, `"nextId": 0` / `5`,
+/// `"minDirtCount": 0` / `20`, `"batchSize": 0` / `1000`,
+/// `"batchWait": 0` / `10`, `"averageFieldLength": [`,
+/// `"storedFields": {`, `"fieldIds": {`, `"documentIds": {`,
+/// `"fieldLength": {`. Optional trailing `,` and `//` / `/*` comment.
+/// Incomplete quotes / missing `:` stay out. Generic `"$schema"` /
+/// `"name"` / `"id"` / `"q"` / `"query"` / `"fields"` / `"idField"` /
+/// `"score"` / `"terms"` / `"match"` / `"index"` / `"boost"` /
+/// `"weights"` / `"bm25"` / `"prefix"` / `"fuzzy"` / `"filter"` /
+/// `"queries"` / Fuse.js `"includeScore"` / `"includeMatches"` /
+/// `"minMatchCharLength"` / `"useExtendedSearch"` /
+/// `"ignoreFieldNorm"` / Empathy.co `"partialResults"` /
+/// `"promoteds"` / `"queryTagging"` / `"modelName"` / AddSearch
+/// `"processing_time_ms"` / `"rangeFacets"` / `"postfixWildcard"` /
+/// Synerise `"clientUUID"` / `"sortByMetric"` / Fast Simon
+/// `"total_results"` / Nosto `"emptyQueryMatchesAll"` / Clerk.io
+/// `"product_data"` / Tweakwise `"nrofitems"` / Findify `"t_client"` /
+/// Searchanise `"totalItems"` / Unbxd `"searchMetaData"` / Loop54
+/// `"makesSense"` / Yext `"experienceKey"` / Cludo `"TypedDocuments"` /
+/// Voyado Elevate `"primaryList"` / FactFinder `"searchResult"` /
+/// Hawksearch `"ClientGuid"` / `"NofResults"` / GroupBy
+/// `"totalRecordCount"` / Luigi's Box `"corrected_query"` /
+/// `"total_hits"` / Searchspring `"resultLayout"` / Doofinder
+/// `"hashid"` / Klevu `"recordQueries"` / Bloomreach Discovery
+/// `"domain_key"` / Constructor.io `"result_sources"` / Coveo
+/// `"searchHub"` / Azure AI Search `"@odata.count"` / Vespa `"yql"` /
+/// Marqo `"searchableAttributes"` / LanceDB `"vector_column_name"` /
+/// Milvus `"annsField"` / Chroma `"n_results"` / Pinecone `"topK"` /
+/// Weaviate `"nearVector"` / Qdrant `"vectors_count"` / Algolia
+/// `"processingTimeMS"` / Meilisearch `"processingTimeMs"` /
+/// Typesense `"search_time_ms"` / Solr `"responseHeader"` /
+/// Elasticsearch `"track_total_hits"` / prettier `"printWidth"` /
+/// karma `"basePath"` stay out. `"combineWith"` only matches its
+/// MiniSearch enums. Bool keys only match `true` / `false`. Numeric
+/// keys reject leading zeros beyond `0`.
+fn is_minisearch_json_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    let Some(rest) = s.strip_prefix('"') else {
+        return false;
+    };
+    let Some(end) = rest.find('"') else {
+        return false;
+    };
+    let key = &rest[..end];
+    if !minisearch_json_key_ok(key) {
+        return false;
+    }
+    let after_key = rest[end + 1..].trim_start();
+    let Some(after_colon) = after_key.strip_prefix(':') else {
+        return false;
+    };
+    let after_colon = after_colon.trim_start();
+    minisearch_json_value_and_tail_ok(key, after_colon)
+}
+
+fn minisearch_json_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "storeFields"
+            | "searchOptions"
+            | "autoSuggestOptions"
+            | "autoVacuum"
+            | "maxFuzzy"
+            | "combineWith"
+            | "documentCount"
+            | "dirtCount"
+            | "serializationVersion"
+            | "nextId"
+            | "minDirtCount"
+            | "batchSize"
+            | "batchWait"
+            | "averageFieldLength"
+            | "storedFields"
+            | "fieldIds"
+            | "documentIds"
+            | "fieldLength"
+    )
+}
+
+fn minisearch_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool {
+    let bytes = after_colon.as_bytes();
+    let Some(first) = bytes.first().copied() else {
+        return false;
+    };
+    match first {
+        b'{' => {
+            if !matches!(
+                key,
+                "searchOptions"
+                    | "autoSuggestOptions"
+                    | "autoVacuum"
+                    | "storedFields"
+                    | "fieldIds"
+                    | "documentIds"
+                    | "fieldLength"
+            ) {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[1..])
+        }
+        b'[' => {
+            if !matches!(key, "storeFields" | "averageFieldLength") {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[1..])
+        }
+        b'"' => {
+            if key != "combineWith" {
+                return false;
+            }
+            minisearch_json_combine_with_and_tail_ok(after_colon)
+        }
+        b't' | b'f' => minisearch_json_bool_and_tail_ok(key, after_colon),
+        b'0'..=b'9' => minisearch_json_uint_and_tail_ok(key, after_colon),
+        _ => false,
+    }
+}
+
+fn minisearch_json_combine_with_and_tail_ok(after_colon: &str) -> bool {
+    let rest = &after_colon[1..];
+    let Some(end) = rest.find('"') else {
+        return false;
+    };
+    let value = &rest[..end];
+    if !matches!(value, "AND" | "OR" | "AND_NOT") {
+        return false;
+    }
+    package_json_tail_ok(&rest[end + 1..])
+}
+
+fn minisearch_json_bool_and_tail_ok(key: &str, after_colon: &str) -> bool {
+    if key != "autoVacuum" {
+        return false;
+    }
+    let rest = if let Some(rest) = after_colon.strip_prefix("true") {
+        rest
+    } else if let Some(rest) = after_colon.strip_prefix("false") {
+        rest
+    } else {
+        return false;
+    };
+    package_json_tail_ok(rest)
+}
+
+fn minisearch_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool {
+    if !matches!(
+        key,
+        "maxFuzzy"
+            | "documentCount"
+            | "dirtCount"
+            | "serializationVersion"
+            | "nextId"
+            | "minDirtCount"
+            | "batchSize"
+            | "batchWait"
+    ) {
         return false;
     }
     let bytes = after_colon.as_bytes();
@@ -99932,41 +100121,41 @@ mod func_like_line_tests {
         is_limits_conf_decl, is_lint_staged_json_decl, is_locale_conf_decl, is_login_defs_decl,
         is_logrotate_decl, is_loki_json_decl, is_loop54_json_decl, is_luigisbox_json_decl,
         is_machine_info_decl, is_makepkg_conf_decl, is_marqo_json_decl, is_mdbook_toml_decl,
-        is_meilisearch_json_decl, is_milvus_json_decl, is_mintlify_json_decl, is_mise_toml_decl,
-        is_mkinitcpio_conf_decl, is_mocha_json_decl, is_mockoon_json_decl, is_mockserver_json_decl,
-        is_modprobe_conf_decl, is_mountebank_json_decl, is_mutants_toml_decl, is_mypy_ini_decl,
-        is_mysql_cnf_decl, is_named_conf_decl, is_nest_cli_json_decl, is_netlify_toml_decl,
-        is_networks_file_decl, is_neutralino_json_decl, is_nextest_toml_decl, is_nftables_decl,
-        is_nginx_conf_decl, is_nightwatch_json_decl, is_nixpacks_toml_decl, is_nm_connection_decl,
-        is_nosto_json_decl, is_npmrc_decl, is_nsswitch_conf_decl, is_nx_json_decl,
-        is_nyc_json_decl, is_openapi_json_decl, is_openapitools_json_decl, is_openvpn_decl,
-        is_os_release_decl, is_otlp_json_decl, is_oxlint_json_decl, is_package_json_decl,
-        is_pacman_conf_decl, is_pact_json_decl, is_pam_conf_decl, is_parcel_json_decl,
-        is_paru_conf_decl, is_passwd_group_file_decl, is_pdm_toml_decl, is_php_ini_decl,
-        is_pinecone_json_decl, is_pip_conf_decl, is_pipfile_decl, is_pixi_toml_decl,
-        is_playwright_json_decl, is_podfile_decl, is_poetry_toml_decl, is_postcss_json_decl,
-        is_postman_json_decl, is_premake_decl, is_prettier_json_decl, is_prometheus_json_decl,
-        is_protocols_file_decl, is_pycln_ini_decl, is_pycodestyle_ini_decl, is_pydoclint_ini_decl,
-        is_pydocstyle_ini_decl, is_pylama_ini_decl, is_pylint_ini_decl, is_pypirc_ini_decl,
-        is_pyproject_toml_decl, is_pyre_configuration_decl, is_pyright_toml_decl,
-        is_pyrightconfig_json_decl, is_pytest_ini_decl, is_pytype_ini_decl, is_pyupgrade_ini_decl,
-        is_qdrant_json_decl, is_radon_ini_decl, is_railway_toml_decl, is_rake_decl,
-        is_rapidoc_json_decl, is_redoc_json_decl, is_redocly_json_decl, is_refurb_toml_decl,
-        is_release_it_json_decl, is_release_please_json_decl, is_release_toml_decl,
-        is_renovate_json_decl, is_resolv_conf_decl, is_rpc_file_decl, is_rstcheck_ini_decl,
-        is_rsyslog_decl, is_ruff_toml_decl, is_rush_json_decl, is_rust_toolchain_toml_decl,
-        is_rustfmt_toml_decl, is_samba_conf_decl, is_samconfig_toml_decl, is_scalar_json_decl,
-        is_scons_decl, is_scriv_ini_decl, is_sddm_conf_decl, is_searchanise_json_decl,
-        is_searchspring_json_decl, is_semantic_release_ini_decl, is_semantic_release_json_decl,
-        is_services_file_decl, is_setup_cfg_decl, is_setuptools_scm_ini_decl,
-        is_simple_git_hooks_json_decl, is_solr_json_decl, is_spectral_json_decl,
-        is_sqlfluff_ini_decl, is_ssh_config_decl, is_sssd_conf_decl,
-        is_stoplight_elements_json_decl, is_stryker_json_decl, is_stylelint_json_decl,
-        is_subuid_subgid_decl, is_sudoers_decl, is_supabase_toml_decl, is_supervisord_conf_decl,
-        is_swagger_ui_json_decl, is_swc_json_decl, is_syncpack_json_decl, is_synerise_json_decl,
-        is_sysctl_conf_decl, is_syslog_ng_decl, is_systemd_networkd_decl, is_systemd_unit_decl,
-        is_sysusers_d_decl, is_tap_json_decl, is_taplo_toml_decl, is_tauri_json_decl,
-        is_telegraf_toml_decl, is_tempo_json_decl, is_testcafe_json_decl,
+        is_meilisearch_json_decl, is_milvus_json_decl, is_minisearch_json_decl,
+        is_mintlify_json_decl, is_mise_toml_decl, is_mkinitcpio_conf_decl, is_mocha_json_decl,
+        is_mockoon_json_decl, is_mockserver_json_decl, is_modprobe_conf_decl,
+        is_mountebank_json_decl, is_mutants_toml_decl, is_mypy_ini_decl, is_mysql_cnf_decl,
+        is_named_conf_decl, is_nest_cli_json_decl, is_netlify_toml_decl, is_networks_file_decl,
+        is_neutralino_json_decl, is_nextest_toml_decl, is_nftables_decl, is_nginx_conf_decl,
+        is_nightwatch_json_decl, is_nixpacks_toml_decl, is_nm_connection_decl, is_nosto_json_decl,
+        is_npmrc_decl, is_nsswitch_conf_decl, is_nx_json_decl, is_nyc_json_decl,
+        is_openapi_json_decl, is_openapitools_json_decl, is_openvpn_decl, is_os_release_decl,
+        is_otlp_json_decl, is_oxlint_json_decl, is_package_json_decl, is_pacman_conf_decl,
+        is_pact_json_decl, is_pam_conf_decl, is_parcel_json_decl, is_paru_conf_decl,
+        is_passwd_group_file_decl, is_pdm_toml_decl, is_php_ini_decl, is_pinecone_json_decl,
+        is_pip_conf_decl, is_pipfile_decl, is_pixi_toml_decl, is_playwright_json_decl,
+        is_podfile_decl, is_poetry_toml_decl, is_postcss_json_decl, is_postman_json_decl,
+        is_premake_decl, is_prettier_json_decl, is_prometheus_json_decl, is_protocols_file_decl,
+        is_pycln_ini_decl, is_pycodestyle_ini_decl, is_pydoclint_ini_decl, is_pydocstyle_ini_decl,
+        is_pylama_ini_decl, is_pylint_ini_decl, is_pypirc_ini_decl, is_pyproject_toml_decl,
+        is_pyre_configuration_decl, is_pyright_toml_decl, is_pyrightconfig_json_decl,
+        is_pytest_ini_decl, is_pytype_ini_decl, is_pyupgrade_ini_decl, is_qdrant_json_decl,
+        is_radon_ini_decl, is_railway_toml_decl, is_rake_decl, is_rapidoc_json_decl,
+        is_redoc_json_decl, is_redocly_json_decl, is_refurb_toml_decl, is_release_it_json_decl,
+        is_release_please_json_decl, is_release_toml_decl, is_renovate_json_decl,
+        is_resolv_conf_decl, is_rpc_file_decl, is_rstcheck_ini_decl, is_rsyslog_decl,
+        is_ruff_toml_decl, is_rush_json_decl, is_rust_toolchain_toml_decl, is_rustfmt_toml_decl,
+        is_samba_conf_decl, is_samconfig_toml_decl, is_scalar_json_decl, is_scons_decl,
+        is_scriv_ini_decl, is_sddm_conf_decl, is_searchanise_json_decl, is_searchspring_json_decl,
+        is_semantic_release_ini_decl, is_semantic_release_json_decl, is_services_file_decl,
+        is_setup_cfg_decl, is_setuptools_scm_ini_decl, is_simple_git_hooks_json_decl,
+        is_solr_json_decl, is_spectral_json_decl, is_sqlfluff_ini_decl, is_ssh_config_decl,
+        is_sssd_conf_decl, is_stoplight_elements_json_decl, is_stryker_json_decl,
+        is_stylelint_json_decl, is_subuid_subgid_decl, is_sudoers_decl, is_supabase_toml_decl,
+        is_supervisord_conf_decl, is_swagger_ui_json_decl, is_swc_json_decl, is_syncpack_json_decl,
+        is_synerise_json_decl, is_sysctl_conf_decl, is_syslog_ng_decl, is_systemd_networkd_decl,
+        is_systemd_unit_decl, is_sysusers_d_decl, is_tap_json_decl, is_taplo_toml_decl,
+        is_tauri_json_decl, is_telegraf_toml_decl, is_tempo_json_decl, is_testcafe_json_decl,
         is_thunder_client_json_decl, is_tmpfiles_d_decl, is_towncrier_ini_decl, is_tox_ini_decl,
         is_trunk_toml_decl, is_tsconfig_json_decl, is_turbo_json_decl, is_tweakwise_json_decl,
         is_ty_toml_decl, is_typedoc_json_decl, is_typesense_json_decl, is_typos_toml_decl,
@@ -143333,6 +143522,16 @@ mod func_like_line_tests {
         assert!(is_fuse_json_decl(r#""includeScore": true"#));
         assert!(!is_addsearch_json_decl(r#""minMatchCharLength": 2"#));
         assert!(is_fuse_json_decl(r#""minMatchCharLength": 2"#));
+        assert!(!is_addsearch_json_decl(r#""storeFields": ["#));
+        assert!(is_minisearch_json_decl(r#""storeFields": ["#));
+        assert!(!is_addsearch_json_decl(r#""autoSuggestOptions": {"#));
+        assert!(is_minisearch_json_decl(r#""autoSuggestOptions": {"#));
+        assert!(!is_addsearch_json_decl(r#""maxFuzzy": 6"#));
+        assert!(is_minisearch_json_decl(r#""maxFuzzy": 6"#));
+        assert!(!is_addsearch_json_decl(r#""combineWith": "AND""#));
+        assert!(is_minisearch_json_decl(r#""combineWith": "AND""#));
+        assert!(!is_addsearch_json_decl(r#""serializationVersion": 2"#));
+        assert!(is_minisearch_json_decl(r#""serializationVersion": 2"#));
         assert!(line_is_func_like(r#""processing_time_ms": 21"#));
         assert!(line_is_func_like(r#""rangeFacets": ["#));
         assert!(line_is_func_like(r#""postfixWildcard": true"#));
@@ -143453,6 +143652,16 @@ mod func_like_line_tests {
         assert!(is_fuse_json_decl(r#""useExtendedSearch": true"#));
         assert!(!is_empathy_json_decl(r#""ignoreFieldNorm": true"#));
         assert!(is_fuse_json_decl(r#""ignoreFieldNorm": true"#));
+        assert!(!is_empathy_json_decl(r#""storeFields": ["#));
+        assert!(is_minisearch_json_decl(r#""storeFields": ["#));
+        assert!(!is_empathy_json_decl(r#""autoSuggestOptions": {"#));
+        assert!(is_minisearch_json_decl(r#""autoSuggestOptions": {"#));
+        assert!(!is_empathy_json_decl(r#""maxFuzzy": 6"#));
+        assert!(is_minisearch_json_decl(r#""maxFuzzy": 6"#));
+        assert!(!is_empathy_json_decl(r#""combineWith": "AND""#));
+        assert!(is_minisearch_json_decl(r#""combineWith": "AND""#));
+        assert!(!is_empathy_json_decl(r#""serializationVersion": 2"#));
+        assert!(is_minisearch_json_decl(r#""serializationVersion": 2"#));
     }
 
     #[test]
@@ -143626,6 +143835,16 @@ mod func_like_line_tests {
         assert!(is_fuse_json_decl(r#""useExtendedSearch": true"#));
         assert!(!is_empathy_json_decl(r#""ignoreFieldNorm": true"#));
         assert!(is_fuse_json_decl(r#""ignoreFieldNorm": true"#));
+        assert!(!is_empathy_json_decl(r#""storeFields": ["#));
+        assert!(is_minisearch_json_decl(r#""storeFields": ["#));
+        assert!(!is_empathy_json_decl(r#""autoSuggestOptions": {"#));
+        assert!(is_minisearch_json_decl(r#""autoSuggestOptions": {"#));
+        assert!(!is_empathy_json_decl(r#""maxFuzzy": 6"#));
+        assert!(is_minisearch_json_decl(r#""maxFuzzy": 6"#));
+        assert!(!is_empathy_json_decl(r#""combineWith": "AND""#));
+        assert!(is_minisearch_json_decl(r#""combineWith": "AND""#));
+        assert!(!is_empathy_json_decl(r#""serializationVersion": 2"#));
+        assert!(is_minisearch_json_decl(r#""serializationVersion": 2"#));
         assert!(line_is_func_like(r#""partialResults": ["#));
         assert!(line_is_func_like(r#""promoteds": ["#));
         assert!(line_is_func_like(r#""queryTagging": {"#));
@@ -143649,6 +143868,16 @@ mod func_like_line_tests {
         assert!(is_fuse_json_decl(r#""ignoreFieldNorm": true"#));
         assert!(is_fuse_json_decl(r#""minMatchCharLength": 2"#));
         assert!(is_fuse_json_decl(r#""refIndex": 3"#));
+        assert!(!is_fuse_json_decl(r#""storeFields": ["#));
+        assert!(is_minisearch_json_decl(r#""storeFields": ["#));
+        assert!(!is_fuse_json_decl(r#""autoSuggestOptions": {"#));
+        assert!(is_minisearch_json_decl(r#""autoSuggestOptions": {"#));
+        assert!(!is_fuse_json_decl(r#""maxFuzzy": 6"#));
+        assert!(is_minisearch_json_decl(r#""maxFuzzy": 6"#));
+        assert!(!is_fuse_json_decl(r#""combineWith": "AND""#));
+        assert!(is_minisearch_json_decl(r#""combineWith": "AND""#));
+        assert!(!is_fuse_json_decl(r#""serializationVersion": 2"#));
+        assert!(is_minisearch_json_decl(r#""serializationVersion": 2"#));
         assert!(!is_fuse_json_decl(r#""partialResults": ["#));
         assert!(is_empathy_json_decl(r#""partialResults": ["#));
         assert!(!is_fuse_json_decl(r#""processing_time_ms": 21"#));
@@ -143859,6 +144088,16 @@ mod func_like_line_tests {
         assert!(is_solr_json_decl(r#""responseHeader": {"#));
         assert!(!is_fuse_json_decl(r#""track_total_hits": true"#));
         assert!(is_elasticsearch_json_decl(r#""track_total_hits": true"#));
+        assert!(!is_fuse_json_decl(r#""storeFields": ["#));
+        assert!(is_minisearch_json_decl(r#""storeFields": ["#));
+        assert!(!is_fuse_json_decl(r#""autoSuggestOptions": {"#));
+        assert!(is_minisearch_json_decl(r#""autoSuggestOptions": {"#));
+        assert!(!is_fuse_json_decl(r#""maxFuzzy": 6"#));
+        assert!(is_minisearch_json_decl(r#""maxFuzzy": 6"#));
+        assert!(!is_fuse_json_decl(r#""combineWith": "AND""#));
+        assert!(is_minisearch_json_decl(r#""combineWith": "AND""#));
+        assert!(!is_fuse_json_decl(r#""serializationVersion": 2"#));
+        assert!(is_minisearch_json_decl(r#""serializationVersion": 2"#));
         assert!(!is_fuse_json_decl(r#""printWidth": 80"#));
         assert!(is_prettier_json_decl(r#""printWidth": 80"#));
         assert!(!is_fuse_json_decl(r#""basePath": ".""#));
@@ -143870,6 +144109,307 @@ mod func_like_line_tests {
         assert!(line_is_func_like(r#""ignoreFieldNorm": true"#));
         assert!(line_is_func_like(r#""minMatchCharLength": 2"#));
         assert!(line_is_func_like(r#""refIndex": 3"#));
+    }
+
+    #[test]
+    fn minisearch_json_keys_smoke() {
+        assert!(is_minisearch_json_decl(r#""storeFields": ["#));
+        assert!(is_minisearch_json_decl(r#""searchOptions": {"#));
+        assert!(is_minisearch_json_decl(r#""autoSuggestOptions": {"#));
+        assert!(is_minisearch_json_decl(r#""autoVacuum": true"#));
+        assert!(is_minisearch_json_decl(r#""autoVacuum": {"#));
+        assert!(is_minisearch_json_decl(r#""maxFuzzy": 6"#));
+        assert!(is_minisearch_json_decl(r#""combineWith": "AND""#));
+        assert!(is_minisearch_json_decl(r#""combineWith": "OR""#));
+        assert!(is_minisearch_json_decl(r#""combineWith": "AND_NOT""#));
+        assert!(is_minisearch_json_decl(r#""documentCount": 100"#));
+        assert!(is_minisearch_json_decl(r#""dirtCount": 20"#));
+        assert!(is_minisearch_json_decl(r#""serializationVersion": 2"#));
+        assert!(is_minisearch_json_decl(r#""nextId": 5"#));
+        assert!(is_minisearch_json_decl(r#""minDirtCount": 20"#));
+        assert!(is_minisearch_json_decl(r#""batchSize": 1000"#));
+        assert!(is_minisearch_json_decl(r#""batchWait": 10"#));
+        assert!(is_minisearch_json_decl(r#""averageFieldLength": ["#));
+        assert!(is_minisearch_json_decl(r#""storedFields": {"#));
+        assert!(is_minisearch_json_decl(r#""fieldIds": {"#));
+        assert!(is_minisearch_json_decl(r#""documentIds": {"#));
+        assert!(is_minisearch_json_decl(r#""fieldLength": {"#));
+        assert!(!is_minisearch_json_decl(r#""includeScore": true"#));
+        assert!(is_fuse_json_decl(r#""includeScore": true"#));
+        assert!(!is_minisearch_json_decl(r#""includeMatches": true"#));
+        assert!(is_fuse_json_decl(r#""includeMatches": true"#));
+        assert!(!is_minisearch_json_decl(r#""minMatchCharLength": 2"#));
+        assert!(is_fuse_json_decl(r#""minMatchCharLength": 2"#));
+        assert!(!is_minisearch_json_decl(r#""useExtendedSearch": true"#));
+        assert!(is_fuse_json_decl(r#""useExtendedSearch": true"#));
+        assert!(!is_minisearch_json_decl(r#""ignoreFieldNorm": true"#));
+        assert!(is_fuse_json_decl(r#""ignoreFieldNorm": true"#));
+        assert!(!is_minisearch_json_decl(r#""partialResults": ["#));
+        assert!(is_empathy_json_decl(r#""partialResults": ["#));
+        assert!(!is_minisearch_json_decl(r#""processing_time_ms": 21"#));
+        assert!(is_addsearch_json_decl(r#""processing_time_ms": 21"#));
+        assert!(!is_minisearch_json_decl(r#""clientUUID": "abc-123""#));
+        assert!(is_synerise_json_decl(r#""clientUUID": "abc-123""#));
+        assert!(!is_minisearch_json_decl(r#""total_results": 223"#));
+        assert!(is_fastsimon_json_decl(r#""total_results": 223"#));
+        assert!(!is_minisearch_json_decl(r#""emptyQueryMatchesAll": true"#));
+        assert!(is_nosto_json_decl(r#""emptyQueryMatchesAll": true"#));
+        assert!(!is_minisearch_json_decl(r#""product_data": {"#));
+        assert!(is_clerk_io_json_decl(r#""product_data": {"#));
+        assert!(!is_minisearch_json_decl(r#""nrofitems": 128"#));
+        assert!(is_tweakwise_json_decl(r#""nrofitems": 128"#));
+        assert!(!is_minisearch_json_decl(r#""t_client": 1699900000000"#));
+        assert!(is_findify_json_decl(r#""t_client": 1699900000000"#));
+        assert!(!is_minisearch_json_decl(r#""totalItems": 100"#));
+        assert!(is_searchanise_json_decl(r#""totalItems": 100"#));
+        assert!(!is_minisearch_json_decl(r#""searchMetaData": {"#));
+        assert!(is_unbxd_json_decl(r#""searchMetaData": {"#));
+        assert!(!is_minisearch_json_decl(r#""makesSense": true"#));
+        assert!(is_loop54_json_decl(r#""makesSense": true"#));
+        assert!(!is_minisearch_json_decl(r#""experienceKey": "answers""#));
+        assert!(is_yext_json_decl(r#""experienceKey": "answers""#));
+        assert!(!is_minisearch_json_decl(r#""TypedDocuments": ["#));
+        assert!(is_cludo_json_decl(r#""TypedDocuments": ["#));
+        assert!(!is_minisearch_json_decl(r#""primaryList": {"#));
+        assert!(is_voyado_elevate_json_decl(r#""primaryList": {"#));
+        assert!(!is_minisearch_json_decl(r#""searchResult": {"#));
+        assert!(is_factfinder_json_decl(r#""searchResult": {"#));
+        assert!(!is_minisearch_json_decl(r#""NofResults": 2400"#));
+        assert!(is_hawksearch_json_decl(r#""NofResults": 2400"#));
+        assert!(!is_minisearch_json_decl(r#""totalRecordCount": 128"#));
+        assert!(is_groupby_json_decl(r#""totalRecordCount": 128"#));
+        assert!(!is_minisearch_json_decl(r#""corrected_query": "putter""#));
+        assert!(is_luigisbox_json_decl(r#""corrected_query": "putter""#));
+        assert!(!is_minisearch_json_decl(r#""resultLayout": "grid""#));
+        assert!(is_searchspring_json_decl(r#""resultLayout": "grid""#));
+        assert!(!is_minisearch_json_decl(r#""hashid": "abc""#));
+        assert!(is_doofinder_json_decl(r#""hashid": "abc""#));
+        assert!(!is_minisearch_json_decl(r#""recordQueries": ["#));
+        assert!(is_klevu_json_decl(r#""recordQueries": ["#));
+        assert!(!is_minisearch_json_decl(r#""domain_key": "example_com""#));
+        assert!(is_bloomreach_json_decl(r#""domain_key": "example_com""#));
+        assert!(!is_minisearch_json_decl(r#""result_sources": {"#));
+        assert!(is_constructor_io_json_decl(r#""result_sources": {"#));
+        assert!(!is_minisearch_json_decl(r#""searchHub": "default""#));
+        assert!(is_coveo_json_decl(r#""searchHub": "default""#));
+        assert!(!is_minisearch_json_decl(r#""@odata.count": 10"#));
+        assert!(is_azure_search_json_decl(r#""@odata.count": 10"#));
+        assert!(!is_minisearch_json_decl(
+            r#""yql": "select * from sources * where true""#
+        ));
+        assert!(is_vespa_json_decl(
+            r#""yql": "select * from sources * where true""#
+        ));
+        assert!(!is_minisearch_json_decl(r#""searchableAttributes": ["#));
+        assert!(is_marqo_json_decl(r#""searchableAttributes": ["#));
+        assert!(!is_minisearch_json_decl(r#""vector_column_name": "vec""#));
+        assert!(is_lancedb_json_decl(r#""vector_column_name": "vec""#));
+        assert!(!is_minisearch_json_decl(r#""annsField": "vec""#));
+        assert!(is_milvus_json_decl(r#""annsField": "vec""#));
+        assert!(!is_minisearch_json_decl(r#""n_results": 10"#));
+        assert!(is_chroma_json_decl(r#""n_results": 10"#));
+        assert!(!is_minisearch_json_decl(r#""topK": 10"#));
+        assert!(is_pinecone_json_decl(r#""topK": 10"#));
+        assert!(!is_minisearch_json_decl(r#""nearVector": {"#));
+        assert!(is_weaviate_json_decl(r#""nearVector": {"#));
+        assert!(!is_minisearch_json_decl(r#""vectors_count": 100"#));
+        assert!(is_qdrant_json_decl(r#""vectors_count": 100"#));
+        assert!(!is_minisearch_json_decl(r#""processingTimeMS": 12"#));
+        assert!(is_algolia_json_decl(r#""processingTimeMS": 12"#));
+        assert!(!is_minisearch_json_decl(r#""processingTimeMs": 12"#));
+        assert!(is_meilisearch_json_decl(r#""processingTimeMs": 12"#));
+        assert!(!is_minisearch_json_decl(r#""search_time_ms": 12"#));
+        assert!(is_typesense_json_decl(r#""search_time_ms": 12"#));
+        assert!(!is_minisearch_json_decl(r#""responseHeader": {"#));
+        assert!(is_solr_json_decl(r#""responseHeader": {"#));
+        assert!(!is_minisearch_json_decl(r#""track_total_hits": true"#));
+        assert!(is_elasticsearch_json_decl(r#""track_total_hits": true"#));
+        assert!(!is_minisearch_json_decl(r#""printWidth": 80"#));
+        assert!(is_prettier_json_decl(r#""printWidth": 80"#));
+        assert!(!is_minisearch_json_decl(r#""basePath": ".""#));
+        assert!(is_karma_json_decl(r#""basePath": ".""#));
+    }
+
+    #[test]
+    fn minisearch_json_keys_count() {
+        assert!(is_minisearch_json_decl(r#""storeFields": ["#));
+        assert!(is_minisearch_json_decl(r#""storeFields": [ // c"#));
+        assert!(!is_minisearch_json_decl(r#""storeFields": {"#));
+        assert!(!is_minisearch_json_decl(r#""storeFields": "title""#));
+        assert!(is_minisearch_json_decl(r#""searchOptions": {"#));
+        assert!(is_minisearch_json_decl(r#""searchOptions": { // c"#));
+        assert!(!is_minisearch_json_decl(r#""searchOptions": ["#));
+        assert!(is_minisearch_json_decl(r#""autoSuggestOptions": {"#));
+        assert!(!is_minisearch_json_decl(r#""autoSuggestOptions": ["#));
+        assert!(is_minisearch_json_decl(r#""autoVacuum": true"#));
+        assert!(is_minisearch_json_decl(r#""autoVacuum": false"#));
+        assert!(is_minisearch_json_decl(r#""autoVacuum": true,"#));
+        assert!(is_minisearch_json_decl(r#""autoVacuum": {"#));
+        assert!(!is_minisearch_json_decl(r#""autoVacuum": "true""#));
+        assert!(!is_minisearch_json_decl(r#""autoVacuum": 1"#));
+        assert!(is_minisearch_json_decl(r#""maxFuzzy": 0"#));
+        assert!(is_minisearch_json_decl(r#""maxFuzzy": 6"#));
+        assert!(is_minisearch_json_decl(r#""maxFuzzy": 6,"#));
+        assert!(is_minisearch_json_decl(r#""maxFuzzy": 6 // c"#));
+        assert!(!is_minisearch_json_decl(r#""maxFuzzy": 06"#));
+        assert!(!is_minisearch_json_decl(r#""maxFuzzy": true"#));
+        assert!(!is_minisearch_json_decl(r#""maxFuzzy": "6""#));
+        assert!(is_minisearch_json_decl(r#""combineWith": "AND""#));
+        assert!(is_minisearch_json_decl(r#""combineWith": "OR""#));
+        assert!(is_minisearch_json_decl(r#""combineWith": "AND_NOT""#));
+        assert!(is_minisearch_json_decl(r#""combineWith": "AND","#));
+        assert!(is_minisearch_json_decl(r#""combineWith": "AND" // c"#));
+        assert!(!is_minisearch_json_decl(r#""combineWith": "and""#));
+        assert!(!is_minisearch_json_decl(r#""combineWith": "ANDOR""#));
+        assert!(!is_minisearch_json_decl(r#""combineWith": true"#));
+        assert!(!is_minisearch_json_decl(r#""combineWith": ["#));
+        assert!(is_minisearch_json_decl(r#""documentCount": 0"#));
+        assert!(is_minisearch_json_decl(r#""documentCount": 100"#));
+        assert!(!is_minisearch_json_decl(r#""documentCount": 0100"#));
+        assert!(!is_minisearch_json_decl(r#""documentCount": true"#));
+        assert!(is_minisearch_json_decl(r#""dirtCount": 0"#));
+        assert!(is_minisearch_json_decl(r#""dirtCount": 20"#));
+        assert!(!is_minisearch_json_decl(r#""dirtCount": 020"#));
+        assert!(is_minisearch_json_decl(r#""serializationVersion": 0"#));
+        assert!(is_minisearch_json_decl(r#""serializationVersion": 2"#));
+        assert!(!is_minisearch_json_decl(r#""serializationVersion": 02"#));
+        assert!(is_minisearch_json_decl(r#""nextId": 0"#));
+        assert!(is_minisearch_json_decl(r#""nextId": 5"#));
+        assert!(!is_minisearch_json_decl(r#""nextId": 05"#));
+        assert!(is_minisearch_json_decl(r#""minDirtCount": 0"#));
+        assert!(is_minisearch_json_decl(r#""minDirtCount": 20"#));
+        assert!(!is_minisearch_json_decl(r#""minDirtCount": 020"#));
+        assert!(is_minisearch_json_decl(r#""batchSize": 0"#));
+        assert!(is_minisearch_json_decl(r#""batchSize": 1000"#));
+        assert!(!is_minisearch_json_decl(r#""batchSize": 01000"#));
+        assert!(is_minisearch_json_decl(r#""batchWait": 0"#));
+        assert!(is_minisearch_json_decl(r#""batchWait": 10"#));
+        assert!(!is_minisearch_json_decl(r#""batchWait": 010"#));
+        assert!(is_minisearch_json_decl(r#""averageFieldLength": ["#));
+        assert!(!is_minisearch_json_decl(r#""averageFieldLength": {"#));
+        assert!(is_minisearch_json_decl(r#""storedFields": {"#));
+        assert!(!is_minisearch_json_decl(r#""storedFields": ["#));
+        assert!(is_minisearch_json_decl(r#""fieldIds": {"#));
+        assert!(!is_minisearch_json_decl(r#""fieldIds": ["#));
+        assert!(is_minisearch_json_decl(r#""documentIds": {"#));
+        assert!(!is_minisearch_json_decl(r#""documentIds": ["#));
+        assert!(is_minisearch_json_decl(r#""fieldLength": {"#));
+        assert!(!is_minisearch_json_decl(r#""fieldLength": ["#));
+        assert!(!is_minisearch_json_decl(r#""storeFields""#));
+        assert!(!is_minisearch_json_decl(r#""maxFuzzy""#));
+        assert!(!is_minisearch_json_decl(
+            r#""$schema": "https://example.com""#
+        ));
+        assert!(!is_minisearch_json_decl(r#""name": "docs""#));
+        assert!(!is_minisearch_json_decl(r#""id": "1""#));
+        assert!(!is_minisearch_json_decl(r#""q": "shoes""#));
+        assert!(!is_minisearch_json_decl(r#""query": "shoes""#));
+        assert!(!is_minisearch_json_decl(r#""fields": ["#));
+        assert!(!is_minisearch_json_decl(r#""idField": "id""#));
+        assert!(!is_minisearch_json_decl(r#""score": 0"#));
+        assert!(!is_minisearch_json_decl(r#""terms": ["#));
+        assert!(!is_minisearch_json_decl(r#""match": {"#));
+        assert!(!is_minisearch_json_decl(r#""index": ["#));
+        assert!(!is_minisearch_json_decl(r#""boost": {"#));
+        assert!(!is_minisearch_json_decl(r#""weights": {"#));
+        assert!(!is_minisearch_json_decl(r#""bm25": {"#));
+        assert!(!is_minisearch_json_decl(r#""prefix": true"#));
+        assert!(!is_minisearch_json_decl(r#""fuzzy": true"#));
+        assert!(!is_minisearch_json_decl(r#""filter": {"#));
+        assert!(!is_minisearch_json_decl(r#""queries": ["#));
+        assert!(!is_minisearch_json_decl(r#""includeScore": true"#));
+        assert!(is_fuse_json_decl(r#""includeScore": true"#));
+        assert!(!is_minisearch_json_decl(r#""partialResults": ["#));
+        assert!(is_empathy_json_decl(r#""partialResults": ["#));
+        assert!(!is_minisearch_json_decl(r#""processing_time_ms": 21"#));
+        assert!(is_addsearch_json_decl(r#""processing_time_ms": 21"#));
+        assert!(!is_minisearch_json_decl(r#""clientUUID": "abc-123""#));
+        assert!(is_synerise_json_decl(r#""clientUUID": "abc-123""#));
+        assert!(!is_minisearch_json_decl(r#""total_results": 223"#));
+        assert!(is_fastsimon_json_decl(r#""total_results": 223"#));
+        assert!(!is_minisearch_json_decl(r#""emptyQueryMatchesAll": true"#));
+        assert!(is_nosto_json_decl(r#""emptyQueryMatchesAll": true"#));
+        assert!(!is_minisearch_json_decl(r#""product_data": {"#));
+        assert!(is_clerk_io_json_decl(r#""product_data": {"#));
+        assert!(!is_minisearch_json_decl(r#""nrofitems": 128"#));
+        assert!(is_tweakwise_json_decl(r#""nrofitems": 128"#));
+        assert!(!is_minisearch_json_decl(r#""t_client": 1699900000000"#));
+        assert!(is_findify_json_decl(r#""t_client": 1699900000000"#));
+        assert!(!is_minisearch_json_decl(r#""totalItems": 100"#));
+        assert!(is_searchanise_json_decl(r#""totalItems": 100"#));
+        assert!(!is_minisearch_json_decl(r#""searchMetaData": {"#));
+        assert!(is_unbxd_json_decl(r#""searchMetaData": {"#));
+        assert!(!is_minisearch_json_decl(r#""makesSense": true"#));
+        assert!(is_loop54_json_decl(r#""makesSense": true"#));
+        assert!(!is_minisearch_json_decl(r#""experienceKey": "answers""#));
+        assert!(is_yext_json_decl(r#""experienceKey": "answers""#));
+        assert!(!is_minisearch_json_decl(r#""TypedDocuments": ["#));
+        assert!(is_cludo_json_decl(r#""TypedDocuments": ["#));
+        assert!(!is_minisearch_json_decl(r#""primaryList": {"#));
+        assert!(is_voyado_elevate_json_decl(r#""primaryList": {"#));
+        assert!(!is_minisearch_json_decl(r#""searchResult": {"#));
+        assert!(is_factfinder_json_decl(r#""searchResult": {"#));
+        assert!(!is_minisearch_json_decl(r#""NofResults": 2400"#));
+        assert!(is_hawksearch_json_decl(r#""NofResults": 2400"#));
+        assert!(!is_minisearch_json_decl(r#""totalRecordCount": 128"#));
+        assert!(is_groupby_json_decl(r#""totalRecordCount": 128"#));
+        assert!(!is_minisearch_json_decl(r#""corrected_query": "putter""#));
+        assert!(is_luigisbox_json_decl(r#""corrected_query": "putter""#));
+        assert!(!is_minisearch_json_decl(r#""resultLayout": "grid""#));
+        assert!(is_searchspring_json_decl(r#""resultLayout": "grid""#));
+        assert!(!is_minisearch_json_decl(r#""hashid": "abc""#));
+        assert!(is_doofinder_json_decl(r#""hashid": "abc""#));
+        assert!(!is_minisearch_json_decl(r#""recordQueries": ["#));
+        assert!(is_klevu_json_decl(r#""recordQueries": ["#));
+        assert!(!is_minisearch_json_decl(r#""domain_key": "example_com""#));
+        assert!(is_bloomreach_json_decl(r#""domain_key": "example_com""#));
+        assert!(!is_minisearch_json_decl(r#""result_sources": {"#));
+        assert!(is_constructor_io_json_decl(r#""result_sources": {"#));
+        assert!(!is_minisearch_json_decl(r#""searchHub": "default""#));
+        assert!(is_coveo_json_decl(r#""searchHub": "default""#));
+        assert!(!is_minisearch_json_decl(r#""@odata.count": 10"#));
+        assert!(is_azure_search_json_decl(r#""@odata.count": 10"#));
+        assert!(!is_minisearch_json_decl(
+            r#""yql": "select * from sources * where true""#
+        ));
+        assert!(is_vespa_json_decl(
+            r#""yql": "select * from sources * where true""#
+        ));
+        assert!(!is_minisearch_json_decl(r#""searchableAttributes": ["#));
+        assert!(is_marqo_json_decl(r#""searchableAttributes": ["#));
+        assert!(!is_minisearch_json_decl(r#""vector_column_name": "vec""#));
+        assert!(is_lancedb_json_decl(r#""vector_column_name": "vec""#));
+        assert!(!is_minisearch_json_decl(r#""annsField": "vec""#));
+        assert!(is_milvus_json_decl(r#""annsField": "vec""#));
+        assert!(!is_minisearch_json_decl(r#""n_results": 10"#));
+        assert!(is_chroma_json_decl(r#""n_results": 10"#));
+        assert!(!is_minisearch_json_decl(r#""topK": 10"#));
+        assert!(is_pinecone_json_decl(r#""topK": 10"#));
+        assert!(!is_minisearch_json_decl(r#""nearVector": {"#));
+        assert!(is_weaviate_json_decl(r#""nearVector": {"#));
+        assert!(!is_minisearch_json_decl(r#""vectors_count": 100"#));
+        assert!(is_qdrant_json_decl(r#""vectors_count": 100"#));
+        assert!(!is_minisearch_json_decl(r#""processingTimeMS": 12"#));
+        assert!(is_algolia_json_decl(r#""processingTimeMS": 12"#));
+        assert!(!is_minisearch_json_decl(r#""processingTimeMs": 12"#));
+        assert!(is_meilisearch_json_decl(r#""processingTimeMs": 12"#));
+        assert!(!is_minisearch_json_decl(r#""search_time_ms": 12"#));
+        assert!(is_typesense_json_decl(r#""search_time_ms": 12"#));
+        assert!(!is_minisearch_json_decl(r#""responseHeader": {"#));
+        assert!(is_solr_json_decl(r#""responseHeader": {"#));
+        assert!(!is_minisearch_json_decl(r#""track_total_hits": true"#));
+        assert!(is_elasticsearch_json_decl(r#""track_total_hits": true"#));
+        assert!(!is_minisearch_json_decl(r#""printWidth": 80"#));
+        assert!(is_prettier_json_decl(r#""printWidth": 80"#));
+        assert!(!is_minisearch_json_decl(r#""basePath": ".""#));
+        assert!(is_karma_json_decl(r#""basePath": ".""#));
+        assert!(line_is_func_like(r#""storeFields": ["#));
+        assert!(line_is_func_like(r#""autoSuggestOptions": {"#));
+        assert!(line_is_func_like(r#""maxFuzzy": 6"#));
+        assert!(line_is_func_like(r#""combineWith": "AND""#));
+        assert!(line_is_func_like(r#""serializationVersion": 2"#));
+        assert!(line_is_func_like(r#""documentCount": 100"#));
+        assert!(line_is_func_like(r#""dirtCount": 20"#));
     }
 
     #[test]

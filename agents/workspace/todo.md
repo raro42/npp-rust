@@ -1,3 +1,5 @@
+009 keep: Function List MiniSearch storeFields/searchOptions/autoSuggestOptions/autoVacuum/maxFuzzy/combineWith/documentCount/dirtCount/serializationVersion/nextId/minDirtCount/batchSize/batchWait/averageFieldLength/storedFields/fieldIds/documentIds/fieldLength (v0.3.842)
+
 009 keep: Function List Fuse.js isCaseSensitive/ignoreDiacritics/includeScore/includeMatches/shouldSort/findAllMatches/useExtendedSearch/ignoreLocation/ignoreFieldNorm/minMatchCharLength/refIndex (v0.3.841)
 
 009 keep: Function List AddSearch processing_time_ms/rangeFacets/postfixWildcard/collectAnalytics/analyticsTag/fuzzy/thumbnail_external_src/meta_description/meta_categories/custom_fields/document_type/numFacets/enableLogicalOperators/shuffleAndLimitTo/priceFromCents/priceToCents/cacheResponseWithTtlSeconds (v0.3.839)
