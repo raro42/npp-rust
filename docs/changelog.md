@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.823] — 2026-11-13
+
+View:
+
+- **Function List** lists Luigi's Box Search API request / response JSON keys: `"corrected_query": "…"`, `"total_hits": 0` / `223`, `"quicksearch_hits": [`, `"suggested_facet": {`, `"suggested_url": "…"`, `"pin_note": "…"`, `"hits_count": 0` / `56`, `"normalized_hits_count": 0` / `0.18`, `"accepted_filters": [`, `"query_rewrite": {`, `"next_page": "…"`, `"tracker_id": "…"`, `"quicksearch_types": [`, `"hit_fields": [`, `"promoted": true` / `false`. Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing `:` stay out. Generic `"$schema"` / `"name"` / `"id"` / `"q"` / `"query"` / `"filter"` / `"filters"` / `"limit"` / `"offset"` / `"page"` / `"results"` / `"facets"` / `"hits"` / `"campaigns"` / `"url"` / `"attributes"` / `"type"` / `"nested"` / `"pinned"` / Searchspring `"resultLayout"` / `"filterSummary"` / Doofinder `"hashid"` / `"query_name"` / Klevu `"recordQueries"` / Bloomreach Discovery `"domain_key"` / Constructor.io `"result_sources"` / Coveo `"searchHub"` / Azure AI Search `"@odata.count"` / Vespa `"yql"` / Marqo `"searchableAttributes"` / LanceDB `"vector_column_name"` / Milvus `"annsField"` / Chroma `"n_results"` / Pinecone `"topK"` / Weaviate `"nearVector"` / Qdrant `"vectors_count"` / Algolia `"processingTimeMS"` / Meilisearch `"processingTimeMs"` / Typesense `"search_time_ms"` / Solr `"responseHeader"` / Elasticsearch `"track_total_hits"` / prettier `"printWidth"` / karma `"basePath"` stay out. String keys require a non-empty quoted string. Bool `"promoted"` only matches `true` / `false`. Numeric `"total_hits"` / `"hits_count"` reject leading zeros beyond `0`. `"normalized_hits_count"` allows an optional fractional part.
+
 ## [0.3.822] — 2026-11-13
 
 View:

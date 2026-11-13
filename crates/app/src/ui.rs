@@ -32490,6 +32490,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_klevu_json_decl(s)
             || is_doofinder_json_decl(s)
             || is_searchspring_json_decl(s)
+            || is_luigisbox_json_decl(s)
             || is_gomod_decl(s)
             || is_gemfile_decl(s)
             || is_brewfile_decl(s)
@@ -32890,6 +32891,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_klevu_json_decl(s)
         || is_doofinder_json_decl(s)
         || is_searchspring_json_decl(s)
+        || is_luigisbox_json_decl(s)
         || is_gomod_decl(s)
         || is_gemfile_decl(s)
         || is_brewfile_decl(s)
@@ -65340,8 +65342,8 @@ fn klevu_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool {
 /// `"vectors_count"` / Algolia `"processingTimeMS"` / Meilisearch
 /// `"processingTimeMs"` / Typesense `"search_time_ms"` / Solr
 /// `"responseHeader"` / Elasticsearch `"track_total_hits"` / Searchspring
-/// `"resultLayout"` / `"filterSummary"` / prettier `"printWidth"` / karma
-/// `"basePath"` stay out.
+/// `"resultLayout"` / `"filterSummary"` / Luigi's Box `"corrected_query"` /
+/// `"total_hits"` / prettier `"printWidth"` / karma `"basePath"` stay out.
 fn is_doofinder_json_decl(s: &str) -> bool {
     let s = s.trim_start();
     let Some(rest) = s.strip_prefix('"') else {
@@ -65517,8 +65519,9 @@ fn doofinder_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool {
 /// `"n_results"` / Pinecone `"topK"` / Weaviate `"nearVector"` / Qdrant
 /// `"vectors_count"` / Algolia `"processingTimeMS"` / Meilisearch
 /// `"processingTimeMs"` / Typesense `"search_time_ms"` / Solr
-/// `"responseHeader"` / Elasticsearch `"track_total_hits"` / prettier
-/// `"printWidth"` / karma `"basePath"` stay out.
+/// `"responseHeader"` / Elasticsearch `"track_total_hits"` / Luigi's Box
+/// `"corrected_query"` / `"total_hits"` / prettier `"printWidth"` / karma
+/// `"basePath"` stay out.
 fn is_searchspring_json_decl(s: &str) -> bool {
     let s = s.trim_start();
     let Some(rest) = s.strip_prefix('"') else {
@@ -65655,6 +65658,185 @@ fn searchspring_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool {
     } else {
         while i < bytes.len() && bytes[i].is_ascii_digit() {
             i += 1;
+        }
+    }
+    package_json_tail_ok(&after_colon[i..])
+}
+
+/// Luigi's Box Search API request / response JSON keys:
+/// `"corrected_query": "…"`, `"total_hits": 0` / `223`,
+/// `"quicksearch_hits": [`, `"suggested_facet": {`, `"suggested_url": "…"`,
+/// `"pin_note": "…"`, `"hits_count": 0` / `56`,
+/// `"normalized_hits_count": 0` / `0.18`, `"accepted_filters": [`,
+/// `"query_rewrite": {`, `"next_page": "…"`, `"tracker_id": "…"`,
+/// `"quicksearch_types": [`, `"hit_fields": [`, `"promoted": true` / `false`.
+/// Optional trailing `,` and `//` / `/*` comment. Incomplete quotes /
+/// missing `:` stay out. Generic `"$schema"` / `"name"` / `"id"` / `"q"` /
+/// `"query"` / `"filter"` / `"filters"` / `"limit"` / `"offset"` / `"page"` /
+/// `"results"` / `"facets"` / `"hits"` / `"campaigns"` / `"url"` /
+/// `"attributes"` / `"type"` / `"nested"` / `"pinned"` / Searchspring
+/// `"resultLayout"` / `"filterSummary"` / Doofinder `"hashid"` /
+/// `"query_name"` / Klevu `"recordQueries"` / Bloomreach Discovery
+/// `"domain_key"` / Constructor.io `"result_sources"` / Coveo
+/// `"searchHub"` / Azure AI Search `"@odata.count"` / Vespa `"yql"` /
+/// Marqo `"searchableAttributes"` / LanceDB `"vector_column_name"` /
+/// Milvus `"annsField"` / Chroma `"n_results"` / Pinecone `"topK"` /
+/// Weaviate `"nearVector"` / Qdrant `"vectors_count"` / Algolia
+/// `"processingTimeMS"` / Meilisearch `"processingTimeMs"` / Typesense
+/// `"search_time_ms"` / Solr `"responseHeader"` / Elasticsearch
+/// `"track_total_hits"` / prettier `"printWidth"` / karma `"basePath"`
+/// stay out.
+fn is_luigisbox_json_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    let Some(rest) = s.strip_prefix('"') else {
+        return false;
+    };
+    let Some(end) = rest.find('"') else {
+        return false;
+    };
+    let key = &rest[..end];
+    if !luigisbox_json_key_ok(key) {
+        return false;
+    }
+    let after_key = rest[end + 1..].trim_start();
+    let Some(after_colon) = after_key.strip_prefix(':') else {
+        return false;
+    };
+    let after_colon = after_colon.trim_start();
+    luigisbox_json_value_and_tail_ok(key, after_colon)
+}
+
+fn luigisbox_json_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "corrected_query"
+            | "total_hits"
+            | "quicksearch_hits"
+            | "suggested_facet"
+            | "suggested_url"
+            | "pin_note"
+            | "hits_count"
+            | "normalized_hits_count"
+            | "accepted_filters"
+            | "query_rewrite"
+            | "next_page"
+            | "tracker_id"
+            | "quicksearch_types"
+            | "hit_fields"
+            | "promoted"
+    )
+}
+
+fn luigisbox_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool {
+    let bytes = after_colon.as_bytes();
+    let Some(first) = bytes.first().copied() else {
+        return false;
+    };
+    match first {
+        b'{' => {
+            if !matches!(key, "suggested_facet" | "query_rewrite") {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[1..])
+        }
+        b'[' => {
+            if !matches!(
+                key,
+                "quicksearch_hits" | "accepted_filters" | "quicksearch_types" | "hit_fields"
+            ) {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[1..])
+        }
+        b'"' => match key {
+            "corrected_query" | "suggested_url" | "pin_note" | "next_page" | "tracker_id" => {
+                luigisbox_json_nonempty_string_and_tail_ok(after_colon)
+            }
+            _ => false,
+        },
+        b't' | b'f' => luigisbox_json_bool_and_tail_ok(key, after_colon),
+        b'0'..=b'9' => luigisbox_json_number_and_tail_ok(key, after_colon),
+        _ => false,
+    }
+}
+
+fn luigisbox_json_nonempty_string_and_tail_ok(after_colon: &str) -> bool {
+    let rest = &after_colon[1..];
+    let Some(end) = rest.find('"') else {
+        return false;
+    };
+    let value = &rest[..end];
+    if value.is_empty() || value.contains('\n') {
+        return false;
+    }
+    package_json_tail_ok(&rest[end + 1..])
+}
+
+fn luigisbox_json_bool_and_tail_ok(key: &str, after_colon: &str) -> bool {
+    if key != "promoted" {
+        return false;
+    }
+    let rest = if let Some(rest) = after_colon.strip_prefix("true") {
+        rest
+    } else if let Some(rest) = after_colon.strip_prefix("false") {
+        rest
+    } else {
+        return false;
+    };
+    package_json_tail_ok(rest)
+}
+
+fn luigisbox_json_number_and_tail_ok(key: &str, after_colon: &str) -> bool {
+    match key {
+        "total_hits" | "hits_count" => luigisbox_json_uint_and_tail_ok(after_colon),
+        "normalized_hits_count" => luigisbox_json_float_and_tail_ok(after_colon),
+        _ => false,
+    }
+}
+
+fn luigisbox_json_uint_and_tail_ok(after_colon: &str) -> bool {
+    let bytes = after_colon.as_bytes();
+    let mut i = 0usize;
+    if i >= bytes.len() || !bytes[i].is_ascii_digit() {
+        return false;
+    }
+    if bytes[i] == b'0' {
+        i += 1;
+        if i < bytes.len() && bytes[i].is_ascii_digit() {
+            return false;
+        }
+    } else {
+        while i < bytes.len() && bytes[i].is_ascii_digit() {
+            i += 1;
+        }
+    }
+    package_json_tail_ok(&after_colon[i..])
+}
+
+fn luigisbox_json_float_and_tail_ok(after_colon: &str) -> bool {
+    let bytes = after_colon.as_bytes();
+    let mut i = 0usize;
+    if i >= bytes.len() || !bytes[i].is_ascii_digit() {
+        return false;
+    }
+    if bytes[i] == b'0' {
+        i += 1;
+        if i < bytes.len() && bytes[i].is_ascii_digit() {
+            return false;
+        }
+    } else {
+        while i < bytes.len() && bytes[i].is_ascii_digit() {
+            i += 1;
+        }
+    }
+    if i < bytes.len() && bytes[i] == b'.' {
+        i += 1;
+        let frac_start = i;
+        while i < bytes.len() && bytes[i].is_ascii_digit() {
+            i += 1;
+        }
+        if i == frac_start || i - frac_start > 12 {
+            return false;
         }
     }
     package_json_tail_ok(&after_colon[i..])
@@ -96305,12 +96487,12 @@ mod func_like_line_tests {
         is_keepalived_decl, is_klevu_json_decl, is_knip_json_decl, is_krb5_conf_decl,
         is_lancedb_json_decl, is_lerna_json_decl, is_lightdm_conf_decl, is_limits_conf_decl,
         is_lint_staged_json_decl, is_locale_conf_decl, is_login_defs_decl, is_logrotate_decl,
-        is_loki_json_decl, is_machine_info_decl, is_makepkg_conf_decl, is_marqo_json_decl,
-        is_mdbook_toml_decl, is_meilisearch_json_decl, is_milvus_json_decl, is_mintlify_json_decl,
-        is_mise_toml_decl, is_mkinitcpio_conf_decl, is_mocha_json_decl, is_mockoon_json_decl,
-        is_mockserver_json_decl, is_modprobe_conf_decl, is_mountebank_json_decl,
-        is_mutants_toml_decl, is_mypy_ini_decl, is_mysql_cnf_decl, is_named_conf_decl,
-        is_nest_cli_json_decl, is_netlify_toml_decl, is_networks_file_decl,
+        is_loki_json_decl, is_luigisbox_json_decl, is_machine_info_decl, is_makepkg_conf_decl,
+        is_marqo_json_decl, is_mdbook_toml_decl, is_meilisearch_json_decl, is_milvus_json_decl,
+        is_mintlify_json_decl, is_mise_toml_decl, is_mkinitcpio_conf_decl, is_mocha_json_decl,
+        is_mockoon_json_decl, is_mockserver_json_decl, is_modprobe_conf_decl,
+        is_mountebank_json_decl, is_mutants_toml_decl, is_mypy_ini_decl, is_mysql_cnf_decl,
+        is_named_conf_decl, is_nest_cli_json_decl, is_netlify_toml_decl, is_networks_file_decl,
         is_neutralino_json_decl, is_nextest_toml_decl, is_nftables_decl, is_nginx_conf_decl,
         is_nightwatch_json_decl, is_nixpacks_toml_decl, is_nm_connection_decl, is_npmrc_decl,
         is_nsswitch_conf_decl, is_nx_json_decl, is_nyc_json_decl, is_openapi_json_decl,
@@ -134088,6 +134270,10 @@ mod func_like_line_tests {
         assert!(is_searchspring_json_decl(r#""resultLayout": "grid""#));
         assert!(!is_doofinder_json_decl(r#""filterSummary": ["#));
         assert!(is_searchspring_json_decl(r#""filterSummary": ["#));
+        assert!(!is_doofinder_json_decl(r#""corrected_query": "putter""#));
+        assert!(is_luigisbox_json_decl(r#""corrected_query": "putter""#));
+        assert!(!is_doofinder_json_decl(r#""total_hits": 223"#));
+        assert!(is_luigisbox_json_decl(r#""total_hits": 223"#));
         assert!(line_is_func_like(
             r#""hashid": "d8fdeab7fce96a19d3fc7b0ca7a1e98b""#
         ));
@@ -134182,6 +134368,10 @@ mod func_like_line_tests {
         assert!(is_prettier_json_decl(r#""printWidth": 80"#));
         assert!(!is_searchspring_json_decl(r#""basePath": ".""#));
         assert!(is_karma_json_decl(r#""basePath": ".""#));
+        assert!(!is_searchspring_json_decl(r#""corrected_query": "putter""#));
+        assert!(is_luigisbox_json_decl(r#""corrected_query": "putter""#));
+        assert!(!is_searchspring_json_decl(r#""total_hits": 223"#));
+        assert!(is_luigisbox_json_decl(r#""total_hits": 223"#));
         assert!(line_is_func_like(r#""resultLayout": "grid""#));
         assert!(line_is_func_like(r#""filterSummary": ["#));
         assert!(line_is_func_like(r#""merchandising": {"#));
@@ -134387,6 +134577,10 @@ mod func_like_line_tests {
         assert!(is_prettier_json_decl(r#""printWidth": 80"#));
         assert!(!is_searchspring_json_decl(r#""basePath": ".""#));
         assert!(is_karma_json_decl(r#""basePath": ".""#));
+        assert!(!is_searchspring_json_decl(r#""corrected_query": "putter""#));
+        assert!(is_luigisbox_json_decl(r#""corrected_query": "putter""#));
+        assert!(!is_searchspring_json_decl(r#""total_hits": 223"#));
+        assert!(is_luigisbox_json_decl(r#""total_hits": 223"#));
         assert!(line_is_func_like(r#""resultLayout": "grid""#));
         assert!(line_is_func_like(r#""filterSummary": ["#));
         assert!(line_is_func_like(r#""merchandising": {"#));
@@ -134403,6 +134597,291 @@ mod func_like_line_tests {
         assert!(line_is_func_like(r#""facet_match": true"#));
         assert!(line_is_func_like(r#""search_match": false"#));
         assert!(line_is_func_like(r#""totalPages": 58"#));
+    }
+
+    #[test]
+    fn luigisbox_json_keys_smoke() {
+        assert!(is_luigisbox_json_decl(r#""corrected_query": "putter""#));
+        assert!(is_luigisbox_json_decl(r#""total_hits": 223"#));
+        assert!(is_luigisbox_json_decl(r#""quicksearch_hits": ["#));
+        assert!(is_luigisbox_json_decl(r#""suggested_facet": {"#));
+        assert!(is_luigisbox_json_decl(r#""suggested_url": "/putters""#));
+        assert!(is_luigisbox_json_decl(r#""pin_note": "Sponsored result""#));
+        assert!(is_luigisbox_json_decl(r#""hits_count": 56"#));
+        assert!(is_luigisbox_json_decl(r#""normalized_hits_count": 0.18"#));
+        assert!(is_luigisbox_json_decl(r#""accepted_filters": ["#));
+        assert!(is_luigisbox_json_decl(r#""query_rewrite": {"#));
+        assert!(is_luigisbox_json_decl(
+            r#""next_page": "https://live.luigisbox.com/search?page=2""#
+        ));
+        assert!(is_luigisbox_json_decl(r#""tracker_id": "179075-204259""#));
+        assert!(is_luigisbox_json_decl(r#""quicksearch_types": ["#));
+        assert!(is_luigisbox_json_decl(r#""hit_fields": ["#));
+        assert!(is_luigisbox_json_decl(r#""promoted": true"#));
+        assert!(!is_luigisbox_json_decl(r#""resultLayout": "grid""#));
+        assert!(is_searchspring_json_decl(r#""resultLayout": "grid""#));
+        assert!(!is_luigisbox_json_decl(
+            r#""hashid": "d8fdeab7fce96a19d3fc7b0ca7a1e98b""#
+        ));
+        assert!(is_doofinder_json_decl(
+            r#""hashid": "d8fdeab7fce96a19d3fc7b0ca7a1e98b""#
+        ));
+        assert!(!is_luigisbox_json_decl(r#""recordQueries": ["#));
+        assert!(is_klevu_json_decl(r#""recordQueries": ["#));
+        assert!(!is_luigisbox_json_decl(r#""domain_key": "example_com""#));
+        assert!(is_bloomreach_json_decl(r#""domain_key": "example_com""#));
+        assert!(!is_luigisbox_json_decl(r#""result_sources": {"#));
+        assert!(is_constructor_io_json_decl(r#""result_sources": {"#));
+        assert!(!is_luigisbox_json_decl(r#""searchHub": "default""#));
+        assert!(is_coveo_json_decl(r#""searchHub": "default""#));
+        assert!(!is_luigisbox_json_decl(r#""@odata.count": 10"#));
+        assert!(is_azure_search_json_decl(r#""@odata.count": 10"#));
+        assert!(!is_luigisbox_json_decl(
+            r#""yql": "select * from sources * where true""#
+        ));
+        assert!(is_vespa_json_decl(
+            r#""yql": "select * from sources * where true""#
+        ));
+        assert!(!is_luigisbox_json_decl(r#""searchableAttributes": ["#));
+        assert!(is_marqo_json_decl(r#""searchableAttributes": ["#));
+        assert!(!is_luigisbox_json_decl(r#""vector_column_name": "vec""#));
+        assert!(is_lancedb_json_decl(r#""vector_column_name": "vec""#));
+        assert!(!is_luigisbox_json_decl(r#""annsField": "vec""#));
+        assert!(is_milvus_json_decl(r#""annsField": "vec""#));
+        assert!(!is_luigisbox_json_decl(r#""n_results": 10"#));
+        assert!(is_chroma_json_decl(r#""n_results": 10"#));
+        assert!(!is_luigisbox_json_decl(r#""topK": 10"#));
+        assert!(is_pinecone_json_decl(r#""topK": 10"#));
+        assert!(!is_luigisbox_json_decl(r#""nearVector": {"#));
+        assert!(is_weaviate_json_decl(r#""nearVector": {"#));
+        assert!(!is_luigisbox_json_decl(r#""vectors_count": 100"#));
+        assert!(is_qdrant_json_decl(r#""vectors_count": 100"#));
+        assert!(!is_luigisbox_json_decl(r#""processingTimeMS": 12"#));
+        assert!(is_algolia_json_decl(r#""processingTimeMS": 12"#));
+        assert!(!is_luigisbox_json_decl(r#""processingTimeMs": 12"#));
+        assert!(is_meilisearch_json_decl(r#""processingTimeMs": 12"#));
+        assert!(!is_luigisbox_json_decl(r#""search_time_ms": 12"#));
+        assert!(is_typesense_json_decl(r#""search_time_ms": 12"#));
+        assert!(!is_luigisbox_json_decl(r#""responseHeader": {"#));
+        assert!(is_solr_json_decl(r#""responseHeader": {"#));
+        assert!(!is_luigisbox_json_decl(r#""track_total_hits": true"#));
+        assert!(is_elasticsearch_json_decl(r#""track_total_hits": true"#));
+        assert!(!is_luigisbox_json_decl(r#""printWidth": 80"#));
+        assert!(is_prettier_json_decl(r#""printWidth": 80"#));
+        assert!(!is_luigisbox_json_decl(r#""basePath": ".""#));
+        assert!(is_karma_json_decl(r#""basePath": ".""#));
+        assert!(line_is_func_like(r#""corrected_query": "putter""#));
+        assert!(line_is_func_like(r#""total_hits": 223"#));
+        assert!(line_is_func_like(r#""quicksearch_hits": ["#));
+        assert!(line_is_func_like(r#""suggested_facet": {"#));
+        assert!(line_is_func_like(r#""suggested_url": "/putters""#));
+        assert!(line_is_func_like(r#""pin_note": "Sponsored result""#));
+        assert!(line_is_func_like(r#""hits_count": 56"#));
+        assert!(line_is_func_like(r#""normalized_hits_count": 0.18"#));
+        assert!(line_is_func_like(r#""accepted_filters": ["#));
+        assert!(line_is_func_like(r#""query_rewrite": {"#));
+        assert!(line_is_func_like(
+            r#""next_page": "https://live.luigisbox.com/search?page=2""#
+        ));
+        assert!(line_is_func_like(r#""tracker_id": "179075-204259""#));
+        assert!(line_is_func_like(r#""quicksearch_types": ["#));
+        assert!(line_is_func_like(r#""hit_fields": ["#));
+        assert!(line_is_func_like(r#""promoted": true"#));
+    }
+
+    #[test]
+    fn luigisbox_json_keys_count() {
+        assert!(is_luigisbox_json_decl(r#""corrected_query": "putter""#));
+        assert!(is_luigisbox_json_decl(r#""corrected_query": "putter","#));
+        assert!(is_luigisbox_json_decl(
+            r#""corrected_query": "putter" // c"#
+        ));
+        assert!(!is_luigisbox_json_decl(r#""corrected_query": {"#));
+        assert!(!is_luigisbox_json_decl(r#""corrected_query": """#));
+        assert!(!is_luigisbox_json_decl(r#""corrected_query": true"#));
+        assert!(is_luigisbox_json_decl(r#""total_hits": 0"#));
+        assert!(is_luigisbox_json_decl(r#""total_hits": 223"#));
+        assert!(is_luigisbox_json_decl(r#""total_hits": 223,"#));
+        assert!(is_luigisbox_json_decl(r#""total_hits": 223 // t"#));
+        assert!(!is_luigisbox_json_decl(r#""total_hits": 00"#));
+        assert!(!is_luigisbox_json_decl(r#""total_hits": 01"#));
+        assert!(!is_luigisbox_json_decl(r#""total_hits": true"#));
+        assert!(!is_luigisbox_json_decl(r#""total_hits": {"#));
+        assert!(!is_luigisbox_json_decl(r#""total_hits": "223""#));
+        assert!(is_luigisbox_json_decl(r#""quicksearch_hits": ["#));
+        assert!(is_luigisbox_json_decl(r#""quicksearch_hits": [,"#));
+        assert!(!is_luigisbox_json_decl(r#""quicksearch_hits": {"#));
+        assert!(!is_luigisbox_json_decl(r#""quicksearch_hits": true"#));
+        assert!(is_luigisbox_json_decl(r#""suggested_facet": {"#));
+        assert!(is_luigisbox_json_decl(r#""suggested_facet": {,"#));
+        assert!(!is_luigisbox_json_decl(r#""suggested_facet": ["#));
+        assert!(!is_luigisbox_json_decl(r#""suggested_facet": true"#));
+        assert!(is_luigisbox_json_decl(r#""suggested_url": "/putters""#));
+        assert!(is_luigisbox_json_decl(r#""suggested_url": "/putters","#));
+        assert!(!is_luigisbox_json_decl(r#""suggested_url": {"#));
+        assert!(!is_luigisbox_json_decl(r#""suggested_url": """#));
+        assert!(is_luigisbox_json_decl(r#""pin_note": "Sponsored result""#));
+        assert!(is_luigisbox_json_decl(r#""pin_note": "Sponsored result","#));
+        assert!(!is_luigisbox_json_decl(r#""pin_note": {"#));
+        assert!(!is_luigisbox_json_decl(r#""pin_note": """#));
+        assert!(is_luigisbox_json_decl(r#""hits_count": 0"#));
+        assert!(is_luigisbox_json_decl(r#""hits_count": 56"#));
+        assert!(is_luigisbox_json_decl(r#""hits_count": 56,"#));
+        assert!(!is_luigisbox_json_decl(r#""hits_count": 00"#));
+        assert!(!is_luigisbox_json_decl(r#""hits_count": true"#));
+        assert!(is_luigisbox_json_decl(r#""normalized_hits_count": 0"#));
+        assert!(is_luigisbox_json_decl(r#""normalized_hits_count": 0.18"#));
+        assert!(is_luigisbox_json_decl(r#""normalized_hits_count": 0.18,"#));
+        assert!(is_luigisbox_json_decl(r#""normalized_hits_count": 1"#));
+        assert!(is_luigisbox_json_decl(r#""normalized_hits_count": 1.0"#));
+        assert!(!is_luigisbox_json_decl(r#""normalized_hits_count": 00"#));
+        assert!(!is_luigisbox_json_decl(r#""normalized_hits_count": 01"#));
+        assert!(!is_luigisbox_json_decl(r#""normalized_hits_count": 0."#));
+        assert!(!is_luigisbox_json_decl(r#""normalized_hits_count": .18"#));
+        assert!(!is_luigisbox_json_decl(r#""normalized_hits_count": true"#));
+        assert!(!is_luigisbox_json_decl(r#""normalized_hits_count": {"#));
+        assert!(is_luigisbox_json_decl(r#""accepted_filters": ["#));
+        assert!(is_luigisbox_json_decl(r#""accepted_filters": [,"#));
+        assert!(!is_luigisbox_json_decl(r#""accepted_filters": {"#));
+        assert!(!is_luigisbox_json_decl(r#""accepted_filters": true"#));
+        assert!(is_luigisbox_json_decl(r#""query_rewrite": {"#));
+        assert!(is_luigisbox_json_decl(r#""query_rewrite": {,"#));
+        assert!(!is_luigisbox_json_decl(r#""query_rewrite": ["#));
+        assert!(!is_luigisbox_json_decl(r#""query_rewrite": true"#));
+        assert!(is_luigisbox_json_decl(
+            r#""next_page": "https://live.luigisbox.com/search?page=2""#
+        ));
+        assert!(is_luigisbox_json_decl(
+            r#""next_page": "https://live.luigisbox.com/search?page=2","#
+        ));
+        assert!(!is_luigisbox_json_decl(r#""next_page": {"#));
+        assert!(!is_luigisbox_json_decl(r#""next_page": """#));
+        assert!(is_luigisbox_json_decl(r#""tracker_id": "179075-204259""#));
+        assert!(is_luigisbox_json_decl(r#""tracker_id": "179075-204259","#));
+        assert!(!is_luigisbox_json_decl(r#""tracker_id": {"#));
+        assert!(!is_luigisbox_json_decl(r#""tracker_id": """#));
+        assert!(is_luigisbox_json_decl(r#""quicksearch_types": ["#));
+        assert!(is_luigisbox_json_decl(r#""quicksearch_types": [,"#));
+        assert!(!is_luigisbox_json_decl(r#""quicksearch_types": {"#));
+        assert!(!is_luigisbox_json_decl(r#""quicksearch_types": true"#));
+        assert!(is_luigisbox_json_decl(r#""hit_fields": ["#));
+        assert!(is_luigisbox_json_decl(r#""hit_fields": [,"#));
+        assert!(!is_luigisbox_json_decl(r#""hit_fields": {"#));
+        assert!(!is_luigisbox_json_decl(r#""hit_fields": true"#));
+        assert!(is_luigisbox_json_decl(r#""promoted": true"#));
+        assert!(is_luigisbox_json_decl(r#""promoted": false"#));
+        assert!(is_luigisbox_json_decl(r#""promoted": true,"#));
+        assert!(is_luigisbox_json_decl(r#""promoted": false // p"#));
+        assert!(!is_luigisbox_json_decl(r#""promoted": {"#));
+        assert!(!is_luigisbox_json_decl(r#""promoted": "true""#));
+        assert!(!is_luigisbox_json_decl(r#""promoted": 1"#));
+        // Incomplete keys stay out.
+        assert!(!is_luigisbox_json_decl(r#""corrected_query""#));
+        assert!(!is_luigisbox_json_decl(r#""total_hits""#));
+        assert!(!is_luigisbox_json_decl(r#""quicksearch_hits""#));
+        assert!(!is_luigisbox_json_decl(r#""suggested_facet""#));
+        assert!(!is_luigisbox_json_decl(r#""suggested_url""#));
+        assert!(!is_luigisbox_json_decl(r#""pin_note""#));
+        assert!(!is_luigisbox_json_decl(r#""hits_count""#));
+        assert!(!is_luigisbox_json_decl(r#""normalized_hits_count""#));
+        assert!(!is_luigisbox_json_decl(r#""accepted_filters""#));
+        assert!(!is_luigisbox_json_decl(r#""query_rewrite""#));
+        assert!(!is_luigisbox_json_decl(r#""next_page""#));
+        assert!(!is_luigisbox_json_decl(r#""tracker_id""#));
+        assert!(!is_luigisbox_json_decl(r#""quicksearch_types""#));
+        assert!(!is_luigisbox_json_decl(r#""hit_fields""#));
+        assert!(!is_luigisbox_json_decl(r#""promoted""#));
+        // Generic / neighbouring stay out.
+        assert!(!is_luigisbox_json_decl(
+            r#""$schema": "https://json-schema.org/draft/2020-12/schema""#
+        ));
+        assert!(!is_luigisbox_json_decl(r#""name": "docs""#));
+        assert!(!is_luigisbox_json_decl(r#""id": "idx-1""#));
+        assert!(!is_luigisbox_json_decl(r#""q": "shoes""#));
+        assert!(!is_luigisbox_json_decl(r#""query": "shoes""#));
+        assert!(!is_luigisbox_json_decl(r#""filter": "type eq 'a'""#));
+        assert!(!is_luigisbox_json_decl(r#""filters": ["#));
+        assert!(!is_luigisbox_json_decl(r#""limit": 10"#));
+        assert!(!is_luigisbox_json_decl(r#""offset": 0"#));
+        assert!(!is_luigisbox_json_decl(r#""page": 1"#));
+        assert!(!is_luigisbox_json_decl(r#""results": {"#));
+        assert!(!is_luigisbox_json_decl(r#""facets": ["#));
+        assert!(!is_luigisbox_json_decl(r#""hits": ["#));
+        assert!(!is_luigisbox_json_decl(r#""campaigns": ["#));
+        assert!(!is_luigisbox_json_decl(r#""url": "/item""#));
+        assert!(!is_luigisbox_json_decl(r#""attributes": {"#));
+        assert!(!is_luigisbox_json_decl(r#""type": "item""#));
+        assert!(!is_luigisbox_json_decl(r#""nested": ["#));
+        assert!(!is_luigisbox_json_decl(r#""pinned": true"#));
+        assert!(!is_luigisbox_json_decl(r#""resultLayout": "grid""#));
+        assert!(is_searchspring_json_decl(r#""resultLayout": "grid""#));
+        assert!(!is_luigisbox_json_decl(
+            r#""hashid": "d8fdeab7fce96a19d3fc7b0ca7a1e98b""#
+        ));
+        assert!(is_doofinder_json_decl(
+            r#""hashid": "d8fdeab7fce96a19d3fc7b0ca7a1e98b""#
+        ));
+        assert!(!is_luigisbox_json_decl(r#""recordQueries": ["#));
+        assert!(is_klevu_json_decl(r#""recordQueries": ["#));
+        assert!(!is_luigisbox_json_decl(r#""domain_key": "example_com""#));
+        assert!(is_bloomreach_json_decl(r#""domain_key": "example_com""#));
+        assert!(!is_luigisbox_json_decl(r#""result_sources": {"#));
+        assert!(is_constructor_io_json_decl(r#""result_sources": {"#));
+        assert!(!is_luigisbox_json_decl(r#""searchHub": "default""#));
+        assert!(is_coveo_json_decl(r#""searchHub": "default""#));
+        assert!(!is_luigisbox_json_decl(r#""@odata.count": 10"#));
+        assert!(is_azure_search_json_decl(r#""@odata.count": 10"#));
+        assert!(!is_luigisbox_json_decl(
+            r#""yql": "select * from sources * where true""#
+        ));
+        assert!(is_vespa_json_decl(
+            r#""yql": "select * from sources * where true""#
+        ));
+        assert!(!is_luigisbox_json_decl(r#""searchableAttributes": ["#));
+        assert!(is_marqo_json_decl(r#""searchableAttributes": ["#));
+        assert!(!is_luigisbox_json_decl(r#""vector_column_name": "vec""#));
+        assert!(is_lancedb_json_decl(r#""vector_column_name": "vec""#));
+        assert!(!is_luigisbox_json_decl(r#""annsField": "vec""#));
+        assert!(is_milvus_json_decl(r#""annsField": "vec""#));
+        assert!(!is_luigisbox_json_decl(r#""n_results": 10"#));
+        assert!(is_chroma_json_decl(r#""n_results": 10"#));
+        assert!(!is_luigisbox_json_decl(r#""topK": 10"#));
+        assert!(is_pinecone_json_decl(r#""topK": 10"#));
+        assert!(!is_luigisbox_json_decl(r#""nearVector": {"#));
+        assert!(is_weaviate_json_decl(r#""nearVector": {"#));
+        assert!(!is_luigisbox_json_decl(r#""vectors_count": 100"#));
+        assert!(is_qdrant_json_decl(r#""vectors_count": 100"#));
+        assert!(!is_luigisbox_json_decl(r#""processingTimeMS": 12"#));
+        assert!(is_algolia_json_decl(r#""processingTimeMS": 12"#));
+        assert!(!is_luigisbox_json_decl(r#""processingTimeMs": 12"#));
+        assert!(is_meilisearch_json_decl(r#""processingTimeMs": 12"#));
+        assert!(!is_luigisbox_json_decl(r#""search_time_ms": 12"#));
+        assert!(is_typesense_json_decl(r#""search_time_ms": 12"#));
+        assert!(!is_luigisbox_json_decl(r#""responseHeader": {"#));
+        assert!(is_solr_json_decl(r#""responseHeader": {"#));
+        assert!(!is_luigisbox_json_decl(r#""track_total_hits": true"#));
+        assert!(is_elasticsearch_json_decl(r#""track_total_hits": true"#));
+        assert!(!is_luigisbox_json_decl(r#""printWidth": 80"#));
+        assert!(is_prettier_json_decl(r#""printWidth": 80"#));
+        assert!(!is_luigisbox_json_decl(r#""basePath": ".""#));
+        assert!(is_karma_json_decl(r#""basePath": ".""#));
+        assert!(line_is_func_like(r#""corrected_query": "putter""#));
+        assert!(line_is_func_like(r#""total_hits": 223"#));
+        assert!(line_is_func_like(r#""quicksearch_hits": ["#));
+        assert!(line_is_func_like(r#""suggested_facet": {"#));
+        assert!(line_is_func_like(r#""suggested_url": "/putters""#));
+        assert!(line_is_func_like(r#""pin_note": "Sponsored result""#));
+        assert!(line_is_func_like(r#""hits_count": 56"#));
+        assert!(line_is_func_like(r#""normalized_hits_count": 0.18"#));
+        assert!(line_is_func_like(r#""accepted_filters": ["#));
+        assert!(line_is_func_like(r#""query_rewrite": {"#));
+        assert!(line_is_func_like(
+            r#""next_page": "https://live.luigisbox.com/search?page=2""#
+        ));
+        assert!(line_is_func_like(r#""tracker_id": "179075-204259""#));
+        assert!(line_is_func_like(r#""quicksearch_types": ["#));
+        assert!(line_is_func_like(r#""hit_fields": ["#));
+        assert!(line_is_func_like(r#""promoted": true"#));
     }
 
     #[test]
