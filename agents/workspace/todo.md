@@ -1,3 +1,5 @@
+009 keep: Function List Tweakwise nrofitems/nrofpages/currentpage/filtereditemcount/redirects/facetsettings/attributeurl/urlfilter/searchterm/displaytitle/productkey/recommendationtype/iscollapsed/iscategory/issearch/containsbuckets/containsclickpoints/selectiontype (v0.3.834)
+
 009 keep: Function List Findify t_client/rid/slot/item_ids/variant_item_id/product_url/image_url/targetUrl/compare_at/has_children/availability/stickers/event (v0.3.833)
 
 009 keep: Function List Loop54 relatedQueries/spellingSuggestions/relatedEntities/events/resultsOptions/relatedQueriesOptions/spellingSuggestionsOptions/relatedEntitiesOptions/customData/makesSense/requestId/orderId/entityType/eventType/orderTotal (v0.3.830)
