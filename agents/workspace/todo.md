@@ -1342,3 +1342,5 @@
 009 keep: Function List Fast Simon total_results/facets_completed/sort_by/narrow/pop_products_no_results/total_p/personalized_products/turbolink/storeID/sessionStart/facetRequired/… (v0.3.837)
 
 009 keep: Function List Synerise clientUUID/correlationId/sortByMetric/facetsSize/includeFacets/disableDynamicReranker/searchType/totalResults (v0.3.838)
+
+009 keep: Function List Empathy.co partialResults/promoteds/queryTagging/displayTagging/redirections/relatedTags/nextQueries/spellchecked/modelName (v0.3.840)
