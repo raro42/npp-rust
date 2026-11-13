@@ -32505,6 +32505,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_clerk_io_json_decl(s)
             || is_nosto_json_decl(s)
             || is_fastsimon_json_decl(s)
+            || is_synerise_json_decl(s)
             || is_gomod_decl(s)
             || is_gemfile_decl(s)
             || is_brewfile_decl(s)
@@ -32920,6 +32921,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_clerk_io_json_decl(s)
         || is_nosto_json_decl(s)
         || is_fastsimon_json_decl(s)
+        || is_synerise_json_decl(s)
         || is_gomod_decl(s)
         || is_gemfile_decl(s)
         || is_brewfile_decl(s)
@@ -68262,7 +68264,8 @@ fn nosto_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool {
 /// `"stats"` / `"apiKey"` / `"maxResults"` / `"key"` / `"status"` /
 /// `"result"` / `"count"` / `"language"` / `"term"` / `"uuid"` /
 /// `"cdn"` / `"userToken"` / `"title"` / `"merch"` / `"p"` /
-/// Nosto `"emptyQueryMatchesAll"` / `"exclusionBehaviour"` /
+/// Synerise `"clientUUID"` / `"correlationId"` / `"sortByMetric"` /
+/// `"disableDynamicReranker"` / Nosto `"emptyQueryMatchesAll"` / `"exclusionBehaviour"` /
 /// `"outOfStockBehaviour"` / `"personalizationBoost"` /
 /// `"sessionParams"` / Clerk.io `"product_data"` / `"orderby"` /
 /// `"visitor"` / `"no_exact_match"` / `"longtail"` / Tweakwise
@@ -68490,6 +68493,265 @@ fn fastsimon_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool {
     }
     if key == "facetRequired" && (i != 1 || !matches!(bytes[0], b'0' | b'1' | b'2')) {
         return false;
+    }
+    package_json_tail_ok(&after_colon[i..])
+}
+
+/// Synerise AI Search API JSON keys:
+/// `"clientUUID": "…"`, `"correlationId": "…"`, `"searchId": "…"`,
+/// `"sortByMetric": "TransactionsPopularity"` /
+/// `"PageVisitsPopularity"`, `"sortByGeoPoints": "…"`,
+/// `"filterGeoPoints": [`, `"filterAroundRadius": 0` / `2000`,
+/// `"customFilteredFacets": {`, `"facetsSize": 0` / `2000`,
+/// `"maxValuesPerFacet": 0` / `50`,
+/// `"caseSensitiveFacetValues": true` / `false`,
+/// `"includeFacets": "all"` / `"filtered"` / `"unfiltered"` /
+/// `"none"`, `"facetsOrderBy": "coverage"` / `"name"`,
+/// `"displayAttributes": [`, `"distinctFilter": {`,
+/// `"includeMeta": true` / `false`, `"personalize": true` /
+/// `false`, `"excludeQueryRules": [`,
+/// `"disableQueryClassification": true` / `false`,
+/// `"disableDynamicReranker": true` / `false`,
+/// `"appliedRules": [`, `"personalized": true` / `false`,
+/// `"searchType": "full-text-search"` / `"autocomplete-search"`,
+/// `"totalResults": 0` / `45`.
+/// Optional trailing `,` and `//` / `/*` comment. Incomplete quotes /
+/// missing `:` stay out. Generic `"$schema"` / `"name"` / `"id"` /
+/// `"q"` / `"query"` / `"Query"` / `"filter"` / `"filters"` /
+/// `"Filters"` / `"limit"` / `"offset"` / `"page"` / `"skip"` /
+/// `"take"` / `"rows"` / `"start"` / `"results"` / `"facets"` /
+/// `"hits"` / `"products"` / `"items"` / `"pages"` / `"categories"` /
+/// `"suggestions"` / `"response"` / `"banner"` / `"redirect"` /
+/// `"stats"` / `"apiKey"` / `"maxResults"` / `"key"` / `"status"` /
+/// `"result"` / `"count"` / `"language"` / `"term"` / `"uuid"` /
+/// `"params"` / `"context"` / `"ordering"` / `"sortBy"` /
+/// Yext `"ignoreQueryRules"` / `"experienceKey"` /
+/// `"failedVerticals"` / `"locationBias"` / Fast Simon
+/// `"total_results"` / `"facets_completed"` / `"sort_by"` /
+/// `"turbolink"` / `"storeID"` / Nosto `"emptyQueryMatchesAll"` /
+/// `"exclusionBehaviour"` / `"outOfStockBehaviour"` /
+/// `"personalizationBoost"` / `"sessionParams"` / Clerk.io
+/// `"product_data"` / `"orderby"` / `"visitor"` /
+/// `"no_exact_match"` / `"longtail"` / Tweakwise `"nrofitems"` /
+/// `"nrofpages"` / `"currentpage"` / `"facetsettings"` /
+/// `"selectiontype"` / Findify `"t_client"` / `"rid"` / `"slot"` /
+/// `"item_ids"` / `"variant_item_id"` / `"product_url"` /
+/// `"compare_at"` / Searchanise `"totalItems"` / `"startIndex"` /
+/// `"itemsPerPage"` / `"currentItemCount"` / `"correctedQuery"` /
+/// Unbxd `"searchMetaData"` / `"numberOfProducts"` / `"doctype"` /
+/// Loop54 `"makesSense"` / `"relatedQueries"` / `"resultsOptions"` /
+/// Cludo `"TypedDocuments"` / `"TotalDocument"` / `"QueryId"` /
+/// Voyado Elevate `"primaryList"` / `"sessionKey"` / `"touchpoint"` /
+/// FactFinder `"searchResult"` / `"fieldRoles"` / `"useAsn"` /
+/// Hawksearch `"ClientGuid"` / `"NofResults"` / GroupBy
+/// `"totalRecordCount"` / `"availableNavigation"` / Luigi's Box
+/// `"corrected_query"` / `"total_hits"` / Searchspring
+/// `"resultLayout"` / `"filterSummary"` / `"didYouMean": {` /
+/// Doofinder `"hashid"` / `"query_name"` / Klevu `"recordQueries"` /
+/// Bloomreach Discovery `"domain_key"` / Constructor.io
+/// `"result_sources"` / Coveo `"searchHub"` / Azure AI Search
+/// `"@odata.count"` / Vespa `"yql"` / Marqo
+/// `"searchableAttributes"` / LanceDB `"vector_column_name"` /
+/// Milvus `"annsField"` / Chroma `"n_results"` / Pinecone `"topK"` /
+/// Weaviate `"nearVector"` / Qdrant `"vectors_count"` / Algolia
+/// `"processingTimeMS"` / Meilisearch `"processingTimeMs"` /
+/// Typesense `"search_time_ms"` / Solr `"responseHeader"` /
+/// Elasticsearch `"track_total_hits"` / prettier `"printWidth"` /
+/// karma `"basePath"` stay out.
+/// `"sortByMetric"` / `"includeFacets"` / `"facetsOrderBy"` /
+/// `"searchType"` only match their Synerise enums. String keys require
+/// a non-empty quoted string. Bool keys only match `true` / `false`.
+/// Numeric keys reject leading zeros beyond `0`.
+fn is_synerise_json_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    let Some(rest) = s.strip_prefix('"') else {
+        return false;
+    };
+    let Some(end) = rest.find('"') else {
+        return false;
+    };
+    let key = &rest[..end];
+    if !synerise_json_key_ok(key) {
+        return false;
+    }
+    let after_key = rest[end + 1..].trim_start();
+    let Some(after_colon) = after_key.strip_prefix(':') else {
+        return false;
+    };
+    let after_colon = after_colon.trim_start();
+    synerise_json_value_and_tail_ok(key, after_colon)
+}
+
+fn synerise_json_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "clientUUID"
+            | "correlationId"
+            | "searchId"
+            | "sortByMetric"
+            | "sortByGeoPoints"
+            | "filterGeoPoints"
+            | "filterAroundRadius"
+            | "customFilteredFacets"
+            | "facetsSize"
+            | "maxValuesPerFacet"
+            | "caseSensitiveFacetValues"
+            | "includeFacets"
+            | "facetsOrderBy"
+            | "displayAttributes"
+            | "distinctFilter"
+            | "includeMeta"
+            | "personalize"
+            | "excludeQueryRules"
+            | "disableQueryClassification"
+            | "disableDynamicReranker"
+            | "appliedRules"
+            | "personalized"
+            | "searchType"
+            | "totalResults"
+    )
+}
+
+fn synerise_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool {
+    let bytes = after_colon.as_bytes();
+    let Some(first) = bytes.first().copied() else {
+        return false;
+    };
+    match first {
+        b'{' => {
+            if !matches!(key, "customFilteredFacets" | "distinctFilter") {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[1..])
+        }
+        b'[' => {
+            if !matches!(
+                key,
+                "filterGeoPoints" | "displayAttributes" | "excludeQueryRules" | "appliedRules"
+            ) {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[1..])
+        }
+        b'"' => match key {
+            "sortByMetric" => synerise_json_sort_by_metric_and_tail_ok(after_colon),
+            "includeFacets" => synerise_json_include_facets_and_tail_ok(after_colon),
+            "facetsOrderBy" => synerise_json_facets_order_by_and_tail_ok(after_colon),
+            "searchType" => synerise_json_search_type_and_tail_ok(after_colon),
+            "clientUUID" | "correlationId" | "searchId" | "sortByGeoPoints" => {
+                synerise_json_nonempty_string_and_tail_ok(after_colon)
+            }
+            _ => false,
+        },
+        b't' | b'f' => synerise_json_bool_and_tail_ok(key, after_colon),
+        b'0'..=b'9' => synerise_json_uint_and_tail_ok(key, after_colon),
+        _ => false,
+    }
+}
+
+fn synerise_json_nonempty_string_and_tail_ok(after_colon: &str) -> bool {
+    let rest = &after_colon[1..];
+    let Some(end) = rest.find('"') else {
+        return false;
+    };
+    let value = &rest[..end];
+    if value.is_empty() || value.contains('\n') {
+        return false;
+    }
+    package_json_tail_ok(&rest[end + 1..])
+}
+
+fn synerise_json_sort_by_metric_and_tail_ok(after_colon: &str) -> bool {
+    let rest = &after_colon[1..];
+    let Some(end) = rest.find('"') else {
+        return false;
+    };
+    let value = &rest[..end];
+    if !matches!(value, "TransactionsPopularity" | "PageVisitsPopularity") {
+        return false;
+    }
+    package_json_tail_ok(&rest[end + 1..])
+}
+
+fn synerise_json_include_facets_and_tail_ok(after_colon: &str) -> bool {
+    let rest = &after_colon[1..];
+    let Some(end) = rest.find('"') else {
+        return false;
+    };
+    let value = &rest[..end];
+    if !matches!(value, "all" | "filtered" | "unfiltered" | "none") {
+        return false;
+    }
+    package_json_tail_ok(&rest[end + 1..])
+}
+
+fn synerise_json_facets_order_by_and_tail_ok(after_colon: &str) -> bool {
+    let rest = &after_colon[1..];
+    let Some(end) = rest.find('"') else {
+        return false;
+    };
+    let value = &rest[..end];
+    if !matches!(value, "coverage" | "name") {
+        return false;
+    }
+    package_json_tail_ok(&rest[end + 1..])
+}
+
+fn synerise_json_search_type_and_tail_ok(after_colon: &str) -> bool {
+    let rest = &after_colon[1..];
+    let Some(end) = rest.find('"') else {
+        return false;
+    };
+    let value = &rest[..end];
+    if !matches!(value, "full-text-search" | "autocomplete-search") {
+        return false;
+    }
+    package_json_tail_ok(&rest[end + 1..])
+}
+
+fn synerise_json_bool_and_tail_ok(key: &str, after_colon: &str) -> bool {
+    if !matches!(
+        key,
+        "caseSensitiveFacetValues"
+            | "includeMeta"
+            | "personalize"
+            | "disableQueryClassification"
+            | "disableDynamicReranker"
+            | "personalized"
+    ) {
+        return false;
+    }
+    let rest = if let Some(rest) = after_colon.strip_prefix("true") {
+        rest
+    } else if let Some(rest) = after_colon.strip_prefix("false") {
+        rest
+    } else {
+        return false;
+    };
+    package_json_tail_ok(rest)
+}
+
+fn synerise_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool {
+    if !matches!(
+        key,
+        "filterAroundRadius" | "facetsSize" | "maxValuesPerFacet" | "totalResults"
+    ) {
+        return false;
+    }
+    let bytes = after_colon.as_bytes();
+    let mut i = 0usize;
+    if i >= bytes.len() || !bytes[i].is_ascii_digit() {
+        return false;
+    }
+    if bytes[i] == b'0' {
+        i += 1;
+        if i < bytes.len() && bytes[i].is_ascii_digit() {
+            return false;
+        }
+    } else {
+        while i < bytes.len() && bytes[i].is_ascii_digit() {
+            i += 1;
+        }
     }
     package_json_tail_ok(&after_colon[i..])
 }
@@ -99161,22 +99423,22 @@ mod func_like_line_tests {
         is_sqlfluff_ini_decl, is_ssh_config_decl, is_sssd_conf_decl,
         is_stoplight_elements_json_decl, is_stryker_json_decl, is_stylelint_json_decl,
         is_subuid_subgid_decl, is_sudoers_decl, is_supabase_toml_decl, is_supervisord_conf_decl,
-        is_swagger_ui_json_decl, is_swc_json_decl, is_syncpack_json_decl, is_sysctl_conf_decl,
-        is_syslog_ng_decl, is_systemd_networkd_decl, is_systemd_unit_decl, is_sysusers_d_decl,
-        is_tap_json_decl, is_taplo_toml_decl, is_tauri_json_decl, is_telegraf_toml_decl,
-        is_tempo_json_decl, is_testcafe_json_decl, is_thunder_client_json_decl, is_tmpfiles_d_decl,
-        is_towncrier_ini_decl, is_tox_ini_decl, is_trunk_toml_decl, is_tsconfig_json_decl,
-        is_turbo_json_decl, is_tweakwise_json_decl, is_ty_toml_decl, is_typedoc_json_decl,
-        is_typesense_json_decl, is_typos_toml_decl, is_udev_rule_decl, is_unbound_nsd_conf_decl,
-        is_unbxd_json_decl, is_uniffi_toml_decl, is_unimport_ini_decl, is_uv_toml_decl,
-        is_vconsole_conf_decl, is_vector_toml_decl, is_vercel_json_decl, is_versioneer_ini_decl,
-        is_versionrc_json_decl, is_vespa_json_decl, is_vitest_json_decl,
-        is_voyado_elevate_json_decl, is_vscode_launch_json_decl, is_vscode_tasks_json_decl,
-        is_vulture_ini_decl, is_wails_json_decl, is_wdio_json_decl, is_weaviate_json_decl,
-        is_webextension_manifest_json_decl, is_wireguard_config_decl, is_wiremock_json_decl,
-        is_wrangler_toml_decl, is_xmake_decl, is_xorg_conf_decl, is_yaak_json_decl,
-        is_yapf_ini_decl, is_yarnrc_yml_decl, is_yext_json_decl, is_yum_repo_decl,
-        is_zest_releaser_ini_decl, is_zipkin_json_decl, line_is_func_like,
+        is_swagger_ui_json_decl, is_swc_json_decl, is_syncpack_json_decl, is_synerise_json_decl,
+        is_sysctl_conf_decl, is_syslog_ng_decl, is_systemd_networkd_decl, is_systemd_unit_decl,
+        is_sysusers_d_decl, is_tap_json_decl, is_taplo_toml_decl, is_tauri_json_decl,
+        is_telegraf_toml_decl, is_tempo_json_decl, is_testcafe_json_decl,
+        is_thunder_client_json_decl, is_tmpfiles_d_decl, is_towncrier_ini_decl, is_tox_ini_decl,
+        is_trunk_toml_decl, is_tsconfig_json_decl, is_turbo_json_decl, is_tweakwise_json_decl,
+        is_ty_toml_decl, is_typedoc_json_decl, is_typesense_json_decl, is_typos_toml_decl,
+        is_udev_rule_decl, is_unbound_nsd_conf_decl, is_unbxd_json_decl, is_uniffi_toml_decl,
+        is_unimport_ini_decl, is_uv_toml_decl, is_vconsole_conf_decl, is_vector_toml_decl,
+        is_vercel_json_decl, is_versioneer_ini_decl, is_versionrc_json_decl, is_vespa_json_decl,
+        is_vitest_json_decl, is_voyado_elevate_json_decl, is_vscode_launch_json_decl,
+        is_vscode_tasks_json_decl, is_vulture_ini_decl, is_wails_json_decl, is_wdio_json_decl,
+        is_weaviate_json_decl, is_webextension_manifest_json_decl, is_wireguard_config_decl,
+        is_wiremock_json_decl, is_wrangler_toml_decl, is_xmake_decl, is_xorg_conf_decl,
+        is_yaak_json_decl, is_yapf_ini_decl, is_yarnrc_yml_decl, is_yext_json_decl,
+        is_yum_repo_decl, is_zest_releaser_ini_decl, is_zipkin_json_decl, line_is_func_like,
     };
 
     #[test]
@@ -141571,6 +141833,11 @@ mod func_like_line_tests {
         ));
         assert!(is_fastsimon_json_decl(r#""disableTurbolinks": true"#));
         assert!(is_fastsimon_json_decl(r#""searchPersonalization": false"#));
+        assert!(!is_fastsimon_json_decl(r#""clientUUID": "abc-123""#));
+        assert!(!is_fastsimon_json_decl(
+            r#""sortByMetric": "TransactionsPopularity""#
+        ));
+        assert!(!is_fastsimon_json_decl(r#""disableDynamicReranker": true"#));
         assert!(!is_fastsimon_json_decl(r#""emptyQueryMatchesAll": true"#));
         assert!(!is_fastsimon_json_decl(r#""product_data": {"#));
         assert!(!is_fastsimon_json_decl(r#""nrofitems": 128"#));
@@ -141824,12 +142091,372 @@ mod func_like_line_tests {
         assert!(is_prettier_json_decl(r#""printWidth": 80"#));
         assert!(!is_fastsimon_json_decl(r#""basePath": ".""#));
         assert!(is_karma_json_decl(r#""basePath": ".""#));
+        assert!(!is_fastsimon_json_decl(r#""clientUUID": "abc-123""#));
+        assert!(is_synerise_json_decl(r#""clientUUID": "abc-123""#));
+        assert!(!is_fastsimon_json_decl(
+            r#""sortByMetric": "TransactionsPopularity""#
+        ));
+        assert!(is_synerise_json_decl(
+            r#""sortByMetric": "TransactionsPopularity""#
+        ));
+        assert!(!is_fastsimon_json_decl(r#""disableDynamicReranker": true"#));
+        assert!(is_synerise_json_decl(r#""disableDynamicReranker": true"#));
+        assert!(!is_fastsimon_json_decl(r#""includeMeta": false"#));
+        assert!(is_synerise_json_decl(r#""includeMeta": false"#));
         assert!(line_is_func_like(r#""total_results": 223"#));
         assert!(line_is_func_like(r#""facets_completed": true"#));
         assert!(line_is_func_like(r#""sort_by": "relevency""#));
         assert!(line_is_func_like(r#""turbolink": "/search""#));
         assert!(line_is_func_like(r#""storeID": 123"#));
         assert!(line_is_func_like(r#""facetRequired": 2"#));
+    }
+
+    #[test]
+    fn synerise_json_keys_smoke() {
+        assert!(is_synerise_json_decl(r#""clientUUID": "abc-123""#));
+        assert!(is_synerise_json_decl(
+            r#""correlationId": "ef3f2774b3c14ff3fb3c892c4da2d4ae""#
+        ));
+        assert!(is_synerise_json_decl(r#""searchId": "legacy-id""#));
+        assert!(is_synerise_json_decl(
+            r#""sortByMetric": "TransactionsPopularity""#
+        ));
+        assert!(is_synerise_json_decl(
+            r#""sortByMetric": "PageVisitsPopularity""#
+        ));
+        assert!(is_synerise_json_decl(
+            r#""sortByGeoPoints": "34.052235,-118.243685""#
+        ));
+        assert!(is_synerise_json_decl(r#""filterGeoPoints": ["#));
+        assert!(is_synerise_json_decl(r#""filterAroundRadius": 2000"#));
+        assert!(is_synerise_json_decl(r#""customFilteredFacets": {"#));
+        assert!(is_synerise_json_decl(r#""facetsSize": 2000"#));
+        assert!(is_synerise_json_decl(r#""maxValuesPerFacet": 50"#));
+        assert!(is_synerise_json_decl(
+            r#""caseSensitiveFacetValues": false"#
+        ));
+        assert!(is_synerise_json_decl(r#""includeFacets": "all""#));
+        assert!(is_synerise_json_decl(r#""includeFacets": "filtered""#));
+        assert!(is_synerise_json_decl(r#""includeFacets": "unfiltered""#));
+        assert!(is_synerise_json_decl(r#""includeFacets": "none""#));
+        assert!(is_synerise_json_decl(r#""facetsOrderBy": "coverage""#));
+        assert!(is_synerise_json_decl(r#""facetsOrderBy": "name""#));
+        assert!(is_synerise_json_decl(r#""displayAttributes": ["#));
+        assert!(is_synerise_json_decl(r#""distinctFilter": {"#));
+        assert!(is_synerise_json_decl(r#""includeMeta": true"#));
+        assert!(is_synerise_json_decl(r#""personalize": true"#));
+        assert!(is_synerise_json_decl(r#""excludeQueryRules": ["#));
+        assert!(is_synerise_json_decl(
+            r#""disableQueryClassification": false"#
+        ));
+        assert!(is_synerise_json_decl(r#""disableDynamicReranker": true"#));
+        assert!(is_synerise_json_decl(r#""appliedRules": ["#));
+        assert!(is_synerise_json_decl(r#""personalized": true"#));
+        assert!(is_synerise_json_decl(r#""searchType": "full-text-search""#));
+        assert!(is_synerise_json_decl(
+            r#""searchType": "autocomplete-search""#
+        ));
+        assert!(is_synerise_json_decl(r#""totalResults": 45"#));
+        assert!(!is_synerise_json_decl(r#""total_results": 223"#));
+        assert!(is_fastsimon_json_decl(r#""total_results": 223"#));
+        assert!(!is_synerise_json_decl(r#""facets_completed": true"#));
+        assert!(is_fastsimon_json_decl(r#""facets_completed": true"#));
+        assert!(!is_synerise_json_decl(r#""emptyQueryMatchesAll": true"#));
+        assert!(is_nosto_json_decl(r#""emptyQueryMatchesAll": true"#));
+        assert!(!is_synerise_json_decl(r#""product_data": {"#));
+        assert!(is_clerk_io_json_decl(r#""product_data": {"#));
+        assert!(!is_synerise_json_decl(r#""nrofitems": 128"#));
+        assert!(is_tweakwise_json_decl(r#""nrofitems": 128"#));
+        assert!(!is_synerise_json_decl(r#""t_client": 1699900000000"#));
+        assert!(is_findify_json_decl(r#""t_client": 1699900000000"#));
+        assert!(!is_synerise_json_decl(r#""totalItems": 100"#));
+        assert!(is_searchanise_json_decl(r#""totalItems": 100"#));
+        assert!(!is_synerise_json_decl(r#""searchMetaData": {"#));
+        assert!(is_unbxd_json_decl(r#""searchMetaData": {"#));
+        assert!(!is_synerise_json_decl(r#""makesSense": true"#));
+        assert!(is_loop54_json_decl(r#""makesSense": true"#));
+        assert!(!is_synerise_json_decl(r#""experienceKey": "answers""#));
+        assert!(is_yext_json_decl(r#""experienceKey": "answers""#));
+        assert!(!is_synerise_json_decl(r#""ignoreQueryRules": true"#));
+        assert!(is_yext_json_decl(r#""ignoreQueryRules": true"#));
+        assert!(!is_synerise_json_decl(r#""TypedDocuments": ["#));
+        assert!(is_cludo_json_decl(r#""TypedDocuments": ["#));
+        assert!(!is_synerise_json_decl(r#""primaryList": {"#));
+        assert!(is_voyado_elevate_json_decl(r#""primaryList": {"#));
+        assert!(!is_synerise_json_decl(r#""searchResult": {"#));
+        assert!(is_factfinder_json_decl(r#""searchResult": {"#));
+        assert!(!is_synerise_json_decl(r#""NofResults": 2400"#));
+        assert!(is_hawksearch_json_decl(r#""NofResults": 2400"#));
+        assert!(!is_synerise_json_decl(r#""totalRecordCount": 128"#));
+        assert!(is_groupby_json_decl(r#""totalRecordCount": 128"#));
+        assert!(!is_synerise_json_decl(r#""corrected_query": "putter""#));
+        assert!(is_luigisbox_json_decl(r#""corrected_query": "putter""#));
+        assert!(!is_synerise_json_decl(r#""resultLayout": "grid""#));
+        assert!(is_searchspring_json_decl(r#""resultLayout": "grid""#));
+        assert!(!is_synerise_json_decl(r#""hashid": "abc""#));
+        assert!(is_doofinder_json_decl(r#""hashid": "abc""#));
+        assert!(!is_synerise_json_decl(r#""recordQueries": ["#));
+        assert!(is_klevu_json_decl(r#""recordQueries": ["#));
+        assert!(!is_synerise_json_decl(r#""domain_key": "example_com""#));
+        assert!(is_bloomreach_json_decl(r#""domain_key": "example_com""#));
+        assert!(!is_synerise_json_decl(r#""result_sources": {"#));
+        assert!(is_constructor_io_json_decl(r#""result_sources": {"#));
+        assert!(!is_synerise_json_decl(r#""searchHub": "default""#));
+        assert!(is_coveo_json_decl(r#""searchHub": "default""#));
+        assert!(!is_synerise_json_decl(r#""@odata.count": 10"#));
+        assert!(is_azure_search_json_decl(r#""@odata.count": 10"#));
+        assert!(!is_synerise_json_decl(r#""yql": "select * from sources *"#));
+        assert!(is_vespa_json_decl(
+            r#""yql": "select * from sources * where true""#
+        ));
+        assert!(!is_synerise_json_decl(r#""searchableAttributes": ["#));
+        assert!(is_marqo_json_decl(r#""searchableAttributes": ["#));
+        assert!(!is_synerise_json_decl(r#""vector_column_name": "vec""#));
+        assert!(is_lancedb_json_decl(r#""vector_column_name": "vec""#));
+        assert!(!is_synerise_json_decl(r#""annsField": "vec""#));
+        assert!(is_milvus_json_decl(r#""annsField": "vec""#));
+        assert!(!is_synerise_json_decl(r#""n_results": 10"#));
+        assert!(is_chroma_json_decl(r#""n_results": 10"#));
+        assert!(!is_synerise_json_decl(r#""topK": 10"#));
+        assert!(is_pinecone_json_decl(r#""topK": 10"#));
+        assert!(!is_synerise_json_decl(r#""nearVector": {"#));
+        assert!(is_weaviate_json_decl(r#""nearVector": {"#));
+        assert!(!is_synerise_json_decl(r#""vectors_count": 100"#));
+        assert!(is_qdrant_json_decl(r#""vectors_count": 100"#));
+        assert!(!is_synerise_json_decl(r#""processingTimeMS": 12"#));
+        assert!(is_algolia_json_decl(r#""processingTimeMS": 12"#));
+        assert!(!is_synerise_json_decl(r#""processingTimeMs": 12"#));
+        assert!(is_meilisearch_json_decl(r#""processingTimeMs": 12"#));
+        assert!(!is_synerise_json_decl(r#""search_time_ms": 12"#));
+        assert!(is_typesense_json_decl(r#""search_time_ms": 12"#));
+        assert!(!is_synerise_json_decl(r#""responseHeader": {"#));
+        assert!(is_solr_json_decl(r#""responseHeader": {"#));
+        assert!(!is_synerise_json_decl(r#""track_total_hits": true"#));
+        assert!(is_elasticsearch_json_decl(r#""track_total_hits": true"#));
+        assert!(!is_synerise_json_decl(r#""printWidth": 80"#));
+        assert!(is_prettier_json_decl(r#""printWidth": 80"#));
+        assert!(!is_synerise_json_decl(r#""basePath": ".""#));
+        assert!(is_karma_json_decl(r#""basePath": ".""#));
+        assert!(!is_synerise_json_decl(r#""includeMetadata": true"#));
+        assert!(is_pinecone_json_decl(r#""includeMetadata": true"#));
+        assert!(!is_synerise_json_decl(r#""includeMetaData": true"#));
+    }
+
+    #[test]
+    fn synerise_json_keys_count() {
+        assert!(is_synerise_json_decl(r#""clientUUID": "abc-123""#));
+        assert!(is_synerise_json_decl(r#""clientUUID": "abc-123","#));
+        assert!(is_synerise_json_decl(r#""clientUUID": "abc-123" // c"#));
+        assert!(!is_synerise_json_decl(r#""clientUUID": """#));
+        assert!(!is_synerise_json_decl(r#""clientUUID": true"#));
+        assert!(!is_synerise_json_decl(r#""clientUUID": ["#));
+        assert!(is_synerise_json_decl(
+            r#""correlationId": "ef3f2774b3c14ff3fb3c892c4da2d4ae""#
+        ));
+        assert!(!is_synerise_json_decl(r#""correlationId": """#));
+        assert!(is_synerise_json_decl(r#""searchId": "legacy-id""#));
+        assert!(!is_synerise_json_decl(r#""searchId": {"#));
+        assert!(is_synerise_json_decl(
+            r#""sortByMetric": "TransactionsPopularity""#
+        ));
+        assert!(is_synerise_json_decl(
+            r#""sortByMetric": "PageVisitsPopularity""#
+        ));
+        assert!(is_synerise_json_decl(
+            r#""sortByMetric": "TransactionsPopularity","#
+        ));
+        assert!(!is_synerise_json_decl(r#""sortByMetric": "popularity""#));
+        assert!(!is_synerise_json_decl(
+            r#""sortByMetric": "TRANSACTIONSPOPULARITY""#
+        ));
+        assert!(!is_synerise_json_decl(r#""sortByMetric": {"#));
+        assert!(is_synerise_json_decl(
+            r#""sortByGeoPoints": "34.052235,-118.243685""#
+        ));
+        assert!(!is_synerise_json_decl(r#""sortByGeoPoints": """#));
+        assert!(!is_synerise_json_decl(r#""sortByGeoPoints": ["#));
+        assert!(is_synerise_json_decl(r#""filterGeoPoints": ["#));
+        assert!(is_synerise_json_decl(r#""filterGeoPoints": [ // c"#));
+        assert!(!is_synerise_json_decl(r#""filterGeoPoints": {"#));
+        assert!(!is_synerise_json_decl(r#""filterGeoPoints": "x""#));
+        assert!(is_synerise_json_decl(r#""filterAroundRadius": 0"#));
+        assert!(is_synerise_json_decl(r#""filterAroundRadius": 2000"#));
+        assert!(!is_synerise_json_decl(r#""filterAroundRadius": 02000"#));
+        assert!(!is_synerise_json_decl(r#""filterAroundRadius": true"#));
+        assert!(is_synerise_json_decl(r#""customFilteredFacets": {"#));
+        assert!(!is_synerise_json_decl(r#""customFilteredFacets": ["#));
+        assert!(is_synerise_json_decl(r#""facetsSize": 0"#));
+        assert!(is_synerise_json_decl(r#""facetsSize": 2000"#));
+        assert!(!is_synerise_json_decl(r#""facetsSize": 02000"#));
+        assert!(is_synerise_json_decl(r#""maxValuesPerFacet": 50"#));
+        assert!(!is_synerise_json_decl(r#""maxValuesPerFacet": ["#));
+        assert!(is_synerise_json_decl(r#""caseSensitiveFacetValues": true"#));
+        assert!(is_synerise_json_decl(
+            r#""caseSensitiveFacetValues": false"#
+        ));
+        assert!(!is_synerise_json_decl(r#""caseSensitiveFacetValues": 1"#));
+        assert!(is_synerise_json_decl(r#""includeFacets": "all""#));
+        assert!(is_synerise_json_decl(r#""includeFacets": "filtered""#));
+        assert!(is_synerise_json_decl(r#""includeFacets": "unfiltered""#));
+        assert!(is_synerise_json_decl(r#""includeFacets": "none""#));
+        assert!(!is_synerise_json_decl(r#""includeFacets": "ALL""#));
+        assert!(!is_synerise_json_decl(r#""includeFacets": "both""#));
+        assert!(is_synerise_json_decl(r#""facetsOrderBy": "coverage""#));
+        assert!(is_synerise_json_decl(r#""facetsOrderBy": "name""#));
+        assert!(!is_synerise_json_decl(r#""facetsOrderBy": "score""#));
+        assert!(is_synerise_json_decl(r#""displayAttributes": ["#));
+        assert!(!is_synerise_json_decl(r#""displayAttributes": {"#));
+        assert!(is_synerise_json_decl(r#""distinctFilter": {"#));
+        assert!(!is_synerise_json_decl(r#""distinctFilter": "color""#));
+        assert!(is_synerise_json_decl(r#""includeMeta": true"#));
+        assert!(is_synerise_json_decl(r#""includeMeta": false,"#));
+        assert!(!is_synerise_json_decl(r#""includeMeta": 1"#));
+        assert!(!is_synerise_json_decl(r#""includeMetadata": true"#));
+        assert!(is_synerise_json_decl(r#""personalize": true"#));
+        assert!(is_synerise_json_decl(r#""personalize": false"#));
+        assert!(!is_synerise_json_decl(r#""personalize": "yes""#));
+        assert!(is_synerise_json_decl(r#""excludeQueryRules": ["#));
+        assert!(!is_synerise_json_decl(r#""excludeQueryRules": {"#));
+        assert!(is_synerise_json_decl(
+            r#""disableQueryClassification": true"#
+        ));
+        assert!(is_synerise_json_decl(
+            r#""disableQueryClassification": false"#
+        ));
+        assert!(!is_synerise_json_decl(r#""disableQueryClassification": 0"#));
+        assert!(is_synerise_json_decl(r#""disableDynamicReranker": true"#));
+        assert!(is_synerise_json_decl(r#""disableDynamicReranker": false"#));
+        assert!(!is_synerise_json_decl(
+            r#""disableDynamicReranker": "true""#
+        ));
+        assert!(is_synerise_json_decl(r#""appliedRules": ["#));
+        assert!(!is_synerise_json_decl(r#""appliedRules": {"#));
+        assert!(is_synerise_json_decl(r#""personalized": true"#));
+        assert!(is_synerise_json_decl(r#""personalized": false"#));
+        assert!(!is_synerise_json_decl(r#""personalized": 1"#));
+        assert!(is_synerise_json_decl(r#""searchType": "full-text-search""#));
+        assert!(is_synerise_json_decl(
+            r#""searchType": "autocomplete-search""#
+        ));
+        assert!(!is_synerise_json_decl(r#""searchType": "fulltext""#));
+        assert!(!is_synerise_json_decl(
+            r#""searchType": "FULL-TEXT-SEARCH""#
+        ));
+        assert!(is_synerise_json_decl(r#""totalResults": 0"#));
+        assert!(is_synerise_json_decl(r#""totalResults": 45"#));
+        assert!(is_synerise_json_decl(r#""totalResults": 45,"#));
+        assert!(!is_synerise_json_decl(r#""totalResults": 045"#));
+        assert!(!is_synerise_json_decl(r#""totalResults": true"#));
+        assert!(!is_synerise_json_decl(r#""totalResults": ["#));
+        assert!(!is_synerise_json_decl(r#""clientUUID""#));
+        assert!(!is_synerise_json_decl(r#""sortByMetric""#));
+        assert!(!is_synerise_json_decl(
+            r#""$schema": "https://example.com""#
+        ));
+        assert!(!is_synerise_json_decl(r#""name": "docs""#));
+        assert!(!is_synerise_json_decl(r#""q": "shoes""#));
+        assert!(!is_synerise_json_decl(r#""Query": "shoes""#));
+        assert!(!is_synerise_json_decl(r#""query": "shoes""#));
+        assert!(!is_synerise_json_decl(r#""filters": ["#));
+        assert!(!is_synerise_json_decl(r#""Filters": {"#));
+        assert!(!is_synerise_json_decl(r#""items": ["#));
+        assert!(!is_synerise_json_decl(r#""facets": ["#));
+        assert!(!is_synerise_json_decl(r#""term": "shoes""#));
+        assert!(!is_synerise_json_decl(r#""uuid": "abc""#));
+        assert!(!is_synerise_json_decl(r#""params": {"#));
+        assert!(!is_synerise_json_decl(r#""context": ["#));
+        assert!(!is_synerise_json_decl(r#""ordering": "desc""#));
+        assert!(!is_synerise_json_decl(r#""sortBy": "price""#));
+        assert!(!is_synerise_json_decl(r#""page": 1"#));
+        assert!(!is_synerise_json_decl(r#""apiKey": "secret""#));
+        assert!(!is_synerise_json_decl(r#""maxResults": 10"#));
+        assert!(!is_synerise_json_decl(r#""ignoreQueryRules": true"#));
+        assert!(is_yext_json_decl(r#""ignoreQueryRules": true"#));
+        assert!(!is_synerise_json_decl(r#""total_results": 223"#));
+        assert!(is_fastsimon_json_decl(r#""total_results": 223"#));
+        assert!(!is_synerise_json_decl(r#""emptyQueryMatchesAll": true"#));
+        assert!(is_nosto_json_decl(r#""emptyQueryMatchesAll": true"#));
+        assert!(!is_synerise_json_decl(r#""product_data": {"#));
+        assert!(is_clerk_io_json_decl(r#""product_data": {"#));
+        assert!(!is_synerise_json_decl(r#""nrofitems": 128"#));
+        assert!(is_tweakwise_json_decl(r#""nrofitems": 128"#));
+        assert!(!is_synerise_json_decl(r#""t_client": 1699900000000"#));
+        assert!(is_findify_json_decl(r#""t_client": 1699900000000"#));
+        assert!(!is_synerise_json_decl(r#""totalItems": 100"#));
+        assert!(is_searchanise_json_decl(r#""totalItems": 100"#));
+        assert!(!is_synerise_json_decl(r#""searchMetaData": {"#));
+        assert!(is_unbxd_json_decl(r#""searchMetaData": {"#));
+        assert!(!is_synerise_json_decl(r#""makesSense": true"#));
+        assert!(is_loop54_json_decl(r#""makesSense": true"#));
+        assert!(!is_synerise_json_decl(r#""experienceKey": "answers""#));
+        assert!(is_yext_json_decl(r#""experienceKey": "answers""#));
+        assert!(!is_synerise_json_decl(r#""TypedDocuments": ["#));
+        assert!(is_cludo_json_decl(r#""TypedDocuments": ["#));
+        assert!(!is_synerise_json_decl(r#""primaryList": {"#));
+        assert!(is_voyado_elevate_json_decl(r#""primaryList": {"#));
+        assert!(!is_synerise_json_decl(r#""searchResult": {"#));
+        assert!(is_factfinder_json_decl(r#""searchResult": {"#));
+        assert!(!is_synerise_json_decl(r#""NofResults": 2400"#));
+        assert!(is_hawksearch_json_decl(r#""NofResults": 2400"#));
+        assert!(!is_synerise_json_decl(r#""totalRecordCount": 128"#));
+        assert!(is_groupby_json_decl(r#""totalRecordCount": 128"#));
+        assert!(!is_synerise_json_decl(r#""corrected_query": "putter""#));
+        assert!(is_luigisbox_json_decl(r#""corrected_query": "putter""#));
+        assert!(!is_synerise_json_decl(r#""resultLayout": "grid""#));
+        assert!(is_searchspring_json_decl(r#""resultLayout": "grid""#));
+        assert!(!is_synerise_json_decl(r#""hashid": "abc""#));
+        assert!(is_doofinder_json_decl(r#""hashid": "abc""#));
+        assert!(!is_synerise_json_decl(r#""recordQueries": ["#));
+        assert!(is_klevu_json_decl(r#""recordQueries": ["#));
+        assert!(!is_synerise_json_decl(r#""domain_key": "example_com""#));
+        assert!(is_bloomreach_json_decl(r#""domain_key": "example_com""#));
+        assert!(!is_synerise_json_decl(r#""result_sources": {"#));
+        assert!(is_constructor_io_json_decl(r#""result_sources": {"#));
+        assert!(!is_synerise_json_decl(r#""searchHub": "default""#));
+        assert!(is_coveo_json_decl(r#""searchHub": "default""#));
+        assert!(!is_synerise_json_decl(r#""@odata.count": 10"#));
+        assert!(is_azure_search_json_decl(r#""@odata.count": 10"#));
+        assert!(!is_synerise_json_decl(
+            r#""yql": "select * from sources * where true""#
+        ));
+        assert!(is_vespa_json_decl(
+            r#""yql": "select * from sources * where true""#
+        ));
+        assert!(!is_synerise_json_decl(r#""searchableAttributes": ["#));
+        assert!(is_marqo_json_decl(r#""searchableAttributes": ["#));
+        assert!(!is_synerise_json_decl(r#""vector_column_name": "vec""#));
+        assert!(is_lancedb_json_decl(r#""vector_column_name": "vec""#));
+        assert!(!is_synerise_json_decl(r#""annsField": "vec""#));
+        assert!(is_milvus_json_decl(r#""annsField": "vec""#));
+        assert!(!is_synerise_json_decl(r#""n_results": 10"#));
+        assert!(is_chroma_json_decl(r#""n_results": 10"#));
+        assert!(!is_synerise_json_decl(r#""topK": 10"#));
+        assert!(is_pinecone_json_decl(r#""topK": 10"#));
+        assert!(!is_synerise_json_decl(r#""nearVector": {"#));
+        assert!(is_weaviate_json_decl(r#""nearVector": {"#));
+        assert!(!is_synerise_json_decl(r#""vectors_count": 100"#));
+        assert!(is_qdrant_json_decl(r#""vectors_count": 100"#));
+        assert!(!is_synerise_json_decl(r#""processingTimeMS": 12"#));
+        assert!(is_algolia_json_decl(r#""processingTimeMS": 12"#));
+        assert!(!is_synerise_json_decl(r#""processingTimeMs": 12"#));
+        assert!(is_meilisearch_json_decl(r#""processingTimeMs": 12"#));
+        assert!(!is_synerise_json_decl(r#""search_time_ms": 12"#));
+        assert!(is_typesense_json_decl(r#""search_time_ms": 12"#));
+        assert!(!is_synerise_json_decl(r#""responseHeader": {"#));
+        assert!(is_solr_json_decl(r#""responseHeader": {"#));
+        assert!(!is_synerise_json_decl(r#""track_total_hits": true"#));
+        assert!(is_elasticsearch_json_decl(r#""track_total_hits": true"#));
+        assert!(!is_synerise_json_decl(r#""printWidth": 80"#));
+        assert!(is_prettier_json_decl(r#""printWidth": 80"#));
+        assert!(!is_synerise_json_decl(r#""basePath": ".""#));
+        assert!(is_karma_json_decl(r#""basePath": ".""#));
+        assert!(line_is_func_like(r#""clientUUID": "abc-123""#));
+        assert!(line_is_func_like(
+            r#""sortByMetric": "TransactionsPopularity""#
+        ));
+        assert!(line_is_func_like(r#""includeFacets": "all""#));
+        assert!(line_is_func_like(r#""disableDynamicReranker": true"#));
+        assert!(line_is_func_like(r#""totalResults": 45"#));
     }
 
     #[test]

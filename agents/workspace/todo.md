@@ -1338,3 +1338,5 @@
 009 keep: Function List Clerk.io product_data/orderby/visitor/moreInfo/labels/exclude/attributes/hits/no_exact_match/longtail/order (v0.3.835)
 
 009 keep: Function List Fast Simon total_results/facets_completed/sort_by/narrow/pop_products_no_results/total_p/personalized_products/turbolink/storeID/sessionStart/facetRequired/… (v0.3.837)
+
+009 keep: Function List Synerise clientUUID/correlationId/sortByMetric/facetsSize/includeFacets/disableDynamicReranker/searchType/totalResults (v0.3.838)
