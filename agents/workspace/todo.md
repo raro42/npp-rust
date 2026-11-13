@@ -1356,3 +1356,5 @@
 009 keep: Function List Synerise clientUUID/correlationId/sortByMetric/facetsSize/includeFacets/disableDynamicReranker/searchType/totalResults (v0.3.838)
 
 009 keep: Function List Empathy.co partialResults/promoteds/queryTagging/displayTagging/redirections/relatedTags/nextQueries/spellchecked/modelName (v0.3.840)
+
+009 keep: Function List Stork exclude_html_selector/frontmatter_handling/excerpts_per_result/displayed_results_count/excerpt_buffer/save_nearest_node_json/overrides (v0.3.847)
