@@ -1332,3 +1332,5 @@
 009 keep: Function List Unbxd searchMetaData/suggestionGroups/inFields/keywordSuggestions/topQueries/popularProducts/promotedSuggestions/numberOfProducts/searchEndPoint/browseEndPoint/doctype/facet.multiselect (v0.3.831)
 
 009 keep: Function List Searchanise totalItems/startIndex/itemsPerPage/currentItemCount/categoryStartIndex/totalCategories/pageStartIndex/totalPages/correctedQuery (v0.3.832)
+
+009 keep: Function List Clerk.io product_data/orderby/visitor/moreInfo/labels/exclude/attributes/hits/no_exact_match/longtail/order (v0.3.835)
