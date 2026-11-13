@@ -32511,6 +32511,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_fuse_json_decl(s)
             || is_minisearch_json_decl(s)
             || is_flexsearch_json_decl(s)
+            || is_lunr_json_decl(s)
             || is_gomod_decl(s)
             || is_gemfile_decl(s)
             || is_brewfile_decl(s)
@@ -32932,6 +32933,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_fuse_json_decl(s)
         || is_minisearch_json_decl(s)
         || is_flexsearch_json_decl(s)
+        || is_lunr_json_decl(s)
         || is_gomod_decl(s)
         || is_gemfile_decl(s)
         || is_brewfile_decl(s)
@@ -69530,11 +69532,13 @@ fn minisearch_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool {
 /// Weaviate `"nearVector"` / Qdrant `"vectors_count"` / Algolia
 /// `"processingTimeMS"` / Meilisearch `"processingTimeMs"` /
 /// Typesense `"search_time_ms"` / Solr `"responseHeader"` /
-/// Elasticsearch `"track_total_hits"` / prettier `"printWidth"` /
-/// karma `"basePath"` stay out. `"tokenize"` / `"preset"` /
-/// `"encoder"` / `"encode"` only match their FlexSearch enums. Bool
-/// keys only match `true` / `false`. Numeric keys reject leading
-/// zeros beyond `0`.
+/// Elasticsearch `"track_total_hits"` / Lunr.js `"fieldVectors"` /
+/// `"invertedIndex"` / `"searchPipeline"` / `"metadataWhitelist"` /
+/// `"fieldTermFrequencies"` / `"termIndex"` / `"_index"` /
+/// prettier `"printWidth"` / karma `"basePath"` stay out.
+/// `"tokenize"` / `"preset"` / `"encoder"` / `"encode"` only match
+/// their FlexSearch enums. Bool keys only match `true` / `false`.
+/// Numeric keys reject leading zeros beyond `0`.
 fn is_flexsearch_json_decl(s: &str) -> bool {
     let s = s.trim_start();
     let Some(rest) = s.strip_prefix('"') else {
@@ -69683,6 +69687,129 @@ fn flexsearch_json_bool_and_tail_ok(key: &str, after_colon: &str) -> bool {
 
 fn flexsearch_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool {
     if !matches!(key, "resolution" | "keystore") {
+        return false;
+    }
+    let bytes = after_colon.as_bytes();
+    let mut i = 0usize;
+    if i >= bytes.len() || !bytes[i].is_ascii_digit() {
+        return false;
+    }
+    if bytes[i] == b'0' {
+        i += 1;
+        if i < bytes.len() && bytes[i].is_ascii_digit() {
+            return false;
+        }
+    } else {
+        while i < bytes.len() && bytes[i].is_ascii_digit() {
+            i += 1;
+        }
+    }
+    package_json_tail_ok(&after_colon[i..])
+}
+
+/// Lunr.js serialized index / builder JSON keys:
+/// `"fieldVectors": {` / `[`, `"invertedIndex": {` / `[`,
+/// `"searchPipeline": [`, `"metadataWhitelist": [`,
+/// `"fieldTermFrequencies": {`, `"fieldLengths": {`,
+/// `"termIndex": 0` / `42`, `"_index": 0` / `17`. Optional trailing
+/// `,` and `//` / `/*` comment. Incomplete quotes / missing `:` stay
+/// out. Generic `"$schema"` / `"name"` / `"id"` / `"q"` / `"query"` /
+/// `"version"` / `"fields"` / `"pipeline"` / `"ref"` / `"b"` / `"k1"` /
+/// `"tokenizer"` / `"documents"` / `"score"` / `"match"` / `"boost"` /
+/// FlexSearch `"tokenize"` / `"resolution"` / `"keystore"` /
+/// `"fastupdate"` / `"preset"` / `"encoder"` / `"encode"` /
+/// MiniSearch `"storeFields"` / `"autoSuggestOptions"` / `"maxFuzzy"` /
+/// `"combineWith"` / `"serializationVersion"` / Fuse.js
+/// `"includeScore"` / `"includeMatches"` / `"minMatchCharLength"` /
+/// `"useExtendedSearch"` / `"ignoreFieldNorm"` / Empathy.co
+/// `"partialResults"` / `"promoteds"` / `"queryTagging"` /
+/// `"modelName"` / AddSearch `"processing_time_ms"` / `"rangeFacets"` /
+/// `"postfixWildcard"` / Synerise `"clientUUID"` / `"sortByMetric"` /
+/// Fast Simon `"total_results"` / Nosto `"emptyQueryMatchesAll"` /
+/// Clerk.io `"product_data"` / Tweakwise `"nrofitems"` / Findify
+/// `"t_client"` / Searchanise `"totalItems"` / Unbxd `"searchMetaData"` /
+/// Loop54 `"makesSense"` / Yext `"experienceKey"` / Cludo
+/// `"TypedDocuments"` / Voyado Elevate `"primaryList"` / FactFinder
+/// `"searchResult"` / Hawksearch `"ClientGuid"` / `"NofResults"` /
+/// GroupBy `"totalRecordCount"` / Luigi's Box `"corrected_query"` /
+/// `"total_hits"` / Searchspring `"resultLayout"` / Doofinder
+/// `"hashid"` / Klevu `"recordQueries"` / Bloomreach Discovery
+/// `"domain_key"` / Constructor.io `"result_sources"` / Coveo
+/// `"searchHub"` / Azure AI Search `"@odata.count"` / Vespa `"yql"` /
+/// Marqo `"searchableAttributes"` / LanceDB `"vector_column_name"` /
+/// Milvus `"annsField"` / Chroma `"n_results"` / Pinecone `"topK"` /
+/// Weaviate `"nearVector"` / `"invertedIndexConfig"` / Qdrant
+/// `"vectors_count"` / Algolia `"processingTimeMS"` / Meilisearch
+/// `"processingTimeMs"` / Typesense `"search_time_ms"` / Solr
+/// `"responseHeader"` / Elasticsearch `"track_total_hits"` /
+/// prettier `"printWidth"` / karma `"basePath"` stay out. Numeric keys
+/// reject leading zeros beyond `0`. `"_index"` requires a uint (not a
+/// string index name).
+fn is_lunr_json_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    let Some(rest) = s.strip_prefix('"') else {
+        return false;
+    };
+    let Some(end) = rest.find('"') else {
+        return false;
+    };
+    let key = &rest[..end];
+    if !lunr_json_key_ok(key) {
+        return false;
+    }
+    let after_key = rest[end + 1..].trim_start();
+    let Some(after_colon) = after_key.strip_prefix(':') else {
+        return false;
+    };
+    let after_colon = after_colon.trim_start();
+    lunr_json_value_and_tail_ok(key, after_colon)
+}
+
+fn lunr_json_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "fieldVectors"
+            | "invertedIndex"
+            | "searchPipeline"
+            | "metadataWhitelist"
+            | "fieldTermFrequencies"
+            | "fieldLengths"
+            | "termIndex"
+            | "_index"
+    )
+}
+
+fn lunr_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool {
+    let bytes = after_colon.as_bytes();
+    let Some(first) = bytes.first().copied() else {
+        return false;
+    };
+    match first {
+        b'{' => {
+            if !matches!(
+                key,
+                "fieldVectors" | "invertedIndex" | "fieldTermFrequencies" | "fieldLengths"
+            ) {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[1..])
+        }
+        b'[' => {
+            if !matches!(
+                key,
+                "fieldVectors" | "invertedIndex" | "searchPipeline" | "metadataWhitelist"
+            ) {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[1..])
+        }
+        b'0'..=b'9' => lunr_json_uint_and_tail_ok(key, after_colon),
+        _ => false,
+    }
+}
+
+fn lunr_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool {
+    if !matches!(key, "termIndex" | "_index") {
         return false;
     }
     let bytes = after_colon.as_bytes();
@@ -100339,8 +100466,8 @@ mod func_like_line_tests {
         is_knip_json_decl, is_krb5_conf_decl, is_lancedb_json_decl, is_lerna_json_decl,
         is_lightdm_conf_decl, is_limits_conf_decl, is_lint_staged_json_decl, is_locale_conf_decl,
         is_login_defs_decl, is_logrotate_decl, is_loki_json_decl, is_loop54_json_decl,
-        is_luigisbox_json_decl, is_machine_info_decl, is_makepkg_conf_decl, is_marqo_json_decl,
-        is_mdbook_toml_decl, is_meilisearch_json_decl, is_milvus_json_decl,
+        is_luigisbox_json_decl, is_lunr_json_decl, is_machine_info_decl, is_makepkg_conf_decl,
+        is_marqo_json_decl, is_mdbook_toml_decl, is_meilisearch_json_decl, is_milvus_json_decl,
         is_minisearch_json_decl, is_mintlify_json_decl, is_mise_toml_decl, is_mkinitcpio_conf_decl,
         is_mocha_json_decl, is_mockoon_json_decl, is_mockserver_json_decl, is_modprobe_conf_decl,
         is_mountebank_json_decl, is_mutants_toml_decl, is_mypy_ini_decl, is_mysql_cnf_decl,
@@ -144772,6 +144899,20 @@ mod func_like_line_tests {
         assert!(is_prettier_json_decl(r#""printWidth": 80"#));
         assert!(!is_flexsearch_json_decl(r#""basePath": ".""#));
         assert!(is_karma_json_decl(r#""basePath": ".""#));
+        assert!(!is_flexsearch_json_decl(r#""fieldVectors": {"#));
+        assert!(is_lunr_json_decl(r#""fieldVectors": {"#));
+        assert!(!is_flexsearch_json_decl(r#""invertedIndex": ["#));
+        assert!(is_lunr_json_decl(r#""invertedIndex": ["#));
+        assert!(!is_flexsearch_json_decl(r#""searchPipeline": ["#));
+        assert!(is_lunr_json_decl(r#""searchPipeline": ["#));
+        assert!(!is_flexsearch_json_decl(r#""metadataWhitelist": ["#));
+        assert!(is_lunr_json_decl(r#""metadataWhitelist": ["#));
+        assert!(!is_flexsearch_json_decl(r#""fieldTermFrequencies": {"#));
+        assert!(is_lunr_json_decl(r#""fieldTermFrequencies": {"#));
+        assert!(!is_flexsearch_json_decl(r#""termIndex": 42"#));
+        assert!(is_lunr_json_decl(r#""termIndex": 42"#));
+        assert!(!is_flexsearch_json_decl(r#""_index": 17"#));
+        assert!(is_lunr_json_decl(r#""_index": 17"#));
     }
 
     #[test]
@@ -144970,6 +145111,124 @@ mod func_like_line_tests {
         assert!(line_is_func_like(r#""bidirectional": true"#));
         assert!(line_is_func_like(r#""optimize": false"#));
         assert!(line_is_func_like(r#""enrich": true"#));
+    }
+
+    #[test]
+    fn lunr_json_keys_smoke() {
+        assert!(is_lunr_json_decl(r#""fieldVectors": {"#));
+        assert!(is_lunr_json_decl(r#""fieldVectors": ["#));
+        assert!(is_lunr_json_decl(r#""invertedIndex": {"#));
+        assert!(is_lunr_json_decl(r#""invertedIndex": ["#));
+        assert!(is_lunr_json_decl(r#""searchPipeline": ["#));
+        assert!(is_lunr_json_decl(r#""metadataWhitelist": ["#));
+        assert!(is_lunr_json_decl(r#""fieldTermFrequencies": {"#));
+        assert!(is_lunr_json_decl(r#""fieldLengths": {"#));
+        assert!(is_lunr_json_decl(r#""termIndex": 42"#));
+        assert!(is_lunr_json_decl(r#""_index": 17"#));
+        assert!(!is_lunr_json_decl(r#""tokenize": "forward""#));
+        assert!(is_flexsearch_json_decl(r#""tokenize": "forward""#));
+        assert!(!is_lunr_json_decl(r#""storeFields": ["#));
+        assert!(is_minisearch_json_decl(r#""storeFields": ["#));
+        assert!(!is_lunr_json_decl(r#""includeScore": true"#));
+        assert!(is_fuse_json_decl(r#""includeScore": true"#));
+        assert!(!is_lunr_json_decl(r#""partialResults": ["#));
+        assert!(is_empathy_json_decl(r#""partialResults": ["#));
+        assert!(!is_lunr_json_decl(r#""processing_time_ms": 21"#));
+        assert!(is_addsearch_json_decl(r#""processing_time_ms": 21"#));
+        assert!(!is_lunr_json_decl(r#""invertedIndexConfig": {"#));
+        assert!(is_weaviate_json_decl(r#""invertedIndexConfig": {"#));
+        assert!(!is_lunr_json_decl(r#""track_total_hits": true"#));
+        assert!(is_elasticsearch_json_decl(r#""track_total_hits": true"#));
+        assert!(!is_lunr_json_decl(r#""printWidth": 80"#));
+        assert!(is_prettier_json_decl(r#""printWidth": 80"#));
+        assert!(!is_lunr_json_decl(r#""basePath": ".""#));
+        assert!(is_karma_json_decl(r#""basePath": ".""#));
+    }
+
+    #[test]
+    fn lunr_json_keys_count() {
+        assert!(is_lunr_json_decl(r#""fieldVectors": {"#));
+        assert!(is_lunr_json_decl(r#""fieldVectors": {,"#));
+        assert!(is_lunr_json_decl(r#""fieldVectors": { // c"#));
+        assert!(is_lunr_json_decl(r#""fieldVectors": ["#));
+        assert!(is_lunr_json_decl(r#""fieldVectors": [,"#));
+        assert!(!is_lunr_json_decl(r#""fieldVectors": true"#));
+        assert!(!is_lunr_json_decl(r#""fieldVectors": 1"#));
+        assert!(!is_lunr_json_decl(r#""fieldVectors": "x""#));
+        assert!(is_lunr_json_decl(r#""invertedIndex": {"#));
+        assert!(is_lunr_json_decl(r#""invertedIndex": ["#));
+        assert!(!is_lunr_json_decl(r#""invertedIndex": true"#));
+        assert!(!is_lunr_json_decl(r#""invertedIndexConfig": {"#));
+        assert!(is_lunr_json_decl(r#""searchPipeline": ["#));
+        assert!(is_lunr_json_decl(r#""searchPipeline": [,"#));
+        assert!(is_lunr_json_decl(r#""searchPipeline": [ // c"#));
+        assert!(!is_lunr_json_decl(r#""searchPipeline": {"#));
+        assert!(!is_lunr_json_decl(r#""searchPipeline": true"#));
+        assert!(is_lunr_json_decl(r#""metadataWhitelist": ["#));
+        assert!(!is_lunr_json_decl(r#""metadataWhitelist": {"#));
+        assert!(!is_lunr_json_decl(r#""metadataWhitelist": true"#));
+        assert!(is_lunr_json_decl(r#""fieldTermFrequencies": {"#));
+        assert!(!is_lunr_json_decl(r#""fieldTermFrequencies": ["#));
+        assert!(!is_lunr_json_decl(r#""fieldTermFrequencies": true"#));
+        assert!(is_lunr_json_decl(r#""fieldLengths": {"#));
+        assert!(!is_lunr_json_decl(r#""fieldLengths": ["#));
+        assert!(!is_lunr_json_decl(r#""fieldLength": {"#));
+        assert!(is_minisearch_json_decl(r#""fieldLength": {"#));
+        assert!(is_lunr_json_decl(r#""termIndex": 0"#));
+        assert!(is_lunr_json_decl(r#""termIndex": 42"#));
+        assert!(is_lunr_json_decl(r#""termIndex": 42,"#));
+        assert!(is_lunr_json_decl(r#""termIndex": 42 // c"#));
+        assert!(!is_lunr_json_decl(r#""termIndex": 042"#));
+        assert!(!is_lunr_json_decl(r#""termIndex": true"#));
+        assert!(!is_lunr_json_decl(r#""termIndex": "42""#));
+        assert!(!is_lunr_json_decl(r#""termIndex": {"#));
+        assert!(is_lunr_json_decl(r#""_index": 0"#));
+        assert!(is_lunr_json_decl(r#""_index": 17"#));
+        assert!(is_lunr_json_decl(r#""_index": 17,"#));
+        assert!(!is_lunr_json_decl(r#""_index": 017"#));
+        assert!(!is_lunr_json_decl(r#""_index": "logs""#));
+        assert!(!is_lunr_json_decl(r#""_index": true"#));
+        assert!(!is_lunr_json_decl(r#""_index": {"#));
+        assert!(!is_lunr_json_decl(r#""fieldVectors""#));
+        assert!(!is_lunr_json_decl(r#""invertedIndex""#));
+        assert!(!is_lunr_json_decl(r#""termIndex""#));
+        assert!(!is_lunr_json_decl(r#""$schema": "https://example.com""#));
+        assert!(!is_lunr_json_decl(r#""name": "docs""#));
+        assert!(!is_lunr_json_decl(r#""id": "1""#));
+        assert!(!is_lunr_json_decl(r#""q": "shoes""#));
+        assert!(!is_lunr_json_decl(r#""query": "shoes""#));
+        assert!(!is_lunr_json_decl(r#""version": "2.3.9""#));
+        assert!(!is_lunr_json_decl(r#""fields": ["#));
+        assert!(!is_lunr_json_decl(r#""pipeline": ["#));
+        assert!(!is_lunr_json_decl(r#""ref": "id""#));
+        assert!(!is_lunr_json_decl(r#""b": 0.75"#));
+        assert!(!is_lunr_json_decl(r#""k1": 1.2"#));
+        assert!(!is_lunr_json_decl(r#""tokenize": "forward""#));
+        assert!(is_flexsearch_json_decl(r#""tokenize": "forward""#));
+        assert!(!is_lunr_json_decl(r#""storeFields": ["#));
+        assert!(is_minisearch_json_decl(r#""storeFields": ["#));
+        assert!(!is_lunr_json_decl(r#""includeScore": true"#));
+        assert!(is_fuse_json_decl(r#""includeScore": true"#));
+        assert!(!is_lunr_json_decl(r#""partialResults": ["#));
+        assert!(is_empathy_json_decl(r#""partialResults": ["#));
+        assert!(!is_lunr_json_decl(r#""processing_time_ms": 21"#));
+        assert!(is_addsearch_json_decl(r#""processing_time_ms": 21"#));
+        assert!(!is_lunr_json_decl(r#""invertedIndexConfig": {"#));
+        assert!(is_weaviate_json_decl(r#""invertedIndexConfig": {"#));
+        assert!(!is_lunr_json_decl(r#""track_total_hits": true"#));
+        assert!(is_elasticsearch_json_decl(r#""track_total_hits": true"#));
+        assert!(!is_lunr_json_decl(r#""printWidth": 80"#));
+        assert!(is_prettier_json_decl(r#""printWidth": 80"#));
+        assert!(!is_lunr_json_decl(r#""basePath": ".""#));
+        assert!(is_karma_json_decl(r#""basePath": ".""#));
+        assert!(line_is_func_like(r#""fieldVectors": {"#));
+        assert!(line_is_func_like(r#""invertedIndex": ["#));
+        assert!(line_is_func_like(r#""searchPipeline": ["#));
+        assert!(line_is_func_like(r#""metadataWhitelist": ["#));
+        assert!(line_is_func_like(r#""fieldTermFrequencies": {"#));
+        assert!(line_is_func_like(r#""fieldLengths": {"#));
+        assert!(line_is_func_like(r#""termIndex": 42"#));
+        assert!(line_is_func_like(r#""_index": 17"#));
     }
 
     #[test]
