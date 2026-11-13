@@ -1,3 +1,5 @@
+009 keep: Function List Cludo TypedDocuments/Banners/FacetsFields/Suggestions/DidYouMean/RangeFacets/TotalDocument/TotalBanner/ResponseTime/PageIndex/PageSize/QueryId/SearchId/FixedQuery/TemplateSiteKey/HostName/EnableOrdering/Operator (v0.3.828)
+
 009 keep: Function List FactFinder searchResult/fieldRoles/searchControlParams/sortItems/asn/flavours/breadcrumbTrail/selectedElements/articleNumberSearch/scoreOrdered/singleWordResults/useAsn/useCampaigns/idsOnly/generateAdvisorTree/disableCache/useCache/filterStyle/searchField/clusterLevel/detailedLinks (v0.3.826)
 
 009 keep: Function List Hawksearch ClientGuid/IndexName/IsInPreview/SmartBar/FacetOverride/FacetHierarchyLevelOverride/FacetSelections/NofResults/NofPages/MaxPerPage/IsShowFirstLink/IsShowLastLink/NumberOfPageLinks/VisitorTargets/TrackingId/QueryUsedAllKeywords/FeaturedItems/SearchDuration/FieldOverride/BestFragment/ClientData (v0.3.825)

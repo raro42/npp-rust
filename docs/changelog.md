@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.828] — 2026-11-13
+
+View:
+
+- **Function List** lists Cludo Search API request / response JSON keys: `"TypedDocuments": [`, `"Banners": [`, `"FacetsFields": [`, `"Suggestions": [`, `"DidYouMean": [`, `"RangeFacets": [`, `"TotalDocument": 0` / `42`, `"TotalBanner": 0` / `2`, `"ResponseTime": 0` / `15`, `"PageIndex": 0` / `1`, `"PageSize": 0` / `10`, `"QueryId": "…"`, `"SearchId": "…"`, `"FixedQuery": "…"`, `"TemplateSiteKey": "…"`, `"HostName": "…"`, `"EnableOrdering": true` / `false`, `"Operator": "AND"` / `"OR"`. Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing `:` stay out. Generic `"$schema"` / `"name"` / `"id"` / `"q"` / `"query"` / `"Query"` / `"filter"` / `"filters"` / `"Filters"` / `"limit"` / `"offset"` / `"page"` / `"results"` / `"facets"` / `"hits"` / `"Documents"` / `"TotalDocuments"` / `"FacetFields"` / Voyado Elevate `"primaryList"` / `"sessionKey"` / `"touchpoint"` / FactFinder `"searchResult"` / `"fieldRoles"` / `"useAsn"` / Hawksearch `"ClientGuid"` / `"NofResults"` / GroupBy `"totalRecordCount"` / `"availableNavigation"` / Luigi's Box `"corrected_query"` / `"total_hits"` / Searchspring `"resultLayout"` / `"filterSummary"` / `"didYouMean": {` / Doofinder `"hashid"` / `"query_name"` / Klevu `"recordQueries"` / Bloomreach Discovery `"domain_key"` / Constructor.io `"result_sources"` / Coveo `"searchHub"` / Azure AI Search `"@odata.count"` / Vespa `"yql"` / Marqo `"searchableAttributes"` / LanceDB `"vector_column_name"` / Milvus `"annsField"` / Chroma `"n_results"` / Pinecone `"topK"` / Weaviate `"nearVector"` / Qdrant `"vectors_count"` / Algolia `"processingTimeMS"` / Meilisearch `"processingTimeMs"` / Typesense `"search_time_ms"` / Solr `"responseHeader"` / Elasticsearch `"track_total_hits"` / prettier `"printWidth"` / karma `"basePath"` stay out. `"Operator"` only matches `AND` / `OR`. String keys require a non-empty quoted string. Bool `"EnableOrdering"` only matches `true` / `false`. Numeric keys reject leading zeros beyond `0`.
+
 ## [0.3.827] — 2026-11-13
 
 View:
