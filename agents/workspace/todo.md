@@ -1,3 +1,5 @@
+009 keep: Function List FlexSearch tokenize/resolution/keystore/fastupdate/preset/encoder/encode/bidirectional/optimize/enrich (v0.3.843)
+
 009 keep: Function List MiniSearch storeFields/searchOptions/autoSuggestOptions/autoVacuum/maxFuzzy/combineWith/documentCount/dirtCount/serializationVersion/nextId/minDirtCount/batchSize/batchWait/averageFieldLength/storedFields/fieldIds/documentIds/fieldLength (v0.3.842)
 
 009 keep: Function List Fuse.js isCaseSensitive/ignoreDiacritics/includeScore/includeMatches/shouldSort/findAllMatches/useExtendedSearch/ignoreLocation/ignoreFieldNorm/minMatchCharLength/refIndex (v0.3.841)
