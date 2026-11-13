@@ -32496,6 +32496,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_factfinder_json_decl(s)
             || is_voyado_elevate_json_decl(s)
             || is_cludo_json_decl(s)
+            || is_yext_json_decl(s)
             || is_gomod_decl(s)
             || is_gemfile_decl(s)
             || is_brewfile_decl(s)
@@ -32902,6 +32903,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_factfinder_json_decl(s)
         || is_voyado_elevate_json_decl(s)
         || is_cludo_json_decl(s)
+        || is_yext_json_decl(s)
         || is_gomod_decl(s)
         || is_gemfile_decl(s)
         || is_brewfile_decl(s)
@@ -66582,7 +66584,8 @@ fn voyado_elevate_json_bool_and_tail_ok(key: &str, after_colon: &str) -> bool {
 /// `"nearVector"` / Qdrant `"vectors_count"` / Algolia
 /// `"processingTimeMS"` / Meilisearch `"processingTimeMs"` / Typesense
 /// `"search_time_ms"` / Solr `"responseHeader"` / Elasticsearch
-/// `"track_total_hits"` / prettier `"printWidth"` / karma `"basePath"`
+/// `"track_total_hits"` / Yext `"experienceKey"` / `"failedVerticals"` /
+/// `"locationBias"` / prettier `"printWidth"` / karma `"basePath"`
 /// stay out.
 /// `"Operator"` only matches `AND` / `OR`. String keys require a
 /// non-empty quoted string. Bool `"EnableOrdering"` only matches
@@ -66707,6 +66710,236 @@ fn cludo_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool {
         key,
         "TotalDocument" | "TotalBanner" | "ResponseTime" | "PageIndex" | "PageSize"
     ) {
+        return false;
+    }
+    let bytes = after_colon.as_bytes();
+    let mut i = 0usize;
+    if i >= bytes.len() || !bytes[i].is_ascii_digit() {
+        return false;
+    }
+    if bytes[i] == b'0' {
+        i += 1;
+        if i < bytes.len() && bytes[i].is_ascii_digit() {
+            return false;
+        }
+    } else {
+        while i < bytes.len() && bytes[i].is_ascii_digit() {
+            i += 1;
+        }
+    }
+    package_json_tail_ok(&after_colon[i..])
+}
+
+/// Yext Search / Answers API request / response JSON keys:
+/// `"failedVerticals": [`, `"searchIntents": [`,
+/// `"appliedQueryFilters": [`, `"verticalResults": [`,
+/// `"highlightedFields": [`, `"locationBias": {`,
+/// `"directAnswer": {`, `"alternativeVerticals": {`,
+/// `"allResultsForVertical": {`, `"facetFilters": {`,
+/// `"experienceKey": "…"`, `"verticalKey": "…"`,
+/// `"verticalConfigId": "…"`, `"referrerPageUrl": "…"`,
+/// `"encodedState": "…"`, `"businessId": 0` / `3701021`,
+/// `"queryDurationMillis": 0` / `12`, `"resultsCount": 0` / `10`,
+/// `"skipSpellCheck": true` / `false`,
+/// `"sessionTrackingEnabled": true` / `false`,
+/// `"retrieveFacets": true` / `false`,
+/// `"ignoreQueryRules": true` / `false`,
+/// `"queryTrigger": "suggest"` / `"initialize"`,
+/// `"version": "PRODUCTION"` / `"STAGING"`,
+/// `"experienceVersion": "PRODUCTION"` / `"STAGING"`,
+/// `"source": "YEXT"` / `"GOOGLE_CSE"` / `"KNOWLEDGE_MANAGER"`.
+/// Optional trailing `,` and `//` / `/*` comment. Incomplete quotes /
+/// missing `:` stay out. Generic `"$schema"` / `"name"` / `"id"` / `"q"` /
+/// `"query"` / `"Query"` / `"filter"` / `"filters"` / `"Filters"` /
+/// `"limit"` / `"offset"` / `"page"` / `"results"` / `"facets"` /
+/// `"hits"` / `"modules"` / `"queryId"` / `"QueryId"` / `"apiKey"` /
+/// `"locale"` / `"input"` / Cludo `"TypedDocuments"` /
+/// `"TotalDocument"` / `"QueryId"` / Voyado Elevate `"primaryList"` /
+/// `"sessionKey"` / `"touchpoint"` / FactFinder `"searchResult"` /
+/// `"fieldRoles"` / `"useAsn"` / Hawksearch `"ClientGuid"` /
+/// `"NofResults"` / GroupBy `"totalRecordCount"` /
+/// `"availableNavigation"` / Luigi's Box `"corrected_query"` /
+/// `"total_hits"` / Searchspring `"resultLayout"` / `"filterSummary"` /
+/// `"didYouMean": {` / Doofinder `"hashid"` / `"query_name"` / Klevu
+/// `"recordQueries"` / Bloomreach Discovery `"domain_key"` /
+/// Constructor.io `"result_sources"` / Coveo `"searchHub"` / Azure AI
+/// Search `"@odata.count"` / Vespa `"yql"` / Marqo
+/// `"searchableAttributes"` / LanceDB `"vector_column_name"` / Milvus
+/// `"annsField"` / Chroma `"n_results"` / Pinecone `"topK"` / Weaviate
+/// `"nearVector"` / Qdrant `"vectors_count"` / Algolia
+/// `"processingTimeMS"` / Meilisearch `"processingTimeMs"` / Typesense
+/// `"search_time_ms"` / Solr `"responseHeader"` / Elasticsearch
+/// `"track_total_hits"` / prettier `"printWidth"` / karma `"basePath"`
+/// stay out.
+/// `"queryTrigger"` / `"version"` / `"experienceVersion"` / `"source"`
+/// only match their Yext enums. String keys require a non-empty quoted
+/// string. Bool keys only match `true` / `false`. Numeric keys reject
+/// leading zeros beyond `0`.
+fn is_yext_json_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    let Some(rest) = s.strip_prefix('"') else {
+        return false;
+    };
+    let Some(end) = rest.find('"') else {
+        return false;
+    };
+    let key = &rest[..end];
+    if !yext_json_key_ok(key) {
+        return false;
+    }
+    let after_key = rest[end + 1..].trim_start();
+    let Some(after_colon) = after_key.strip_prefix(':') else {
+        return false;
+    };
+    let after_colon = after_colon.trim_start();
+    yext_json_value_and_tail_ok(key, after_colon)
+}
+
+fn yext_json_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "failedVerticals"
+            | "searchIntents"
+            | "appliedQueryFilters"
+            | "verticalResults"
+            | "highlightedFields"
+            | "locationBias"
+            | "directAnswer"
+            | "alternativeVerticals"
+            | "allResultsForVertical"
+            | "facetFilters"
+            | "experienceKey"
+            | "verticalKey"
+            | "verticalConfigId"
+            | "referrerPageUrl"
+            | "encodedState"
+            | "businessId"
+            | "queryDurationMillis"
+            | "resultsCount"
+            | "skipSpellCheck"
+            | "sessionTrackingEnabled"
+            | "retrieveFacets"
+            | "ignoreQueryRules"
+            | "queryTrigger"
+            | "version"
+            | "experienceVersion"
+            | "source"
+    )
+}
+
+fn yext_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool {
+    let bytes = after_colon.as_bytes();
+    let Some(first) = bytes.first().copied() else {
+        return false;
+    };
+    match first {
+        b'[' => {
+            if !matches!(
+                key,
+                "failedVerticals"
+                    | "searchIntents"
+                    | "appliedQueryFilters"
+                    | "verticalResults"
+                    | "highlightedFields"
+            ) {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[1..])
+        }
+        b'{' => {
+            if !matches!(
+                key,
+                "locationBias"
+                    | "directAnswer"
+                    | "alternativeVerticals"
+                    | "allResultsForVertical"
+                    | "facetFilters"
+            ) {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[1..])
+        }
+        b'"' => match key {
+            "queryTrigger" => yext_json_query_trigger_and_tail_ok(after_colon),
+            "version" | "experienceVersion" => yext_json_version_and_tail_ok(after_colon),
+            "source" => yext_json_source_and_tail_ok(after_colon),
+            "experienceKey" | "verticalKey" | "verticalConfigId" | "referrerPageUrl"
+            | "encodedState" => yext_json_nonempty_string_and_tail_ok(after_colon),
+            _ => false,
+        },
+        b't' | b'f' => yext_json_bool_and_tail_ok(key, after_colon),
+        b'0'..=b'9' => yext_json_uint_and_tail_ok(key, after_colon),
+        _ => false,
+    }
+}
+
+fn yext_json_nonempty_string_and_tail_ok(after_colon: &str) -> bool {
+    let rest = &after_colon[1..];
+    let Some(end) = rest.find('"') else {
+        return false;
+    };
+    let value = &rest[..end];
+    if value.is_empty() || value.contains('\n') {
+        return false;
+    }
+    package_json_tail_ok(&rest[end + 1..])
+}
+
+fn yext_json_query_trigger_and_tail_ok(after_colon: &str) -> bool {
+    let rest = &after_colon[1..];
+    let Some(end) = rest.find('"') else {
+        return false;
+    };
+    let value = &rest[..end];
+    if !matches!(value, "suggest" | "initialize") {
+        return false;
+    }
+    package_json_tail_ok(&rest[end + 1..])
+}
+
+fn yext_json_version_and_tail_ok(after_colon: &str) -> bool {
+    let rest = &after_colon[1..];
+    let Some(end) = rest.find('"') else {
+        return false;
+    };
+    let value = &rest[..end];
+    if !matches!(value, "PRODUCTION" | "STAGING") {
+        return false;
+    }
+    package_json_tail_ok(&rest[end + 1..])
+}
+
+fn yext_json_source_and_tail_ok(after_colon: &str) -> bool {
+    let rest = &after_colon[1..];
+    let Some(end) = rest.find('"') else {
+        return false;
+    };
+    let value = &rest[..end];
+    if !matches!(value, "YEXT" | "GOOGLE_CSE" | "KNOWLEDGE_MANAGER") {
+        return false;
+    }
+    package_json_tail_ok(&rest[end + 1..])
+}
+
+fn yext_json_bool_and_tail_ok(key: &str, after_colon: &str) -> bool {
+    if !matches!(
+        key,
+        "skipSpellCheck" | "sessionTrackingEnabled" | "retrieveFacets" | "ignoreQueryRules"
+    ) {
+        return false;
+    }
+    let rest = if let Some(rest) = after_colon.strip_prefix("true") {
+        rest
+    } else if let Some(rest) = after_colon.strip_prefix("false") {
+        rest
+    } else {
+        return false;
+    };
+    package_json_tail_ok(rest)
+}
+
+fn yext_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool {
+    if !matches!(key, "businessId" | "queryDurationMillis" | "resultsCount") {
         return false;
     }
     let bytes = after_colon.as_bytes();
@@ -97418,8 +97651,8 @@ mod func_like_line_tests {
         is_vulture_ini_decl, is_wails_json_decl, is_wdio_json_decl, is_weaviate_json_decl,
         is_webextension_manifest_json_decl, is_wireguard_config_decl, is_wiremock_json_decl,
         is_wrangler_toml_decl, is_xmake_decl, is_xorg_conf_decl, is_yaak_json_decl,
-        is_yapf_ini_decl, is_yarnrc_yml_decl, is_yum_repo_decl, is_zest_releaser_ini_decl,
-        is_zipkin_json_decl, line_is_func_like,
+        is_yapf_ini_decl, is_yarnrc_yml_decl, is_yext_json_decl, is_yum_repo_decl,
+        is_zest_releaser_ini_decl, is_zipkin_json_decl, line_is_func_like,
     };
 
     #[test]
@@ -137255,6 +137488,12 @@ mod func_like_line_tests {
         assert!(is_prettier_json_decl(r#""printWidth": 80"#));
         assert!(!is_cludo_json_decl(r#""basePath": ".""#));
         assert!(is_karma_json_decl(r#""basePath": ".""#));
+        assert!(!is_cludo_json_decl(r#""experienceKey": "answers""#));
+        assert!(is_yext_json_decl(r#""experienceKey": "answers""#));
+        assert!(!is_cludo_json_decl(r#""failedVerticals": ["#));
+        assert!(is_yext_json_decl(r#""failedVerticals": ["#));
+        assert!(!is_cludo_json_decl(r#""locationBias": {"#));
+        assert!(is_yext_json_decl(r#""locationBias": {"#));
         assert!(line_is_func_like(r#""TypedDocuments": ["#));
         assert!(line_is_func_like(r#""TotalDocument": 42"#));
         assert!(line_is_func_like(r#""QueryId": "q-1""#));
@@ -137397,10 +137636,328 @@ mod func_like_line_tests {
         assert!(is_prettier_json_decl(r#""printWidth": 80"#));
         assert!(!is_cludo_json_decl(r#""basePath": ".""#));
         assert!(is_karma_json_decl(r#""basePath": ".""#));
+        assert!(!is_cludo_json_decl(r#""experienceKey": "answers""#));
+        assert!(is_yext_json_decl(r#""experienceKey": "answers""#));
+        assert!(!is_cludo_json_decl(r#""failedVerticals": ["#));
+        assert!(is_yext_json_decl(r#""failedVerticals": ["#));
+        assert!(!is_cludo_json_decl(r#""locationBias": {"#));
+        assert!(is_yext_json_decl(r#""locationBias": {"#));
         assert!(line_is_func_like(r#""TypedDocuments": ["#));
         assert!(line_is_func_like(r#""TotalDocument": 42"#));
         assert!(line_is_func_like(r#""QueryId": "q-1""#));
         assert!(line_is_func_like(r#""Operator": "AND""#));
+    }
+
+    #[test]
+    fn yext_json_keys_smoke() {
+        assert!(is_yext_json_decl(r#""failedVerticals": ["#));
+        assert!(is_yext_json_decl(r#""searchIntents": ["#));
+        assert!(is_yext_json_decl(r#""appliedQueryFilters": ["#));
+        assert!(is_yext_json_decl(r#""verticalResults": ["#));
+        assert!(is_yext_json_decl(r#""highlightedFields": ["#));
+        assert!(is_yext_json_decl(r#""locationBias": {"#));
+        assert!(is_yext_json_decl(r#""directAnswer": {"#));
+        assert!(is_yext_json_decl(r#""alternativeVerticals": {"#));
+        assert!(is_yext_json_decl(r#""allResultsForVertical": {"#));
+        assert!(is_yext_json_decl(r#""facetFilters": {"#));
+        assert!(is_yext_json_decl(r#""experienceKey": "answers""#));
+        assert!(is_yext_json_decl(r#""verticalKey": "locations""#));
+        assert!(is_yext_json_decl(r#""verticalConfigId": "locations""#));
+        assert!(is_yext_json_decl(
+            r#""referrerPageUrl": "https://example.com""#
+        ));
+        assert!(is_yext_json_decl(r#""encodedState": "abc""#));
+        assert!(is_yext_json_decl(r#""businessId": 3701021"#));
+        assert!(is_yext_json_decl(r#""queryDurationMillis": 12"#));
+        assert!(is_yext_json_decl(r#""resultsCount": 10"#));
+        assert!(is_yext_json_decl(r#""skipSpellCheck": true"#));
+        assert!(is_yext_json_decl(r#""sessionTrackingEnabled": false"#));
+        assert!(is_yext_json_decl(r#""retrieveFacets": true"#));
+        assert!(is_yext_json_decl(r#""ignoreQueryRules": false"#));
+        assert!(is_yext_json_decl(r#""queryTrigger": "suggest""#));
+        assert!(is_yext_json_decl(r#""version": "PRODUCTION""#));
+        assert!(is_yext_json_decl(r#""experienceVersion": "STAGING""#));
+        assert!(is_yext_json_decl(r#""source": "YEXT""#));
+        assert!(!is_yext_json_decl(r#""TypedDocuments": ["#));
+        assert!(is_cludo_json_decl(r#""TypedDocuments": ["#));
+        assert!(!is_yext_json_decl(r#""TotalDocument": 42"#));
+        assert!(is_cludo_json_decl(r#""TotalDocument": 42"#));
+        assert!(!is_yext_json_decl(r#""QueryId": "q-1""#));
+        assert!(is_cludo_json_decl(r#""QueryId": "q-1""#));
+        assert!(!is_yext_json_decl(r#""primaryList": {"#));
+        assert!(is_voyado_elevate_json_decl(r#""primaryList": {"#));
+        assert!(!is_yext_json_decl(r#""sessionKey": "abc""#));
+        assert!(is_voyado_elevate_json_decl(r#""sessionKey": "abc""#));
+        assert!(!is_yext_json_decl(r#""touchpoint": "desktop""#));
+        assert!(is_voyado_elevate_json_decl(r#""touchpoint": "desktop""#));
+        assert!(!is_yext_json_decl(r#""searchResult": {"#));
+        assert!(is_factfinder_json_decl(r#""searchResult": {"#));
+        assert!(!is_yext_json_decl(r#""useAsn": true"#));
+        assert!(is_factfinder_json_decl(r#""useAsn": true"#));
+        assert!(!is_yext_json_decl(
+            r#""ClientGuid": "11111111-2222-3333-4444-555555555555""#
+        ));
+        assert!(is_hawksearch_json_decl(
+            r#""ClientGuid": "11111111-2222-3333-4444-555555555555""#
+        ));
+        assert!(!is_yext_json_decl(r#""NofResults": 2400"#));
+        assert!(is_hawksearch_json_decl(r#""NofResults": 2400"#));
+        assert!(!is_yext_json_decl(r#""totalRecordCount": 128"#));
+        assert!(is_groupby_json_decl(r#""totalRecordCount": 128"#));
+        assert!(!is_yext_json_decl(r#""availableNavigation": ["#));
+        assert!(is_groupby_json_decl(r#""availableNavigation": ["#));
+        assert!(!is_yext_json_decl(r#""corrected_query": "putter""#));
+        assert!(is_luigisbox_json_decl(r#""corrected_query": "putter""#));
+        assert!(!is_yext_json_decl(r#""resultLayout": "grid""#));
+        assert!(is_searchspring_json_decl(r#""resultLayout": "grid""#));
+        assert!(!is_yext_json_decl(r#""didYouMean": {"#));
+        assert!(is_searchspring_json_decl(r#""didYouMean": {"#));
+        assert!(!is_yext_json_decl(
+            r#""hashid": "d8fdeab7fce96a19d3fc7b0ca7a1e98b""#
+        ));
+        assert!(is_doofinder_json_decl(
+            r#""hashid": "d8fdeab7fce96a19d3fc7b0ca7a1e98b""#
+        ));
+        assert!(!is_yext_json_decl(r#""recordQueries": ["#));
+        assert!(is_klevu_json_decl(r#""recordQueries": ["#));
+        assert!(!is_yext_json_decl(r#""domain_key": "example_com""#));
+        assert!(is_bloomreach_json_decl(r#""domain_key": "example_com""#));
+        assert!(!is_yext_json_decl(r#""result_sources": {"#));
+        assert!(is_constructor_io_json_decl(r#""result_sources": {"#));
+        assert!(!is_yext_json_decl(r#""searchHub": "default""#));
+        assert!(is_coveo_json_decl(r#""searchHub": "default""#));
+        assert!(!is_yext_json_decl(r#""@odata.count": 10"#));
+        assert!(is_azure_search_json_decl(r#""@odata.count": 10"#));
+        assert!(!is_yext_json_decl(
+            r#""yql": "select * from sources * where true""#
+        ));
+        assert!(is_vespa_json_decl(
+            r#""yql": "select * from sources * where true""#
+        ));
+        assert!(!is_yext_json_decl(r#""searchableAttributes": ["#));
+        assert!(is_marqo_json_decl(r#""searchableAttributes": ["#));
+        assert!(!is_yext_json_decl(r#""vector_column_name": "vec""#));
+        assert!(is_lancedb_json_decl(r#""vector_column_name": "vec""#));
+        assert!(!is_yext_json_decl(r#""annsField": "vec""#));
+        assert!(is_milvus_json_decl(r#""annsField": "vec""#));
+        assert!(!is_yext_json_decl(r#""n_results": 10"#));
+        assert!(is_chroma_json_decl(r#""n_results": 10"#));
+        assert!(!is_yext_json_decl(r#""topK": 10"#));
+        assert!(is_pinecone_json_decl(r#""topK": 10"#));
+        assert!(!is_yext_json_decl(r#""nearVector": {"#));
+        assert!(is_weaviate_json_decl(r#""nearVector": {"#));
+        assert!(!is_yext_json_decl(r#""vectors_count": 100"#));
+        assert!(is_qdrant_json_decl(r#""vectors_count": 100"#));
+        assert!(!is_yext_json_decl(r#""processingTimeMS": 12"#));
+        assert!(is_algolia_json_decl(r#""processingTimeMS": 12"#));
+        assert!(!is_yext_json_decl(r#""processingTimeMs": 12"#));
+        assert!(is_meilisearch_json_decl(r#""processingTimeMs": 12"#));
+        assert!(!is_yext_json_decl(r#""search_time_ms": 12"#));
+        assert!(is_typesense_json_decl(r#""search_time_ms": 12"#));
+        assert!(!is_yext_json_decl(r#""responseHeader": {"#));
+        assert!(is_solr_json_decl(r#""responseHeader": {"#));
+        assert!(!is_yext_json_decl(r#""track_total_hits": true"#));
+        assert!(is_elasticsearch_json_decl(r#""track_total_hits": true"#));
+        assert!(!is_yext_json_decl(r#""printWidth": 80"#));
+        assert!(is_prettier_json_decl(r#""printWidth": 80"#));
+        assert!(!is_yext_json_decl(r#""basePath": ".""#));
+        assert!(is_karma_json_decl(r#""basePath": ".""#));
+        assert!(line_is_func_like(r#""failedVerticals": ["#));
+        assert!(line_is_func_like(r#""locationBias": {"#));
+        assert!(line_is_func_like(r#""experienceKey": "answers""#));
+        assert!(line_is_func_like(r#""queryTrigger": "initialize""#));
+        assert!(line_is_func_like(r#""businessId": 3701021"#));
+        assert!(line_is_func_like(r#""source": "KNOWLEDGE_MANAGER""#));
+    }
+
+    #[test]
+    fn yext_json_keys_count() {
+        assert!(is_yext_json_decl(r#""failedVerticals": ["#));
+        assert!(is_yext_json_decl(r#""failedVerticals": [,"#));
+        assert!(is_yext_json_decl(r#""failedVerticals": [ // f"#));
+        assert!(!is_yext_json_decl(r#""failedVerticals": {"#));
+        assert!(!is_yext_json_decl(r#""failedVerticals": true"#));
+        assert!(is_yext_json_decl(r#""searchIntents": ["#));
+        assert!(!is_yext_json_decl(r#""searchIntents": {"#));
+        assert!(is_yext_json_decl(r#""appliedQueryFilters": ["#));
+        assert!(!is_yext_json_decl(r#""appliedQueryFilters": {"#));
+        assert!(is_yext_json_decl(r#""verticalResults": ["#));
+        assert!(!is_yext_json_decl(r#""verticalResults": {"#));
+        assert!(is_yext_json_decl(r#""highlightedFields": ["#));
+        assert!(!is_yext_json_decl(r#""highlightedFields": {"#));
+        assert!(is_yext_json_decl(r#""locationBias": {"#));
+        assert!(is_yext_json_decl(r#""locationBias": {,"#));
+        assert!(is_yext_json_decl(r#""locationBias": { // l"#));
+        assert!(!is_yext_json_decl(r#""locationBias": ["#));
+        assert!(is_yext_json_decl(r#""directAnswer": {"#));
+        assert!(!is_yext_json_decl(r#""directAnswer": ["#));
+        assert!(is_yext_json_decl(r#""alternativeVerticals": {"#));
+        assert!(!is_yext_json_decl(r#""alternativeVerticals": ["#));
+        assert!(is_yext_json_decl(r#""allResultsForVertical": {"#));
+        assert!(!is_yext_json_decl(r#""allResultsForVertical": ["#));
+        assert!(is_yext_json_decl(r#""facetFilters": {"#));
+        assert!(!is_yext_json_decl(r#""facetFilters": ["#));
+        assert!(is_yext_json_decl(r#""experienceKey": "answers""#));
+        assert!(is_yext_json_decl(r#""experienceKey": "answers","#));
+        assert!(is_yext_json_decl(r#""experienceKey": "answers" // e"#));
+        assert!(!is_yext_json_decl(r#""experienceKey": """#));
+        assert!(!is_yext_json_decl(r#""experienceKey": {"#));
+        assert!(is_yext_json_decl(r#""verticalKey": "locations""#));
+        assert!(!is_yext_json_decl(r#""verticalKey": """#));
+        assert!(is_yext_json_decl(r#""verticalConfigId": "locations""#));
+        assert!(!is_yext_json_decl(r#""verticalConfigId": """#));
+        assert!(is_yext_json_decl(
+            r#""referrerPageUrl": "https://example.com""#
+        ));
+        assert!(!is_yext_json_decl(r#""referrerPageUrl": """#));
+        assert!(is_yext_json_decl(r#""encodedState": "abc""#));
+        assert!(!is_yext_json_decl(r#""encodedState": """#));
+        assert!(is_yext_json_decl(r#""businessId": 0"#));
+        assert!(is_yext_json_decl(r#""businessId": 3701021"#));
+        assert!(is_yext_json_decl(r#""businessId": 3701021,"#));
+        assert!(!is_yext_json_decl(r#""businessId": 03701021"#));
+        assert!(!is_yext_json_decl(r#""businessId": true"#));
+        assert!(is_yext_json_decl(r#""queryDurationMillis": 0"#));
+        assert!(is_yext_json_decl(r#""queryDurationMillis": 12"#));
+        assert!(!is_yext_json_decl(r#""queryDurationMillis": 012"#));
+        assert!(is_yext_json_decl(r#""resultsCount": 0"#));
+        assert!(is_yext_json_decl(r#""resultsCount": 10"#));
+        assert!(!is_yext_json_decl(r#""resultsCount": 010"#));
+        assert!(is_yext_json_decl(r#""skipSpellCheck": true"#));
+        assert!(is_yext_json_decl(r#""skipSpellCheck": false"#));
+        assert!(is_yext_json_decl(r#""skipSpellCheck": true,"#));
+        assert!(!is_yext_json_decl(r#""skipSpellCheck": 1"#));
+        assert!(!is_yext_json_decl(r#""skipSpellCheck": "true""#));
+        assert!(is_yext_json_decl(r#""sessionTrackingEnabled": true"#));
+        assert!(is_yext_json_decl(r#""sessionTrackingEnabled": false"#));
+        assert!(!is_yext_json_decl(r#""sessionTrackingEnabled": {"#));
+        assert!(is_yext_json_decl(r#""retrieveFacets": true"#));
+        assert!(is_yext_json_decl(r#""retrieveFacets": false"#));
+        assert!(is_yext_json_decl(r#""ignoreQueryRules": true"#));
+        assert!(is_yext_json_decl(r#""ignoreQueryRules": false"#));
+        assert!(is_yext_json_decl(r#""queryTrigger": "suggest""#));
+        assert!(is_yext_json_decl(r#""queryTrigger": "initialize""#));
+        assert!(is_yext_json_decl(r#""queryTrigger": "suggest","#));
+        assert!(!is_yext_json_decl(r#""queryTrigger": "SEARCH_BAR""#));
+        assert!(!is_yext_json_decl(r#""queryTrigger": "Suggest""#));
+        assert!(!is_yext_json_decl(r#""queryTrigger": """#));
+        assert!(!is_yext_json_decl(r#""queryTrigger": {"#));
+        assert!(is_yext_json_decl(r#""version": "PRODUCTION""#));
+        assert!(is_yext_json_decl(r#""version": "STAGING""#));
+        assert!(is_yext_json_decl(r#""version": "PRODUCTION","#));
+        assert!(!is_yext_json_decl(r#""version": "production""#));
+        assert!(!is_yext_json_decl(r#""version": "1.0.0""#));
+        assert!(!is_yext_json_decl(r#""version": 2"#));
+        assert!(is_yext_json_decl(r#""experienceVersion": "PRODUCTION""#));
+        assert!(is_yext_json_decl(r#""experienceVersion": "STAGING""#));
+        assert!(!is_yext_json_decl(r#""experienceVersion": "Latest""#));
+        assert!(!is_yext_json_decl(r#""experienceVersion": """#));
+        assert!(is_yext_json_decl(r#""source": "YEXT""#));
+        assert!(is_yext_json_decl(r#""source": "GOOGLE_CSE""#));
+        assert!(is_yext_json_decl(r#""source": "KNOWLEDGE_MANAGER""#));
+        assert!(is_yext_json_decl(r#""source": "YEXT","#));
+        assert!(!is_yext_json_decl(r#""source": "yext""#));
+        assert!(!is_yext_json_decl(r#""source": "ALGOLIA""#));
+        assert!(!is_yext_json_decl(r#""source": """#));
+        assert!(!is_yext_json_decl(r#""failedVerticals""#));
+        assert!(!is_yext_json_decl(r#""experienceKey""#));
+        assert!(!is_yext_json_decl(r#""$schema": "https://example.com""#));
+        assert!(!is_yext_json_decl(r#""name": "docs""#));
+        assert!(!is_yext_json_decl(r#""q": "shoes""#));
+        assert!(!is_yext_json_decl(r#""Query": "shoes""#));
+        assert!(!is_yext_json_decl(r#""filters": ["#));
+        assert!(!is_yext_json_decl(r#""Filters": {"#));
+        assert!(!is_yext_json_decl(r#""modules": ["#));
+        assert!(!is_yext_json_decl(r#""queryId": "q-1""#));
+        assert!(!is_yext_json_decl(r#""apiKey": "secret""#));
+        assert!(!is_yext_json_decl(r#""TypedDocuments": ["#));
+        assert!(is_cludo_json_decl(r#""TypedDocuments": ["#));
+        assert!(!is_yext_json_decl(r#""TotalDocument": 42"#));
+        assert!(is_cludo_json_decl(r#""TotalDocument": 42"#));
+        assert!(!is_yext_json_decl(r#""QueryId": "q-1""#));
+        assert!(is_cludo_json_decl(r#""QueryId": "q-1""#));
+        assert!(!is_yext_json_decl(r#""primaryList": {"#));
+        assert!(is_voyado_elevate_json_decl(r#""primaryList": {"#));
+        assert!(!is_yext_json_decl(r#""sessionKey": "abc""#));
+        assert!(is_voyado_elevate_json_decl(r#""sessionKey": "abc""#));
+        assert!(!is_yext_json_decl(r#""touchpoint": "desktop""#));
+        assert!(is_voyado_elevate_json_decl(r#""touchpoint": "desktop""#));
+        assert!(!is_yext_json_decl(r#""searchResult": {"#));
+        assert!(is_factfinder_json_decl(r#""searchResult": {"#));
+        assert!(!is_yext_json_decl(r#""useAsn": true"#));
+        assert!(is_factfinder_json_decl(r#""useAsn": true"#));
+        assert!(!is_yext_json_decl(
+            r#""ClientGuid": "11111111-2222-3333-4444-555555555555""#
+        ));
+        assert!(is_hawksearch_json_decl(
+            r#""ClientGuid": "11111111-2222-3333-4444-555555555555""#
+        ));
+        assert!(!is_yext_json_decl(r#""NofResults": 2400"#));
+        assert!(is_hawksearch_json_decl(r#""NofResults": 2400"#));
+        assert!(!is_yext_json_decl(r#""totalRecordCount": 128"#));
+        assert!(is_groupby_json_decl(r#""totalRecordCount": 128"#));
+        assert!(!is_yext_json_decl(r#""availableNavigation": ["#));
+        assert!(is_groupby_json_decl(r#""availableNavigation": ["#));
+        assert!(!is_yext_json_decl(r#""corrected_query": "putter""#));
+        assert!(is_luigisbox_json_decl(r#""corrected_query": "putter""#));
+        assert!(!is_yext_json_decl(r#""resultLayout": "grid""#));
+        assert!(is_searchspring_json_decl(r#""resultLayout": "grid""#));
+        assert!(!is_yext_json_decl(
+            r#""hashid": "d8fdeab7fce96a19d3fc7b0ca7a1e98b""#
+        ));
+        assert!(is_doofinder_json_decl(
+            r#""hashid": "d8fdeab7fce96a19d3fc7b0ca7a1e98b""#
+        ));
+        assert!(!is_yext_json_decl(r#""recordQueries": ["#));
+        assert!(is_klevu_json_decl(r#""recordQueries": ["#));
+        assert!(!is_yext_json_decl(r#""domain_key": "example_com""#));
+        assert!(is_bloomreach_json_decl(r#""domain_key": "example_com""#));
+        assert!(!is_yext_json_decl(r#""result_sources": {"#));
+        assert!(is_constructor_io_json_decl(r#""result_sources": {"#));
+        assert!(!is_yext_json_decl(r#""searchHub": "default""#));
+        assert!(is_coveo_json_decl(r#""searchHub": "default""#));
+        assert!(!is_yext_json_decl(r#""@odata.count": 10"#));
+        assert!(is_azure_search_json_decl(r#""@odata.count": 10"#));
+        assert!(!is_yext_json_decl(
+            r#""yql": "select * from sources * where true""#
+        ));
+        assert!(is_vespa_json_decl(
+            r#""yql": "select * from sources * where true""#
+        ));
+        assert!(!is_yext_json_decl(r#""searchableAttributes": ["#));
+        assert!(is_marqo_json_decl(r#""searchableAttributes": ["#));
+        assert!(!is_yext_json_decl(r#""vector_column_name": "vec""#));
+        assert!(is_lancedb_json_decl(r#""vector_column_name": "vec""#));
+        assert!(!is_yext_json_decl(r#""annsField": "vec""#));
+        assert!(is_milvus_json_decl(r#""annsField": "vec""#));
+        assert!(!is_yext_json_decl(r#""n_results": 10"#));
+        assert!(is_chroma_json_decl(r#""n_results": 10"#));
+        assert!(!is_yext_json_decl(r#""topK": 10"#));
+        assert!(is_pinecone_json_decl(r#""topK": 10"#));
+        assert!(!is_yext_json_decl(r#""nearVector": {"#));
+        assert!(is_weaviate_json_decl(r#""nearVector": {"#));
+        assert!(!is_yext_json_decl(r#""vectors_count": 100"#));
+        assert!(is_qdrant_json_decl(r#""vectors_count": 100"#));
+        assert!(!is_yext_json_decl(r#""processingTimeMS": 12"#));
+        assert!(is_algolia_json_decl(r#""processingTimeMS": 12"#));
+        assert!(!is_yext_json_decl(r#""processingTimeMs": 12"#));
+        assert!(is_meilisearch_json_decl(r#""processingTimeMs": 12"#));
+        assert!(!is_yext_json_decl(r#""search_time_ms": 12"#));
+        assert!(is_typesense_json_decl(r#""search_time_ms": 12"#));
+        assert!(!is_yext_json_decl(r#""responseHeader": {"#));
+        assert!(is_solr_json_decl(r#""responseHeader": {"#));
+        assert!(!is_yext_json_decl(r#""track_total_hits": true"#));
+        assert!(is_elasticsearch_json_decl(r#""track_total_hits": true"#));
+        assert!(!is_yext_json_decl(r#""printWidth": 80"#));
+        assert!(is_prettier_json_decl(r#""printWidth": 80"#));
+        assert!(!is_yext_json_decl(r#""basePath": ".""#));
+        assert!(is_karma_json_decl(r#""basePath": ".""#));
+        assert!(line_is_func_like(r#""failedVerticals": ["#));
+        assert!(line_is_func_like(r#""locationBias": {"#));
+        assert!(line_is_func_like(r#""experienceKey": "answers""#));
+        assert!(line_is_func_like(r#""queryTrigger": "initialize""#));
+        assert!(line_is_func_like(r#""businessId": 3701021"#));
+        assert!(line_is_func_like(r#""source": "KNOWLEDGE_MANAGER""#));
     }
 
     #[test]
