@@ -79205,13 +79205,10 @@ fn apache_httpd_tail(s: &str, need_args: bool) -> bool {
     let first = before.split_whitespace().next().unwrap_or("");
     let unquoted = first.trim_matches(|c| c == '"' || c == '\'');
     let lower = unquoted.to_ascii_lowercase();
-    if matches!(
+    !matches!(
         lower.as_str(),
         "the" | "a" | "an" | "this" | "that" | "my" | "our"
-    ) {
-        return false;
-    }
-    true
+    )
 }
 
 /// HAProxy section headers: `global`, `defaults` / `defaults name`,
@@ -82943,10 +82940,7 @@ fn passwd_account_name_ok(name: &str) -> bool {
 
 fn passwd_password_ok(pw: &str) -> bool {
     // Common: `x`, `*`, `!`, `!!`, empty, or `$id$…` hash (shadow). No spaces / colons.
-    if pw.len() > 256 || pw.contains(' ') || pw.contains(':') {
-        return false;
-    }
-    true
+    pw.len() <= 256 && !pw.contains(' ') && !pw.contains(':')
 }
 
 fn passwd_id_ok(id: &str) -> bool {
@@ -84276,10 +84270,7 @@ fn is_login_defs_decl(s: &str) -> bool {
         return false;
     }
     let value = rest.trim();
-    if value.is_empty() || !login_defs_value_ok(value) {
-        return false;
-    }
-    true
+    !value.is_empty() && login_defs_value_ok(value)
 }
 
 fn login_defs_key_ok(key: &str) -> bool {
@@ -96808,10 +96799,7 @@ fn is_autoconf_decl(s: &str) -> bool {
     }
     // Reject prose first-arg: `AC_INIT(the package)`.
     let lower = inner.to_ascii_lowercase();
-    if lower.starts_with("the ") || lower.starts_with("the)") || lower == "the" {
-        return false;
-    }
-    true
+    !(lower.starts_with("the ") || lower.starts_with("the)") || lower == "the")
 }
 
 fn sml_name_then_bind(s: &str, allow_paren: bool) -> bool {
