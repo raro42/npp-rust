@@ -32516,6 +32516,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_pagefind_json_decl(s)
             || is_stork_json_decl(s)
             || is_docsearch_json_decl(s)
+            || is_instantsearch_json_decl(s)
             || is_gomod_decl(s)
             || is_gemfile_decl(s)
             || is_brewfile_decl(s)
@@ -32942,6 +32943,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_pagefind_json_decl(s)
         || is_stork_json_decl(s)
         || is_docsearch_json_decl(s)
+        || is_instantsearch_json_decl(s)
         || is_gomod_decl(s)
         || is_gemfile_decl(s)
         || is_brewfile_decl(s)
@@ -70323,6 +70325,9 @@ fn stork_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool {
 /// Qdrant `"vectors_count"` / Algolia `"processingTimeMS"` / Meilisearch
 /// `"processingTimeMs"` / Typesense `"search_time_ms"` / Solr
 /// `"responseHeader"` / Elasticsearch `"track_total_hits"` /
+/// InstantSearch.js `"stalledSearchDelay"` / `"initialUiState"` /
+/// `"numberLocale"` / `"preserveSharedStateOnUnmount"` /
+/// `"persistHierarchicalRootCount"` / `"insightsInitParams"` /
 /// prettier `"printWidth"` / karma `"basePath"` stay out. String keys
 /// require a non-empty quoted string. Bool keys only match `true` /
 /// `false`. Numeric keys reject leading zeros beyond `0`.
@@ -70413,6 +70418,165 @@ fn docsearch_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool {
         key,
         "maxResultsPerGroup" | "recentSearchesLimit" | "recentSearchesWithFavoritesLimit"
     ) {
+        return false;
+    }
+    let bytes = after_colon.as_bytes();
+    let mut i = 0usize;
+    if i >= bytes.len() || !bytes[i].is_ascii_digit() {
+        return false;
+    }
+    if bytes[i] == b'0' {
+        i += 1;
+        if i < bytes.len() && bytes[i].is_ascii_digit() {
+            return false;
+        }
+    } else {
+        while i < bytes.len() && bytes[i].is_ascii_digit() {
+            i += 1;
+        }
+    }
+    package_json_tail_ok(&after_colon[i..])
+}
+
+/// Algolia InstantSearch.js / React InstantSearch config JSON keys:
+/// `"stalledSearchDelay": 0` / `200`, `"initialUiState": {`,
+/// `"numberLocale": "…"`, `"preserveSharedStateOnUnmount": true` /
+/// `false`, `"persistHierarchicalRootCount": true` / `false`,
+/// `"insightsInitParams": {`.
+/// Optional trailing `,` and `//` / `/*` comment. Incomplete quotes /
+/// missing `:` stay out. Generic `"$schema"` / `"name"` / `"id"` /
+/// `"q"` / `"query"` / `"url"` / `"appId"` / `"apiKey"` / `"indexName"` /
+/// `"searchClient"` / `"routing"` / `"insights"` / `"future"` /
+/// `"onStateChange"` / `"searchFunction"` / `"widgets"` / `"status"` /
+/// DocSearch `"maxResultsPerGroup"` / `"disableUserPersonalization"` /
+/// `"recentSearchesLimit"` / `"recentSearchesWithFavoritesLimit"` /
+/// `"resultBadgeKey"` / `"initialQuery"` / `"indices"` / Stork
+/// `"exclude_html_selector"` / `"frontmatter_handling"` /
+/// `"excerpts_per_result"` / `"displayed_results_count"` /
+/// `"excerpt_buffer"` / `"save_nearest_node_json"` /
+/// `"exclude_html_selector_override"` / `"frontmatter_handling_override"` /
+/// Pagefind `"unfilteredResultCount"` / `"weighted_locations"` /
+/// `"indexWeight"` / `"mergeFilter"` / `"highlightParam"` /
+/// `"sub_results"` / `"totalFilters"` / `"showSubResults"` / Orama
+/// `"searchableProperties"` / `"searchablePropertiesWithTypes"` /
+/// `"tokenOccurrences"` / `"avgFieldLength"` / `"vectorIndexes"` /
+/// `"hybridWeights"` / `"internalDocumentIDStore"` / `"hitsVector"` /
+/// Lunr.js `"fieldVectors"` / `"invertedIndex"` / `"searchPipeline"` /
+/// `"metadataWhitelist"` / `"fieldTermFrequencies"` / `"termIndex"` /
+/// `"_index"` / FlexSearch `"tokenize"` / `"resolution"` / `"keystore"` /
+/// `"fastupdate"` / `"preset"` / `"encoder"` / `"encode"` / MiniSearch
+/// `"storeFields"` / `"autoSuggestOptions"` / `"maxFuzzy"` /
+/// `"combineWith"` / `"serializationVersion"` / `"averageFieldLength"` /
+/// Fuse.js `"includeScore"` / `"includeMatches"` /
+/// `"minMatchCharLength"` / `"useExtendedSearch"` / `"ignoreFieldNorm"` /
+/// Empathy.co `"partialResults"` / `"promoteds"` / `"queryTagging"` /
+/// `"modelName"` / AddSearch `"processing_time_ms"` / `"rangeFacets"` /
+/// `"postfixWildcard"` / Synerise `"clientUUID"` / `"sortByMetric"` /
+/// Fast Simon `"total_results"` / Nosto `"emptyQueryMatchesAll"` /
+/// Clerk.io `"product_data"` / Tweakwise `"nrofitems"` / Findify
+/// `"t_client"` / Searchanise `"totalItems"` / Unbxd `"searchMetaData"` /
+/// Loop54 `"makesSense"` / Yext `"experienceKey"` / Cludo
+/// `"TypedDocuments"` / Voyado Elevate `"primaryList"` / FactFinder
+/// `"searchResult"` / Hawksearch `"ClientGuid"` / `"NofResults"` /
+/// GroupBy `"totalRecordCount"` / Luigi's Box `"corrected_query"` /
+/// `"total_hits"` / Searchspring `"resultLayout"` / Doofinder
+/// `"hashid"` / Klevu `"recordQueries"` / Bloomreach Discovery
+/// `"domain_key"` / Constructor.io `"result_sources"` / Coveo
+/// `"searchHub"` / `"excerptLength"` / Azure AI Search `"@odata.count"` /
+/// Vespa `"yql"` / Marqo `"searchableAttributes"` / LanceDB
+/// `"vector_column_name"` / Milvus `"annsField"` / Chroma `"n_results"` /
+/// Pinecone `"topK"` / Weaviate `"nearVector"` / `"invertedIndexConfig"` /
+/// Qdrant `"vectors_count"` / Algolia `"processingTimeMS"` / Meilisearch
+/// `"processingTimeMs"` / Typesense `"search_time_ms"` / Solr
+/// `"responseHeader"` / Elasticsearch `"track_total_hits"` /
+/// prettier `"printWidth"` / karma `"basePath"` stay out. String keys
+/// require a non-empty quoted string. Bool keys only match `true` /
+/// `false`. Numeric keys reject leading zeros beyond `0`.
+fn is_instantsearch_json_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    let Some(rest) = s.strip_prefix('"') else {
+        return false;
+    };
+    let Some(end) = rest.find('"') else {
+        return false;
+    };
+    let key = &rest[..end];
+    if !instantsearch_json_key_ok(key) {
+        return false;
+    }
+    let after_key = rest[end + 1..].trim_start();
+    let Some(after_colon) = after_key.strip_prefix(':') else {
+        return false;
+    };
+    let after_colon = after_colon.trim_start();
+    instantsearch_json_value_and_tail_ok(key, after_colon)
+}
+
+fn instantsearch_json_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "stalledSearchDelay"
+            | "initialUiState"
+            | "numberLocale"
+            | "preserveSharedStateOnUnmount"
+            | "persistHierarchicalRootCount"
+            | "insightsInitParams"
+    )
+}
+
+fn instantsearch_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool {
+    let bytes = after_colon.as_bytes();
+    let Some(first) = bytes.first().copied() else {
+        return false;
+    };
+    match first {
+        b'{' => {
+            if !matches!(key, "initialUiState" | "insightsInitParams") {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[1..])
+        }
+        b'"' => instantsearch_json_string_and_tail_ok(key, after_colon),
+        b't' | b'f' => instantsearch_json_bool_and_tail_ok(key, after_colon),
+        b'0'..=b'9' => instantsearch_json_uint_and_tail_ok(key, after_colon),
+        _ => false,
+    }
+}
+
+fn instantsearch_json_string_and_tail_ok(key: &str, after_colon: &str) -> bool {
+    if key != "numberLocale" {
+        return false;
+    }
+    let rest = &after_colon[1..];
+    let Some(end) = rest.find('"') else {
+        return false;
+    };
+    let value = &rest[..end];
+    if value.is_empty() || value.contains('\n') {
+        return false;
+    }
+    package_json_tail_ok(&rest[end + 1..])
+}
+
+fn instantsearch_json_bool_and_tail_ok(key: &str, after_colon: &str) -> bool {
+    if !matches!(
+        key,
+        "preserveSharedStateOnUnmount" | "persistHierarchicalRootCount"
+    ) {
+        return false;
+    }
+    let rest = if let Some(rest) = after_colon.strip_prefix("true") {
+        rest
+    } else if let Some(rest) = after_colon.strip_prefix("false") {
+        rest
+    } else {
+        return false;
+    };
+    package_json_tail_ok(rest)
+}
+
+fn instantsearch_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool {
+    if key != "stalledSearchDelay" {
         return false;
     }
     let bytes = after_colon.as_bytes();
@@ -101064,29 +101228,29 @@ mod func_like_line_tests {
         is_haproxy_decl, is_har_json_decl, is_hatch_toml_decl, is_hawksearch_json_decl,
         is_hoppscotch_json_decl, is_hosts_access_decl, is_hosts_file_decl, is_hoverfly_json_decl,
         is_hypothesis_ini_decl, is_importlinter_ini_decl, is_insomnia_json_decl,
-        is_interrogate_ini_decl, is_ionic_json_decl, is_ipsec_conf_decl, is_isort_ini_decl,
-        is_jaeger_json_decl, is_jasmine_json_decl, is_jest_json_decl, is_jsdoc_json_decl,
-        is_karma_json_decl, is_keepalived_decl, is_klevu_json_decl, is_knip_json_decl,
-        is_krb5_conf_decl, is_lancedb_json_decl, is_lerna_json_decl, is_lightdm_conf_decl,
-        is_limits_conf_decl, is_lint_staged_json_decl, is_locale_conf_decl, is_login_defs_decl,
-        is_logrotate_decl, is_loki_json_decl, is_loop54_json_decl, is_luigisbox_json_decl,
-        is_lunr_json_decl, is_machine_info_decl, is_makepkg_conf_decl, is_marqo_json_decl,
-        is_mdbook_toml_decl, is_meilisearch_json_decl, is_milvus_json_decl,
-        is_minisearch_json_decl, is_mintlify_json_decl, is_mise_toml_decl, is_mkinitcpio_conf_decl,
-        is_mocha_json_decl, is_mockoon_json_decl, is_mockserver_json_decl, is_modprobe_conf_decl,
-        is_mountebank_json_decl, is_mutants_toml_decl, is_mypy_ini_decl, is_mysql_cnf_decl,
-        is_named_conf_decl, is_nest_cli_json_decl, is_netlify_toml_decl, is_networks_file_decl,
-        is_neutralino_json_decl, is_nextest_toml_decl, is_nftables_decl, is_nginx_conf_decl,
-        is_nightwatch_json_decl, is_nixpacks_toml_decl, is_nm_connection_decl, is_nosto_json_decl,
-        is_npmrc_decl, is_nsswitch_conf_decl, is_nx_json_decl, is_nyc_json_decl,
-        is_openapi_json_decl, is_openapitools_json_decl, is_openvpn_decl, is_orama_json_decl,
-        is_os_release_decl, is_otlp_json_decl, is_oxlint_json_decl, is_package_json_decl,
-        is_pacman_conf_decl, is_pact_json_decl, is_pagefind_json_decl, is_pam_conf_decl,
-        is_parcel_json_decl, is_paru_conf_decl, is_passwd_group_file_decl, is_pdm_toml_decl,
-        is_php_ini_decl, is_pinecone_json_decl, is_pip_conf_decl, is_pipfile_decl,
-        is_pixi_toml_decl, is_playwright_json_decl, is_podfile_decl, is_poetry_toml_decl,
-        is_postcss_json_decl, is_postman_json_decl, is_premake_decl, is_prettier_json_decl,
-        is_prometheus_json_decl, is_protocols_file_decl, is_pycln_ini_decl,
+        is_instantsearch_json_decl, is_interrogate_ini_decl, is_ionic_json_decl,
+        is_ipsec_conf_decl, is_isort_ini_decl, is_jaeger_json_decl, is_jasmine_json_decl,
+        is_jest_json_decl, is_jsdoc_json_decl, is_karma_json_decl, is_keepalived_decl,
+        is_klevu_json_decl, is_knip_json_decl, is_krb5_conf_decl, is_lancedb_json_decl,
+        is_lerna_json_decl, is_lightdm_conf_decl, is_limits_conf_decl, is_lint_staged_json_decl,
+        is_locale_conf_decl, is_login_defs_decl, is_logrotate_decl, is_loki_json_decl,
+        is_loop54_json_decl, is_luigisbox_json_decl, is_lunr_json_decl, is_machine_info_decl,
+        is_makepkg_conf_decl, is_marqo_json_decl, is_mdbook_toml_decl, is_meilisearch_json_decl,
+        is_milvus_json_decl, is_minisearch_json_decl, is_mintlify_json_decl, is_mise_toml_decl,
+        is_mkinitcpio_conf_decl, is_mocha_json_decl, is_mockoon_json_decl, is_mockserver_json_decl,
+        is_modprobe_conf_decl, is_mountebank_json_decl, is_mutants_toml_decl, is_mypy_ini_decl,
+        is_mysql_cnf_decl, is_named_conf_decl, is_nest_cli_json_decl, is_netlify_toml_decl,
+        is_networks_file_decl, is_neutralino_json_decl, is_nextest_toml_decl, is_nftables_decl,
+        is_nginx_conf_decl, is_nightwatch_json_decl, is_nixpacks_toml_decl, is_nm_connection_decl,
+        is_nosto_json_decl, is_npmrc_decl, is_nsswitch_conf_decl, is_nx_json_decl,
+        is_nyc_json_decl, is_openapi_json_decl, is_openapitools_json_decl, is_openvpn_decl,
+        is_orama_json_decl, is_os_release_decl, is_otlp_json_decl, is_oxlint_json_decl,
+        is_package_json_decl, is_pacman_conf_decl, is_pact_json_decl, is_pagefind_json_decl,
+        is_pam_conf_decl, is_parcel_json_decl, is_paru_conf_decl, is_passwd_group_file_decl,
+        is_pdm_toml_decl, is_php_ini_decl, is_pinecone_json_decl, is_pip_conf_decl,
+        is_pipfile_decl, is_pixi_toml_decl, is_playwright_json_decl, is_podfile_decl,
+        is_poetry_toml_decl, is_postcss_json_decl, is_postman_json_decl, is_premake_decl,
+        is_prettier_json_decl, is_prometheus_json_decl, is_protocols_file_decl, is_pycln_ini_decl,
         is_pycodestyle_ini_decl, is_pydoclint_ini_decl, is_pydocstyle_ini_decl, is_pylama_ini_decl,
         is_pylint_ini_decl, is_pypirc_ini_decl, is_pyproject_toml_decl, is_pyre_configuration_decl,
         is_pyright_toml_decl, is_pyrightconfig_json_decl, is_pytest_ini_decl, is_pytype_ini_decl,
@@ -146513,6 +146677,26 @@ mod func_like_line_tests {
         assert!(is_docsearch_json_decl(r#""initialQuery": "docs""#));
         assert!(!is_stork_json_decl(r#""indices": ["#));
         assert!(is_docsearch_json_decl(r#""indices": ["#));
+        assert!(!is_stork_json_decl(r#""stalledSearchDelay": 200"#));
+        assert!(is_instantsearch_json_decl(r#""stalledSearchDelay": 200"#));
+        assert!(!is_stork_json_decl(r#""initialUiState": {"#));
+        assert!(is_instantsearch_json_decl(r#""initialUiState": {"#));
+        assert!(!is_stork_json_decl(r#""numberLocale": "de-DE""#));
+        assert!(is_instantsearch_json_decl(r#""numberLocale": "de-DE""#));
+        assert!(!is_stork_json_decl(
+            r#""preserveSharedStateOnUnmount": true"#
+        ));
+        assert!(is_instantsearch_json_decl(
+            r#""preserveSharedStateOnUnmount": true"#
+        ));
+        assert!(!is_stork_json_decl(
+            r#""persistHierarchicalRootCount": true"#
+        ));
+        assert!(is_instantsearch_json_decl(
+            r#""persistHierarchicalRootCount": true"#
+        ));
+        assert!(!is_stork_json_decl(r#""insightsInitParams": {"#));
+        assert!(is_instantsearch_json_decl(r#""insightsInitParams": {"#));
     }
 
     #[test]
@@ -146561,6 +146745,26 @@ mod func_like_line_tests {
         assert!(is_prettier_json_decl(r#""printWidth": 80"#));
         assert!(!is_docsearch_json_decl(r#""basePath": ".""#));
         assert!(is_karma_json_decl(r#""basePath": ".""#));
+        assert!(!is_docsearch_json_decl(r#""stalledSearchDelay": 200"#));
+        assert!(is_instantsearch_json_decl(r#""stalledSearchDelay": 200"#));
+        assert!(!is_docsearch_json_decl(r#""initialUiState": {"#));
+        assert!(is_instantsearch_json_decl(r#""initialUiState": {"#));
+        assert!(!is_docsearch_json_decl(r#""numberLocale": "de-DE""#));
+        assert!(is_instantsearch_json_decl(r#""numberLocale": "de-DE""#));
+        assert!(!is_docsearch_json_decl(
+            r#""preserveSharedStateOnUnmount": true"#
+        ));
+        assert!(is_instantsearch_json_decl(
+            r#""preserveSharedStateOnUnmount": true"#
+        ));
+        assert!(!is_docsearch_json_decl(
+            r#""persistHierarchicalRootCount": true"#
+        ));
+        assert!(is_instantsearch_json_decl(
+            r#""persistHierarchicalRootCount": true"#
+        ));
+        assert!(!is_docsearch_json_decl(r#""insightsInitParams": {"#));
+        assert!(is_instantsearch_json_decl(r#""insightsInitParams": {"#));
     }
 
     #[test]
@@ -146712,6 +146916,225 @@ mod func_like_line_tests {
         assert!(line_is_func_like(r#""insights": true"#));
         assert!(line_is_func_like(r#""initialQuery": "docs""#));
         assert!(line_is_func_like(r#""indices": ["#));
+        assert!(!is_docsearch_json_decl(r#""stalledSearchDelay": 200"#));
+        assert!(is_instantsearch_json_decl(r#""stalledSearchDelay": 200"#));
+        assert!(!is_docsearch_json_decl(r#""initialUiState": {"#));
+        assert!(is_instantsearch_json_decl(r#""initialUiState": {"#));
+        assert!(!is_docsearch_json_decl(r#""numberLocale": "de-DE""#));
+        assert!(is_instantsearch_json_decl(r#""numberLocale": "de-DE""#));
+        assert!(!is_docsearch_json_decl(
+            r#""preserveSharedStateOnUnmount": true"#
+        ));
+        assert!(is_instantsearch_json_decl(
+            r#""preserveSharedStateOnUnmount": true"#
+        ));
+        assert!(!is_docsearch_json_decl(
+            r#""persistHierarchicalRootCount": true"#
+        ));
+        assert!(is_instantsearch_json_decl(
+            r#""persistHierarchicalRootCount": true"#
+        ));
+        assert!(!is_docsearch_json_decl(r#""insightsInitParams": {"#));
+        assert!(is_instantsearch_json_decl(r#""insightsInitParams": {"#));
+    }
+
+    #[test]
+    fn instantsearch_json_keys_smoke() {
+        assert!(is_instantsearch_json_decl(r#""stalledSearchDelay": 200"#));
+        assert!(is_instantsearch_json_decl(r#""initialUiState": {"#));
+        assert!(is_instantsearch_json_decl(r#""numberLocale": "de-DE""#));
+        assert!(is_instantsearch_json_decl(
+            r#""preserveSharedStateOnUnmount": true"#
+        ));
+        assert!(is_instantsearch_json_decl(
+            r#""persistHierarchicalRootCount": false"#
+        ));
+        assert!(is_instantsearch_json_decl(r#""insightsInitParams": {"#));
+        assert!(!is_instantsearch_json_decl(r#""maxResultsPerGroup": 5"#));
+        assert!(is_docsearch_json_decl(r#""maxResultsPerGroup": 5"#));
+        assert!(!is_instantsearch_json_decl(
+            r#""disableUserPersonalization": true"#
+        ));
+        assert!(is_docsearch_json_decl(
+            r#""disableUserPersonalization": true"#
+        ));
+        assert!(!is_instantsearch_json_decl(r#""insights": true"#));
+        assert!(is_docsearch_json_decl(r#""insights": true"#));
+        assert!(!is_instantsearch_json_decl(r#""indices": ["#));
+        assert!(is_docsearch_json_decl(r#""indices": ["#));
+        assert!(!is_instantsearch_json_decl(
+            r#""exclude_html_selector": ".sidebar""#
+        ));
+        assert!(is_stork_json_decl(r#""exclude_html_selector": ".sidebar""#));
+        assert!(!is_instantsearch_json_decl(
+            r#""unfilteredResultCount": 42"#
+        ));
+        assert!(is_pagefind_json_decl(r#""unfilteredResultCount": 42"#));
+        assert!(!is_instantsearch_json_decl(r#""searchableProperties": ["#));
+        assert!(is_orama_json_decl(r#""searchableProperties": ["#));
+        assert!(!is_instantsearch_json_decl(r#""fieldVectors": {"#));
+        assert!(is_lunr_json_decl(r#""fieldVectors": {"#));
+        assert!(!is_instantsearch_json_decl(r#""tokenize": "forward""#));
+        assert!(is_flexsearch_json_decl(r#""tokenize": "forward""#));
+        assert!(!is_instantsearch_json_decl(r#""storeFields": ["#));
+        assert!(is_minisearch_json_decl(r#""storeFields": ["#));
+        assert!(!is_instantsearch_json_decl(r#""includeScore": true"#));
+        assert!(is_fuse_json_decl(r#""includeScore": true"#));
+        assert!(!is_instantsearch_json_decl(r#""partialResults": ["#));
+        assert!(is_empathy_json_decl(r#""partialResults": ["#));
+        assert!(!is_instantsearch_json_decl(r#""processing_time_ms": 21"#));
+        assert!(is_addsearch_json_decl(r#""processing_time_ms": 21"#));
+        assert!(!is_instantsearch_json_decl(r#""processingTimeMS": 12"#));
+        assert!(is_algolia_json_decl(r#""processingTimeMS": 12"#));
+        assert!(!is_instantsearch_json_decl(r#""searchableAttributes": ["#));
+        assert!(is_marqo_json_decl(r#""searchableAttributes": ["#));
+        assert!(!is_instantsearch_json_decl(r#""excerptLength": 200"#));
+        assert!(is_coveo_json_decl(r#""excerptLength": 200"#));
+        assert!(!is_instantsearch_json_decl(r#""track_total_hits": true"#));
+        assert!(is_elasticsearch_json_decl(r#""track_total_hits": true"#));
+        assert!(!is_instantsearch_json_decl(r#""printWidth": 80"#));
+        assert!(is_prettier_json_decl(r#""printWidth": 80"#));
+        assert!(!is_instantsearch_json_decl(r#""basePath": ".""#));
+        assert!(is_karma_json_decl(r#""basePath": ".""#));
+    }
+
+    #[test]
+    fn instantsearch_json_keys_count() {
+        assert!(is_instantsearch_json_decl(r#""stalledSearchDelay": 0"#));
+        assert!(is_instantsearch_json_decl(r#""stalledSearchDelay": 200"#));
+        assert!(is_instantsearch_json_decl(r#""stalledSearchDelay": 200,"#));
+        assert!(is_instantsearch_json_decl(
+            r#""stalledSearchDelay": 200 // c"#
+        ));
+        assert!(!is_instantsearch_json_decl(r#""stalledSearchDelay": 0200"#));
+        assert!(!is_instantsearch_json_decl(r#""stalledSearchDelay": true"#));
+        assert!(!is_instantsearch_json_decl(
+            r#""stalledSearchDelay": "200""#
+        ));
+        assert!(!is_instantsearch_json_decl(r#""stalledSearchDelay": {"#));
+        assert!(is_instantsearch_json_decl(r#""initialUiState": {"#));
+        assert!(is_instantsearch_json_decl(r#""initialUiState": {,"#));
+        assert!(is_instantsearch_json_decl(r#""initialUiState": { // c"#));
+        assert!(!is_instantsearch_json_decl(r#""initialUiState": ["#));
+        assert!(!is_instantsearch_json_decl(r#""initialUiState": true"#));
+        assert!(!is_instantsearch_json_decl(r#""initialUiState": "x""#));
+        assert!(is_instantsearch_json_decl(r#""numberLocale": "de-DE""#));
+        assert!(is_instantsearch_json_decl(r#""numberLocale": "de-DE","#));
+        assert!(is_instantsearch_json_decl(
+            r#""numberLocale": "de-DE" // c"#
+        ));
+        assert!(!is_instantsearch_json_decl(r#""numberLocale": """#));
+        assert!(!is_instantsearch_json_decl(r#""numberLocale": true"#));
+        assert!(!is_instantsearch_json_decl(r#""numberLocale": 1"#));
+        assert!(is_instantsearch_json_decl(
+            r#""preserveSharedStateOnUnmount": true"#
+        ));
+        assert!(is_instantsearch_json_decl(
+            r#""preserveSharedStateOnUnmount": false"#
+        ));
+        assert!(is_instantsearch_json_decl(
+            r#""preserveSharedStateOnUnmount": true,"#
+        ));
+        assert!(is_instantsearch_json_decl(
+            r#""preserveSharedStateOnUnmount": false // c"#
+        ));
+        assert!(!is_instantsearch_json_decl(
+            r#""preserveSharedStateOnUnmount": 1"#
+        ));
+        assert!(!is_instantsearch_json_decl(
+            r#""preserveSharedStateOnUnmount": "true""#
+        ));
+        assert!(!is_instantsearch_json_decl(
+            r#""preserveSharedStateOnUnmount": {"#
+        ));
+        assert!(is_instantsearch_json_decl(
+            r#""persistHierarchicalRootCount": true"#
+        ));
+        assert!(is_instantsearch_json_decl(
+            r#""persistHierarchicalRootCount": false"#
+        ));
+        assert!(is_instantsearch_json_decl(
+            r#""persistHierarchicalRootCount": true,"#
+        ));
+        assert!(!is_instantsearch_json_decl(
+            r#""persistHierarchicalRootCount": 1"#
+        ));
+        assert!(!is_instantsearch_json_decl(
+            r#""persistHierarchicalRootCount": "false""#
+        ));
+        assert!(is_instantsearch_json_decl(r#""insightsInitParams": {"#));
+        assert!(is_instantsearch_json_decl(r#""insightsInitParams": {,"#));
+        assert!(is_instantsearch_json_decl(
+            r#""insightsInitParams": { // c"#
+        ));
+        assert!(!is_instantsearch_json_decl(r#""insightsInitParams": ["#));
+        assert!(!is_instantsearch_json_decl(r#""insightsInitParams": true"#));
+        assert!(!is_instantsearch_json_decl(r#""insightsInitParams": "x""#));
+        assert!(!is_instantsearch_json_decl(r#""stalledSearchDelay""#));
+        assert!(!is_instantsearch_json_decl(r#""initialUiState""#));
+        assert!(!is_instantsearch_json_decl(r#""numberLocale""#));
+        assert!(!is_instantsearch_json_decl(
+            r#""$schema": "https://example.com""#
+        ));
+        assert!(!is_instantsearch_json_decl(r#""name": "search""#));
+        assert!(!is_instantsearch_json_decl(r#""id": "1""#));
+        assert!(!is_instantsearch_json_decl(r#""q": "shoes""#));
+        assert!(!is_instantsearch_json_decl(r#""query": "shoes""#));
+        assert!(!is_instantsearch_json_decl(r#""url": "/about/""#));
+        assert!(!is_instantsearch_json_decl(r#""appId": "APP""#));
+        assert!(!is_instantsearch_json_decl(r#""apiKey": "key""#));
+        assert!(!is_instantsearch_json_decl(r#""indexName": "products""#));
+        assert!(!is_instantsearch_json_decl(r#""searchClient": {"#));
+        assert!(!is_instantsearch_json_decl(r#""routing": true"#));
+        assert!(!is_instantsearch_json_decl(r#""insights": true"#));
+        assert!(is_docsearch_json_decl(r#""insights": true"#));
+        assert!(!is_instantsearch_json_decl(r#""future": {"#));
+        assert!(!is_instantsearch_json_decl(r#""widgets": ["#));
+        assert!(!is_instantsearch_json_decl(r#""status": "idle""#));
+        assert!(!is_instantsearch_json_decl(r#""maxResultsPerGroup": 5"#));
+        assert!(is_docsearch_json_decl(r#""maxResultsPerGroup": 5"#));
+        assert!(!is_instantsearch_json_decl(
+            r#""exclude_html_selector": ".sidebar""#
+        ));
+        assert!(is_stork_json_decl(r#""exclude_html_selector": ".sidebar""#));
+        assert!(!is_instantsearch_json_decl(
+            r#""unfilteredResultCount": 42"#
+        ));
+        assert!(is_pagefind_json_decl(r#""unfilteredResultCount": 42"#));
+        assert!(!is_instantsearch_json_decl(r#""searchableProperties": ["#));
+        assert!(is_orama_json_decl(r#""searchableProperties": ["#));
+        assert!(!is_instantsearch_json_decl(r#""fieldVectors": {"#));
+        assert!(is_lunr_json_decl(r#""fieldVectors": {"#));
+        assert!(!is_instantsearch_json_decl(r#""tokenize": "forward""#));
+        assert!(is_flexsearch_json_decl(r#""tokenize": "forward""#));
+        assert!(!is_instantsearch_json_decl(r#""storeFields": ["#));
+        assert!(is_minisearch_json_decl(r#""storeFields": ["#));
+        assert!(!is_instantsearch_json_decl(r#""includeScore": true"#));
+        assert!(is_fuse_json_decl(r#""includeScore": true"#));
+        assert!(!is_instantsearch_json_decl(r#""partialResults": ["#));
+        assert!(is_empathy_json_decl(r#""partialResults": ["#));
+        assert!(!is_instantsearch_json_decl(r#""processing_time_ms": 21"#));
+        assert!(is_addsearch_json_decl(r#""processing_time_ms": 21"#));
+        assert!(!is_instantsearch_json_decl(r#""processingTimeMS": 12"#));
+        assert!(is_algolia_json_decl(r#""processingTimeMS": 12"#));
+        assert!(!is_instantsearch_json_decl(r#""searchableAttributes": ["#));
+        assert!(is_marqo_json_decl(r#""searchableAttributes": ["#));
+        assert!(!is_instantsearch_json_decl(r#""excerptLength": 200"#));
+        assert!(is_coveo_json_decl(r#""excerptLength": 200"#));
+        assert!(!is_instantsearch_json_decl(r#""invertedIndexConfig": {"#));
+        assert!(is_weaviate_json_decl(r#""invertedIndexConfig": {"#));
+        assert!(!is_instantsearch_json_decl(r#""track_total_hits": true"#));
+        assert!(is_elasticsearch_json_decl(r#""track_total_hits": true"#));
+        assert!(!is_instantsearch_json_decl(r#""printWidth": 80"#));
+        assert!(is_prettier_json_decl(r#""printWidth": 80"#));
+        assert!(!is_instantsearch_json_decl(r#""basePath": ".""#));
+        assert!(is_karma_json_decl(r#""basePath": ".""#));
+        assert!(line_is_func_like(r#""stalledSearchDelay": 200"#));
+        assert!(line_is_func_like(r#""initialUiState": {"#));
+        assert!(line_is_func_like(r#""numberLocale": "de-DE""#));
+        assert!(line_is_func_like(r#""preserveSharedStateOnUnmount": true"#));
+        assert!(line_is_func_like(r#""persistHierarchicalRootCount": true"#));
+        assert!(line_is_func_like(r#""insightsInitParams": {"#));
     }
 
     #[test]

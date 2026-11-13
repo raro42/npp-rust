@@ -1360,3 +1360,5 @@
 009 keep: Function List Stork exclude_html_selector/frontmatter_handling/excerpts_per_result/displayed_results_count/excerpt_buffer/save_nearest_node_json/overrides (v0.3.847)
 
 009 keep: Function List Algolia DocSearch maxResultsPerGroup/disableUserPersonalization/recentSearchesLimit/recentSearchesWithFavoritesLimit/resultBadgeKey/insights/initialQuery/indices (v0.3.848)
+
+009 keep: Function List InstantSearch.js stalledSearchDelay/initialUiState/numberLocale/preserveSharedStateOnUnmount/persistHierarchicalRootCount/insightsInitParams (v0.3.849)
