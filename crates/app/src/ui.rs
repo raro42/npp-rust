@@ -32512,6 +32512,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_minisearch_json_decl(s)
             || is_flexsearch_json_decl(s)
             || is_lunr_json_decl(s)
+            || is_orama_json_decl(s)
             || is_gomod_decl(s)
             || is_gemfile_decl(s)
             || is_brewfile_decl(s)
@@ -32934,6 +32935,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_minisearch_json_decl(s)
         || is_flexsearch_json_decl(s)
         || is_lunr_json_decl(s)
+        || is_orama_json_decl(s)
         || is_gomod_decl(s)
         || is_gemfile_decl(s)
         || is_brewfile_decl(s)
@@ -69534,9 +69536,11 @@ fn minisearch_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool {
 /// Typesense `"search_time_ms"` / Solr `"responseHeader"` /
 /// Elasticsearch `"track_total_hits"` / Lunr.js `"fieldVectors"` /
 /// `"invertedIndex"` / `"searchPipeline"` / `"metadataWhitelist"` /
-/// `"fieldTermFrequencies"` / `"termIndex"` / `"_index"` /
-/// prettier `"printWidth"` / karma `"basePath"` stay out.
-/// `"tokenize"` / `"preset"` / `"encoder"` / `"encode"` only match
+/// `"fieldTermFrequencies"` / `"termIndex"` / `"_index"` / Orama
+/// `"searchableProperties"` / `"tokenOccurrences"` / `"avgFieldLength"` /
+/// `"vectorIndexes"` / `"hybridWeights"` / `"internalDocumentIDStore"` /
+/// `"hitsVector"` / prettier `"printWidth"` / karma `"basePath"` stay
+/// out. `"tokenize"` / `"preset"` / `"encoder"` / `"encode"` only match
 /// their FlexSearch enums. Bool keys only match `true` / `false`.
 /// Numeric keys reject leading zeros beyond `0`.
 fn is_flexsearch_json_decl(s: &str) -> bool {
@@ -69741,7 +69745,10 @@ fn flexsearch_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool {
 /// Weaviate `"nearVector"` / `"invertedIndexConfig"` / Qdrant
 /// `"vectors_count"` / Algolia `"processingTimeMS"` / Meilisearch
 /// `"processingTimeMs"` / Typesense `"search_time_ms"` / Solr
-/// `"responseHeader"` / Elasticsearch `"track_total_hits"` /
+/// `"responseHeader"` / Elasticsearch `"track_total_hits"` / Orama
+/// `"searchableProperties"` / `"searchablePropertiesWithTypes"` /
+/// `"tokenOccurrences"` / `"avgFieldLength"` / `"vectorIndexes"` /
+/// `"hybridWeights"` / `"internalDocumentIDStore"` / `"hitsVector"` /
 /// prettier `"printWidth"` / karma `"basePath"` stay out. Numeric keys
 /// reject leading zeros beyond `0`. `"_index"` requires a uint (not a
 /// string index name).
@@ -69828,6 +69835,111 @@ fn lunr_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool {
         }
     }
     package_json_tail_ok(&after_colon[i..])
+}
+
+/// Orama (`@orama/orama`) serialized index / search JSON keys:
+/// `"searchableProperties": [`, `"searchablePropertiesWithTypes": {`,
+/// `"tokenOccurrences": {`, `"avgFieldLength": {`,
+/// `"vectorIndexes": {`, `"hybridWeights": {`,
+/// `"internalDocumentIDStore": {`, `"hitsVector": [`. Optional trailing
+/// `,` and `//` / `/*` comment. Incomplete quotes / missing `:` stay
+/// out. Generic `"$schema"` / `"name"` / `"id"` / `"q"` / `"query"` /
+/// `"term"` / `"version"` / `"fields"` / `"properties"` / `"indexes"` /
+/// `"docs"` / `"sorting"` / `"pinning"` / `"language"` / `"hits"` /
+/// `"count"` / `"elapsed"` / `"facets"` / `"groups"` / `"frequencies"` /
+/// `"fieldLengths"` / `"mode"` / `"limit"` / `"offset"` / `"boost"` /
+/// `"where"` / `"tolerance"` / `"exact"` / `"relevance"` / Lunr.js
+/// `"fieldVectors"` / `"invertedIndex"` / `"searchPipeline"` /
+/// `"metadataWhitelist"` / `"fieldTermFrequencies"` / `"termIndex"` /
+/// `"_index"` / FlexSearch `"tokenize"` / `"resolution"` / `"keystore"` /
+/// `"fastupdate"` / `"preset"` / `"encoder"` / `"encode"` / MiniSearch
+/// `"storeFields"` / `"autoSuggestOptions"` / `"maxFuzzy"` /
+/// `"combineWith"` / `"serializationVersion"` / `"averageFieldLength"` /
+/// Fuse.js `"includeScore"` / `"includeMatches"` /
+/// `"minMatchCharLength"` / `"useExtendedSearch"` / `"ignoreFieldNorm"` /
+/// Empathy.co `"partialResults"` / `"promoteds"` / `"queryTagging"` /
+/// `"modelName"` / AddSearch `"processing_time_ms"` / `"rangeFacets"` /
+/// `"postfixWildcard"` / Synerise `"clientUUID"` / `"sortByMetric"` /
+/// Fast Simon `"total_results"` / Nosto `"emptyQueryMatchesAll"` /
+/// Clerk.io `"product_data"` / Tweakwise `"nrofitems"` / Findify
+/// `"t_client"` / Searchanise `"totalItems"` / Unbxd `"searchMetaData"` /
+/// Loop54 `"makesSense"` / Yext `"experienceKey"` / Cludo
+/// `"TypedDocuments"` / Voyado Elevate `"primaryList"` / FactFinder
+/// `"searchResult"` / Hawksearch `"ClientGuid"` / `"NofResults"` /
+/// GroupBy `"totalRecordCount"` / Luigi's Box `"corrected_query"` /
+/// `"total_hits"` / Searchspring `"resultLayout"` / Doofinder
+/// `"hashid"` / Klevu `"recordQueries"` / Bloomreach Discovery
+/// `"domain_key"` / Constructor.io `"result_sources"` / Coveo
+/// `"searchHub"` / Azure AI Search `"@odata.count"` / Vespa `"yql"` /
+/// Marqo `"searchableAttributes"` / LanceDB `"vector_column_name"` /
+/// Milvus `"annsField"` / Chroma `"n_results"` / Pinecone `"topK"` /
+/// Weaviate `"nearVector"` / `"invertedIndexConfig"` / Qdrant
+/// `"vectors_count"` / Algolia `"processingTimeMS"` / Meilisearch
+/// `"processingTimeMs"` / Typesense `"search_time_ms"` / Solr
+/// `"responseHeader"` / Elasticsearch `"track_total_hits"` /
+/// prettier `"printWidth"` / karma `"basePath"` stay out.
+fn is_orama_json_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    let Some(rest) = s.strip_prefix('"') else {
+        return false;
+    };
+    let Some(end) = rest.find('"') else {
+        return false;
+    };
+    let key = &rest[..end];
+    if !orama_json_key_ok(key) {
+        return false;
+    }
+    let after_key = rest[end + 1..].trim_start();
+    let Some(after_colon) = after_key.strip_prefix(':') else {
+        return false;
+    };
+    let after_colon = after_colon.trim_start();
+    orama_json_value_and_tail_ok(key, after_colon)
+}
+
+fn orama_json_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "searchableProperties"
+            | "searchablePropertiesWithTypes"
+            | "tokenOccurrences"
+            | "avgFieldLength"
+            | "vectorIndexes"
+            | "hybridWeights"
+            | "internalDocumentIDStore"
+            | "hitsVector"
+    )
+}
+
+fn orama_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool {
+    let bytes = after_colon.as_bytes();
+    let Some(first) = bytes.first().copied() else {
+        return false;
+    };
+    match first {
+        b'{' => {
+            if !matches!(
+                key,
+                "searchablePropertiesWithTypes"
+                    | "tokenOccurrences"
+                    | "avgFieldLength"
+                    | "vectorIndexes"
+                    | "hybridWeights"
+                    | "internalDocumentIDStore"
+            ) {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[1..])
+        }
+        b'[' => {
+            if !matches!(key, "searchableProperties" | "hitsVector") {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[1..])
+        }
+        _ => false,
+    }
 }
 
 /// go.mod / go.work directives: `module example.com/foo`, `go 1.22`,
@@ -100475,33 +100587,34 @@ mod func_like_line_tests {
         is_neutralino_json_decl, is_nextest_toml_decl, is_nftables_decl, is_nginx_conf_decl,
         is_nightwatch_json_decl, is_nixpacks_toml_decl, is_nm_connection_decl, is_nosto_json_decl,
         is_npmrc_decl, is_nsswitch_conf_decl, is_nx_json_decl, is_nyc_json_decl,
-        is_openapi_json_decl, is_openapitools_json_decl, is_openvpn_decl, is_os_release_decl,
-        is_otlp_json_decl, is_oxlint_json_decl, is_package_json_decl, is_pacman_conf_decl,
-        is_pact_json_decl, is_pam_conf_decl, is_parcel_json_decl, is_paru_conf_decl,
-        is_passwd_group_file_decl, is_pdm_toml_decl, is_php_ini_decl, is_pinecone_json_decl,
-        is_pip_conf_decl, is_pipfile_decl, is_pixi_toml_decl, is_playwright_json_decl,
-        is_podfile_decl, is_poetry_toml_decl, is_postcss_json_decl, is_postman_json_decl,
-        is_premake_decl, is_prettier_json_decl, is_prometheus_json_decl, is_protocols_file_decl,
-        is_pycln_ini_decl, is_pycodestyle_ini_decl, is_pydoclint_ini_decl, is_pydocstyle_ini_decl,
-        is_pylama_ini_decl, is_pylint_ini_decl, is_pypirc_ini_decl, is_pyproject_toml_decl,
-        is_pyre_configuration_decl, is_pyright_toml_decl, is_pyrightconfig_json_decl,
-        is_pytest_ini_decl, is_pytype_ini_decl, is_pyupgrade_ini_decl, is_qdrant_json_decl,
-        is_radon_ini_decl, is_railway_toml_decl, is_rake_decl, is_rapidoc_json_decl,
-        is_redoc_json_decl, is_redocly_json_decl, is_refurb_toml_decl, is_release_it_json_decl,
-        is_release_please_json_decl, is_release_toml_decl, is_renovate_json_decl,
-        is_resolv_conf_decl, is_rpc_file_decl, is_rstcheck_ini_decl, is_rsyslog_decl,
-        is_ruff_toml_decl, is_rush_json_decl, is_rust_toolchain_toml_decl, is_rustfmt_toml_decl,
-        is_samba_conf_decl, is_samconfig_toml_decl, is_scalar_json_decl, is_scons_decl,
-        is_scriv_ini_decl, is_sddm_conf_decl, is_searchanise_json_decl, is_searchspring_json_decl,
-        is_semantic_release_ini_decl, is_semantic_release_json_decl, is_services_file_decl,
-        is_setup_cfg_decl, is_setuptools_scm_ini_decl, is_simple_git_hooks_json_decl,
-        is_solr_json_decl, is_spectral_json_decl, is_sqlfluff_ini_decl, is_ssh_config_decl,
-        is_sssd_conf_decl, is_stoplight_elements_json_decl, is_stryker_json_decl,
-        is_stylelint_json_decl, is_subuid_subgid_decl, is_sudoers_decl, is_supabase_toml_decl,
-        is_supervisord_conf_decl, is_swagger_ui_json_decl, is_swc_json_decl, is_syncpack_json_decl,
-        is_synerise_json_decl, is_sysctl_conf_decl, is_syslog_ng_decl, is_systemd_networkd_decl,
-        is_systemd_unit_decl, is_sysusers_d_decl, is_tap_json_decl, is_taplo_toml_decl,
-        is_tauri_json_decl, is_telegraf_toml_decl, is_tempo_json_decl, is_testcafe_json_decl,
+        is_openapi_json_decl, is_openapitools_json_decl, is_openvpn_decl, is_orama_json_decl,
+        is_os_release_decl, is_otlp_json_decl, is_oxlint_json_decl, is_package_json_decl,
+        is_pacman_conf_decl, is_pact_json_decl, is_pam_conf_decl, is_parcel_json_decl,
+        is_paru_conf_decl, is_passwd_group_file_decl, is_pdm_toml_decl, is_php_ini_decl,
+        is_pinecone_json_decl, is_pip_conf_decl, is_pipfile_decl, is_pixi_toml_decl,
+        is_playwright_json_decl, is_podfile_decl, is_poetry_toml_decl, is_postcss_json_decl,
+        is_postman_json_decl, is_premake_decl, is_prettier_json_decl, is_prometheus_json_decl,
+        is_protocols_file_decl, is_pycln_ini_decl, is_pycodestyle_ini_decl, is_pydoclint_ini_decl,
+        is_pydocstyle_ini_decl, is_pylama_ini_decl, is_pylint_ini_decl, is_pypirc_ini_decl,
+        is_pyproject_toml_decl, is_pyre_configuration_decl, is_pyright_toml_decl,
+        is_pyrightconfig_json_decl, is_pytest_ini_decl, is_pytype_ini_decl, is_pyupgrade_ini_decl,
+        is_qdrant_json_decl, is_radon_ini_decl, is_railway_toml_decl, is_rake_decl,
+        is_rapidoc_json_decl, is_redoc_json_decl, is_redocly_json_decl, is_refurb_toml_decl,
+        is_release_it_json_decl, is_release_please_json_decl, is_release_toml_decl,
+        is_renovate_json_decl, is_resolv_conf_decl, is_rpc_file_decl, is_rstcheck_ini_decl,
+        is_rsyslog_decl, is_ruff_toml_decl, is_rush_json_decl, is_rust_toolchain_toml_decl,
+        is_rustfmt_toml_decl, is_samba_conf_decl, is_samconfig_toml_decl, is_scalar_json_decl,
+        is_scons_decl, is_scriv_ini_decl, is_sddm_conf_decl, is_searchanise_json_decl,
+        is_searchspring_json_decl, is_semantic_release_ini_decl, is_semantic_release_json_decl,
+        is_services_file_decl, is_setup_cfg_decl, is_setuptools_scm_ini_decl,
+        is_simple_git_hooks_json_decl, is_solr_json_decl, is_spectral_json_decl,
+        is_sqlfluff_ini_decl, is_ssh_config_decl, is_sssd_conf_decl,
+        is_stoplight_elements_json_decl, is_stryker_json_decl, is_stylelint_json_decl,
+        is_subuid_subgid_decl, is_sudoers_decl, is_supabase_toml_decl, is_supervisord_conf_decl,
+        is_swagger_ui_json_decl, is_swc_json_decl, is_syncpack_json_decl, is_synerise_json_decl,
+        is_sysctl_conf_decl, is_syslog_ng_decl, is_systemd_networkd_decl, is_systemd_unit_decl,
+        is_sysusers_d_decl, is_tap_json_decl, is_taplo_toml_decl, is_tauri_json_decl,
+        is_telegraf_toml_decl, is_tempo_json_decl, is_testcafe_json_decl,
         is_thunder_client_json_decl, is_tmpfiles_d_decl, is_towncrier_ini_decl, is_tox_ini_decl,
         is_trunk_toml_decl, is_tsconfig_json_decl, is_turbo_json_decl, is_tweakwise_json_decl,
         is_ty_toml_decl, is_typedoc_json_decl, is_typesense_json_decl, is_typos_toml_decl,
@@ -144913,6 +145026,20 @@ mod func_like_line_tests {
         assert!(is_lunr_json_decl(r#""termIndex": 42"#));
         assert!(!is_flexsearch_json_decl(r#""_index": 17"#));
         assert!(is_lunr_json_decl(r#""_index": 17"#));
+        assert!(!is_flexsearch_json_decl(r#""searchableProperties": ["#));
+        assert!(is_orama_json_decl(r#""searchableProperties": ["#));
+        assert!(!is_flexsearch_json_decl(r#""tokenOccurrences": {"#));
+        assert!(is_orama_json_decl(r#""tokenOccurrences": {"#));
+        assert!(!is_flexsearch_json_decl(r#""avgFieldLength": {"#));
+        assert!(is_orama_json_decl(r#""avgFieldLength": {"#));
+        assert!(!is_flexsearch_json_decl(r#""vectorIndexes": {"#));
+        assert!(is_orama_json_decl(r#""vectorIndexes": {"#));
+        assert!(!is_flexsearch_json_decl(r#""hybridWeights": {"#));
+        assert!(is_orama_json_decl(r#""hybridWeights": {"#));
+        assert!(!is_flexsearch_json_decl(r#""internalDocumentIDStore": {"#));
+        assert!(is_orama_json_decl(r#""internalDocumentIDStore": {"#));
+        assert!(!is_flexsearch_json_decl(r#""hitsVector": ["#));
+        assert!(is_orama_json_decl(r#""hitsVector": ["#));
     }
 
     #[test]
@@ -145143,6 +145270,20 @@ mod func_like_line_tests {
         assert!(is_prettier_json_decl(r#""printWidth": 80"#));
         assert!(!is_lunr_json_decl(r#""basePath": ".""#));
         assert!(is_karma_json_decl(r#""basePath": ".""#));
+        assert!(!is_lunr_json_decl(r#""searchableProperties": ["#));
+        assert!(is_orama_json_decl(r#""searchableProperties": ["#));
+        assert!(!is_lunr_json_decl(r#""tokenOccurrences": {"#));
+        assert!(is_orama_json_decl(r#""tokenOccurrences": {"#));
+        assert!(!is_lunr_json_decl(r#""avgFieldLength": {"#));
+        assert!(is_orama_json_decl(r#""avgFieldLength": {"#));
+        assert!(!is_lunr_json_decl(r#""vectorIndexes": {"#));
+        assert!(is_orama_json_decl(r#""vectorIndexes": {"#));
+        assert!(!is_lunr_json_decl(r#""hybridWeights": {"#));
+        assert!(is_orama_json_decl(r#""hybridWeights": {"#));
+        assert!(!is_lunr_json_decl(r#""internalDocumentIDStore": {"#));
+        assert!(is_orama_json_decl(r#""internalDocumentIDStore": {"#));
+        assert!(!is_lunr_json_decl(r#""hitsVector": ["#));
+        assert!(is_orama_json_decl(r#""hitsVector": ["#));
     }
 
     #[test]
@@ -145229,6 +145370,147 @@ mod func_like_line_tests {
         assert!(line_is_func_like(r#""fieldLengths": {"#));
         assert!(line_is_func_like(r#""termIndex": 42"#));
         assert!(line_is_func_like(r#""_index": 17"#));
+        assert!(!is_lunr_json_decl(r#""searchableProperties": ["#));
+        assert!(is_orama_json_decl(r#""searchableProperties": ["#));
+        assert!(!is_lunr_json_decl(r#""searchablePropertiesWithTypes": {"#));
+        assert!(is_orama_json_decl(r#""searchablePropertiesWithTypes": {"#));
+        assert!(!is_lunr_json_decl(r#""tokenOccurrences": {"#));
+        assert!(is_orama_json_decl(r#""tokenOccurrences": {"#));
+        assert!(!is_lunr_json_decl(r#""avgFieldLength": {"#));
+        assert!(is_orama_json_decl(r#""avgFieldLength": {"#));
+        assert!(!is_lunr_json_decl(r#""vectorIndexes": {"#));
+        assert!(is_orama_json_decl(r#""vectorIndexes": {"#));
+        assert!(!is_lunr_json_decl(r#""hybridWeights": {"#));
+        assert!(is_orama_json_decl(r#""hybridWeights": {"#));
+        assert!(!is_lunr_json_decl(r#""internalDocumentIDStore": {"#));
+        assert!(is_orama_json_decl(r#""internalDocumentIDStore": {"#));
+        assert!(!is_lunr_json_decl(r#""hitsVector": ["#));
+        assert!(is_orama_json_decl(r#""hitsVector": ["#));
+    }
+
+    #[test]
+    fn orama_json_keys_smoke() {
+        assert!(is_orama_json_decl(r#""searchableProperties": ["#));
+        assert!(is_orama_json_decl(r#""searchablePropertiesWithTypes": {"#));
+        assert!(is_orama_json_decl(r#""tokenOccurrences": {"#));
+        assert!(is_orama_json_decl(r#""avgFieldLength": {"#));
+        assert!(is_orama_json_decl(r#""vectorIndexes": {"#));
+        assert!(is_orama_json_decl(r#""hybridWeights": {"#));
+        assert!(is_orama_json_decl(r#""internalDocumentIDStore": {"#));
+        assert!(is_orama_json_decl(r#""hitsVector": ["#));
+        assert!(!is_orama_json_decl(r#""fieldVectors": {"#));
+        assert!(is_lunr_json_decl(r#""fieldVectors": {"#));
+        assert!(!is_orama_json_decl(r#""tokenize": "forward""#));
+        assert!(is_flexsearch_json_decl(r#""tokenize": "forward""#));
+        assert!(!is_orama_json_decl(r#""storeFields": ["#));
+        assert!(is_minisearch_json_decl(r#""storeFields": ["#));
+        assert!(!is_orama_json_decl(r#""averageFieldLength": ["#));
+        assert!(is_minisearch_json_decl(r#""averageFieldLength": ["#));
+        assert!(!is_orama_json_decl(r#""includeScore": true"#));
+        assert!(is_fuse_json_decl(r#""includeScore": true"#));
+        assert!(!is_orama_json_decl(r#""partialResults": ["#));
+        assert!(is_empathy_json_decl(r#""partialResults": ["#));
+        assert!(!is_orama_json_decl(r#""processing_time_ms": 21"#));
+        assert!(is_addsearch_json_decl(r#""processing_time_ms": 21"#));
+        assert!(!is_orama_json_decl(r#""searchableAttributes": ["#));
+        assert!(is_marqo_json_decl(r#""searchableAttributes": ["#));
+        assert!(!is_orama_json_decl(r#""invertedIndexConfig": {"#));
+        assert!(is_weaviate_json_decl(r#""invertedIndexConfig": {"#));
+        assert!(!is_orama_json_decl(r#""track_total_hits": true"#));
+        assert!(is_elasticsearch_json_decl(r#""track_total_hits": true"#));
+        assert!(!is_orama_json_decl(r#""printWidth": 80"#));
+        assert!(is_prettier_json_decl(r#""printWidth": 80"#));
+        assert!(!is_orama_json_decl(r#""basePath": ".""#));
+        assert!(is_karma_json_decl(r#""basePath": ".""#));
+    }
+
+    #[test]
+    fn orama_json_keys_count() {
+        assert!(is_orama_json_decl(r#""searchableProperties": ["#));
+        assert!(is_orama_json_decl(r#""searchableProperties": [,"#));
+        assert!(is_orama_json_decl(r#""searchableProperties": [ // c"#));
+        assert!(!is_orama_json_decl(r#""searchableProperties": {"#));
+        assert!(!is_orama_json_decl(r#""searchableProperties": true"#));
+        assert!(!is_orama_json_decl(r#""searchableProperties": 1"#));
+        assert!(!is_orama_json_decl(r#""searchableProperties": "x""#));
+        assert!(is_orama_json_decl(r#""searchablePropertiesWithTypes": {"#));
+        assert!(is_orama_json_decl(r#""searchablePropertiesWithTypes": {,"#));
+        assert!(is_orama_json_decl(
+            r#""searchablePropertiesWithTypes": { // c"#
+        ));
+        assert!(!is_orama_json_decl(r#""searchablePropertiesWithTypes": ["#));
+        assert!(!is_orama_json_decl(
+            r#""searchablePropertiesWithTypes": true"#
+        ));
+        assert!(is_orama_json_decl(r#""tokenOccurrences": {"#));
+        assert!(!is_orama_json_decl(r#""tokenOccurrences": ["#));
+        assert!(!is_orama_json_decl(r#""tokenOccurrences": true"#));
+        assert!(is_orama_json_decl(r#""avgFieldLength": {"#));
+        assert!(!is_orama_json_decl(r#""avgFieldLength": ["#));
+        assert!(!is_orama_json_decl(r#""avgFieldLength": true"#));
+        assert!(!is_orama_json_decl(r#""averageFieldLength": {"#));
+        assert!(is_orama_json_decl(r#""vectorIndexes": {"#));
+        assert!(!is_orama_json_decl(r#""vectorIndexes": ["#));
+        assert!(!is_orama_json_decl(r#""vectorIndexes": true"#));
+        assert!(is_orama_json_decl(r#""hybridWeights": {"#));
+        assert!(!is_orama_json_decl(r#""hybridWeights": ["#));
+        assert!(!is_orama_json_decl(r#""hybridWeights": true"#));
+        assert!(is_orama_json_decl(r#""internalDocumentIDStore": {"#));
+        assert!(!is_orama_json_decl(r#""internalDocumentIDStore": ["#));
+        assert!(!is_orama_json_decl(r#""internalDocumentIDStore": true"#));
+        assert!(!is_orama_json_decl(r#""internalDocumentIdStore": {"#));
+        assert!(is_orama_json_decl(r#""hitsVector": ["#));
+        assert!(is_orama_json_decl(r#""hitsVector": [,"#));
+        assert!(!is_orama_json_decl(r#""hitsVector": {"#));
+        assert!(!is_orama_json_decl(r#""hitsVector": true"#));
+        assert!(!is_orama_json_decl(r#""hits": ["#));
+        assert!(!is_orama_json_decl(r#""searchableProperties""#));
+        assert!(!is_orama_json_decl(r#""tokenOccurrences""#));
+        assert!(!is_orama_json_decl(r#""hybridWeights""#));
+        assert!(!is_orama_json_decl(r#""$schema": "https://example.com""#));
+        assert!(!is_orama_json_decl(r#""name": "docs""#));
+        assert!(!is_orama_json_decl(r#""id": "1""#));
+        assert!(!is_orama_json_decl(r#""q": "shoes""#));
+        assert!(!is_orama_json_decl(r#""query": "shoes""#));
+        assert!(!is_orama_json_decl(r#""term": "shoes""#));
+        assert!(!is_orama_json_decl(r#""fields": ["#));
+        assert!(!is_orama_json_decl(r#""properties": ["#));
+        assert!(!is_orama_json_decl(r#""indexes": {"#));
+        assert!(!is_orama_json_decl(r#""docs": {"#));
+        assert!(!is_orama_json_decl(r#""fieldLengths": {"#));
+        assert!(is_lunr_json_decl(r#""fieldLengths": {"#));
+        assert!(!is_orama_json_decl(r#""frequencies": {"#));
+        assert!(!is_orama_json_decl(r#""elapsed": {"#));
+        assert!(!is_orama_json_decl(r#""tokenize": "forward""#));
+        assert!(is_flexsearch_json_decl(r#""tokenize": "forward""#));
+        assert!(!is_orama_json_decl(r#""storeFields": ["#));
+        assert!(is_minisearch_json_decl(r#""storeFields": ["#));
+        assert!(!is_orama_json_decl(r#""averageFieldLength": ["#));
+        assert!(is_minisearch_json_decl(r#""averageFieldLength": ["#));
+        assert!(!is_orama_json_decl(r#""includeScore": true"#));
+        assert!(is_fuse_json_decl(r#""includeScore": true"#));
+        assert!(!is_orama_json_decl(r#""partialResults": ["#));
+        assert!(is_empathy_json_decl(r#""partialResults": ["#));
+        assert!(!is_orama_json_decl(r#""processing_time_ms": 21"#));
+        assert!(is_addsearch_json_decl(r#""processing_time_ms": 21"#));
+        assert!(!is_orama_json_decl(r#""searchableAttributes": ["#));
+        assert!(is_marqo_json_decl(r#""searchableAttributes": ["#));
+        assert!(!is_orama_json_decl(r#""invertedIndexConfig": {"#));
+        assert!(is_weaviate_json_decl(r#""invertedIndexConfig": {"#));
+        assert!(!is_orama_json_decl(r#""track_total_hits": true"#));
+        assert!(is_elasticsearch_json_decl(r#""track_total_hits": true"#));
+        assert!(!is_orama_json_decl(r#""printWidth": 80"#));
+        assert!(is_prettier_json_decl(r#""printWidth": 80"#));
+        assert!(!is_orama_json_decl(r#""basePath": ".""#));
+        assert!(is_karma_json_decl(r#""basePath": ".""#));
+        assert!(line_is_func_like(r#""searchableProperties": ["#));
+        assert!(line_is_func_like(r#""searchablePropertiesWithTypes": {"#));
+        assert!(line_is_func_like(r#""tokenOccurrences": {"#));
+        assert!(line_is_func_like(r#""avgFieldLength": {"#));
+        assert!(line_is_func_like(r#""vectorIndexes": {"#));
+        assert!(line_is_func_like(r#""hybridWeights": {"#));
+        assert!(line_is_func_like(r#""internalDocumentIDStore": {"#));
+        assert!(line_is_func_like(r#""hitsVector": ["#));
     }
 
     #[test]

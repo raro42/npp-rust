@@ -1,3 +1,5 @@
+009 keep: Function List Orama searchableProperties/searchablePropertiesWithTypes/tokenOccurrences/avgFieldLength/vectorIndexes/hybridWeights/internalDocumentIDStore/hitsVector (v0.3.845)
+
 009 keep: Function List Lunr.js fieldVectors/invertedIndex/searchPipeline/metadataWhitelist/fieldTermFrequencies/fieldLengths/termIndex/_index (v0.3.844)
 
 009 keep: Function List FlexSearch tokenize/resolution/keystore/fastupdate/preset/encoder/encode/bidirectional/optimize/enrich (v0.3.843)
