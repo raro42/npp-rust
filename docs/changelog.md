@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.871] — 2026-11-14
+
+View:
+
+- **Function List** lists more Algolia Crawler JSON keys: `"restrictHighlightAndSnippetArrays": true` / `false`, `"responseFields": [`, `"sortFacetValuesBy": "…"`, `"minProximity": 1` / `7`, `"enableRules": true` / `false`, `"enablePersonalization": true` / `false`. Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing `:` stay out. Empty strings / plural/singular misspellings / generic `"url"` / `"enabled"` / `"proxy"` / `"timeout"` / `"retries"` / `"headers"` / `"cache"` / string bools stay out. Existing Crawler keys unchanged. Algolia Insights / Recommend / neighbouring search JSON families stay out. Bool keys only match `true` / `false`. Numeric keys reject leading zeros beyond `0`. String keys require a non-empty quoted string. `"enablePersonalization"` also matches Algolia search JSON (shared key shape).
+
 ## [0.3.870] — 2026-11-14
 
 View:

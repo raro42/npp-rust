@@ -1404,3 +1404,5 @@
 009 keep: Function List Algolia Crawler maxFailedUrls/extraParameters/clientId/clientSecret/grantType/scope (v0.3.862)
 
 009 keep: Function List attributeForDistinct/customRanking/distinct/attributesForFaceting/attributesToSnippet (v0.3.868)
+
+009 keep: Function List Algolia Crawler restrictHighlightAndSnippetArrays/responseFields/sortFacetValuesBy/minProximity/enableRules/enablePersonalization (v0.3.871)
