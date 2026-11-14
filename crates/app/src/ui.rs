@@ -32522,6 +32522,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_instant_meilisearch_json_decl(s)
             || is_searchkit_json_decl(s)
             || is_algolia_recommend_json_decl(s)
+            || is_algolia_insights_json_decl(s)
             || is_gomod_decl(s)
             || is_gemfile_decl(s)
             || is_brewfile_decl(s)
@@ -32954,6 +32955,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_instant_meilisearch_json_decl(s)
         || is_searchkit_json_decl(s)
         || is_algolia_recommend_json_decl(s)
+        || is_algolia_insights_json_decl(s)
         || is_gomod_decl(s)
         || is_gemfile_decl(s)
         || is_brewfile_decl(s)
@@ -71337,9 +71339,12 @@ fn searchkit_json_string_and_tail_ok(key: &str, after_colon: &str) -> bool {
 /// `"vectors_count"` / Algolia `"processingTimeMS"` / Meilisearch
 /// `"processingTimeMs"` / Typesense `"search_time_ms"` / Solr
 /// `"responseHeader"` / Elasticsearch `"track_total_hits"` /
-/// `"runtime_mappings"` / prettier `"printWidth"` / karma `"basePath"`
-/// stay out. Enum `"model"` only matches Recommend model ids. Numeric
-/// keys reject leading zeros beyond `0`.
+/// `"runtime_mappings"` / Algolia Insights `"authenticatedUserToken"` /
+/// `"userHasOptedOut"` / `"useCookie"` / `"anonymousUserToken"` /
+/// `"cookieDuration"` / `"eventSubtype"` / `"objectData"` / prettier
+/// `"printWidth"` / karma `"basePath"` stay out. Enum `"model"` only
+/// matches Recommend model ids. Numeric keys reject leading zeros beyond
+/// `0`.
 fn is_algolia_recommend_json_decl(s: &str) -> bool {
     let s = s.trim_start();
     let Some(rest) = s.strip_prefix('"') else {
@@ -71429,6 +71434,200 @@ fn algolia_recommend_json_model_and_tail_ok(key: &str, after_colon: &str) -> boo
 
 fn algolia_recommend_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool {
     if key != "maxRecommendations" {
+        return false;
+    }
+    let bytes = after_colon.as_bytes();
+    let mut i = 0usize;
+    if i >= bytes.len() || !bytes[i].is_ascii_digit() {
+        return false;
+    }
+    if bytes[i] == b'0' {
+        i += 1;
+        if i < bytes.len() && bytes[i].is_ascii_digit() {
+            return false;
+        }
+    } else {
+        while i < bytes.len() && bytes[i].is_ascii_digit() {
+            i += 1;
+        }
+    }
+    package_json_tail_ok(&after_colon[i..])
+}
+
+/// Algolia Insights (`search-insights` / `aa('init')` / Insights API events)
+/// JSON keys: `"authenticatedUserToken": "…"`, `"userHasOptedOut": true` /
+/// `false`, `"useCookie": true` / `false`, `"anonymousUserToken": true` /
+/// `false`, `"cookieDuration": 0` / `15552000000`,
+/// `"eventSubtype": "addToCart"` / `"purchase"`, `"objectData": [`.
+/// Optional trailing `,` and `//` / `/*` comment. Incomplete quotes /
+/// missing `:` stay out. Generic `"$schema"` / `"name"` / `"id"` / `"q"` /
+/// `"query"` / `"url"` / `"appId"` / `"apiKey"` / `"index"` / `"indexName"` /
+/// `"userToken"` / `"eventType"` / `"eventName"` / `"queryID"` /
+/// `"objectIDs"` / `"positions"` / `"filters"` / `"value"` / `"currency"` /
+/// `"host"` / `"region"` / `"partial"` / Algolia Recommend
+/// `"maxRecommendations"` / `"fallbackParameters"` /
+/// `"frequentlyBoughtTogether"` / `"relatedProducts"` / `"trendingItems"` /
+/// `"lookingSimilar"` / `"trendingFacets"` / `"model"` / Searchkit
+/// `"search_settings"` / `"search_attributes"` / `"result_attributes"` /
+/// `"highlight_attributes"` / `"snippet_attributes"` /
+/// `"facet_attributes"` / `"filter_attributes"` / `"query_rules"` /
+/// `"geo_attribute"` / `"fuzziness"` / Instant Meilisearch
+/// `"placeholderSearch"` / `"finitePagination"` / `"primaryKey"` /
+/// `"keepZeroFacets"` / `"requestInit"` / `"meiliSearchParams"` /
+/// Typesense InstantSearch Adapter `"additionalSearchParameters"` /
+/// `"collectionSpecificSearchParameters"` / `"geoLocationField"` /
+/// `"facetableAttributesWithSpecialCharacters"` / `"flattenGroupedHits"` /
+/// Autocomplete.js `"detachedMediaQuery"` / `"panelPlacement"` /
+/// `"panelContainer"` / `"openOnFocus"` / `"stallThreshold"` /
+/// `"ignoreCompositionEvents"` / `"defaultActiveItemId"` /
+/// `"enterKeyHint"` / `"initialState"` / InstantSearch.js
+/// `"stalledSearchDelay"` / `"initialUiState"` / `"numberLocale"` /
+/// `"preserveSharedStateOnUnmount"` / `"persistHierarchicalRootCount"` /
+/// `"insightsInitParams"` / DocSearch `"maxResultsPerGroup"` /
+/// `"disableUserPersonalization"` / `"recentSearchesLimit"` /
+/// `"recentSearchesWithFavoritesLimit"` / `"resultBadgeKey"` /
+/// `"initialQuery"` / `"indices"` / Stork `"exclude_html_selector"` /
+/// `"frontmatter_handling"` / `"excerpts_per_result"` /
+/// `"displayed_results_count"` / `"excerpt_buffer"` /
+/// `"save_nearest_node_json"` / `"exclude_html_selector_override"` /
+/// `"frontmatter_handling_override"` / Pagefind
+/// `"unfilteredResultCount"` / `"weighted_locations"` / `"indexWeight"` /
+/// `"mergeFilter"` / `"highlightParam"` / `"sub_results"` /
+/// `"totalFilters"` / `"showSubResults"` / Orama
+/// `"searchableProperties"` / `"searchablePropertiesWithTypes"` /
+/// `"tokenOccurrences"` / `"avgFieldLength"` / `"vectorIndexes"` /
+/// `"hybridWeights"` / `"internalDocumentIDStore"` / `"hitsVector"` /
+/// Lunr.js `"fieldVectors"` / `"invertedIndex"` / `"searchPipeline"` /
+/// `"metadataWhitelist"` / `"fieldTermFrequencies"` / `"termIndex"` /
+/// `"_index"` / FlexSearch `"tokenize"` / `"resolution"` / `"keystore"` /
+/// `"fastupdate"` / `"preset"` / `"encoder"` / `"encode"` / MiniSearch
+/// `"storeFields"` / `"autoSuggestOptions"` / `"maxFuzzy"` /
+/// `"combineWith"` / `"serializationVersion"` / `"averageFieldLength"` /
+/// Fuse.js `"includeScore"` / `"includeMatches"` /
+/// `"minMatchCharLength"` / `"useExtendedSearch"` / `"ignoreFieldNorm"` /
+/// Empathy.co `"partialResults"` / `"promoteds"` / `"queryTagging"` /
+/// `"modelName"` / AddSearch `"processing_time_ms"` / `"rangeFacets"` /
+/// `"postfixWildcard"` / Synerise `"clientUUID"` / `"sortByMetric"` /
+/// Fast Simon `"total_results"` / Nosto `"emptyQueryMatchesAll"` /
+/// Clerk.io `"product_data"` / Tweakwise `"nrofitems"` / Findify
+/// `"t_client"` / Searchanise `"totalItems"` / Unbxd `"searchMetaData"` /
+/// Loop54 `"makesSense"` / Yext `"experienceKey"` / Cludo
+/// `"TypedDocuments"` / Voyado Elevate `"primaryList"` / FactFinder
+/// `"searchResult"` / Hawksearch `"ClientGuid"` / `"NofResults"` /
+/// GroupBy `"totalRecordCount"` / Luigi's Box `"corrected_query"` /
+/// `"total_hits"` / Searchspring `"resultLayout"` / Doofinder `"hashid"` /
+/// Klevu `"recordQueries"` / Bloomreach Discovery `"domain_key"` /
+/// Constructor.io `"result_sources"` / Coveo `"searchHub"` /
+/// `"excerptLength"` / Azure AI Search `"@odata.count"` / Vespa `"yql"` /
+/// Marqo `"searchableAttributes"` / LanceDB `"vector_column_name"` /
+/// Milvus `"annsField"` / Chroma `"n_results"` / Pinecone `"topK"` /
+/// Weaviate `"nearVector"` / `"invertedIndexConfig"` / Qdrant
+/// `"vectors_count"` / Algolia `"processingTimeMS"` / Meilisearch
+/// `"processingTimeMs"` / Typesense `"search_time_ms"` / Solr
+/// `"responseHeader"` / Elasticsearch `"track_total_hits"` /
+/// `"runtime_mappings"` / prettier `"printWidth"` / karma `"basePath"`
+/// stay out. Enum `"eventSubtype"` only matches Insights conversion
+/// subtypes. Bool keys only match `true` / `false`. Numeric keys reject
+/// leading zeros beyond `0`. String keys require a non-empty quoted string.
+fn is_algolia_insights_json_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    let Some(rest) = s.strip_prefix('"') else {
+        return false;
+    };
+    let Some(end) = rest.find('"') else {
+        return false;
+    };
+    let key = &rest[..end];
+    if !algolia_insights_json_key_ok(key) {
+        return false;
+    }
+    let after_key = rest[end + 1..].trim_start();
+    let Some(after_colon) = after_key.strip_prefix(':') else {
+        return false;
+    };
+    let after_colon = after_colon.trim_start();
+    algolia_insights_json_value_and_tail_ok(key, after_colon)
+}
+
+fn algolia_insights_json_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "authenticatedUserToken"
+            | "userHasOptedOut"
+            | "useCookie"
+            | "anonymousUserToken"
+            | "cookieDuration"
+            | "eventSubtype"
+            | "objectData"
+    )
+}
+
+fn algolia_insights_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool {
+    let bytes = after_colon.as_bytes();
+    let Some(first) = bytes.first().copied() else {
+        return false;
+    };
+    match first {
+        b'[' => {
+            if key != "objectData" {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[1..])
+        }
+        b'"' => {
+            if key == "authenticatedUserToken" {
+                algolia_insights_json_string_and_tail_ok(after_colon)
+            } else if key == "eventSubtype" {
+                algolia_insights_json_event_subtype_and_tail_ok(after_colon)
+            } else {
+                false
+            }
+        }
+        b't' | b'f' => algolia_insights_json_bool_and_tail_ok(key, after_colon),
+        b'0'..=b'9' => algolia_insights_json_uint_and_tail_ok(key, after_colon),
+        _ => false,
+    }
+}
+
+fn algolia_insights_json_string_and_tail_ok(after_colon: &str) -> bool {
+    let rest = &after_colon[1..];
+    let Some(end) = rest.find('"') else {
+        return false;
+    };
+    if end == 0 {
+        return false;
+    }
+    package_json_tail_ok(&rest[end + 1..])
+}
+
+fn algolia_insights_json_event_subtype_and_tail_ok(after_colon: &str) -> bool {
+    let rest = &after_colon[1..];
+    let Some(end) = rest.find('"') else {
+        return false;
+    };
+    let value = &rest[..end];
+    if !matches!(value, "addToCart" | "purchase") {
+        return false;
+    }
+    package_json_tail_ok(&rest[end + 1..])
+}
+
+fn algolia_insights_json_bool_and_tail_ok(key: &str, after_colon: &str) -> bool {
+    if !matches!(key, "userHasOptedOut" | "useCookie" | "anonymousUserToken") {
+        return false;
+    }
+    let rest = if let Some(r) = after_colon.strip_prefix("true") {
+        r
+    } else if let Some(r) = after_colon.strip_prefix("false") {
+        r
+    } else {
+        return false;
+    };
+    package_json_tail_ok(rest)
+}
+
+fn algolia_insights_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool {
+    if key != "cookieDuration" {
         return false;
     }
     let bytes = after_colon.as_bytes();
@@ -102048,8 +102247,8 @@ fn is_compare_saved_snapshot(doc: &doc::Document) -> bool {
 mod func_like_line_tests {
     use super::{
         is_access_conf_decl, is_addsearch_json_decl, is_alertmanager_json_decl,
-        is_algolia_json_decl, is_algolia_recommend_json_decl, is_android_bp_decl,
-        is_angular_json_decl, is_ant_msbuild_decl, is_apache_httpd_decl,
+        is_algolia_insights_json_decl, is_algolia_json_decl, is_algolia_recommend_json_decl,
+        is_android_bp_decl, is_angular_json_decl, is_ant_msbuild_decl, is_apache_httpd_decl,
         is_api_extractor_json_decl, is_apt_sources_decl, is_asyncapi_json_decl,
         is_audit_rules_decl, is_audit_toml_decl, is_autocomplete_json_decl, is_autoflake_ini_decl,
         is_autopep8_ini_decl, is_ava_json_decl, is_aws_config_decl, is_azure_search_json_decl,
@@ -149425,6 +149624,38 @@ mod func_like_line_tests {
         assert!(is_prettier_json_decl(r#""printWidth": 80"#));
         assert!(!is_algolia_recommend_json_decl(r#""basePath": ".""#));
         assert!(is_karma_json_decl(r#""basePath": ".""#));
+        assert!(!is_algolia_recommend_json_decl(
+            r#""authenticatedUserToken": "user-1""#
+        ));
+        assert!(is_algolia_insights_json_decl(
+            r#""authenticatedUserToken": "user-1""#
+        ));
+        assert!(!is_algolia_recommend_json_decl(
+            r#""userHasOptedOut": true"#
+        ));
+        assert!(is_algolia_insights_json_decl(r#""userHasOptedOut": true"#));
+        assert!(!is_algolia_recommend_json_decl(r#""useCookie": true"#));
+        assert!(is_algolia_insights_json_decl(r#""useCookie": true"#));
+        assert!(!is_algolia_recommend_json_decl(
+            r#""anonymousUserToken": true"#
+        ));
+        assert!(is_algolia_insights_json_decl(
+            r#""anonymousUserToken": true"#
+        ));
+        assert!(!is_algolia_recommend_json_decl(
+            r#""cookieDuration": 15552000000"#
+        ));
+        assert!(is_algolia_insights_json_decl(
+            r#""cookieDuration": 15552000000"#
+        ));
+        assert!(!is_algolia_recommend_json_decl(
+            r#""eventSubtype": "purchase""#
+        ));
+        assert!(is_algolia_insights_json_decl(
+            r#""eventSubtype": "purchase""#
+        ));
+        assert!(!is_algolia_recommend_json_decl(r#""objectData": ["#));
+        assert!(is_algolia_insights_json_decl(r#""objectData": ["#));
     }
 
     #[test]
@@ -149606,6 +149837,18 @@ mod func_like_line_tests {
         assert!(is_prettier_json_decl(r#""printWidth": 80"#));
         assert!(!is_algolia_recommend_json_decl(r#""basePath": ".""#));
         assert!(is_karma_json_decl(r#""basePath": ".""#));
+        assert!(!is_algolia_recommend_json_decl(
+            r#""authenticatedUserToken": "user-1""#
+        ));
+        assert!(is_algolia_insights_json_decl(
+            r#""authenticatedUserToken": "user-1""#
+        ));
+        assert!(!is_algolia_recommend_json_decl(
+            r#""userHasOptedOut": true"#
+        ));
+        assert!(is_algolia_insights_json_decl(r#""userHasOptedOut": true"#));
+        assert!(!is_algolia_recommend_json_decl(r#""objectData": ["#));
+        assert!(is_algolia_insights_json_decl(r#""objectData": ["#));
         assert!(line_is_func_like(r#""maxRecommendations": 10"#));
         assert!(line_is_func_like(r#""fallbackParameters": {"#));
         assert!(line_is_func_like(r#""frequentlyBoughtTogether": ["#));
@@ -149614,6 +149857,304 @@ mod func_like_line_tests {
         assert!(line_is_func_like(r#""lookingSimilar": ["#));
         assert!(line_is_func_like(r#""trendingFacets": ["#));
         assert!(line_is_func_like(r#""model": "related-products""#));
+    }
+
+    #[test]
+    fn algolia_insights_json_keys_smoke() {
+        assert!(is_algolia_insights_json_decl(
+            r#""authenticatedUserToken": "user-1""#
+        ));
+        assert!(is_algolia_insights_json_decl(r#""userHasOptedOut": true"#));
+        assert!(is_algolia_insights_json_decl(r#""useCookie": false"#));
+        assert!(is_algolia_insights_json_decl(
+            r#""anonymousUserToken": true"#
+        ));
+        assert!(is_algolia_insights_json_decl(
+            r#""cookieDuration": 15552000000"#
+        ));
+        assert!(is_algolia_insights_json_decl(
+            r#""eventSubtype": "addToCart""#
+        ));
+        assert!(is_algolia_insights_json_decl(r#""objectData": ["#));
+        assert!(!is_algolia_insights_json_decl(
+            r#""maxRecommendations": 10"#
+        ));
+        assert!(is_algolia_recommend_json_decl(
+            r#""maxRecommendations": 10"#
+        ));
+        assert!(!is_algolia_insights_json_decl(r#""search_settings": {"#));
+        assert!(is_searchkit_json_decl(r#""search_settings": {"#));
+        assert!(!is_algolia_insights_json_decl(
+            r#""placeholderSearch": true"#
+        ));
+        assert!(is_instant_meilisearch_json_decl(
+            r#""placeholderSearch": true"#
+        ));
+        assert!(!is_algolia_insights_json_decl(
+            r#""additionalSearchParameters": {"#
+        ));
+        assert!(is_typesense_instantsearch_json_decl(
+            r#""additionalSearchParameters": {"#
+        ));
+        assert!(!is_algolia_insights_json_decl(
+            r#""detachedMediaQuery": "(max-width: 680px)""#
+        ));
+        assert!(is_autocomplete_json_decl(
+            r#""detachedMediaQuery": "(max-width: 680px)""#
+        ));
+        assert!(!is_algolia_insights_json_decl(
+            r#""stalledSearchDelay": 200"#
+        ));
+        assert!(is_instantsearch_json_decl(r#""stalledSearchDelay": 200"#));
+        assert!(!is_algolia_insights_json_decl(r#""maxResultsPerGroup": 5"#));
+        assert!(is_docsearch_json_decl(r#""maxResultsPerGroup": 5"#));
+        assert!(!is_algolia_insights_json_decl(r#""processingTimeMs": 12"#));
+        assert!(is_meilisearch_json_decl(r#""processingTimeMs": 12"#));
+        assert!(!is_algolia_insights_json_decl(r#""search_time_ms": 12"#));
+        assert!(is_typesense_json_decl(r#""search_time_ms": 12"#));
+        assert!(!is_algolia_insights_json_decl(
+            r#""exclude_html_selector": ".sidebar""#
+        ));
+        assert!(is_stork_json_decl(r#""exclude_html_selector": ".sidebar""#));
+        assert!(!is_algolia_insights_json_decl(
+            r#""unfilteredResultCount": 42"#
+        ));
+        assert!(is_pagefind_json_decl(r#""unfilteredResultCount": 42"#));
+        assert!(!is_algolia_insights_json_decl(
+            r#""searchableProperties": ["#
+        ));
+        assert!(is_orama_json_decl(r#""searchableProperties": ["#));
+        assert!(!is_algolia_insights_json_decl(r#""fieldVectors": {"#));
+        assert!(is_lunr_json_decl(r#""fieldVectors": {"#));
+        assert!(!is_algolia_insights_json_decl(r#""tokenize": "forward""#));
+        assert!(is_flexsearch_json_decl(r#""tokenize": "forward""#));
+        assert!(!is_algolia_insights_json_decl(r#""storeFields": ["#));
+        assert!(is_minisearch_json_decl(r#""storeFields": ["#));
+        assert!(!is_algolia_insights_json_decl(r#""includeScore": true"#));
+        assert!(is_fuse_json_decl(r#""includeScore": true"#));
+        assert!(!is_algolia_insights_json_decl(r#""partialResults": ["#));
+        assert!(is_empathy_json_decl(r#""partialResults": ["#));
+        assert!(!is_algolia_insights_json_decl(
+            r#""processing_time_ms": 21"#
+        ));
+        assert!(is_addsearch_json_decl(r#""processing_time_ms": 21"#));
+        assert!(!is_algolia_insights_json_decl(r#""processingTimeMS": 12"#));
+        assert!(is_algolia_json_decl(r#""processingTimeMS": 12"#));
+        assert!(!is_algolia_insights_json_decl(
+            r#""searchableAttributes": ["#
+        ));
+        assert!(is_marqo_json_decl(r#""searchableAttributes": ["#));
+        assert!(!is_algolia_insights_json_decl(r#""excerptLength": 200"#));
+        assert!(is_coveo_json_decl(r#""excerptLength": 200"#));
+        assert!(!is_algolia_insights_json_decl(
+            r#""track_total_hits": true"#
+        ));
+        assert!(is_elasticsearch_json_decl(r#""track_total_hits": true"#));
+        assert!(!is_algolia_insights_json_decl(r#""runtime_mappings": {"#));
+        assert!(is_elasticsearch_json_decl(r#""runtime_mappings": {"#));
+        assert!(!is_algolia_insights_json_decl(r#""printWidth": 80"#));
+        assert!(is_prettier_json_decl(r#""printWidth": 80"#));
+        assert!(!is_algolia_insights_json_decl(r#""basePath": ".""#));
+        assert!(is_karma_json_decl(r#""basePath": ".""#));
+    }
+
+    #[test]
+    fn algolia_insights_json_keys_count() {
+        assert!(is_algolia_insights_json_decl(
+            r#""authenticatedUserToken": "user-1""#
+        ));
+        assert!(is_algolia_insights_json_decl(
+            r#""authenticatedUserToken": "user-1","#
+        ));
+        assert!(is_algolia_insights_json_decl(
+            r#""authenticatedUserToken": "user-1" // c"#
+        ));
+        assert!(!is_algolia_insights_json_decl(
+            r#""authenticatedUserToken": """#
+        ));
+        assert!(!is_algolia_insights_json_decl(
+            r#""authenticatedUserToken": true"#
+        ));
+        assert!(!is_algolia_insights_json_decl(
+            r#""authenticatedUserToken": ["#
+        ));
+        assert!(is_algolia_insights_json_decl(r#""userHasOptedOut": true"#));
+        assert!(is_algolia_insights_json_decl(r#""userHasOptedOut": false"#));
+        assert!(is_algolia_insights_json_decl(r#""userHasOptedOut": true,"#));
+        assert!(is_algolia_insights_json_decl(
+            r#""userHasOptedOut": false // c"#
+        ));
+        assert!(!is_algolia_insights_json_decl(
+            r#""userHasOptedOut": "true""#
+        ));
+        assert!(!is_algolia_insights_json_decl(r#""userHasOptedOut": 1"#));
+        assert!(is_algolia_insights_json_decl(r#""useCookie": true"#));
+        assert!(is_algolia_insights_json_decl(r#""useCookie": false"#));
+        assert!(!is_algolia_insights_json_decl(r#""useCookie": "yes""#));
+        assert!(is_algolia_insights_json_decl(
+            r#""anonymousUserToken": true"#
+        ));
+        assert!(is_algolia_insights_json_decl(
+            r#""anonymousUserToken": false"#
+        ));
+        assert!(!is_algolia_insights_json_decl(r#""anonymousUserToken": ["#));
+        assert!(is_algolia_insights_json_decl(r#""cookieDuration": 0"#));
+        assert!(is_algolia_insights_json_decl(
+            r#""cookieDuration": 15552000000"#
+        ));
+        assert!(is_algolia_insights_json_decl(
+            r#""cookieDuration": 15552000000,"#
+        ));
+        assert!(is_algolia_insights_json_decl(
+            r#""cookieDuration": 7776000000 // c"#
+        ));
+        assert!(!is_algolia_insights_json_decl(r#""cookieDuration": 00"#));
+        assert!(!is_algolia_insights_json_decl(r#""cookieDuration": 01"#));
+        assert!(!is_algolia_insights_json_decl(r#""cookieDuration": true"#));
+        assert!(!is_algolia_insights_json_decl(r#""cookieDuration": {"#));
+        assert!(is_algolia_insights_json_decl(
+            r#""eventSubtype": "addToCart""#
+        ));
+        assert!(is_algolia_insights_json_decl(
+            r#""eventSubtype": "purchase""#
+        ));
+        assert!(is_algolia_insights_json_decl(
+            r#""eventSubtype": "purchase","#
+        ));
+        assert!(is_algolia_insights_json_decl(
+            r#""eventSubtype": "addToCart" // c"#
+        ));
+        assert!(!is_algolia_insights_json_decl(r#""eventSubtype": "click""#));
+        assert!(!is_algolia_insights_json_decl(
+            r#""eventSubtype": "conversion""#
+        ));
+        assert!(!is_algolia_insights_json_decl(r#""eventSubtype": """#));
+        assert!(!is_algolia_insights_json_decl(r#""eventSubtype": true"#));
+        assert!(is_algolia_insights_json_decl(r#""objectData": ["#));
+        assert!(is_algolia_insights_json_decl(r#""objectData": [,"#));
+        assert!(is_algolia_insights_json_decl(r#""objectData": [ // c"#));
+        assert!(!is_algolia_insights_json_decl(r#""objectData": {"#));
+        assert!(!is_algolia_insights_json_decl(r#""objectData": true"#));
+        assert!(!is_algolia_insights_json_decl(
+            r#""authenticatedUserToken""#
+        ));
+        assert!(!is_algolia_insights_json_decl(r#""eventSubtype""#));
+        assert!(!is_algolia_insights_json_decl(r#""objectData""#));
+        assert!(!is_algolia_insights_json_decl(
+            r#""$schema": "https://example.com""#
+        ));
+        assert!(!is_algolia_insights_json_decl(r#""name": "search""#));
+        assert!(!is_algolia_insights_json_decl(r#""id": "1""#));
+        assert!(!is_algolia_insights_json_decl(r#""q": "shoes""#));
+        assert!(!is_algolia_insights_json_decl(r#""query": "shoes""#));
+        assert!(!is_algolia_insights_json_decl(r#""url": "/about/""#));
+        assert!(!is_algolia_insights_json_decl(r#""appId": "APP""#));
+        assert!(!is_algolia_insights_json_decl(r#""apiKey": "key""#));
+        assert!(!is_algolia_insights_json_decl(r#""index": "products""#));
+        assert!(!is_algolia_insights_json_decl(r#""indexName": "products""#));
+        assert!(!is_algolia_insights_json_decl(r#""userToken": "anon""#));
+        assert!(!is_algolia_insights_json_decl(r#""eventType": "click""#));
+        assert!(!is_algolia_insights_json_decl(
+            r#""eventName": "Product Clicked""#
+        ));
+        assert!(!is_algolia_insights_json_decl(r#""queryID": "abc""#));
+        assert!(!is_algolia_insights_json_decl(r#""objectIDs": ["#));
+        assert!(!is_algolia_insights_json_decl(r#""positions": ["#));
+        assert!(!is_algolia_insights_json_decl(r#""filters": ["#));
+        assert!(!is_algolia_insights_json_decl(r#""value": 10"#));
+        assert!(!is_algolia_insights_json_decl(r#""currency": "USD""#));
+        assert!(!is_algolia_insights_json_decl(r#""host": "proxy""#));
+        assert!(!is_algolia_insights_json_decl(r#""region": "de""#));
+        assert!(!is_algolia_insights_json_decl(r#""partial": true"#));
+        assert!(!is_algolia_insights_json_decl(
+            r#""maxRecommendations": 10"#
+        ));
+        assert!(is_algolia_recommend_json_decl(
+            r#""maxRecommendations": 10"#
+        ));
+        assert!(!is_algolia_insights_json_decl(r#""search_settings": {"#));
+        assert!(is_searchkit_json_decl(r#""search_settings": {"#));
+        assert!(!is_algolia_insights_json_decl(
+            r#""placeholderSearch": true"#
+        ));
+        assert!(is_instant_meilisearch_json_decl(
+            r#""placeholderSearch": true"#
+        ));
+        assert!(!is_algolia_insights_json_decl(
+            r#""additionalSearchParameters": {"#
+        ));
+        assert!(is_typesense_instantsearch_json_decl(
+            r#""additionalSearchParameters": {"#
+        ));
+        assert!(!is_algolia_insights_json_decl(
+            r#""detachedMediaQuery": "(max-width: 680px)""#
+        ));
+        assert!(is_autocomplete_json_decl(
+            r#""detachedMediaQuery": "(max-width: 680px)""#
+        ));
+        assert!(!is_algolia_insights_json_decl(
+            r#""stalledSearchDelay": 200"#
+        ));
+        assert!(is_instantsearch_json_decl(r#""stalledSearchDelay": 200"#));
+        assert!(!is_algolia_insights_json_decl(r#""maxResultsPerGroup": 5"#));
+        assert!(is_docsearch_json_decl(r#""maxResultsPerGroup": 5"#));
+        assert!(!is_algolia_insights_json_decl(r#""processingTimeMs": 12"#));
+        assert!(is_meilisearch_json_decl(r#""processingTimeMs": 12"#));
+        assert!(!is_algolia_insights_json_decl(r#""search_time_ms": 12"#));
+        assert!(is_typesense_json_decl(r#""search_time_ms": 12"#));
+        assert!(!is_algolia_insights_json_decl(
+            r#""exclude_html_selector": ".sidebar""#
+        ));
+        assert!(is_stork_json_decl(r#""exclude_html_selector": ".sidebar""#));
+        assert!(!is_algolia_insights_json_decl(
+            r#""unfilteredResultCount": 42"#
+        ));
+        assert!(is_pagefind_json_decl(r#""unfilteredResultCount": 42"#));
+        assert!(!is_algolia_insights_json_decl(
+            r#""searchableProperties": ["#
+        ));
+        assert!(is_orama_json_decl(r#""searchableProperties": ["#));
+        assert!(!is_algolia_insights_json_decl(r#""fieldVectors": {"#));
+        assert!(is_lunr_json_decl(r#""fieldVectors": {"#));
+        assert!(!is_algolia_insights_json_decl(r#""tokenize": "forward""#));
+        assert!(is_flexsearch_json_decl(r#""tokenize": "forward""#));
+        assert!(!is_algolia_insights_json_decl(r#""storeFields": ["#));
+        assert!(is_minisearch_json_decl(r#""storeFields": ["#));
+        assert!(!is_algolia_insights_json_decl(r#""includeScore": true"#));
+        assert!(is_fuse_json_decl(r#""includeScore": true"#));
+        assert!(!is_algolia_insights_json_decl(r#""partialResults": ["#));
+        assert!(is_empathy_json_decl(r#""partialResults": ["#));
+        assert!(!is_algolia_insights_json_decl(
+            r#""processing_time_ms": 21"#
+        ));
+        assert!(is_addsearch_json_decl(r#""processing_time_ms": 21"#));
+        assert!(!is_algolia_insights_json_decl(r#""processingTimeMS": 12"#));
+        assert!(is_algolia_json_decl(r#""processingTimeMS": 12"#));
+        assert!(!is_algolia_insights_json_decl(
+            r#""searchableAttributes": ["#
+        ));
+        assert!(is_marqo_json_decl(r#""searchableAttributes": ["#));
+        assert!(!is_algolia_insights_json_decl(r#""excerptLength": 200"#));
+        assert!(is_coveo_json_decl(r#""excerptLength": 200"#));
+        assert!(!is_algolia_insights_json_decl(
+            r#""invertedIndexConfig": {"#
+        ));
+        assert!(is_weaviate_json_decl(r#""invertedIndexConfig": {"#));
+        assert!(!is_algolia_insights_json_decl(
+            r#""track_total_hits": true"#
+        ));
+        assert!(is_elasticsearch_json_decl(r#""track_total_hits": true"#));
+        assert!(!is_algolia_insights_json_decl(r#""printWidth": 80"#));
+        assert!(is_prettier_json_decl(r#""printWidth": 80"#));
+        assert!(!is_algolia_insights_json_decl(r#""basePath": ".""#));
+        assert!(is_karma_json_decl(r#""basePath": ".""#));
+        assert!(line_is_func_like(r#""authenticatedUserToken": "user-1""#));
+        assert!(line_is_func_like(r#""userHasOptedOut": true"#));
+        assert!(line_is_func_like(r#""useCookie": true"#));
+        assert!(line_is_func_like(r#""anonymousUserToken": true"#));
+        assert!(line_is_func_like(r#""cookieDuration": 15552000000"#));
+        assert!(line_is_func_like(r#""eventSubtype": "purchase""#));
+        assert!(line_is_func_like(r#""objectData": ["#));
     }
 
     #[test]

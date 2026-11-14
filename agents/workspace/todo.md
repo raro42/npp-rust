@@ -1372,3 +1372,5 @@
 009 keep: Function List InstantSearch.js stalledSearchDelay/initialUiState/numberLocale/preserveSharedStateOnUnmount/persistHierarchicalRootCount/insightsInitParams (v0.3.849)
 
 009 keep: Function List Searchkit search_settings/search_attributes/result_attributes/highlight_attributes/snippet_attributes/facet_attributes/filter_attributes/query_rules/geo_attribute/fuzziness (v0.3.853)
+
+009 keep: Function List Algolia Insights authenticatedUserToken/userHasOptedOut/useCookie/anonymousUserToken/cookieDuration/eventSubtype/objectData (v0.3.855)
