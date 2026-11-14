@@ -71364,7 +71364,8 @@ fn searchkit_json_string_and_tail_ok(key: &str, after_colon: &str) -> bool {
 /// `"aggregateContent"` / `"indexHeadings"` / `"recordVersion"` /
 /// `"recordProps"` / `"maxRecordBytes"` / `"textAttributeName"` /
 /// `"orderingAttributeName"` / `"baseRecord"` / `"pageRank"` / `"lvl0"` /
-/// `"lvl1"` / `"languageClassPrefix"` / prettier `"printWidth"` / karma
+/// `"lvl1"` / `"lvl2"` / `"lvl3"` / `"lvl4"` / `"lvl5"` / `"lvl6"` /
+/// `"content"` / `"languageClassPrefix"` / prettier `"printWidth"` / karma
 /// `"basePath"` stay out. Enum `"model"` only matches Recommend model ids.
 /// Numeric keys reject leading zeros beyond `0`.
 fn is_algolia_recommend_json_decl(s: &str) -> bool {
@@ -71567,7 +71568,8 @@ fn algolia_recommend_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool
 /// `"aggregateContent"` / `"indexHeadings"` / `"recordVersion"` /
 /// `"recordProps"` / `"maxRecordBytes"` / `"textAttributeName"` /
 /// `"orderingAttributeName"` / `"baseRecord"` / `"pageRank"` / `"lvl0"` /
-/// `"lvl1"` / `"languageClassPrefix"` / prettier `"printWidth"` / karma
+/// `"lvl1"` / `"lvl2"` / `"lvl3"` / `"lvl4"` / `"lvl5"` / `"lvl6"` /
+/// `"content"` / `"languageClassPrefix"` / prettier `"printWidth"` / karma
 /// `"basePath"` stay out. Enum `"eventSubtype"` only matches Insights
 /// conversion subtypes. Bool keys only match `true` / `false`. Numeric keys
 /// reject leading zeros beyond `0`. String keys require a non-empty quoted
@@ -71718,6 +71720,8 @@ fn algolia_insights_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool 
 /// `{`, `"recordVersion": "…"`, `"recordProps": {`, `"maxRecordBytes": 0` /
 /// `1000`, `"textAttributeName": "…"`, `"orderingAttributeName": "…"`,
 /// `"baseRecord": {`, `"pageRank": "…"`, `"lvl0": {`, `"lvl1": "…"` / `[`,
+/// `"lvl2": "…"` / `[`, `"lvl3": "…"` / `[`, `"lvl4": "…"` / `[`,
+/// `"lvl5": "…"` / `[`, `"lvl6": "…"` / `[`, `"content": "…"` / `[`,
 /// `"languageClassPrefix": "…"`.
 /// Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing
 /// `:` stay out. Generic `"$schema"` / `"name"` / `"id"` / `"q"` / `"query"` /
@@ -71794,10 +71798,12 @@ fn algolia_insights_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool 
 /// `"grant_type"` / `"client_id"` / `"client_secret"` / `"resource"` /
 /// `"username"` / `"password"` / `"source"` / `"body"` / `"method"` /
 /// `"recordVersion"` / `"textAttributeName"` / `"orderingAttributeName"` /
-/// `"pageRank"` / `"lvl1"` / `"languageClassPrefix"` require a non-empty
+/// `"pageRank"` / `"lvl1"` / `"lvl2"` / `"lvl3"` / `"lvl4"` / `"lvl5"` /
+/// `"lvl6"` / `"content"` / `"languageClassPrefix"` require a non-empty
 /// quoted string. `"__type"` only matches `"function"`. `"ignoreCanonicalTo"`
 /// accepts bool or `[`. `"renderJavaScript"` accepts bool, `[`, or `{`.
-/// `"indexHeadings"` accepts bool or `{`. `"lvl1"` accepts string or `[`.
+/// `"indexHeadings"` accepts bool or `{`. `"lvl1"` / `"lvl2"` / `"lvl3"` /
+/// `"lvl4"` / `"lvl5"` / `"lvl6"` / `"content"` accept string or `[`.
 fn is_algolia_crawler_json_decl(s: &str) -> bool {
     let s = s.trim_start();
     let Some(rest) = s.strip_prefix('"') else {
@@ -71889,6 +71895,12 @@ fn algolia_crawler_json_key_ok(key: &str) -> bool {
             | "pageRank"
             | "lvl0"
             | "lvl1"
+            | "lvl2"
+            | "lvl3"
+            | "lvl4"
+            | "lvl5"
+            | "lvl6"
+            | "content"
             | "languageClassPrefix"
     )
 }
@@ -71916,6 +71928,12 @@ fn algolia_crawler_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool 
                     | "fileTypesToMatch"
                     | "selectorsToMatch"
                     | "lvl1"
+                    | "lvl2"
+                    | "lvl3"
+                    | "lvl4"
+                    | "lvl5"
+                    | "lvl6"
+                    | "content"
             ) {
                 return false;
             }
@@ -71976,6 +71994,12 @@ fn algolia_crawler_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool 
                     | "orderingAttributeName"
                     | "pageRank"
                     | "lvl1"
+                    | "lvl2"
+                    | "lvl3"
+                    | "lvl4"
+                    | "lvl5"
+                    | "lvl6"
+                    | "content"
                     | "languageClassPrefix"
             ) {
                 return false;
@@ -150960,6 +150984,16 @@ mod func_like_line_tests {
         assert!(is_algolia_crawler_json_decl(r#""lvl0": {"#));
         assert!(is_algolia_crawler_json_decl(r#""lvl1": "article h2""#));
         assert!(is_algolia_crawler_json_decl(r#""lvl1": ["#));
+        assert!(is_algolia_crawler_json_decl(r#""lvl2": "article h3""#));
+        assert!(is_algolia_crawler_json_decl(r#""lvl2": ["#));
+        assert!(is_algolia_crawler_json_decl(r#""lvl3": "article h4""#));
+        assert!(is_algolia_crawler_json_decl(r#""lvl4": "article h5""#));
+        assert!(is_algolia_crawler_json_decl(r#""lvl5": "article h6""#));
+        assert!(is_algolia_crawler_json_decl(r#""lvl6": "article h6""#));
+        assert!(is_algolia_crawler_json_decl(
+            r#""content": "article p, article li""#
+        ));
+        assert!(is_algolia_crawler_json_decl(r#""content": ["#));
         assert!(is_algolia_crawler_json_decl(
             r#""languageClassPrefix": "language-""#
         ));
@@ -151642,7 +151676,49 @@ mod func_like_line_tests {
         assert!(!is_algolia_crawler_json_decl(r#""lvl1": """#));
         assert!(!is_algolia_crawler_json_decl(r#""lvl1": {"#));
         assert!(!is_algolia_crawler_json_decl(r#""lvl1": true"#));
-        assert!(!is_algolia_crawler_json_decl(r#""lvl2": "article h3""#));
+        assert!(is_algolia_crawler_json_decl(r#""lvl2": "article h3""#));
+        assert!(is_algolia_crawler_json_decl(r#""lvl2": "article h3","#));
+        assert!(is_algolia_crawler_json_decl(r#""lvl2": "article h3" // c"#));
+        assert!(is_algolia_crawler_json_decl(r#""lvl2": ["#));
+        assert!(is_algolia_crawler_json_decl(r#""lvl2": [,"#));
+        assert!(is_algolia_crawler_json_decl(r#""lvl2": [ // c"#));
+        assert!(!is_algolia_crawler_json_decl(r#""lvl2": """#));
+        assert!(!is_algolia_crawler_json_decl(r#""lvl2": {"#));
+        assert!(!is_algolia_crawler_json_decl(r#""lvl2": true"#));
+        assert!(!is_algolia_crawler_json_decl(r#""lvl22": "article h3""#));
+        assert!(is_algolia_crawler_json_decl(r#""lvl3": "article h4""#));
+        assert!(is_algolia_crawler_json_decl(r#""lvl3": "article h4","#));
+        assert!(is_algolia_crawler_json_decl(r#""lvl3": "article h4" // c"#));
+        assert!(is_algolia_crawler_json_decl(r#""lvl3": ["#));
+        assert!(!is_algolia_crawler_json_decl(r#""lvl3": """#));
+        assert!(!is_algolia_crawler_json_decl(r#""lvl3": {"#));
+        assert!(is_algolia_crawler_json_decl(r#""lvl4": "article h5""#));
+        assert!(is_algolia_crawler_json_decl(r#""lvl4": ["#));
+        assert!(!is_algolia_crawler_json_decl(r#""lvl4": """#));
+        assert!(!is_algolia_crawler_json_decl(r#""lvl4": true"#));
+        assert!(is_algolia_crawler_json_decl(r#""lvl5": "article h6""#));
+        assert!(is_algolia_crawler_json_decl(r#""lvl5": ["#));
+        assert!(!is_algolia_crawler_json_decl(r#""lvl5": {"#));
+        assert!(is_algolia_crawler_json_decl(r#""lvl6": "article h6""#));
+        assert!(is_algolia_crawler_json_decl(r#""lvl6": ["#));
+        assert!(!is_algolia_crawler_json_decl(r#""lvl6": """#));
+        assert!(!is_algolia_crawler_json_decl(r#""lvl7": "article h6""#));
+        assert!(is_algolia_crawler_json_decl(
+            r#""content": "article p, article li""#
+        ));
+        assert!(is_algolia_crawler_json_decl(
+            r#""content": "article p, article li","#
+        ));
+        assert!(is_algolia_crawler_json_decl(
+            r#""content": "article p, article li" // c"#
+        ));
+        assert!(is_algolia_crawler_json_decl(r#""content": ["#));
+        assert!(is_algolia_crawler_json_decl(r#""content": [,"#));
+        assert!(is_algolia_crawler_json_decl(r#""content": [ // c"#));
+        assert!(!is_algolia_crawler_json_decl(r#""content": """#));
+        assert!(!is_algolia_crawler_json_decl(r#""content": {"#));
+        assert!(!is_algolia_crawler_json_decl(r#""content": true"#));
+        assert!(!is_algolia_crawler_json_decl(r#""contents": "article p""#));
         assert!(is_algolia_crawler_json_decl(
             r#""languageClassPrefix": "language-""#
         ));

@@ -1,3 +1,5 @@
+009 keep: Function List Algolia Crawler lvl2/lvl3/lvl4/lvl5/lvl6/content (v0.3.867)
+
 009 keep: Function List Algolia Crawler orderingAttributeName/baseRecord/pageRank/lvl0/lvl1/languageClassPrefix (v0.3.866)
 
 009 keep: Function List Algolia Crawler aggregateContent/indexHeadings/recordVersion/recordProps/maxRecordBytes/textAttributeName (v0.3.865)

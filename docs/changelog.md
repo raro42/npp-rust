@@ -1,10 +1,16 @@
 ## [Unreleased]
 
+## [0.3.867] — 2026-11-14
+
+View:
+
+- **Function List** lists more Algolia Crawler JSON keys: `"lvl2": "…"` / `[`, `"lvl3": "…"` / `[`, `"lvl4": "…"` / `[`, `"lvl5": "…"` / `[`, `"lvl6": "…"` / `[`, `"content": "…"` / `[`. Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing `:` stay out. Empty strings / plural/singular misspellings / `"lvl7"` / `"lvl22"` / generic `"url"` / `"enabled"` / `"proxy"` / `"timeout"` / `"retries"` / `"headers"` / `"cache"` / string bools stay out. Existing Crawler keys unchanged. Algolia Insights / Recommend / neighbouring search JSON families stay out. Bool keys only match `true` / `false`. Numeric keys reject leading zeros beyond `0`. String keys require a non-empty quoted string. `"lvl2"`…`"lvl6"` / `"content"` accept string or `[`.
+
 ## [0.3.866] — 2026-11-14
 
 View:
 
-- **Function List** lists more Algolia Crawler JSON keys: `"orderingAttributeName": "…"`, `"baseRecord": {`, `"pageRank": "…"`, `"lvl0": {`, `"lvl1": "…"` / `[`, `"languageClassPrefix": "…"`. Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing `:` stay out. Empty strings / plural/singular misspellings / `"lvl2"` / generic `"url"` / `"enabled"` / `"proxy"` / `"timeout"` / `"retries"` / `"headers"` / `"cache"` / string bools stay out. Existing Crawler keys unchanged. Algolia Insights / Recommend / neighbouring search JSON families stay out. Bool keys only match `true` / `false`. Numeric keys reject leading zeros beyond `0`. String keys require a non-empty quoted string. `"lvl1"` accepts string or `[`.
+- **Function List** lists more Algolia Crawler JSON keys: `"orderingAttributeName": "…"`, `"baseRecord": {`, `"pageRank": "…"`, `"lvl0": {`, `"lvl1": "…"` / `[`, `"languageClassPrefix": "…"`. Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing `:` stay out. Empty strings / plural/singular misspellings / generic `"url"` / `"enabled"` / `"proxy"` / `"timeout"` / `"retries"` / `"headers"` / `"cache"` / string bools stay out. Existing Crawler keys unchanged. Algolia Insights / Recommend / neighbouring search JSON families stay out. Bool keys only match `true` / `false`. Numeric keys reject leading zeros beyond `0`. String keys require a non-empty quoted string. `"lvl1"` accepts string or `[`.
 
 ## [0.3.865] — 2026-11-14
 
