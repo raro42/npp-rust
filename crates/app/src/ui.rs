@@ -71379,9 +71379,12 @@ fn searchkit_json_string_and_tail_ok(key: &str, after_colon: &str) -> bool {
 /// `"removeWordsIfNoResults"` / `"advancedSyntax"` /
 /// `"advancedSyntaxFeatures"` / `"optionalWords"` /
 /// `"disableTypoToleranceOnWords"` / `"disableTypoToleranceOnAttributes"` /
-/// `"exactOnSingleWordQuery"` / `"enableReRanking"` / prettier `"printWidth"` /
-/// karma `"basePath"` stay out. Enum `"model"` only matches Recommend model
-/// ids. Numeric keys reject leading zeros beyond `0`.
+/// `"exactOnSingleWordQuery"` / `"enableReRanking"` / `"separatorsToIndex"` /
+/// `"ignorePlurals"` / `"removeStopWords"` / `"disablePrefixOnAttributes"` /
+/// `"disableExactOnAttributes"` / `"alternativesAsExact"` /
+/// `"camelCaseAttributes"` / prettier `"printWidth"` / karma `"basePath"` stay
+/// out. Enum `"model"` only matches Recommend model ids. Numeric keys reject
+/// leading zeros beyond `0`.
 fn is_algolia_recommend_json_decl(s: &str) -> bool {
     let s = s.trim_start();
     let Some(rest) = s.strip_prefix('"') else {
@@ -71597,11 +71600,13 @@ fn algolia_recommend_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool
 /// `"removeWordsIfNoResults"` / `"advancedSyntax"` /
 /// `"advancedSyntaxFeatures"` / `"optionalWords"` /
 /// `"disableTypoToleranceOnWords"` / `"disableTypoToleranceOnAttributes"` /
-/// `"exactOnSingleWordQuery"` / `"enableReRanking"` / prettier `"printWidth"` /
-/// karma `"basePath"` stay out. Enum `"eventSubtype"` only matches Insights
-/// conversion subtypes. Bool keys only match `true` / `false`. Numeric keys
-/// reject leading zeros beyond `0`. String keys require a non-empty quoted
-/// string.
+/// `"exactOnSingleWordQuery"` / `"enableReRanking"` / `"separatorsToIndex"` /
+/// `"ignorePlurals"` / `"removeStopWords"` / `"disablePrefixOnAttributes"` /
+/// `"disableExactOnAttributes"` / `"alternativesAsExact"` /
+/// `"camelCaseAttributes"` / prettier `"printWidth"` / karma `"basePath"` stay
+/// out. Enum `"eventSubtype"` only matches Insights conversion subtypes. Bool
+/// keys only match `true` / `false`. Numeric keys reject leading zeros beyond
+/// `0`. String keys require a non-empty quoted string.
 fn is_algolia_insights_json_decl(s: &str) -> bool {
     let s = s.trim_start();
     let Some(rest) = s.strip_prefix('"') else {
@@ -71773,7 +71778,11 @@ fn algolia_insights_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool 
 /// `"disableTypoToleranceOnWords": [`,
 /// `"disableTypoToleranceOnAttributes": [`,
 /// `"exactOnSingleWordQuery": "attribute"` / `"none"` / `"word"`,
-/// `"enableReRanking": true` / `false`.
+/// `"enableReRanking": true` / `false`, `"separatorsToIndex": "…"`,
+/// `"ignorePlurals": true` / `false` / `[`,
+/// `"removeStopWords": true` / `false` / `[`,
+/// `"disablePrefixOnAttributes": [`, `"disableExactOnAttributes": [`,
+/// `"alternativesAsExact": [`, `"camelCaseAttributes": [`.
 /// Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing
 /// `:` stay out. Generic `"$schema"` / `"name"` / `"id"` / `"q"` / `"query"` /
 /// `"url"` / `"appId"` / `"apiKey"` / `"index"` / `"indexName"` / `"cache"` /
@@ -71852,16 +71861,17 @@ fn algolia_insights_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool 
 /// `"pageRank"` / `"lvl1"` / `"lvl2"` / `"lvl3"` / `"lvl4"` / `"lvl5"` /
 /// `"lvl6"` / `"content"` / `"languageClassPrefix"` /
 /// `"attributeForDistinct"` / `"snippetEllipsisText"` /
-/// `"highlightPostTag"` / `"highlightPreTag"` / `"sortFacetValuesBy"`
-/// require a non-empty quoted string. `"__type"` only matches `"function"`.
-/// `"queryType"` only matches `"prefixLast"` / `"prefixAll"` / `"prefixNone"`.
-/// `"removeWordsIfNoResults"` only matches `"none"` / `"lastWords"` /
-/// `"firstWords"` / `"allOptional"`. `"exactOnSingleWordQuery"` only matches
-/// `"attribute"` / `"none"` / `"word"`. `"typoTolerance"` accepts bool or
-/// `"min"` / `"strict"` / `"true"` / `"false"`. `"optionalWords"` accepts
-/// string or `[`. `"ignoreCanonicalTo"` accepts bool or `[`.
-/// `"renderJavaScript"` accepts bool, `[`, or `{`. `"indexHeadings"` accepts
-/// bool or `{`. `"lvl1"` / `"lvl2"` / `"lvl3"` / `"lvl4"` / `"lvl5"` /
+/// `"highlightPostTag"` / `"highlightPreTag"` / `"sortFacetValuesBy"` /
+/// `"separatorsToIndex"` require a non-empty quoted string. `"__type"` only
+/// matches `"function"`. `"queryType"` only matches `"prefixLast"` /
+/// `"prefixAll"` / `"prefixNone"`. `"removeWordsIfNoResults"` only matches
+/// `"none"` / `"lastWords"` / `"firstWords"` / `"allOptional"`.
+/// `"exactOnSingleWordQuery"` only matches `"attribute"` / `"none"` /
+/// `"word"`. `"typoTolerance"` accepts bool or `"min"` / `"strict"` /
+/// `"true"` / `"false"`. `"optionalWords"` accepts string or `[`.
+/// `"ignoreCanonicalTo"` / `"ignorePlurals"` / `"removeStopWords"` accept bool
+/// or `[`. `"renderJavaScript"` accepts bool, `[`, or `{`. `"indexHeadings"`
+/// accepts bool or `{`. `"lvl1"` / `"lvl2"` / `"lvl3"` / `"lvl4"` / `"lvl5"` /
 /// `"lvl6"` / `"content"` accept string or `[`.
 fn is_algolia_crawler_json_decl(s: &str) -> bool {
     let s = s.trim_start();
@@ -71997,6 +72007,13 @@ fn algolia_crawler_json_key_ok(key: &str) -> bool {
             | "disableTypoToleranceOnAttributes"
             | "exactOnSingleWordQuery"
             | "enableReRanking"
+            | "separatorsToIndex"
+            | "ignorePlurals"
+            | "removeStopWords"
+            | "disablePrefixOnAttributes"
+            | "disableExactOnAttributes"
+            | "alternativesAsExact"
+            | "camelCaseAttributes"
     )
 }
 
@@ -72043,6 +72060,12 @@ fn algolia_crawler_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool 
                     | "optionalWords"
                     | "disableTypoToleranceOnWords"
                     | "disableTypoToleranceOnAttributes"
+                    | "ignorePlurals"
+                    | "removeStopWords"
+                    | "disablePrefixOnAttributes"
+                    | "disableExactOnAttributes"
+                    | "alternativesAsExact"
+                    | "camelCaseAttributes"
             ) {
                 return false;
             }
@@ -72128,6 +72151,7 @@ fn algolia_crawler_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool 
                     | "highlightPreTag"
                     | "sortFacetValuesBy"
                     | "optionalWords"
+                    | "separatorsToIndex"
             ) {
                 return false;
             }
@@ -72230,6 +72254,8 @@ fn algolia_crawler_json_bool_and_tail_ok(key: &str, after_colon: &str) -> bool {
             | "allowTyposOnNumericTokens"
             | "advancedSyntax"
             | "enableReRanking"
+            | "ignorePlurals"
+            | "removeStopWords"
     ) {
         return false;
     }
@@ -151255,6 +151281,19 @@ mod func_like_line_tests {
             r#""exactOnSingleWordQuery": "attribute""#
         ));
         assert!(is_algolia_crawler_json_decl(r#""enableReRanking": true"#));
+        assert!(is_algolia_crawler_json_decl(r#""separatorsToIndex": "+#""#));
+        assert!(is_algolia_crawler_json_decl(r#""ignorePlurals": true"#));
+        assert!(is_algolia_crawler_json_decl(r#""ignorePlurals": ["#));
+        assert!(is_algolia_crawler_json_decl(r#""removeStopWords": true"#));
+        assert!(is_algolia_crawler_json_decl(r#""removeStopWords": ["#));
+        assert!(is_algolia_crawler_json_decl(
+            r#""disablePrefixOnAttributes": ["#
+        ));
+        assert!(is_algolia_crawler_json_decl(
+            r#""disableExactOnAttributes": ["#
+        ));
+        assert!(is_algolia_crawler_json_decl(r#""alternativesAsExact": ["#));
+        assert!(is_algolia_crawler_json_decl(r#""camelCaseAttributes": ["#));
         assert!(!is_algolia_crawler_json_decl(
             r#""authenticatedUserToken": "user-1""#
         ));
@@ -152708,6 +152747,139 @@ mod func_like_line_tests {
         assert!(!is_algolia_insights_json_decl(r#""enableReRanking": true"#));
         assert!(!is_algolia_recommend_json_decl(
             r#""enableReRanking": true"#
+        ));
+        assert!(is_algolia_crawler_json_decl(r#""separatorsToIndex": "+#""#));
+        assert!(is_algolia_crawler_json_decl(r#""separatorsToIndex": "+","#));
+        assert!(is_algolia_crawler_json_decl(
+            r#""separatorsToIndex": "+#" // c"#
+        ));
+        assert!(!is_algolia_crawler_json_decl(r#""separatorsToIndex": """#));
+        assert!(!is_algolia_crawler_json_decl(
+            r#""separatorsToIndex": true"#
+        ));
+        assert!(!is_algolia_crawler_json_decl(r#""separatorsToIndex": ["#));
+        assert!(!is_algolia_crawler_json_decl(r#""separatorToIndex": "+#""#));
+        assert!(!is_algolia_insights_json_decl(
+            r#""separatorsToIndex": "+#""#
+        ));
+        assert!(!is_algolia_recommend_json_decl(
+            r#""separatorsToIndex": "+#""#
+        ));
+        assert!(is_algolia_crawler_json_decl(r#""ignorePlurals": true"#));
+        assert!(is_algolia_crawler_json_decl(r#""ignorePlurals": false"#));
+        assert!(is_algolia_crawler_json_decl(r#""ignorePlurals": true,"#));
+        assert!(is_algolia_crawler_json_decl(
+            r#""ignorePlurals": false // c"#
+        ));
+        assert!(is_algolia_crawler_json_decl(r#""ignorePlurals": ["#));
+        assert!(is_algolia_crawler_json_decl(r#""ignorePlurals": [,"#));
+        assert!(is_algolia_crawler_json_decl(r#""ignorePlurals": [ // c"#));
+        assert!(!is_algolia_crawler_json_decl(r#""ignorePlurals": "true""#));
+        assert!(!is_algolia_crawler_json_decl(r#""ignorePlurals": "en""#));
+        assert!(!is_algolia_crawler_json_decl(r#""ignorePlural": true"#));
+        assert!(!is_algolia_insights_json_decl(r#""ignorePlurals": true"#));
+        assert!(!is_algolia_recommend_json_decl(r#""ignorePlurals": true"#));
+        assert!(is_algolia_crawler_json_decl(r#""removeStopWords": true"#));
+        assert!(is_algolia_crawler_json_decl(r#""removeStopWords": false"#));
+        assert!(is_algolia_crawler_json_decl(r#""removeStopWords": true,"#));
+        assert!(is_algolia_crawler_json_decl(
+            r#""removeStopWords": false // c"#
+        ));
+        assert!(is_algolia_crawler_json_decl(r#""removeStopWords": ["#));
+        assert!(is_algolia_crawler_json_decl(r#""removeStopWords": [,"#));
+        assert!(is_algolia_crawler_json_decl(r#""removeStopWords": [ // c"#));
+        assert!(!is_algolia_crawler_json_decl(
+            r#""removeStopWords": "true""#
+        ));
+        assert!(!is_algolia_crawler_json_decl(r#""removeStopWords": "en""#));
+        assert!(!is_algolia_crawler_json_decl(r#""removeStopWord": true"#));
+        assert!(!is_algolia_insights_json_decl(r#""removeStopWords": true"#));
+        assert!(!is_algolia_recommend_json_decl(
+            r#""removeStopWords": true"#
+        ));
+        assert!(is_algolia_crawler_json_decl(
+            r#""disablePrefixOnAttributes": ["#
+        ));
+        assert!(is_algolia_crawler_json_decl(
+            r#""disablePrefixOnAttributes": [,"#
+        ));
+        assert!(is_algolia_crawler_json_decl(
+            r#""disablePrefixOnAttributes": [ // c"#
+        ));
+        assert!(!is_algolia_crawler_json_decl(
+            r#""disablePrefixOnAttributes": true"#
+        ));
+        assert!(!is_algolia_crawler_json_decl(
+            r#""disablePrefixOnAttributes": "sku""#
+        ));
+        assert!(!is_algolia_crawler_json_decl(
+            r#""disablePrefixOnAttribute": ["#
+        ));
+        assert!(!is_algolia_insights_json_decl(
+            r#""disablePrefixOnAttributes": ["#
+        ));
+        assert!(!is_algolia_recommend_json_decl(
+            r#""disablePrefixOnAttributes": ["#
+        ));
+        assert!(is_algolia_crawler_json_decl(
+            r#""disableExactOnAttributes": ["#
+        ));
+        assert!(is_algolia_crawler_json_decl(
+            r#""disableExactOnAttributes": [,"#
+        ));
+        assert!(is_algolia_crawler_json_decl(
+            r#""disableExactOnAttributes": [ // c"#
+        ));
+        assert!(!is_algolia_crawler_json_decl(
+            r#""disableExactOnAttributes": true"#
+        ));
+        assert!(!is_algolia_crawler_json_decl(
+            r#""disableExactOnAttributes": "sku""#
+        ));
+        assert!(!is_algolia_crawler_json_decl(
+            r#""disableExactOnAttribute": ["#
+        ));
+        assert!(!is_algolia_insights_json_decl(
+            r#""disableExactOnAttributes": ["#
+        ));
+        assert!(!is_algolia_recommend_json_decl(
+            r#""disableExactOnAttributes": ["#
+        ));
+        assert!(is_algolia_crawler_json_decl(r#""alternativesAsExact": ["#));
+        assert!(is_algolia_crawler_json_decl(r#""alternativesAsExact": [,"#));
+        assert!(is_algolia_crawler_json_decl(
+            r#""alternativesAsExact": [ // c"#
+        ));
+        assert!(!is_algolia_crawler_json_decl(
+            r#""alternativesAsExact": true"#
+        ));
+        assert!(!is_algolia_crawler_json_decl(
+            r#""alternativesAsExact": "ignorePlurals""#
+        ));
+        assert!(!is_algolia_crawler_json_decl(r#""alternativeAsExact": ["#));
+        assert!(!is_algolia_insights_json_decl(
+            r#""alternativesAsExact": ["#
+        ));
+        assert!(!is_algolia_recommend_json_decl(
+            r#""alternativesAsExact": ["#
+        ));
+        assert!(is_algolia_crawler_json_decl(r#""camelCaseAttributes": ["#));
+        assert!(is_algolia_crawler_json_decl(r#""camelCaseAttributes": [,"#));
+        assert!(is_algolia_crawler_json_decl(
+            r#""camelCaseAttributes": [ // c"#
+        ));
+        assert!(!is_algolia_crawler_json_decl(
+            r#""camelCaseAttributes": true"#
+        ));
+        assert!(!is_algolia_crawler_json_decl(
+            r#""camelCaseAttributes": "title""#
+        ));
+        assert!(!is_algolia_crawler_json_decl(r#""camelCaseAttribute": ["#));
+        assert!(!is_algolia_insights_json_decl(
+            r#""camelCaseAttributes": ["#
+        ));
+        assert!(!is_algolia_recommend_json_decl(
+            r#""camelCaseAttributes": ["#
         ));
         assert!(!is_algolia_crawler_json_decl(r#""startUrls""#));
         assert!(!is_algolia_crawler_json_decl(r#""schedule""#));

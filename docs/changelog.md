@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.874] — 2026-11-14
+
+View:
+
+- **Function List** lists more Algolia Crawler JSON keys: `"separatorsToIndex": "…"`, `"ignorePlurals": true` / `false` / `[`, `"removeStopWords": true` / `false` / `[`, `"disablePrefixOnAttributes": [`, `"disableExactOnAttributes": [`, `"alternativesAsExact": [`, `"camelCaseAttributes": [`. Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing `:` stay out. Empty strings / plural/singular misspellings / generic `"url"` / `"enabled"` / `"proxy"` / `"timeout"` / `"retries"` / `"headers"` / `"cache"` / string bools / language string forms stay out. Existing Crawler keys unchanged. Algolia Insights / Recommend / neighbouring search JSON families stay out. Bool keys only match `true` / `false`. String keys require a non-empty quoted string. `"ignorePlurals"` / `"removeStopWords"` accept bool or `[`.
+
 ## [0.3.873] — 2026-11-14
 
 View:

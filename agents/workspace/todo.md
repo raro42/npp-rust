@@ -1410,3 +1410,5 @@
 009 keep: Function List attributeForDistinct/customRanking/distinct/attributesForFaceting/attributesToSnippet (v0.3.868)
 
 009 keep: Function List Algolia Crawler restrictHighlightAndSnippetArrays/responseFields/sortFacetValuesBy/minProximity/enableRules/enablePersonalization (v0.3.871)
+
+009 keep: Function List Algolia Crawler separatorsToIndex/ignorePlurals/removeStopWords/disablePrefixOnAttributes/disableExactOnAttributes/alternativesAsExact/camelCaseAttributes (v0.3.874)
