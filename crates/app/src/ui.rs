@@ -71356,9 +71356,11 @@ fn searchkit_json_string_and_tail_ok(key: &str, after_colon: &str) -> bool {
 /// `"selectorsToMatch"` / `"recordExtractor"` / `"autoGenerateObjectIDs"` /
 /// `"pathAliases"` / `"fetchRequest"` / `"browserRequest"` /
 /// `"oauthRequest"` / `"accessTokenRequest"` / `"beforeIndexPublishing"` /
-/// `"waitTime"` / `"adblock"` / `"maxLostRecordsPercentage"` / prettier
-/// `"printWidth"` / karma `"basePath"` stay out. Enum `"model"` only matches
-/// Recommend model ids. Numeric keys reject leading zeros beyond `0`.
+/// `"waitTime"` / `"adblock"` / `"maxLostRecordsPercentage"` /
+/// `"maxFailedUrls"` / `"extraParameters"` / `"clientId"` / `"clientSecret"` /
+/// `"grantType"` / `"scope"` / prettier `"printWidth"` / karma `"basePath"`
+/// stay out. Enum `"model"` only matches Recommend model ids. Numeric keys
+/// reject leading zeros beyond `0`.
 fn is_algolia_recommend_json_decl(s: &str) -> bool {
     let s = s.trim_start();
     let Some(rest) = s.strip_prefix('"') else {
@@ -71551,11 +71553,12 @@ fn algolia_recommend_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool
 /// `"selectorsToMatch"` / `"recordExtractor"` / `"autoGenerateObjectIDs"` /
 /// `"pathAliases"` / `"fetchRequest"` / `"browserRequest"` /
 /// `"oauthRequest"` / `"accessTokenRequest"` / `"beforeIndexPublishing"` /
-/// `"waitTime"` / `"adblock"` / `"maxLostRecordsPercentage"` / prettier
-/// `"printWidth"` / karma `"basePath"` stay out. Enum `"eventSubtype"` only
-/// matches Insights conversion subtypes. Bool keys only match `true` /
-/// `false`. Numeric keys reject leading zeros beyond `0`. String keys require
-/// a non-empty quoted
+/// `"waitTime"` / `"adblock"` / `"maxLostRecordsPercentage"` /
+/// `"maxFailedUrls"` / `"extraParameters"` / `"clientId"` / `"clientSecret"` /
+/// `"grantType"` / `"scope"` / prettier `"printWidth"` / karma `"basePath"`
+/// stay out. Enum `"eventSubtype"` only matches Insights conversion subtypes.
+/// Bool keys only match `true` / `false`. Numeric keys reject leading zeros
+/// beyond `0`. String keys require a non-empty quoted
 /// string.
 fn is_algolia_insights_json_decl(s: &str) -> bool {
     let s = s.trim_start();
@@ -71692,7 +71695,9 @@ fn algolia_insights_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool 
 /// `"autoGenerateObjectIDs": true` / `false`, `"pathAliases": {`,
 /// `"fetchRequest": {`, `"browserRequest": {`, `"oauthRequest": {`,
 /// `"accessTokenRequest": {`, `"beforeIndexPublishing": {`, `"waitTime": {`,
-/// `"adblock": true` / `false`, `"maxLostRecordsPercentage": 0` / `10`.
+/// `"adblock": true` / `false`, `"maxLostRecordsPercentage": 0` / `10`,
+/// `"maxFailedUrls": 0` / `10`, `"extraParameters": {`, `"clientId": "…"`,
+/// `"clientSecret": "…"`, `"grantType": "…"`, `"scope": "…"`.
 /// Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing
 /// `:` stay out. Generic `"$schema"` / `"name"` / `"id"` / `"q"` / `"query"` /
 /// `"url"` / `"appId"` / `"apiKey"` / `"index"` / `"indexName"` / `"cache"` /
@@ -71763,8 +71768,9 @@ fn algolia_insights_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool 
 /// `"responseHeader"` / Elasticsearch `"track_total_hits"` /
 /// `"runtime_mappings"` / prettier `"printWidth"` / karma `"basePath"`
 /// stay out. Bool keys only match `true` / `false`. Numeric keys reject
-/// leading zeros beyond `0`. String `"schedule"` / `"indexPrefix"` require
-/// a non-empty quoted string. `"ignoreCanonicalTo"` accepts bool or `[`.
+/// leading zeros beyond `0`. String `"schedule"` / `"indexPrefix"` /
+/// `"clientId"` / `"clientSecret"` / `"grantType"` / `"scope"` require a
+/// non-empty quoted string. `"ignoreCanonicalTo"` accepts bool or `[`.
 /// `"renderJavaScript"` accepts bool, `[`, or `{`.
 fn is_algolia_crawler_json_decl(s: &str) -> bool {
     let s = s.trim_start();
@@ -71829,6 +71835,12 @@ fn algolia_crawler_json_key_ok(key: &str) -> bool {
             | "waitTime"
             | "adblock"
             | "maxLostRecordsPercentage"
+            | "maxFailedUrls"
+            | "extraParameters"
+            | "clientId"
+            | "clientSecret"
+            | "grantType"
+            | "scope"
     )
 }
 
@@ -71877,13 +71889,17 @@ fn algolia_crawler_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool 
                     | "accessTokenRequest"
                     | "beforeIndexPublishing"
                     | "waitTime"
+                    | "extraParameters"
             ) {
                 return false;
             }
             package_json_tail_ok(&after_colon[1..])
         }
         b'"' => {
-            if !matches!(key, "schedule" | "indexPrefix") {
+            if !matches!(
+                key,
+                "schedule" | "indexPrefix" | "clientId" | "clientSecret" | "grantType" | "scope"
+            ) {
                 return false;
             }
             algolia_crawler_json_string_and_tail_ok(after_colon)
@@ -71933,7 +71949,7 @@ fn algolia_crawler_json_bool_and_tail_ok(key: &str, after_colon: &str) -> bool {
 fn algolia_crawler_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool {
     if !matches!(
         key,
-        "maxUrls" | "rateLimit" | "maxDepth" | "maxLostRecordsPercentage"
+        "maxUrls" | "rateLimit" | "maxDepth" | "maxLostRecordsPercentage" | "maxFailedUrls"
     ) {
         return false;
     }
@@ -150373,6 +150389,22 @@ mod func_like_line_tests {
         assert!(is_algolia_crawler_json_decl(
             r#""maxLostRecordsPercentage": 10"#
         ));
+        assert!(!is_algolia_insights_json_decl(r#""maxFailedUrls": 10"#));
+        assert!(is_algolia_crawler_json_decl(r#""maxFailedUrls": 10"#));
+        assert!(!is_algolia_insights_json_decl(r#""extraParameters": {"#));
+        assert!(is_algolia_crawler_json_decl(r#""extraParameters": {"#));
+        assert!(!is_algolia_insights_json_decl(r#""clientId": "cid""#));
+        assert!(is_algolia_crawler_json_decl(r#""clientId": "cid""#));
+        assert!(!is_algolia_insights_json_decl(r#""clientSecret": "sec""#));
+        assert!(is_algolia_crawler_json_decl(r#""clientSecret": "sec""#));
+        assert!(!is_algolia_insights_json_decl(
+            r#""grantType": "client_credentials""#
+        ));
+        assert!(is_algolia_crawler_json_decl(
+            r#""grantType": "client_credentials""#
+        ));
+        assert!(!is_algolia_insights_json_decl(r#""scope": "api""#));
+        assert!(is_algolia_crawler_json_decl(r#""scope": "api""#));
     }
 
     #[test]
@@ -150675,6 +150707,22 @@ mod func_like_line_tests {
         assert!(is_algolia_crawler_json_decl(
             r#""maxLostRecordsPercentage": 10"#
         ));
+        assert!(!is_algolia_insights_json_decl(r#""maxFailedUrls": 10"#));
+        assert!(is_algolia_crawler_json_decl(r#""maxFailedUrls": 10"#));
+        assert!(!is_algolia_insights_json_decl(r#""extraParameters": {"#));
+        assert!(is_algolia_crawler_json_decl(r#""extraParameters": {"#));
+        assert!(!is_algolia_insights_json_decl(r#""clientId": "cid""#));
+        assert!(is_algolia_crawler_json_decl(r#""clientId": "cid""#));
+        assert!(!is_algolia_insights_json_decl(r#""clientSecret": "sec""#));
+        assert!(is_algolia_crawler_json_decl(r#""clientSecret": "sec""#));
+        assert!(!is_algolia_insights_json_decl(
+            r#""grantType": "client_credentials""#
+        ));
+        assert!(is_algolia_crawler_json_decl(
+            r#""grantType": "client_credentials""#
+        ));
+        assert!(!is_algolia_insights_json_decl(r#""scope": "api""#));
+        assert!(is_algolia_crawler_json_decl(r#""scope": "api""#));
         assert!(line_is_func_like(r#""authenticatedUserToken": "user-1""#));
         assert!(line_is_func_like(r#""userHasOptedOut": true"#));
         assert!(line_is_func_like(r#""useCookie": true"#));
@@ -150711,6 +150759,12 @@ mod func_like_line_tests {
         assert!(line_is_func_like(r#""waitTime": {"#));
         assert!(line_is_func_like(r#""adblock": true"#));
         assert!(line_is_func_like(r#""maxLostRecordsPercentage": 10"#));
+        assert!(line_is_func_like(r#""maxFailedUrls": 10"#));
+        assert!(line_is_func_like(r#""extraParameters": {"#));
+        assert!(line_is_func_like(r#""clientId": "cid""#));
+        assert!(line_is_func_like(r#""clientSecret": "sec""#));
+        assert!(line_is_func_like(r#""grantType": "client_credentials""#));
+        assert!(line_is_func_like(r#""scope": "api""#));
     }
 
     #[test]
@@ -150766,6 +150820,14 @@ mod func_like_line_tests {
         assert!(is_algolia_crawler_json_decl(
             r#""maxLostRecordsPercentage": 10"#
         ));
+        assert!(is_algolia_crawler_json_decl(r#""maxFailedUrls": 10"#));
+        assert!(is_algolia_crawler_json_decl(r#""extraParameters": {"#));
+        assert!(is_algolia_crawler_json_decl(r#""clientId": "cid""#));
+        assert!(is_algolia_crawler_json_decl(r#""clientSecret": "sec""#));
+        assert!(is_algolia_crawler_json_decl(
+            r#""grantType": "client_credentials""#
+        ));
+        assert!(is_algolia_crawler_json_decl(r#""scope": "api""#));
         assert!(!is_algolia_crawler_json_decl(
             r#""authenticatedUserToken": "user-1""#
         ));
@@ -151187,6 +151249,55 @@ mod func_like_line_tests {
         assert!(!is_algolia_crawler_json_decl(
             r#""maxLostRecordPercentage": 10"#
         ));
+        assert!(is_algolia_crawler_json_decl(r#""maxFailedUrls": 0"#));
+        assert!(is_algolia_crawler_json_decl(r#""maxFailedUrls": 10"#));
+        assert!(is_algolia_crawler_json_decl(r#""maxFailedUrls": 10,"#));
+        assert!(is_algolia_crawler_json_decl(r#""maxFailedUrls": 5 // c"#));
+        assert!(!is_algolia_crawler_json_decl(r#""maxFailedUrls": 00"#));
+        assert!(!is_algolia_crawler_json_decl(r#""maxFailedUrls": 01"#));
+        assert!(!is_algolia_crawler_json_decl(r#""maxFailedUrls": true"#));
+        assert!(!is_algolia_crawler_json_decl(r#""maxFailedUrls": {"#));
+        assert!(!is_algolia_crawler_json_decl(r#""maxFailedUrl": 10"#));
+        assert!(is_algolia_crawler_json_decl(r#""extraParameters": {"#));
+        assert!(is_algolia_crawler_json_decl(r#""extraParameters": {,"#));
+        assert!(is_algolia_crawler_json_decl(r#""extraParameters": { // c"#));
+        assert!(!is_algolia_crawler_json_decl(r#""extraParameters": ["#));
+        assert!(!is_algolia_crawler_json_decl(r#""extraParameters": true"#));
+        assert!(!is_algolia_crawler_json_decl(r#""extraParameter": {"#));
+        assert!(is_algolia_crawler_json_decl(r#""clientId": "cid""#));
+        assert!(is_algolia_crawler_json_decl(r#""clientId": "cid","#));
+        assert!(is_algolia_crawler_json_decl(r#""clientId": "cid" // c"#));
+        assert!(!is_algolia_crawler_json_decl(r#""clientId": """#));
+        assert!(!is_algolia_crawler_json_decl(r#""clientId": true"#));
+        assert!(!is_algolia_crawler_json_decl(r#""clientIds": "cid""#));
+        assert!(is_algolia_crawler_json_decl(r#""clientSecret": "sec""#));
+        assert!(is_algolia_crawler_json_decl(r#""clientSecret": "sec","#));
+        assert!(is_algolia_crawler_json_decl(
+            r#""clientSecret": "sec" // c"#
+        ));
+        assert!(!is_algolia_crawler_json_decl(r#""clientSecret": """#));
+        assert!(!is_algolia_crawler_json_decl(r#""clientSecret": true"#));
+        assert!(!is_algolia_crawler_json_decl(r#""clientSecrets": "sec""#));
+        assert!(is_algolia_crawler_json_decl(
+            r#""grantType": "client_credentials""#
+        ));
+        assert!(is_algolia_crawler_json_decl(
+            r#""grantType": "client_credentials","#
+        ));
+        assert!(is_algolia_crawler_json_decl(
+            r#""grantType": "client_credentials" // c"#
+        ));
+        assert!(!is_algolia_crawler_json_decl(r#""grantType": """#));
+        assert!(!is_algolia_crawler_json_decl(r#""grantType": true"#));
+        assert!(!is_algolia_crawler_json_decl(
+            r#""grantTypes": "client_credentials""#
+        ));
+        assert!(is_algolia_crawler_json_decl(r#""scope": "api""#));
+        assert!(is_algolia_crawler_json_decl(r#""scope": "api","#));
+        assert!(is_algolia_crawler_json_decl(r#""scope": "api" // c"#));
+        assert!(!is_algolia_crawler_json_decl(r#""scope": """#));
+        assert!(!is_algolia_crawler_json_decl(r#""scope": true"#));
+        assert!(!is_algolia_crawler_json_decl(r#""scopes": "api""#));
         assert!(!is_algolia_crawler_json_decl(r#""startUrls""#));
         assert!(!is_algolia_crawler_json_decl(r#""schedule""#));
         assert!(!is_algolia_crawler_json_decl(r#""actions""#));
