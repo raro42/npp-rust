@@ -1,3 +1,5 @@
+009 keep: Function List Algolia Crawler username/password/source/body/loginRequestOptions/method (v0.3.864)
+
 009 keep: Function List Algolia Crawler __type/grant_type/client_id/client_secret/resource (v0.3.863)
 
 009 keep: Function List Algolia Crawler pathsToMatch/fileTypesToMatch/selectorsToMatch/recordExtractor/autoGenerateObjectIDs/pathAliases (v0.3.860)

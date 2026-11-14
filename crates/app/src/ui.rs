@@ -71358,9 +71358,11 @@ fn searchkit_json_string_and_tail_ok(key: &str, after_colon: &str) -> bool {
 /// `"oauthRequest"` / `"accessTokenRequest"` / `"beforeIndexPublishing"` /
 /// `"waitTime"` / `"adblock"` / `"maxLostRecordsPercentage"` /
 /// `"maxFailedUrls"` / `"extraParameters"` / `"clientId"` / `"clientSecret"` /
-/// `"grantType"` / `"scope"` / prettier `"printWidth"` / karma `"basePath"`
-/// stay out. Enum `"model"` only matches Recommend model ids. Numeric keys
-/// reject leading zeros beyond `0`.
+/// `"grantType"` / `"scope"` / `"__type"` / `"grant_type"` / `"client_id"` /
+/// `"client_secret"` / `"resource"` / `"username"` / `"password"` /
+/// `"source"` / `"body"` / `"loginRequestOptions"` / `"method"` / prettier
+/// `"printWidth"` / karma `"basePath"` stay out. Enum `"model"` only matches
+/// Recommend model ids. Numeric keys reject leading zeros beyond `0`.
 fn is_algolia_recommend_json_decl(s: &str) -> bool {
     let s = s.trim_start();
     let Some(rest) = s.strip_prefix('"') else {
@@ -71555,11 +71557,13 @@ fn algolia_recommend_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool
 /// `"oauthRequest"` / `"accessTokenRequest"` / `"beforeIndexPublishing"` /
 /// `"waitTime"` / `"adblock"` / `"maxLostRecordsPercentage"` /
 /// `"maxFailedUrls"` / `"extraParameters"` / `"clientId"` / `"clientSecret"` /
-/// `"grantType"` / `"scope"` / prettier `"printWidth"` / karma `"basePath"`
-/// stay out. Enum `"eventSubtype"` only matches Insights conversion subtypes.
-/// Bool keys only match `true` / `false`. Numeric keys reject leading zeros
-/// beyond `0`. String keys require a non-empty quoted
-/// string.
+/// `"grantType"` / `"scope"` / `"__type"` / `"grant_type"` / `"client_id"` /
+/// `"client_secret"` / `"resource"` / `"username"` / `"password"` /
+/// `"source"` / `"body"` / `"loginRequestOptions"` / `"method"` / prettier
+/// `"printWidth"` / karma `"basePath"` stay out. Enum `"eventSubtype"` only
+/// matches Insights conversion subtypes. Bool keys only match `true` /
+/// `false`. Numeric keys reject leading zeros beyond `0`. String keys require
+/// a non-empty quoted string.
 fn is_algolia_insights_json_decl(s: &str) -> bool {
     let s = s.trim_start();
     let Some(rest) = s.strip_prefix('"') else {
@@ -71699,7 +71703,9 @@ fn algolia_insights_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool 
 /// `"maxFailedUrls": 0` / `10`, `"extraParameters": {`, `"clientId": "…"`,
 /// `"clientSecret": "…"`, `"grantType": "…"`, `"scope": "…"`,
 /// `"__type": "function"`, `"grant_type": "…"`, `"client_id": "…"`,
-/// `"client_secret": "…"`, `"resource": "…"`.
+/// `"client_secret": "…"`, `"resource": "…"`, `"username": "…"`,
+/// `"password": "…"`, `"source": "…"`, `"body": "…"`,
+/// `"loginRequestOptions": {`, `"method": "…"`.
 /// Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing
 /// `:` stay out. Generic `"$schema"` / `"name"` / `"id"` / `"q"` / `"query"` /
 /// `"url"` / `"appId"` / `"apiKey"` / `"index"` / `"indexName"` / `"cache"` /
@@ -71772,7 +71778,8 @@ fn algolia_insights_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool 
 /// stay out. Bool keys only match `true` / `false`. Numeric keys reject
 /// leading zeros beyond `0`. String `"schedule"` / `"indexPrefix"` /
 /// `"clientId"` / `"clientSecret"` / `"grantType"` / `"scope"` /
-/// `"grant_type"` / `"client_id"` / `"client_secret"` / `"resource"` require
+/// `"grant_type"` / `"client_id"` / `"client_secret"` / `"resource"` /
+/// `"username"` / `"password"` / `"source"` / `"body"` / `"method"` require
 /// a non-empty quoted string. `"__type"` only matches `"function"`.
 /// `"ignoreCanonicalTo"` accepts bool or `[`. `"renderJavaScript"` accepts
 /// bool, `[`, or `{`.
@@ -71850,6 +71857,12 @@ fn algolia_crawler_json_key_ok(key: &str) -> bool {
             | "client_id"
             | "client_secret"
             | "resource"
+            | "username"
+            | "password"
+            | "source"
+            | "body"
+            | "loginRequestOptions"
+            | "method"
     )
 }
 
@@ -71899,6 +71912,7 @@ fn algolia_crawler_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool 
                     | "beforeIndexPublishing"
                     | "waitTime"
                     | "extraParameters"
+                    | "loginRequestOptions"
             ) {
                 return false;
             }
@@ -71920,6 +71934,11 @@ fn algolia_crawler_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool 
                     | "client_id"
                     | "client_secret"
                     | "resource"
+                    | "username"
+                    | "password"
+                    | "source"
+                    | "body"
+                    | "method"
             ) {
                 return false;
             }
@@ -150869,6 +150888,16 @@ mod func_like_line_tests {
         assert!(is_algolia_crawler_json_decl(
             r#""resource": "https://protected.example.com/""#
         ));
+        assert!(is_algolia_crawler_json_decl(r#""username": "crawler""#));
+        assert!(is_algolia_crawler_json_decl(r#""password": "s3cr3t""#));
+        assert!(is_algolia_crawler_json_decl(
+            r#""source": "({ url, $ }) => [{ url: url.href }]""#
+        ));
+        assert!(is_algolia_crawler_json_decl(
+            r#""body": "id=user&password=s3cr3t""#
+        ));
+        assert!(is_algolia_crawler_json_decl(r#""loginRequestOptions": {"#));
+        assert!(is_algolia_crawler_json_decl(r#""method": "POST""#));
         assert!(!is_algolia_crawler_json_decl(
             r#""authenticatedUserToken": "user-1""#
         ));
@@ -151386,6 +151415,62 @@ mod func_like_line_tests {
         assert!(!is_algolia_crawler_json_decl(r#""resource": """#));
         assert!(!is_algolia_crawler_json_decl(r#""resource": true"#));
         assert!(!is_algolia_crawler_json_decl(r#""resources": "x""#));
+        assert!(is_algolia_crawler_json_decl(r#""username": "crawler""#));
+        assert!(is_algolia_crawler_json_decl(r#""username": "crawler","#));
+        assert!(is_algolia_crawler_json_decl(
+            r#""username": "crawler" // c"#
+        ));
+        assert!(!is_algolia_crawler_json_decl(r#""username": """#));
+        assert!(!is_algolia_crawler_json_decl(r#""username": true"#));
+        assert!(!is_algolia_crawler_json_decl(r#""usernames": "crawler""#));
+        assert!(is_algolia_crawler_json_decl(r#""password": "s3cr3t""#));
+        assert!(is_algolia_crawler_json_decl(r#""password": "s3cr3t","#));
+        assert!(is_algolia_crawler_json_decl(r#""password": "s3cr3t" // c"#));
+        assert!(!is_algolia_crawler_json_decl(r#""password": """#));
+        assert!(!is_algolia_crawler_json_decl(r#""password": true"#));
+        assert!(!is_algolia_crawler_json_decl(r#""passwords": "s3cr3t""#));
+        assert!(is_algolia_crawler_json_decl(
+            r#""source": "({ url, $ }) => [{ url: url.href }]""#
+        ));
+        assert!(is_algolia_crawler_json_decl(
+            r#""source": "({ url, $ }) => [{ url: url.href }]","#
+        ));
+        assert!(is_algolia_crawler_json_decl(
+            r#""source": "({ url, $ }) => [{ url: url.href }]" // c"#
+        ));
+        assert!(!is_algolia_crawler_json_decl(r#""source": """#));
+        assert!(!is_algolia_crawler_json_decl(r#""source": true"#));
+        assert!(!is_algolia_crawler_json_decl(r#""source": {"#));
+        assert!(!is_algolia_crawler_json_decl(r#""sources": "x""#));
+        assert!(is_algolia_crawler_json_decl(
+            r#""body": "id=user&password=s3cr3t""#
+        ));
+        assert!(is_algolia_crawler_json_decl(
+            r#""body": "id=user&password=s3cr3t","#
+        ));
+        assert!(is_algolia_crawler_json_decl(
+            r#""body": "id=user&password=s3cr3t" // c"#
+        ));
+        assert!(!is_algolia_crawler_json_decl(r#""body": """#));
+        assert!(!is_algolia_crawler_json_decl(r#""body": true"#));
+        assert!(!is_algolia_crawler_json_decl(r#""body": {"#));
+        assert!(!is_algolia_crawler_json_decl(r#""bodies": "x""#));
+        assert!(is_algolia_crawler_json_decl(r#""loginRequestOptions": {"#));
+        assert!(is_algolia_crawler_json_decl(r#""loginRequestOptions": {,"#));
+        assert!(is_algolia_crawler_json_decl(
+            r#""loginRequestOptions": { // c"#
+        ));
+        assert!(!is_algolia_crawler_json_decl(r#""loginRequestOptions": ["#));
+        assert!(!is_algolia_crawler_json_decl(
+            r#""loginRequestOptions": true"#
+        ));
+        assert!(!is_algolia_crawler_json_decl(r#""loginRequestOption": {"#));
+        assert!(is_algolia_crawler_json_decl(r#""method": "POST""#));
+        assert!(is_algolia_crawler_json_decl(r#""method": "GET","#));
+        assert!(is_algolia_crawler_json_decl(r#""method": "POST" // c"#));
+        assert!(!is_algolia_crawler_json_decl(r#""method": """#));
+        assert!(!is_algolia_crawler_json_decl(r#""method": true"#));
+        assert!(!is_algolia_crawler_json_decl(r#""methods": "POST""#));
         assert!(!is_algolia_crawler_json_decl(r#""startUrls""#));
         assert!(!is_algolia_crawler_json_decl(r#""schedule""#));
         assert!(!is_algolia_crawler_json_decl(r#""actions""#));
@@ -151498,6 +151583,14 @@ mod func_like_line_tests {
         assert!(line_is_func_like(r#""extraUrls": ["#));
         assert!(line_is_func_like(r#""maxUrls": 100"#));
         assert!(line_is_func_like(r#""ignoreNoFollowTo": true"#));
+        assert!(line_is_func_like(r#""username": "crawler""#));
+        assert!(line_is_func_like(r#""password": "s3cr3t""#));
+        assert!(line_is_func_like(
+            r#""source": "({ url, $ }) => [{ url: url.href }]""#
+        ));
+        assert!(line_is_func_like(r#""body": "id=user&password=s3cr3t""#));
+        assert!(line_is_func_like(r#""loginRequestOptions": {"#));
+        assert!(line_is_func_like(r#""method": "POST""#));
     }
 
     #[test]
