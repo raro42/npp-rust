@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.860] — 2026-11-14
+
+View:
+
+- **Function List** lists more Algolia Crawler JSON keys: `"pathsToMatch": [`, `"fileTypesToMatch": [`, `"selectorsToMatch": [`, `"recordExtractor": {`, `"autoGenerateObjectIDs": true` / `false`, `"pathAliases": {`. Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing `:` stay out. Singular `"pathToMatch"` / `"fileTypeToMatch"` / `"selectorToMatch"` / `"recordExtractors"` / `"autoGenerateObjectID"` / `"pathAlias"` / generic `"cache"` / string bools stay out. Existing Crawler keys unchanged. Algolia Insights / Recommend / neighbouring search JSON families stay out. Bool keys only match `true` / `false`.
+
 ## [0.3.859] — 2026-11-14
 
 View:

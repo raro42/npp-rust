@@ -1,3 +1,5 @@
+009 keep: Function List Algolia Crawler pathsToMatch/fileTypesToMatch/selectorsToMatch/recordExtractor/autoGenerateObjectIDs/pathAliases (v0.3.860)
+
 009 keep: Function List Algolia Recommend maxRecommendations/fallbackParameters/frequentlyBoughtTogether/relatedProducts/trendingItems/lookingSimilar/trendingFacets/model (v0.3.854)
 
 009 keep: Function List Instant Meilisearch placeholderSearch/finitePagination/primaryKey/keepZeroFacets/requestInit/meiliSearchParams (v0.3.852)
