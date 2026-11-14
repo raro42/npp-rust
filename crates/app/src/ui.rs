@@ -71360,7 +71360,9 @@ fn searchkit_json_string_and_tail_ok(key: &str, after_colon: &str) -> bool {
 /// `"maxFailedUrls"` / `"extraParameters"` / `"clientId"` / `"clientSecret"` /
 /// `"grantType"` / `"scope"` / `"__type"` / `"grant_type"` / `"client_id"` /
 /// `"client_secret"` / `"resource"` / `"username"` / `"password"` /
-/// `"source"` / `"body"` / `"loginRequestOptions"` / `"method"` / prettier
+/// `"source"` / `"body"` / `"loginRequestOptions"` / `"method"` /
+/// `"aggregateContent"` / `"indexHeadings"` / `"recordVersion"` /
+/// `"recordProps"` / `"maxRecordBytes"` / `"textAttributeName"` / prettier
 /// `"printWidth"` / karma `"basePath"` stay out. Enum `"model"` only matches
 /// Recommend model ids. Numeric keys reject leading zeros beyond `0`.
 fn is_algolia_recommend_json_decl(s: &str) -> bool {
@@ -71559,7 +71561,9 @@ fn algolia_recommend_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool
 /// `"maxFailedUrls"` / `"extraParameters"` / `"clientId"` / `"clientSecret"` /
 /// `"grantType"` / `"scope"` / `"__type"` / `"grant_type"` / `"client_id"` /
 /// `"client_secret"` / `"resource"` / `"username"` / `"password"` /
-/// `"source"` / `"body"` / `"loginRequestOptions"` / `"method"` / prettier
+/// `"source"` / `"body"` / `"loginRequestOptions"` / `"method"` /
+/// `"aggregateContent"` / `"indexHeadings"` / `"recordVersion"` /
+/// `"recordProps"` / `"maxRecordBytes"` / `"textAttributeName"` / prettier
 /// `"printWidth"` / karma `"basePath"` stay out. Enum `"eventSubtype"` only
 /// matches Insights conversion subtypes. Bool keys only match `true` /
 /// `false`. Numeric keys reject leading zeros beyond `0`. String keys require
@@ -71705,7 +71709,10 @@ fn algolia_insights_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool 
 /// `"__type": "function"`, `"grant_type": "…"`, `"client_id": "…"`,
 /// `"client_secret": "…"`, `"resource": "…"`, `"username": "…"`,
 /// `"password": "…"`, `"source": "…"`, `"body": "…"`,
-/// `"loginRequestOptions": {`, `"method": "…"`.
+/// `"loginRequestOptions": {`, `"method": "…"`,
+/// `"aggregateContent": true` / `false`, `"indexHeadings": true` / `false` /
+/// `{`, `"recordVersion": "…"`, `"recordProps": {`, `"maxRecordBytes": 0` /
+/// `1000`, `"textAttributeName": "…"`.
 /// Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing
 /// `:` stay out. Generic `"$schema"` / `"name"` / `"id"` / `"q"` / `"query"` /
 /// `"url"` / `"appId"` / `"apiKey"` / `"index"` / `"indexName"` / `"cache"` /
@@ -71779,10 +71786,11 @@ fn algolia_insights_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool 
 /// leading zeros beyond `0`. String `"schedule"` / `"indexPrefix"` /
 /// `"clientId"` / `"clientSecret"` / `"grantType"` / `"scope"` /
 /// `"grant_type"` / `"client_id"` / `"client_secret"` / `"resource"` /
-/// `"username"` / `"password"` / `"source"` / `"body"` / `"method"` require
-/// a non-empty quoted string. `"__type"` only matches `"function"`.
-/// `"ignoreCanonicalTo"` accepts bool or `[`. `"renderJavaScript"` accepts
-/// bool, `[`, or `{`.
+/// `"username"` / `"password"` / `"source"` / `"body"` / `"method"` /
+/// `"recordVersion"` / `"textAttributeName"` require a non-empty quoted
+/// string. `"__type"` only matches `"function"`. `"ignoreCanonicalTo"`
+/// accepts bool or `[`. `"renderJavaScript"` accepts bool, `[`, or `{`.
+/// `"indexHeadings"` accepts bool or `{`.
 fn is_algolia_crawler_json_decl(s: &str) -> bool {
     let s = s.trim_start();
     let Some(rest) = s.strip_prefix('"') else {
@@ -71863,6 +71871,12 @@ fn algolia_crawler_json_key_ok(key: &str) -> bool {
             | "body"
             | "loginRequestOptions"
             | "method"
+            | "aggregateContent"
+            | "indexHeadings"
+            | "recordVersion"
+            | "recordProps"
+            | "maxRecordBytes"
+            | "textAttributeName"
     )
 }
 
@@ -71913,6 +71927,8 @@ fn algolia_crawler_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool 
                     | "waitTime"
                     | "extraParameters"
                     | "loginRequestOptions"
+                    | "indexHeadings"
+                    | "recordProps"
             ) {
                 return false;
             }
@@ -71939,6 +71955,8 @@ fn algolia_crawler_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool 
                     | "source"
                     | "body"
                     | "method"
+                    | "recordVersion"
+                    | "textAttributeName"
             ) {
                 return false;
             }
@@ -71984,6 +72002,8 @@ fn algolia_crawler_json_bool_and_tail_ok(key: &str, after_colon: &str) -> bool {
             | "ignorePaginationAttributes"
             | "autoGenerateObjectIDs"
             | "adblock"
+            | "aggregateContent"
+            | "indexHeadings"
     ) {
         return false;
     }
@@ -72000,7 +72020,12 @@ fn algolia_crawler_json_bool_and_tail_ok(key: &str, after_colon: &str) -> bool {
 fn algolia_crawler_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool {
     if !matches!(
         key,
-        "maxUrls" | "rateLimit" | "maxDepth" | "maxLostRecordsPercentage" | "maxFailedUrls"
+        "maxUrls"
+            | "rateLimit"
+            | "maxDepth"
+            | "maxLostRecordsPercentage"
+            | "maxFailedUrls"
+            | "maxRecordBytes"
     ) {
         return false;
     }
@@ -150898,6 +150923,15 @@ mod func_like_line_tests {
         ));
         assert!(is_algolia_crawler_json_decl(r#""loginRequestOptions": {"#));
         assert!(is_algolia_crawler_json_decl(r#""method": "POST""#));
+        assert!(is_algolia_crawler_json_decl(r#""aggregateContent": true"#));
+        assert!(is_algolia_crawler_json_decl(r#""indexHeadings": false"#));
+        assert!(is_algolia_crawler_json_decl(r#""indexHeadings": {"#));
+        assert!(is_algolia_crawler_json_decl(r#""recordVersion": "v3""#));
+        assert!(is_algolia_crawler_json_decl(r#""recordProps": {"#));
+        assert!(is_algolia_crawler_json_decl(r#""maxRecordBytes": 1000"#));
+        assert!(is_algolia_crawler_json_decl(
+            r#""textAttributeName": "text""#
+        ));
         assert!(!is_algolia_crawler_json_decl(
             r#""authenticatedUserToken": "user-1""#
         ));
@@ -151471,6 +151505,67 @@ mod func_like_line_tests {
         assert!(!is_algolia_crawler_json_decl(r#""method": """#));
         assert!(!is_algolia_crawler_json_decl(r#""method": true"#));
         assert!(!is_algolia_crawler_json_decl(r#""methods": "POST""#));
+        assert!(is_algolia_crawler_json_decl(r#""aggregateContent": true"#));
+        assert!(is_algolia_crawler_json_decl(r#""aggregateContent": false"#));
+        assert!(is_algolia_crawler_json_decl(r#""aggregateContent": true,"#));
+        assert!(is_algolia_crawler_json_decl(
+            r#""aggregateContent": false // c"#
+        ));
+        assert!(!is_algolia_crawler_json_decl(
+            r#""aggregateContent": "true""#
+        ));
+        assert!(!is_algolia_crawler_json_decl(r#""aggregateContent": {"#));
+        assert!(!is_algolia_crawler_json_decl(
+            r#""aggregateContents": true"#
+        ));
+        assert!(is_algolia_crawler_json_decl(r#""indexHeadings": true"#));
+        assert!(is_algolia_crawler_json_decl(r#""indexHeadings": false"#));
+        assert!(is_algolia_crawler_json_decl(r#""indexHeadings": {"#));
+        assert!(is_algolia_crawler_json_decl(r#""indexHeadings": {,"#));
+        assert!(is_algolia_crawler_json_decl(r#""indexHeadings": { // c"#));
+        assert!(!is_algolia_crawler_json_decl(r#""indexHeadings": ["#));
+        assert!(!is_algolia_crawler_json_decl(r#""indexHeadings": "true""#));
+        assert!(!is_algolia_crawler_json_decl(r#""indexHeading": true"#));
+        assert!(is_algolia_crawler_json_decl(r#""recordVersion": "v3""#));
+        assert!(is_algolia_crawler_json_decl(r#""recordVersion": "v2","#));
+        assert!(is_algolia_crawler_json_decl(
+            r#""recordVersion": "v3" // c"#
+        ));
+        assert!(!is_algolia_crawler_json_decl(r#""recordVersion": """#));
+        assert!(!is_algolia_crawler_json_decl(r#""recordVersion": true"#));
+        assert!(!is_algolia_crawler_json_decl(r#""recordVersions": "v3""#));
+        assert!(is_algolia_crawler_json_decl(r#""recordProps": {"#));
+        assert!(is_algolia_crawler_json_decl(r#""recordProps": {,"#));
+        assert!(is_algolia_crawler_json_decl(r#""recordProps": { // c"#));
+        assert!(!is_algolia_crawler_json_decl(r#""recordProps": ["#));
+        assert!(!is_algolia_crawler_json_decl(r#""recordProps": true"#));
+        assert!(!is_algolia_crawler_json_decl(r#""recordProp": {"#));
+        assert!(is_algolia_crawler_json_decl(r#""maxRecordBytes": 0"#));
+        assert!(is_algolia_crawler_json_decl(r#""maxRecordBytes": 1000"#));
+        assert!(is_algolia_crawler_json_decl(r#""maxRecordBytes": 1000,"#));
+        assert!(is_algolia_crawler_json_decl(
+            r#""maxRecordBytes": 500 // c"#
+        ));
+        assert!(!is_algolia_crawler_json_decl(r#""maxRecordBytes": 00"#));
+        assert!(!is_algolia_crawler_json_decl(r#""maxRecordBytes": 01"#));
+        assert!(!is_algolia_crawler_json_decl(r#""maxRecordBytes": true"#));
+        assert!(!is_algolia_crawler_json_decl(r#""maxRecordByte": 1000"#));
+        assert!(is_algolia_crawler_json_decl(
+            r#""textAttributeName": "text""#
+        ));
+        assert!(is_algolia_crawler_json_decl(
+            r#""textAttributeName": "body","#
+        ));
+        assert!(is_algolia_crawler_json_decl(
+            r#""textAttributeName": "text" // c"#
+        ));
+        assert!(!is_algolia_crawler_json_decl(r#""textAttributeName": """#));
+        assert!(!is_algolia_crawler_json_decl(
+            r#""textAttributeName": true"#
+        ));
+        assert!(!is_algolia_crawler_json_decl(
+            r#""textAttributeNames": "text""#
+        ));
         assert!(!is_algolia_crawler_json_decl(r#""startUrls""#));
         assert!(!is_algolia_crawler_json_decl(r#""schedule""#));
         assert!(!is_algolia_crawler_json_decl(r#""actions""#));
@@ -151591,6 +151686,12 @@ mod func_like_line_tests {
         assert!(line_is_func_like(r#""body": "id=user&password=s3cr3t""#));
         assert!(line_is_func_like(r#""loginRequestOptions": {"#));
         assert!(line_is_func_like(r#""method": "POST""#));
+        assert!(line_is_func_like(r#""aggregateContent": true"#));
+        assert!(line_is_func_like(r#""indexHeadings": {"#));
+        assert!(line_is_func_like(r#""recordVersion": "v3""#));
+        assert!(line_is_func_like(r#""recordProps": {"#));
+        assert!(line_is_func_like(r#""maxRecordBytes": 1000"#));
+        assert!(line_is_func_like(r#""textAttributeName": "text""#));
     }
 
     #[test]

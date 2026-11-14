@@ -1,3 +1,5 @@
+009 keep: Function List Algolia Crawler aggregateContent/indexHeadings/recordVersion/recordProps/maxRecordBytes/textAttributeName (v0.3.865)
+
 009 keep: Function List Algolia Crawler username/password/source/body/loginRequestOptions/method (v0.3.864)
 
 009 keep: Function List Algolia Crawler __type/grant_type/client_id/client_secret/resource (v0.3.863)
