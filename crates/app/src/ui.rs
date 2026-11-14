@@ -71365,9 +71365,11 @@ fn searchkit_json_string_and_tail_ok(key: &str, after_colon: &str) -> bool {
 /// `"recordProps"` / `"maxRecordBytes"` / `"textAttributeName"` /
 /// `"orderingAttributeName"` / `"baseRecord"` / `"pageRank"` / `"lvl0"` /
 /// `"lvl1"` / `"lvl2"` / `"lvl3"` / `"lvl4"` / `"lvl5"` / `"lvl6"` /
-/// `"content"` / `"languageClassPrefix"` / prettier `"printWidth"` / karma
-/// `"basePath"` stay out. Enum `"model"` only matches Recommend model ids.
-/// Numeric keys reject leading zeros beyond `0`.
+/// `"content"` / `"languageClassPrefix"` / `"attributeForDistinct"` /
+/// `"customRanking"` / `"distinct"` / `"attributesForFaceting"` /
+/// `"attributesToSnippet"` / prettier `"printWidth"` / karma `"basePath"`
+/// stay out. Enum `"model"` only matches Recommend model ids. Numeric keys
+/// reject leading zeros beyond `0`.
 fn is_algolia_recommend_json_decl(s: &str) -> bool {
     let s = s.trim_start();
     let Some(rest) = s.strip_prefix('"') else {
@@ -71569,11 +71571,12 @@ fn algolia_recommend_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool
 /// `"recordProps"` / `"maxRecordBytes"` / `"textAttributeName"` /
 /// `"orderingAttributeName"` / `"baseRecord"` / `"pageRank"` / `"lvl0"` /
 /// `"lvl1"` / `"lvl2"` / `"lvl3"` / `"lvl4"` / `"lvl5"` / `"lvl6"` /
-/// `"content"` / `"languageClassPrefix"` / prettier `"printWidth"` / karma
-/// `"basePath"` stay out. Enum `"eventSubtype"` only matches Insights
-/// conversion subtypes. Bool keys only match `true` / `false`. Numeric keys
-/// reject leading zeros beyond `0`. String keys require a non-empty quoted
-/// string.
+/// `"content"` / `"languageClassPrefix"` / `"attributeForDistinct"` /
+/// `"customRanking"` / `"distinct"` / `"attributesForFaceting"` /
+/// `"attributesToSnippet"` / prettier `"printWidth"` / karma `"basePath"`
+/// stay out. Enum `"eventSubtype"` only matches Insights conversion
+/// subtypes. Bool keys only match `true` / `false`. Numeric keys reject
+/// leading zeros beyond `0`. String keys require a non-empty quoted string.
 fn is_algolia_insights_json_decl(s: &str) -> bool {
     let s = s.trim_start();
     let Some(rest) = s.strip_prefix('"') else {
@@ -71722,7 +71725,9 @@ fn algolia_insights_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool 
 /// `"baseRecord": {`, `"pageRank": "…"`, `"lvl0": {`, `"lvl1": "…"` / `[`,
 /// `"lvl2": "…"` / `[`, `"lvl3": "…"` / `[`, `"lvl4": "…"` / `[`,
 /// `"lvl5": "…"` / `[`, `"lvl6": "…"` / `[`, `"content": "…"` / `[`,
-/// `"languageClassPrefix": "…"`.
+/// `"languageClassPrefix": "…"`, `"attributeForDistinct": "…"`,
+/// `"customRanking": [`, `"distinct": true` / `false`,
+/// `"attributesForFaceting": [`, `"attributesToSnippet": [`.
 /// Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing
 /// `:` stay out. Generic `"$schema"` / `"name"` / `"id"` / `"q"` / `"query"` /
 /// `"url"` / `"appId"` / `"apiKey"` / `"index"` / `"indexName"` / `"cache"` /
@@ -71799,11 +71804,12 @@ fn algolia_insights_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool 
 /// `"username"` / `"password"` / `"source"` / `"body"` / `"method"` /
 /// `"recordVersion"` / `"textAttributeName"` / `"orderingAttributeName"` /
 /// `"pageRank"` / `"lvl1"` / `"lvl2"` / `"lvl3"` / `"lvl4"` / `"lvl5"` /
-/// `"lvl6"` / `"content"` / `"languageClassPrefix"` require a non-empty
-/// quoted string. `"__type"` only matches `"function"`. `"ignoreCanonicalTo"`
-/// accepts bool or `[`. `"renderJavaScript"` accepts bool, `[`, or `{`.
-/// `"indexHeadings"` accepts bool or `{`. `"lvl1"` / `"lvl2"` / `"lvl3"` /
-/// `"lvl4"` / `"lvl5"` / `"lvl6"` / `"content"` accept string or `[`.
+/// `"lvl6"` / `"content"` / `"languageClassPrefix"` /
+/// `"attributeForDistinct"` require a non-empty quoted string. `"__type"`
+/// only matches `"function"`. `"ignoreCanonicalTo"` accepts bool or `[`.
+/// `"renderJavaScript"` accepts bool, `[`, or `{`. `"indexHeadings"`
+/// accepts bool or `{`. `"lvl1"` / `"lvl2"` / `"lvl3"` / `"lvl4"` /
+/// `"lvl5"` / `"lvl6"` / `"content"` accept string or `[`.
 fn is_algolia_crawler_json_decl(s: &str) -> bool {
     let s = s.trim_start();
     let Some(rest) = s.strip_prefix('"') else {
@@ -71902,6 +71908,11 @@ fn algolia_crawler_json_key_ok(key: &str) -> bool {
             | "lvl6"
             | "content"
             | "languageClassPrefix"
+            | "attributeForDistinct"
+            | "customRanking"
+            | "distinct"
+            | "attributesForFaceting"
+            | "attributesToSnippet"
     )
 }
 
@@ -71934,6 +71945,9 @@ fn algolia_crawler_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool 
                     | "lvl5"
                     | "lvl6"
                     | "content"
+                    | "customRanking"
+                    | "attributesForFaceting"
+                    | "attributesToSnippet"
             ) {
                 return false;
             }
@@ -72001,6 +72015,7 @@ fn algolia_crawler_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool 
                     | "lvl6"
                     | "content"
                     | "languageClassPrefix"
+                    | "attributeForDistinct"
             ) {
                 return false;
             }
@@ -72048,6 +72063,7 @@ fn algolia_crawler_json_bool_and_tail_ok(key: &str, after_colon: &str) -> bool {
             | "adblock"
             | "aggregateContent"
             | "indexHeadings"
+            | "distinct"
     ) {
         return false;
     }
@@ -150997,6 +151013,15 @@ mod func_like_line_tests {
         assert!(is_algolia_crawler_json_decl(
             r#""languageClassPrefix": "language-""#
         ));
+        assert!(is_algolia_crawler_json_decl(
+            r#""attributeForDistinct": "url""#
+        ));
+        assert!(is_algolia_crawler_json_decl(r#""customRanking": ["#));
+        assert!(is_algolia_crawler_json_decl(r#""distinct": true"#));
+        assert!(is_algolia_crawler_json_decl(
+            r#""attributesForFaceting": ["#
+        ));
+        assert!(is_algolia_crawler_json_decl(r#""attributesToSnippet": ["#));
         assert!(!is_algolia_crawler_json_decl(
             r#""authenticatedUserToken": "user-1""#
         ));
@@ -151736,6 +151761,91 @@ mod func_like_line_tests {
         ));
         assert!(!is_algolia_crawler_json_decl(
             r#""languageClassPrefixes": "language-""#
+        ));
+        assert!(is_algolia_crawler_json_decl(
+            r#""attributeForDistinct": "url""#
+        ));
+        assert!(is_algolia_crawler_json_decl(
+            r#""attributeForDistinct": "url","#
+        ));
+        assert!(is_algolia_crawler_json_decl(
+            r#""attributeForDistinct": "url" // c"#
+        ));
+        assert!(!is_algolia_crawler_json_decl(
+            r#""attributeForDistinct": """#
+        ));
+        assert!(!is_algolia_crawler_json_decl(
+            r#""attributeForDistinct": true"#
+        ));
+        assert!(!is_algolia_crawler_json_decl(
+            r#""attributeForDistinct": ["#
+        ));
+        assert!(!is_algolia_crawler_json_decl(
+            r#""attributesForDistinct": "url""#
+        ));
+        assert!(!is_algolia_insights_json_decl(
+            r#""attributeForDistinct": "url""#
+        ));
+        assert!(!is_algolia_recommend_json_decl(
+            r#""attributeForDistinct": "url""#
+        ));
+        assert!(is_algolia_crawler_json_decl(r#""customRanking": ["#));
+        assert!(is_algolia_crawler_json_decl(r#""customRanking": [,"#));
+        assert!(is_algolia_crawler_json_decl(r#""customRanking": [ // c"#));
+        assert!(!is_algolia_crawler_json_decl(r#""customRanking": {"#));
+        assert!(!is_algolia_crawler_json_decl(r#""customRanking": true"#));
+        assert!(!is_algolia_crawler_json_decl(r#""customRankings": ["#));
+        assert!(!is_algolia_insights_json_decl(r#""customRanking": ["#));
+        assert!(!is_algolia_recommend_json_decl(r#""customRanking": ["#));
+        assert!(is_algolia_crawler_json_decl(r#""distinct": true"#));
+        assert!(is_algolia_crawler_json_decl(r#""distinct": false"#));
+        assert!(is_algolia_crawler_json_decl(r#""distinct": true,"#));
+        assert!(is_algolia_crawler_json_decl(r#""distinct": false // c"#));
+        assert!(!is_algolia_crawler_json_decl(r#""distinct": "true""#));
+        assert!(!is_algolia_crawler_json_decl(r#""distinct": 1"#));
+        assert!(!is_algolia_crawler_json_decl(r#""distinct": ["#));
+        assert!(!is_algolia_crawler_json_decl(r#""distincts": true"#));
+        assert!(!is_algolia_insights_json_decl(r#""distinct": true"#));
+        assert!(!is_algolia_recommend_json_decl(r#""distinct": true"#));
+        assert!(is_algolia_crawler_json_decl(
+            r#""attributesForFaceting": ["#
+        ));
+        assert!(is_algolia_crawler_json_decl(
+            r#""attributesForFaceting": [,"#
+        ));
+        assert!(is_algolia_crawler_json_decl(
+            r#""attributesForFaceting": [ // c"#
+        ));
+        assert!(!is_algolia_crawler_json_decl(
+            r#""attributesForFaceting": {"#
+        ));
+        assert!(!is_algolia_crawler_json_decl(
+            r#""attributesForFaceting": true"#
+        ));
+        assert!(!is_algolia_crawler_json_decl(
+            r#""attributeForFaceting": ["#
+        ));
+        assert!(!is_algolia_insights_json_decl(
+            r#""attributesForFaceting": ["#
+        ));
+        assert!(!is_algolia_recommend_json_decl(
+            r#""attributesForFaceting": ["#
+        ));
+        assert!(is_algolia_crawler_json_decl(r#""attributesToSnippet": ["#));
+        assert!(is_algolia_crawler_json_decl(r#""attributesToSnippet": [,"#));
+        assert!(is_algolia_crawler_json_decl(
+            r#""attributesToSnippet": [ // c"#
+        ));
+        assert!(!is_algolia_crawler_json_decl(r#""attributesToSnippet": {"#));
+        assert!(!is_algolia_crawler_json_decl(
+            r#""attributesToSnippet": true"#
+        ));
+        assert!(!is_algolia_crawler_json_decl(r#""attributeToSnippet": ["#));
+        assert!(!is_algolia_insights_json_decl(
+            r#""attributesToSnippet": ["#
+        ));
+        assert!(!is_algolia_recommend_json_decl(
+            r#""attributesToSnippet": ["#
         ));
         assert!(!is_algolia_crawler_json_decl(r#""startUrls""#));
         assert!(!is_algolia_crawler_json_decl(r#""schedule""#));

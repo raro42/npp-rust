@@ -1398,3 +1398,5 @@
 009 keep: Function List Algolia Crawler fetchRequest/browserRequest/oauthRequest/accessTokenRequest/beforeIndexPublishing/waitTime/adblock/maxLostRecordsPercentage (v0.3.861)
 
 009 keep: Function List Algolia Crawler maxFailedUrls/extraParameters/clientId/clientSecret/grantType/scope (v0.3.862)
+
+009 keep: Function List attributeForDistinct/customRanking/distinct/attributesForFaceting/attributesToSnippet (v0.3.868)
