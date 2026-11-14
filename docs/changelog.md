@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.876] — 2026-11-15
+
+View:
+
+- **Function List** lists more Algolia Crawler JSON keys: `"queryLanguages": [`, `"replaceSynonymsInHighlight": true` / `false`, `"maxFacetHits": 10`, `"attributeCriteriaComputedByMinProximity": true` / `false`, `"relevancyStrictness": 90`, `"renderingContent": {`, `"decompoundQuery": true` / `false`. Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing `:` stay out. Empty strings / plural/singular misspellings / generic `"url"` / `"enabled"` / `"proxy"` / `"timeout"` / `"retries"` / `"headers"` / `"cache"` / string bools / language string forms stay out. Existing Crawler keys unchanged. Algolia Insights / Recommend / neighbouring search JSON families stay out. Bool keys only match `true` / `false`. Numeric keys reject leading zeros beyond `0`. Object keys accept `{`.
+
 ## [0.3.875] — 2026-11-15
 
 View:

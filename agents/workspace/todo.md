@@ -1,3 +1,5 @@
+009 keep: Function List Algolia Crawler queryLanguages/replaceSynonymsInHighlight/maxFacetHits/attributeCriteriaComputedByMinProximity/relevancyStrictness/renderingContent/decompoundQuery (v0.3.876)
+
 009 keep: Function List Algolia Crawler attributesToTransliterate/decompoundedAttributes/indexLanguages/allowCompressionOfIntegerArray/numericAttributesForFiltering/customNormalization/keepDiacriticsOnCharacters (v0.3.875)
 
 009 keep: Function List Algolia Crawler advancedSyntax/advancedSyntaxFeatures/optionalWords/disableTypoToleranceOnWords/disableTypoToleranceOnAttributes/exactOnSingleWordQuery/enableReRanking (v0.3.873)
