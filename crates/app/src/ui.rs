@@ -32517,6 +32517,7 @@ fn line_is_func_like(line: &str) -> bool {
             || is_stork_json_decl(s)
             || is_docsearch_json_decl(s)
             || is_instantsearch_json_decl(s)
+            || is_autocomplete_json_decl(s)
             || is_gomod_decl(s)
             || is_gemfile_decl(s)
             || is_brewfile_decl(s)
@@ -32944,6 +32945,7 @@ fn line_is_func_like(line: &str) -> bool {
         || is_stork_json_decl(s)
         || is_docsearch_json_decl(s)
         || is_instantsearch_json_decl(s)
+        || is_autocomplete_json_decl(s)
         || is_gomod_decl(s)
         || is_gemfile_decl(s)
         || is_brewfile_decl(s)
@@ -70328,9 +70330,13 @@ fn stork_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool {
 /// InstantSearch.js `"stalledSearchDelay"` / `"initialUiState"` /
 /// `"numberLocale"` / `"preserveSharedStateOnUnmount"` /
 /// `"persistHierarchicalRootCount"` / `"insightsInitParams"` /
-/// prettier `"printWidth"` / karma `"basePath"` stay out. String keys
-/// require a non-empty quoted string. Bool keys only match `true` /
-/// `false`. Numeric keys reject leading zeros beyond `0`.
+/// Autocomplete.js `"detachedMediaQuery"` / `"panelPlacement"` /
+/// `"panelContainer"` / `"openOnFocus"` / `"stallThreshold"` /
+/// `"ignoreCompositionEvents"` / `"defaultActiveItemId"` /
+/// `"enterKeyHint"` / `"initialState"` / prettier `"printWidth"` /
+/// karma `"basePath"` stay out. String keys require a non-empty quoted
+/// string. Bool keys only match `true` / `false`. Numeric keys reject
+/// leading zeros beyond `0`.
 fn is_docsearch_json_decl(s: &str) -> bool {
     let s = s.trim_start();
     let Some(rest) = s.strip_prefix('"') else {
@@ -70489,9 +70495,13 @@ fn docsearch_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool {
 /// Qdrant `"vectors_count"` / Algolia `"processingTimeMS"` / Meilisearch
 /// `"processingTimeMs"` / Typesense `"search_time_ms"` / Solr
 /// `"responseHeader"` / Elasticsearch `"track_total_hits"` /
-/// prettier `"printWidth"` / karma `"basePath"` stay out. String keys
-/// require a non-empty quoted string. Bool keys only match `true` /
-/// `false`. Numeric keys reject leading zeros beyond `0`.
+/// Autocomplete.js `"detachedMediaQuery"` / `"panelPlacement"` /
+/// `"panelContainer"` / `"openOnFocus"` / `"stallThreshold"` /
+/// `"ignoreCompositionEvents"` / `"defaultActiveItemId"` /
+/// `"enterKeyHint"` / `"initialState"` / prettier `"printWidth"` /
+/// karma `"basePath"` stay out. String keys require a non-empty quoted
+/// string. Bool keys only match `true` / `false`. Numeric keys reject
+/// leading zeros beyond `0`.
 fn is_instantsearch_json_decl(s: &str) -> bool {
     let s = s.trim_start();
     let Some(rest) = s.strip_prefix('"') else {
@@ -70577,6 +70587,189 @@ fn instantsearch_json_bool_and_tail_ok(key: &str, after_colon: &str) -> bool {
 
 fn instantsearch_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool {
     if key != "stalledSearchDelay" {
+        return false;
+    }
+    let bytes = after_colon.as_bytes();
+    let mut i = 0usize;
+    if i >= bytes.len() || !bytes[i].is_ascii_digit() {
+        return false;
+    }
+    if bytes[i] == b'0' {
+        i += 1;
+        if i < bytes.len() && bytes[i].is_ascii_digit() {
+            return false;
+        }
+    } else {
+        while i < bytes.len() && bytes[i].is_ascii_digit() {
+            i += 1;
+        }
+    }
+    package_json_tail_ok(&after_colon[i..])
+}
+
+/// Algolia Autocomplete.js (`@algolia/autocomplete-js`) config JSON keys:
+/// `"detachedMediaQuery": "…"`, `"panelPlacement": "start"` / `"end"` /
+/// `"full-width"` / `"input-wrapper-width"`, `"panelContainer": "…"`,
+/// `"openOnFocus": true` / `false`, `"stallThreshold": 0` / `300`,
+/// `"ignoreCompositionEvents": true` / `false`,
+/// `"defaultActiveItemId": 0` / `1`, `"enterKeyHint": "enter"` / `"done"` /
+/// `"go"` / `"next"` / `"previous"` / `"search"` / `"send"`,
+/// `"initialState": {`.
+/// Optional trailing `,` and `//` / `/*` comment. Incomplete quotes /
+/// missing `:` stay out. Generic `"$schema"` / `"name"` / `"id"` / `"q"` /
+/// `"query"` / `"url"` / `"appId"` / `"apiKey"` / `"indexName"` /
+/// `"container"` / `"placeholder"` / `"autoFocus"` / `"debug"` /
+/// `"plugins"` / `"insights"` / `"translations"` / `"classNames"` /
+/// `"components"` / `"renderer"` / `"navigator"` / `"environment"` /
+/// InstantSearch.js `"stalledSearchDelay"` / `"initialUiState"` /
+/// `"numberLocale"` / `"preserveSharedStateOnUnmount"` /
+/// `"persistHierarchicalRootCount"` / `"insightsInitParams"` /
+/// DocSearch `"maxResultsPerGroup"` / `"disableUserPersonalization"` /
+/// `"recentSearchesLimit"` / `"recentSearchesWithFavoritesLimit"` /
+/// `"resultBadgeKey"` / `"initialQuery"` / `"indices"` / Stork
+/// `"exclude_html_selector"` / `"frontmatter_handling"` /
+/// `"excerpts_per_result"` / `"displayed_results_count"` /
+/// `"excerpt_buffer"` / `"save_nearest_node_json"` /
+/// `"exclude_html_selector_override"` / `"frontmatter_handling_override"` /
+/// Pagefind `"unfilteredResultCount"` / `"weighted_locations"` /
+/// `"indexWeight"` / `"mergeFilter"` / `"highlightParam"` /
+/// `"sub_results"` / `"totalFilters"` / `"showSubResults"` / Orama
+/// `"searchableProperties"` / `"searchablePropertiesWithTypes"` /
+/// `"tokenOccurrences"` / `"avgFieldLength"` / `"vectorIndexes"` /
+/// `"hybridWeights"` / `"internalDocumentIDStore"` / `"hitsVector"` /
+/// Lunr.js `"fieldVectors"` / `"invertedIndex"` / `"searchPipeline"` /
+/// `"metadataWhitelist"` / `"fieldTermFrequencies"` / `"termIndex"` /
+/// `"_index"` / FlexSearch `"tokenize"` / `"resolution"` / `"keystore"` /
+/// `"fastupdate"` / `"preset"` / `"encoder"` / `"encode"` / MiniSearch
+/// `"storeFields"` / `"autoSuggestOptions"` / `"maxFuzzy"` /
+/// `"combineWith"` / `"serializationVersion"` / `"averageFieldLength"` /
+/// Fuse.js `"includeScore"` / `"includeMatches"` /
+/// `"minMatchCharLength"` / `"useExtendedSearch"` / `"ignoreFieldNorm"` /
+/// Empathy.co `"partialResults"` / `"promoteds"` / `"queryTagging"` /
+/// `"modelName"` / AddSearch `"processing_time_ms"` / `"rangeFacets"` /
+/// `"postfixWildcard"` / Synerise `"clientUUID"` / `"sortByMetric"` /
+/// Fast Simon `"total_results"` / Nosto `"emptyQueryMatchesAll"` /
+/// Clerk.io `"product_data"` / Tweakwise `"nrofitems"` / Findify
+/// `"t_client"` / Searchanise `"totalItems"` / Unbxd `"searchMetaData"` /
+/// Loop54 `"makesSense"` / Yext `"experienceKey"` / Cludo
+/// `"TypedDocuments"` / Voyado Elevate `"primaryList"` / FactFinder
+/// `"searchResult"` / Hawksearch `"ClientGuid"` / `"NofResults"` /
+/// GroupBy `"totalRecordCount"` / Luigi's Box `"corrected_query"` /
+/// `"total_hits"` / Searchspring `"resultLayout"` / Doofinder
+/// `"hashid"` / Klevu `"recordQueries"` / Bloomreach Discovery
+/// `"domain_key"` / Constructor.io `"result_sources"` / Coveo
+/// `"searchHub"` / `"excerptLength"` / Azure AI Search `"@odata.count"` /
+/// Vespa `"yql"` / Marqo `"searchableAttributes"` / LanceDB
+/// `"vector_column_name"` / Milvus `"annsField"` / Chroma `"n_results"` /
+/// Pinecone `"topK"` / Weaviate `"nearVector"` / `"invertedIndexConfig"` /
+/// Qdrant `"vectors_count"` / Algolia `"processingTimeMS"` / Meilisearch
+/// `"processingTimeMs"` / Typesense `"search_time_ms"` / Solr
+/// `"responseHeader"` / Elasticsearch `"track_total_hits"` /
+/// prettier `"printWidth"` / karma `"basePath"` stay out. String /
+/// enum keys require a non-empty quoted string. Bool keys only match
+/// `true` / `false`. Numeric keys reject leading zeros beyond `0`.
+fn is_autocomplete_json_decl(s: &str) -> bool {
+    let s = s.trim_start();
+    let Some(rest) = s.strip_prefix('"') else {
+        return false;
+    };
+    let Some(end) = rest.find('"') else {
+        return false;
+    };
+    let key = &rest[..end];
+    if !autocomplete_json_key_ok(key) {
+        return false;
+    }
+    let after_key = rest[end + 1..].trim_start();
+    let Some(after_colon) = after_key.strip_prefix(':') else {
+        return false;
+    };
+    let after_colon = after_colon.trim_start();
+    autocomplete_json_value_and_tail_ok(key, after_colon)
+}
+
+fn autocomplete_json_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "detachedMediaQuery"
+            | "panelPlacement"
+            | "panelContainer"
+            | "openOnFocus"
+            | "stallThreshold"
+            | "ignoreCompositionEvents"
+            | "defaultActiveItemId"
+            | "enterKeyHint"
+            | "initialState"
+    )
+}
+
+fn autocomplete_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool {
+    let bytes = after_colon.as_bytes();
+    let Some(first) = bytes.first().copied() else {
+        return false;
+    };
+    match first {
+        b'{' => {
+            if key != "initialState" {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[1..])
+        }
+        b'"' => autocomplete_json_string_or_enum_and_tail_ok(key, after_colon),
+        b't' | b'f' => autocomplete_json_bool_and_tail_ok(key, after_colon),
+        b'0'..=b'9' => autocomplete_json_uint_and_tail_ok(key, after_colon),
+        _ => false,
+    }
+}
+
+fn autocomplete_json_string_or_enum_and_tail_ok(key: &str, after_colon: &str) -> bool {
+    let rest = &after_colon[1..];
+    let Some(end) = rest.find('"') else {
+        return false;
+    };
+    let value = &rest[..end];
+    if value.is_empty() || value.contains('\n') {
+        return false;
+    }
+    match key {
+        "detachedMediaQuery" | "panelContainer" => {}
+        "panelPlacement" => {
+            if !matches!(
+                value,
+                "start" | "end" | "full-width" | "input-wrapper-width"
+            ) {
+                return false;
+            }
+        }
+        "enterKeyHint" => {
+            if !matches!(
+                value,
+                "enter" | "done" | "go" | "next" | "previous" | "search" | "send"
+            ) {
+                return false;
+            }
+        }
+        _ => return false,
+    }
+    package_json_tail_ok(&rest[end + 1..])
+}
+
+fn autocomplete_json_bool_and_tail_ok(key: &str, after_colon: &str) -> bool {
+    if !matches!(key, "openOnFocus" | "ignoreCompositionEvents") {
+        return false;
+    }
+    let rest = if let Some(rest) = after_colon.strip_prefix("true") {
+        rest
+    } else if let Some(rest) = after_colon.strip_prefix("false") {
+        rest
+    } else {
+        return false;
+    };
+    package_json_tail_ok(rest)
+}
+
+fn autocomplete_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool {
+    if !matches!(key, "stallThreshold" | "defaultActiveItemId") {
         return false;
     }
     let bytes = after_colon.as_bytes();
@@ -101198,28 +101391,28 @@ mod func_like_line_tests {
         is_access_conf_decl, is_addsearch_json_decl, is_alertmanager_json_decl,
         is_algolia_json_decl, is_android_bp_decl, is_angular_json_decl, is_ant_msbuild_decl,
         is_apache_httpd_decl, is_api_extractor_json_decl, is_apt_sources_decl,
-        is_asyncapi_json_decl, is_audit_rules_decl, is_audit_toml_decl, is_autoflake_ini_decl,
-        is_autopep8_ini_decl, is_ava_json_decl, is_aws_config_decl, is_azure_search_json_decl,
-        is_babel_json_decl, is_bacon_toml_decl, is_bandit_ini_decl, is_binfmt_d_decl,
-        is_biome_json_decl, is_bitbake_decl, is_black_ini_decl, is_bloomreach_json_decl,
-        is_brewfile_decl, is_bruno_json_decl, is_bumpversion_ini_decl, is_bunfig_toml_decl,
-        is_c8_json_decl, is_cabal_decl, is_capacitor_json_decl, is_cargo_config_toml_decl,
-        is_cargo_make_toml_decl, is_cargo_toml_decl, is_cbindgen_toml_decl,
-        is_changesets_json_decl, is_check_manifest_ini_decl, is_check_wheel_contents_ini_decl,
-        is_chroma_json_decl, is_cibuildwheel_ini_decl, is_clerk_io_json_decl, is_cliff_toml_decl,
-        is_clippy_toml_decl, is_cludo_json_decl, is_codecept_json_decl, is_codespell_ini_decl,
-        is_commitizen_ini_decl, is_commitlint_json_decl, is_compodoc_json_decl,
-        is_composer_json_decl, is_constructor_io_json_decl, is_coveo_json_decl,
-        is_coverage_ini_decl, is_cross_toml_decl, is_crypttab_decl, is_cspell_json_decl,
-        is_cucumber_json_decl, is_cypress_json_decl, is_darglint_ini_decl, is_default_grub_decl,
-        is_deno_json_decl, is_deny_toml_decl, is_desktop_entry_decl, is_detox_json_decl,
-        is_devcontainer_json_decl, is_dhcpd_decl, is_dioxus_toml_decl, is_dist_toml_decl,
-        is_doc8_ini_decl, is_docformatter_ini_decl, is_docfx_json_decl, is_docsearch_json_decl,
-        is_doofinder_json_decl, is_dovecot_decl, is_dprint_json_decl, is_dracut_conf_decl,
-        is_eas_json_decl, is_editorconfig_decl, is_elasticsearch_json_decl,
-        is_electron_builder_json_decl, is_electron_forge_json_decl, is_empathy_json_decl,
-        is_esdoc_json_decl, is_eslint_json_decl, is_ethers_file_decl, is_expo_json_decl,
-        is_factfinder_json_decl, is_fail2ban_conf_decl, is_fastsimon_json_decl,
+        is_asyncapi_json_decl, is_audit_rules_decl, is_audit_toml_decl, is_autocomplete_json_decl,
+        is_autoflake_ini_decl, is_autopep8_ini_decl, is_ava_json_decl, is_aws_config_decl,
+        is_azure_search_json_decl, is_babel_json_decl, is_bacon_toml_decl, is_bandit_ini_decl,
+        is_binfmt_d_decl, is_biome_json_decl, is_bitbake_decl, is_black_ini_decl,
+        is_bloomreach_json_decl, is_brewfile_decl, is_bruno_json_decl, is_bumpversion_ini_decl,
+        is_bunfig_toml_decl, is_c8_json_decl, is_cabal_decl, is_capacitor_json_decl,
+        is_cargo_config_toml_decl, is_cargo_make_toml_decl, is_cargo_toml_decl,
+        is_cbindgen_toml_decl, is_changesets_json_decl, is_check_manifest_ini_decl,
+        is_check_wheel_contents_ini_decl, is_chroma_json_decl, is_cibuildwheel_ini_decl,
+        is_clerk_io_json_decl, is_cliff_toml_decl, is_clippy_toml_decl, is_cludo_json_decl,
+        is_codecept_json_decl, is_codespell_ini_decl, is_commitizen_ini_decl,
+        is_commitlint_json_decl, is_compodoc_json_decl, is_composer_json_decl,
+        is_constructor_io_json_decl, is_coveo_json_decl, is_coverage_ini_decl, is_cross_toml_decl,
+        is_crypttab_decl, is_cspell_json_decl, is_cucumber_json_decl, is_cypress_json_decl,
+        is_darglint_ini_decl, is_default_grub_decl, is_deno_json_decl, is_deny_toml_decl,
+        is_desktop_entry_decl, is_detox_json_decl, is_devcontainer_json_decl, is_dhcpd_decl,
+        is_dioxus_toml_decl, is_dist_toml_decl, is_doc8_ini_decl, is_docformatter_ini_decl,
+        is_docfx_json_decl, is_docsearch_json_decl, is_doofinder_json_decl, is_dovecot_decl,
+        is_dprint_json_decl, is_dracut_conf_decl, is_eas_json_decl, is_editorconfig_decl,
+        is_elasticsearch_json_decl, is_electron_builder_json_decl, is_electron_forge_json_decl,
+        is_empathy_json_decl, is_esdoc_json_decl, is_eslint_json_decl, is_ethers_file_decl,
+        is_expo_json_decl, is_factfinder_json_decl, is_fail2ban_conf_decl, is_fastsimon_json_decl,
         is_findify_json_decl, is_firebase_json_decl, is_flake8_ini_decl, is_flexsearch_json_decl,
         is_fluent_bit_decl, is_fly_toml_decl, is_flynt_ini_decl, is_freeradius_decl, is_fstab_decl,
         is_fuse_json_decl, is_gdm_conf_decl, is_gemfile_decl, is_gitconfig_decl, is_gomod_decl,
@@ -146936,6 +147129,32 @@ mod func_like_line_tests {
         ));
         assert!(!is_docsearch_json_decl(r#""insightsInitParams": {"#));
         assert!(is_instantsearch_json_decl(r#""insightsInitParams": {"#));
+        assert!(!is_docsearch_json_decl(
+            r#""detachedMediaQuery": "(max-width: 680px)""#
+        ));
+        assert!(is_autocomplete_json_decl(
+            r#""detachedMediaQuery": "(max-width: 680px)""#
+        ));
+        assert!(!is_docsearch_json_decl(r#""panelPlacement": "start""#));
+        assert!(is_autocomplete_json_decl(r#""panelPlacement": "start""#));
+        assert!(!is_docsearch_json_decl(r##""panelContainer": "#panel""##));
+        assert!(is_autocomplete_json_decl(r##""panelContainer": "#panel""##));
+        assert!(!is_docsearch_json_decl(r#""openOnFocus": true"#));
+        assert!(is_autocomplete_json_decl(r#""openOnFocus": true"#));
+        assert!(!is_docsearch_json_decl(r#""stallThreshold": 300"#));
+        assert!(is_autocomplete_json_decl(r#""stallThreshold": 300"#));
+        assert!(!is_docsearch_json_decl(
+            r#""ignoreCompositionEvents": true"#
+        ));
+        assert!(is_autocomplete_json_decl(
+            r#""ignoreCompositionEvents": true"#
+        ));
+        assert!(!is_docsearch_json_decl(r#""defaultActiveItemId": 0"#));
+        assert!(is_autocomplete_json_decl(r#""defaultActiveItemId": 0"#));
+        assert!(!is_docsearch_json_decl(r#""enterKeyHint": "search""#));
+        assert!(is_autocomplete_json_decl(r#""enterKeyHint": "search""#));
+        assert!(!is_docsearch_json_decl(r#""initialState": {"#));
+        assert!(is_autocomplete_json_decl(r#""initialState": {"#));
     }
 
     #[test]
@@ -146996,6 +147215,34 @@ mod func_like_line_tests {
         assert!(is_prettier_json_decl(r#""printWidth": 80"#));
         assert!(!is_instantsearch_json_decl(r#""basePath": ".""#));
         assert!(is_karma_json_decl(r#""basePath": ".""#));
+        assert!(!is_instantsearch_json_decl(
+            r#""detachedMediaQuery": "(max-width: 680px)""#
+        ));
+        assert!(is_autocomplete_json_decl(
+            r#""detachedMediaQuery": "(max-width: 680px)""#
+        ));
+        assert!(!is_instantsearch_json_decl(r#""panelPlacement": "start""#));
+        assert!(is_autocomplete_json_decl(r#""panelPlacement": "start""#));
+        assert!(!is_instantsearch_json_decl(
+            r##""panelContainer": "#panel""##
+        ));
+        assert!(is_autocomplete_json_decl(r##""panelContainer": "#panel""##));
+        assert!(!is_instantsearch_json_decl(r#""openOnFocus": true"#));
+        assert!(is_autocomplete_json_decl(r#""openOnFocus": true"#));
+        assert!(!is_instantsearch_json_decl(r#""stallThreshold": 300"#));
+        assert!(is_autocomplete_json_decl(r#""stallThreshold": 300"#));
+        assert!(!is_instantsearch_json_decl(
+            r#""ignoreCompositionEvents": true"#
+        ));
+        assert!(is_autocomplete_json_decl(
+            r#""ignoreCompositionEvents": true"#
+        ));
+        assert!(!is_instantsearch_json_decl(r#""defaultActiveItemId": 0"#));
+        assert!(is_autocomplete_json_decl(r#""defaultActiveItemId": 0"#));
+        assert!(!is_instantsearch_json_decl(r#""enterKeyHint": "search""#));
+        assert!(is_autocomplete_json_decl(r#""enterKeyHint": "search""#));
+        assert!(!is_instantsearch_json_decl(r#""initialState": {"#));
+        assert!(is_autocomplete_json_decl(r#""initialState": {"#));
     }
 
     #[test]
@@ -147135,6 +147382,273 @@ mod func_like_line_tests {
         assert!(line_is_func_like(r#""preserveSharedStateOnUnmount": true"#));
         assert!(line_is_func_like(r#""persistHierarchicalRootCount": true"#));
         assert!(line_is_func_like(r#""insightsInitParams": {"#));
+        assert!(!is_instantsearch_json_decl(
+            r#""detachedMediaQuery": "(max-width: 680px)""#
+        ));
+        assert!(is_autocomplete_json_decl(
+            r#""detachedMediaQuery": "(max-width: 680px)""#
+        ));
+        assert!(!is_instantsearch_json_decl(r#""panelPlacement": "start""#));
+        assert!(is_autocomplete_json_decl(r#""panelPlacement": "start""#));
+        assert!(!is_instantsearch_json_decl(
+            r##""panelContainer": "#panel""##
+        ));
+        assert!(is_autocomplete_json_decl(r##""panelContainer": "#panel""##));
+        assert!(!is_instantsearch_json_decl(r#""openOnFocus": true"#));
+        assert!(is_autocomplete_json_decl(r#""openOnFocus": true"#));
+        assert!(!is_instantsearch_json_decl(r#""stallThreshold": 300"#));
+        assert!(is_autocomplete_json_decl(r#""stallThreshold": 300"#));
+        assert!(!is_instantsearch_json_decl(
+            r#""ignoreCompositionEvents": true"#
+        ));
+        assert!(is_autocomplete_json_decl(
+            r#""ignoreCompositionEvents": true"#
+        ));
+        assert!(!is_instantsearch_json_decl(r#""defaultActiveItemId": 0"#));
+        assert!(is_autocomplete_json_decl(r#""defaultActiveItemId": 0"#));
+        assert!(!is_instantsearch_json_decl(r#""enterKeyHint": "search""#));
+        assert!(is_autocomplete_json_decl(r#""enterKeyHint": "search""#));
+        assert!(!is_instantsearch_json_decl(r#""initialState": {"#));
+        assert!(is_autocomplete_json_decl(r#""initialState": {"#));
+    }
+
+    #[test]
+    fn autocomplete_json_keys_smoke() {
+        assert!(is_autocomplete_json_decl(
+            r#""detachedMediaQuery": "(max-width: 680px)""#
+        ));
+        assert!(is_autocomplete_json_decl(r#""panelPlacement": "start""#));
+        assert!(is_autocomplete_json_decl(
+            r#""panelPlacement": "input-wrapper-width""#
+        ));
+        assert!(is_autocomplete_json_decl(r##""panelContainer": "#panel""##));
+        assert!(is_autocomplete_json_decl(r#""openOnFocus": true"#));
+        assert!(is_autocomplete_json_decl(r#""stallThreshold": 300"#));
+        assert!(is_autocomplete_json_decl(
+            r#""ignoreCompositionEvents": false"#
+        ));
+        assert!(is_autocomplete_json_decl(r#""defaultActiveItemId": 0"#));
+        assert!(is_autocomplete_json_decl(r#""enterKeyHint": "search""#));
+        assert!(is_autocomplete_json_decl(r#""initialState": {"#));
+        assert!(!is_autocomplete_json_decl(r#""stalledSearchDelay": 200"#));
+        assert!(is_instantsearch_json_decl(r#""stalledSearchDelay": 200"#));
+        assert!(!is_autocomplete_json_decl(r#""initialUiState": {"#));
+        assert!(is_instantsearch_json_decl(r#""initialUiState": {"#));
+        assert!(!is_autocomplete_json_decl(r#""numberLocale": "de-DE""#));
+        assert!(is_instantsearch_json_decl(r#""numberLocale": "de-DE""#));
+        assert!(!is_autocomplete_json_decl(
+            r#""preserveSharedStateOnUnmount": true"#
+        ));
+        assert!(is_instantsearch_json_decl(
+            r#""preserveSharedStateOnUnmount": true"#
+        ));
+        assert!(!is_autocomplete_json_decl(
+            r#""persistHierarchicalRootCount": true"#
+        ));
+        assert!(is_instantsearch_json_decl(
+            r#""persistHierarchicalRootCount": true"#
+        ));
+        assert!(!is_autocomplete_json_decl(r#""insightsInitParams": {"#));
+        assert!(is_instantsearch_json_decl(r#""insightsInitParams": {"#));
+        assert!(!is_autocomplete_json_decl(r#""maxResultsPerGroup": 5"#));
+        assert!(is_docsearch_json_decl(r#""maxResultsPerGroup": 5"#));
+        assert!(!is_autocomplete_json_decl(r#""insights": true"#));
+        assert!(is_docsearch_json_decl(r#""insights": true"#));
+        assert!(!is_autocomplete_json_decl(r#""indices": ["#));
+        assert!(is_docsearch_json_decl(r#""indices": ["#));
+        assert!(!is_autocomplete_json_decl(
+            r#""exclude_html_selector": ".sidebar""#
+        ));
+        assert!(is_stork_json_decl(r#""exclude_html_selector": ".sidebar""#));
+        assert!(!is_autocomplete_json_decl(r#""unfilteredResultCount": 42"#));
+        assert!(is_pagefind_json_decl(r#""unfilteredResultCount": 42"#));
+        assert!(!is_autocomplete_json_decl(r#""searchableProperties": ["#));
+        assert!(is_orama_json_decl(r#""searchableProperties": ["#));
+        assert!(!is_autocomplete_json_decl(r#""fieldVectors": {"#));
+        assert!(is_lunr_json_decl(r#""fieldVectors": {"#));
+        assert!(!is_autocomplete_json_decl(r#""tokenize": "forward""#));
+        assert!(is_flexsearch_json_decl(r#""tokenize": "forward""#));
+        assert!(!is_autocomplete_json_decl(r#""storeFields": ["#));
+        assert!(is_minisearch_json_decl(r#""storeFields": ["#));
+        assert!(!is_autocomplete_json_decl(r#""includeScore": true"#));
+        assert!(is_fuse_json_decl(r#""includeScore": true"#));
+        assert!(!is_autocomplete_json_decl(r#""partialResults": ["#));
+        assert!(is_empathy_json_decl(r#""partialResults": ["#));
+        assert!(!is_autocomplete_json_decl(r#""processing_time_ms": 21"#));
+        assert!(is_addsearch_json_decl(r#""processing_time_ms": 21"#));
+        assert!(!is_autocomplete_json_decl(r#""processingTimeMS": 12"#));
+        assert!(is_algolia_json_decl(r#""processingTimeMS": 12"#));
+        assert!(!is_autocomplete_json_decl(r#""searchableAttributes": ["#));
+        assert!(is_marqo_json_decl(r#""searchableAttributes": ["#));
+        assert!(!is_autocomplete_json_decl(r#""excerptLength": 200"#));
+        assert!(is_coveo_json_decl(r#""excerptLength": 200"#));
+        assert!(!is_autocomplete_json_decl(r#""track_total_hits": true"#));
+        assert!(is_elasticsearch_json_decl(r#""track_total_hits": true"#));
+        assert!(!is_autocomplete_json_decl(r#""printWidth": 80"#));
+        assert!(is_prettier_json_decl(r#""printWidth": 80"#));
+        assert!(!is_autocomplete_json_decl(r#""basePath": ".""#));
+        assert!(is_karma_json_decl(r#""basePath": ".""#));
+    }
+
+    #[test]
+    fn autocomplete_json_keys_count() {
+        assert!(is_autocomplete_json_decl(
+            r#""detachedMediaQuery": "(max-width: 680px)""#
+        ));
+        assert!(is_autocomplete_json_decl(
+            r#""detachedMediaQuery": "(max-width: 680px)",""#
+        ));
+        assert!(is_autocomplete_json_decl(
+            r#""detachedMediaQuery": "(max-width: 680px)" // c"#
+        ));
+        assert!(!is_autocomplete_json_decl(r#""detachedMediaQuery": """#));
+        assert!(!is_autocomplete_json_decl(r#""detachedMediaQuery": true"#));
+        assert!(!is_autocomplete_json_decl(r#""detachedMediaQuery": 1"#));
+        assert!(is_autocomplete_json_decl(r#""panelPlacement": "start""#));
+        assert!(is_autocomplete_json_decl(r#""panelPlacement": "end""#));
+        assert!(is_autocomplete_json_decl(
+            r#""panelPlacement": "full-width""#
+        ));
+        assert!(is_autocomplete_json_decl(
+            r#""panelPlacement": "input-wrapper-width""#
+        ));
+        assert!(is_autocomplete_json_decl(r#""panelPlacement": "start","#));
+        assert!(is_autocomplete_json_decl(
+            r#""panelPlacement": "start" // c"#
+        ));
+        assert!(!is_autocomplete_json_decl(r#""panelPlacement": "left""#));
+        assert!(!is_autocomplete_json_decl(r#""panelPlacement": true"#));
+        assert!(!is_autocomplete_json_decl(r#""panelPlacement": 1"#));
+        assert!(is_autocomplete_json_decl(r##""panelContainer": "#panel""##));
+        assert!(is_autocomplete_json_decl(
+            r##""panelContainer": "#panel","##
+        ));
+        assert!(!is_autocomplete_json_decl(r#""panelContainer": """#));
+        assert!(!is_autocomplete_json_decl(r#""panelContainer": true"#));
+        assert!(is_autocomplete_json_decl(r#""openOnFocus": true"#));
+        assert!(is_autocomplete_json_decl(r#""openOnFocus": false"#));
+        assert!(is_autocomplete_json_decl(r#""openOnFocus": true,"#));
+        assert!(is_autocomplete_json_decl(r#""openOnFocus": false // c"#));
+        assert!(!is_autocomplete_json_decl(r#""openOnFocus": 1"#));
+        assert!(!is_autocomplete_json_decl(r#""openOnFocus": "true""#));
+        assert!(is_autocomplete_json_decl(r#""stallThreshold": 0"#));
+        assert!(is_autocomplete_json_decl(r#""stallThreshold": 300"#));
+        assert!(is_autocomplete_json_decl(r#""stallThreshold": 300,"#));
+        assert!(is_autocomplete_json_decl(r#""stallThreshold": 300 // c"#));
+        assert!(!is_autocomplete_json_decl(r#""stallThreshold": 0300"#));
+        assert!(!is_autocomplete_json_decl(r#""stallThreshold": true"#));
+        assert!(!is_autocomplete_json_decl(r#""stallThreshold": "300""#));
+        assert!(is_autocomplete_json_decl(
+            r#""ignoreCompositionEvents": true"#
+        ));
+        assert!(is_autocomplete_json_decl(
+            r#""ignoreCompositionEvents": false"#
+        ));
+        assert!(is_autocomplete_json_decl(
+            r#""ignoreCompositionEvents": true,"#
+        ));
+        assert!(!is_autocomplete_json_decl(
+            r#""ignoreCompositionEvents": 1"#
+        ));
+        assert!(!is_autocomplete_json_decl(
+            r#""ignoreCompositionEvents": "false""#
+        ));
+        assert!(is_autocomplete_json_decl(r#""defaultActiveItemId": 0"#));
+        assert!(is_autocomplete_json_decl(r#""defaultActiveItemId": 1"#));
+        assert!(is_autocomplete_json_decl(r#""defaultActiveItemId": 1,"#));
+        assert!(!is_autocomplete_json_decl(r#""defaultActiveItemId": 01"#));
+        assert!(!is_autocomplete_json_decl(r#""defaultActiveItemId": true"#));
+        assert!(!is_autocomplete_json_decl(r#""defaultActiveItemId": "0""#));
+        assert!(!is_autocomplete_json_decl(r#""defaultActiveItemId": null"#));
+        assert!(is_autocomplete_json_decl(r#""enterKeyHint": "enter""#));
+        assert!(is_autocomplete_json_decl(r#""enterKeyHint": "done""#));
+        assert!(is_autocomplete_json_decl(r#""enterKeyHint": "go""#));
+        assert!(is_autocomplete_json_decl(r#""enterKeyHint": "next""#));
+        assert!(is_autocomplete_json_decl(r#""enterKeyHint": "previous""#));
+        assert!(is_autocomplete_json_decl(r#""enterKeyHint": "search""#));
+        assert!(is_autocomplete_json_decl(r#""enterKeyHint": "send""#));
+        assert!(is_autocomplete_json_decl(r#""enterKeyHint": "search","#));
+        assert!(!is_autocomplete_json_decl(r#""enterKeyHint": "submit""#));
+        assert!(!is_autocomplete_json_decl(r#""enterKeyHint": true"#));
+        assert!(!is_autocomplete_json_decl(r#""enterKeyHint": 1"#));
+        assert!(is_autocomplete_json_decl(r#""initialState": {"#));
+        assert!(is_autocomplete_json_decl(r#""initialState": {,"#));
+        assert!(is_autocomplete_json_decl(r#""initialState": { // c"#));
+        assert!(!is_autocomplete_json_decl(r#""initialState": ["#));
+        assert!(!is_autocomplete_json_decl(r#""initialState": true"#));
+        assert!(!is_autocomplete_json_decl(r#""initialState": "x""#));
+        assert!(!is_autocomplete_json_decl(r#""detachedMediaQuery""#));
+        assert!(!is_autocomplete_json_decl(r#""panelPlacement""#));
+        assert!(!is_autocomplete_json_decl(r#""stallThreshold""#));
+        assert!(!is_autocomplete_json_decl(
+            r#""$schema": "https://example.com""#
+        ));
+        assert!(!is_autocomplete_json_decl(r#""name": "search""#));
+        assert!(!is_autocomplete_json_decl(r#""id": "1""#));
+        assert!(!is_autocomplete_json_decl(r#""q": "shoes""#));
+        assert!(!is_autocomplete_json_decl(r#""query": "shoes""#));
+        assert!(!is_autocomplete_json_decl(r#""url": "/about/""#));
+        assert!(!is_autocomplete_json_decl(r#""appId": "APP""#));
+        assert!(!is_autocomplete_json_decl(r#""apiKey": "key""#));
+        assert!(!is_autocomplete_json_decl(r#""indexName": "products""#));
+        assert!(!is_autocomplete_json_decl(
+            r##""container": "#autocomplete""##
+        ));
+        assert!(!is_autocomplete_json_decl(r#""placeholder": "Search""#));
+        assert!(!is_autocomplete_json_decl(r#""autoFocus": true"#));
+        assert!(!is_autocomplete_json_decl(r#""debug": true"#));
+        assert!(!is_autocomplete_json_decl(r#""plugins": ["#));
+        assert!(!is_autocomplete_json_decl(r#""insights": true"#));
+        assert!(is_docsearch_json_decl(r#""insights": true"#));
+        assert!(!is_autocomplete_json_decl(r#""stalledSearchDelay": 200"#));
+        assert!(is_instantsearch_json_decl(r#""stalledSearchDelay": 200"#));
+        assert!(!is_autocomplete_json_decl(r#""maxResultsPerGroup": 5"#));
+        assert!(is_docsearch_json_decl(r#""maxResultsPerGroup": 5"#));
+        assert!(!is_autocomplete_json_decl(
+            r#""exclude_html_selector": ".sidebar""#
+        ));
+        assert!(is_stork_json_decl(r#""exclude_html_selector": ".sidebar""#));
+        assert!(!is_autocomplete_json_decl(r#""unfilteredResultCount": 42"#));
+        assert!(is_pagefind_json_decl(r#""unfilteredResultCount": 42"#));
+        assert!(!is_autocomplete_json_decl(r#""searchableProperties": ["#));
+        assert!(is_orama_json_decl(r#""searchableProperties": ["#));
+        assert!(!is_autocomplete_json_decl(r#""fieldVectors": {"#));
+        assert!(is_lunr_json_decl(r#""fieldVectors": {"#));
+        assert!(!is_autocomplete_json_decl(r#""tokenize": "forward""#));
+        assert!(is_flexsearch_json_decl(r#""tokenize": "forward""#));
+        assert!(!is_autocomplete_json_decl(r#""storeFields": ["#));
+        assert!(is_minisearch_json_decl(r#""storeFields": ["#));
+        assert!(!is_autocomplete_json_decl(r#""includeScore": true"#));
+        assert!(is_fuse_json_decl(r#""includeScore": true"#));
+        assert!(!is_autocomplete_json_decl(r#""partialResults": ["#));
+        assert!(is_empathy_json_decl(r#""partialResults": ["#));
+        assert!(!is_autocomplete_json_decl(r#""processing_time_ms": 21"#));
+        assert!(is_addsearch_json_decl(r#""processing_time_ms": 21"#));
+        assert!(!is_autocomplete_json_decl(r#""processingTimeMS": 12"#));
+        assert!(is_algolia_json_decl(r#""processingTimeMS": 12"#));
+        assert!(!is_autocomplete_json_decl(r#""searchableAttributes": ["#));
+        assert!(is_marqo_json_decl(r#""searchableAttributes": ["#));
+        assert!(!is_autocomplete_json_decl(r#""excerptLength": 200"#));
+        assert!(is_coveo_json_decl(r#""excerptLength": 200"#));
+        assert!(!is_autocomplete_json_decl(r#""invertedIndexConfig": {"#));
+        assert!(is_weaviate_json_decl(r#""invertedIndexConfig": {"#));
+        assert!(!is_autocomplete_json_decl(r#""track_total_hits": true"#));
+        assert!(is_elasticsearch_json_decl(r#""track_total_hits": true"#));
+        assert!(!is_autocomplete_json_decl(r#""printWidth": 80"#));
+        assert!(is_prettier_json_decl(r#""printWidth": 80"#));
+        assert!(!is_autocomplete_json_decl(r#""basePath": ".""#));
+        assert!(is_karma_json_decl(r#""basePath": ".""#));
+        assert!(line_is_func_like(
+            r#""detachedMediaQuery": "(max-width: 680px)""#
+        ));
+        assert!(line_is_func_like(r#""panelPlacement": "start""#));
+        assert!(line_is_func_like(r##""panelContainer": "#panel""##));
+        assert!(line_is_func_like(r#""openOnFocus": true"#));
+        assert!(line_is_func_like(r#""stallThreshold": 300"#));
+        assert!(line_is_func_like(r#""ignoreCompositionEvents": true"#));
+        assert!(line_is_func_like(r#""defaultActiveItemId": 0"#));
+        assert!(line_is_func_like(r#""enterKeyHint": "search""#));
+        assert!(line_is_func_like(r#""initialState": {"#));
     }
 
     #[test]
