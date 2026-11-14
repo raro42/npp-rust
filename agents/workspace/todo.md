@@ -1,3 +1,5 @@
+009 keep: Function List Autocomplete.js detachedMediaQuery/panelPlacement/panelContainer/openOnFocus/stallThreshold/ignoreCompositionEvents/defaultActiveItemId/enterKeyHint/initialState (v0.3.850)
+
 009 keep: Function List Pagefind unfilteredResultCount/weighted_locations/indexWeight/mergeFilter/highlightParam/sub_results/totalFilters/showSubResults (v0.3.846)
 
 009 keep: Function List Orama searchableProperties/searchablePropertiesWithTypes/tokenOccurrences/avgFieldLength/vectorIndexes/hybridWeights/internalDocumentIDStore/hitsVector (v0.3.845)
