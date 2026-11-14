@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.870] — 2026-11-14
+
+View:
+
+- **Function List** lists more Algolia Crawler JSON keys: `"highlightPreTag": "…"`, `"searchableAttributes": [`, `"attributesToHighlight": [`, `"attributesToRetrieve": [`, `"hitsPerPage": 0` / `20`, `"maxValuesPerFacet": 0` / `100`. Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing `:` stay out. Empty strings / plural/singular misspellings / generic `"url"` / `"enabled"` / `"proxy"` / `"timeout"` / `"retries"` / `"headers"` / `"cache"` / string bools stay out. Existing Crawler keys unchanged. Algolia Insights / Recommend / neighbouring search JSON families stay out. Bool keys only match `true` / `false`. Numeric keys reject leading zeros beyond `0`. String keys require a non-empty quoted string. `"searchableAttributes"` also matches Marqo (shared key shape).
+
 ## [0.3.869] — 2026-11-14
 
 View:
