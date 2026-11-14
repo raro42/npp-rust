@@ -1,3 +1,5 @@
+009 keep: Function List Algolia Crawler typoTolerance/minWordSizefor1Typo/minWordSizefor2Typos/allowTyposOnNumericTokens/queryType/removeWordsIfNoResults (v0.3.872)
+
 009 keep: Function List Algolia Crawler highlightPreTag/searchableAttributes/attributesToHighlight/attributesToRetrieve/hitsPerPage/maxValuesPerFacet (v0.3.870)
 
 009 keep: Function List Algolia Crawler ranking/replicas/paginationLimitedTo/unretrievableAttributes/snippetEllipsisText/highlightPostTag (v0.3.869)
