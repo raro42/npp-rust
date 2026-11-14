@@ -71697,7 +71697,9 @@ fn algolia_insights_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool 
 /// `"accessTokenRequest": {`, `"beforeIndexPublishing": {`, `"waitTime": {`,
 /// `"adblock": true` / `false`, `"maxLostRecordsPercentage": 0` / `10`,
 /// `"maxFailedUrls": 0` / `10`, `"extraParameters": {`, `"clientId": "…"`,
-/// `"clientSecret": "…"`, `"grantType": "…"`, `"scope": "…"`.
+/// `"clientSecret": "…"`, `"grantType": "…"`, `"scope": "…"`,
+/// `"__type": "function"`, `"grant_type": "…"`, `"client_id": "…"`,
+/// `"client_secret": "…"`, `"resource": "…"`.
 /// Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing
 /// `:` stay out. Generic `"$schema"` / `"name"` / `"id"` / `"q"` / `"query"` /
 /// `"url"` / `"appId"` / `"apiKey"` / `"index"` / `"indexName"` / `"cache"` /
@@ -71769,9 +71771,11 @@ fn algolia_insights_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool 
 /// `"runtime_mappings"` / prettier `"printWidth"` / karma `"basePath"`
 /// stay out. Bool keys only match `true` / `false`. Numeric keys reject
 /// leading zeros beyond `0`. String `"schedule"` / `"indexPrefix"` /
-/// `"clientId"` / `"clientSecret"` / `"grantType"` / `"scope"` require a
-/// non-empty quoted string. `"ignoreCanonicalTo"` accepts bool or `[`.
-/// `"renderJavaScript"` accepts bool, `[`, or `{`.
+/// `"clientId"` / `"clientSecret"` / `"grantType"` / `"scope"` /
+/// `"grant_type"` / `"client_id"` / `"client_secret"` / `"resource"` require
+/// a non-empty quoted string. `"__type"` only matches `"function"`.
+/// `"ignoreCanonicalTo"` accepts bool or `[`. `"renderJavaScript"` accepts
+/// bool, `[`, or `{`.
 fn is_algolia_crawler_json_decl(s: &str) -> bool {
     let s = s.trim_start();
     let Some(rest) = s.strip_prefix('"') else {
@@ -71841,6 +71845,11 @@ fn algolia_crawler_json_key_ok(key: &str) -> bool {
             | "clientSecret"
             | "grantType"
             | "scope"
+            | "__type"
+            | "grant_type"
+            | "client_id"
+            | "client_secret"
+            | "resource"
     )
 }
 
@@ -71896,9 +71905,21 @@ fn algolia_crawler_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool 
             package_json_tail_ok(&after_colon[1..])
         }
         b'"' => {
+            if key == "__type" {
+                return algolia_crawler_json_extractor_type_and_tail_ok(after_colon);
+            }
             if !matches!(
                 key,
-                "schedule" | "indexPrefix" | "clientId" | "clientSecret" | "grantType" | "scope"
+                "schedule"
+                    | "indexPrefix"
+                    | "clientId"
+                    | "clientSecret"
+                    | "grantType"
+                    | "scope"
+                    | "grant_type"
+                    | "client_id"
+                    | "client_secret"
+                    | "resource"
             ) {
                 return false;
             }
@@ -71908,6 +71929,17 @@ fn algolia_crawler_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool 
         b'0'..=b'9' => algolia_crawler_json_uint_and_tail_ok(key, after_colon),
         _ => false,
     }
+}
+
+fn algolia_crawler_json_extractor_type_and_tail_ok(after_colon: &str) -> bool {
+    let rest = &after_colon[1..];
+    let Some(end) = rest.find('"') else {
+        return false;
+    };
+    if &rest[..end] != "function" {
+        return false;
+    }
+    package_json_tail_ok(&rest[end + 1..])
 }
 
 fn algolia_crawler_json_string_and_tail_ok(after_colon: &str) -> bool {
@@ -150828,6 +150860,15 @@ mod func_like_line_tests {
             r#""grantType": "client_credentials""#
         ));
         assert!(is_algolia_crawler_json_decl(r#""scope": "api""#));
+        assert!(is_algolia_crawler_json_decl(r#""__type": "function""#));
+        assert!(is_algolia_crawler_json_decl(
+            r#""grant_type": "client_credentials""#
+        ));
+        assert!(is_algolia_crawler_json_decl(r#""client_id": "cid""#));
+        assert!(is_algolia_crawler_json_decl(r#""client_secret": "sec""#));
+        assert!(is_algolia_crawler_json_decl(
+            r#""resource": "https://protected.example.com/""#
+        ));
         assert!(!is_algolia_crawler_json_decl(
             r#""authenticatedUserToken": "user-1""#
         ));
@@ -151298,6 +151339,53 @@ mod func_like_line_tests {
         assert!(!is_algolia_crawler_json_decl(r#""scope": """#));
         assert!(!is_algolia_crawler_json_decl(r#""scope": true"#));
         assert!(!is_algolia_crawler_json_decl(r#""scopes": "api""#));
+        assert!(is_algolia_crawler_json_decl(r#""__type": "function""#));
+        assert!(is_algolia_crawler_json_decl(r#""__type": "function","#));
+        assert!(is_algolia_crawler_json_decl(r#""__type": "function" // c"#));
+        assert!(!is_algolia_crawler_json_decl(r#""__type": "object""#));
+        assert!(!is_algolia_crawler_json_decl(r#""__type": """#));
+        assert!(!is_algolia_crawler_json_decl(r#""__type": true"#));
+        assert!(!is_algolia_crawler_json_decl(r#""__types": "function""#));
+        assert!(is_algolia_crawler_json_decl(
+            r#""grant_type": "client_credentials""#
+        ));
+        assert!(is_algolia_crawler_json_decl(
+            r#""grant_type": "client_credentials","#
+        ));
+        assert!(is_algolia_crawler_json_decl(
+            r#""grant_type": "client_credentials" // c"#
+        ));
+        assert!(!is_algolia_crawler_json_decl(r#""grant_type": """#));
+        assert!(!is_algolia_crawler_json_decl(r#""grant_type": true"#));
+        assert!(!is_algolia_crawler_json_decl(
+            r#""grant_types": "client_credentials""#
+        ));
+        assert!(is_algolia_crawler_json_decl(r#""client_id": "cid""#));
+        assert!(is_algolia_crawler_json_decl(r#""client_id": "cid","#));
+        assert!(is_algolia_crawler_json_decl(r#""client_id": "cid" // c"#));
+        assert!(!is_algolia_crawler_json_decl(r#""client_id": """#));
+        assert!(!is_algolia_crawler_json_decl(r#""client_id": true"#));
+        assert!(!is_algolia_crawler_json_decl(r#""client_ids": "cid""#));
+        assert!(is_algolia_crawler_json_decl(r#""client_secret": "sec""#));
+        assert!(is_algolia_crawler_json_decl(r#""client_secret": "sec","#));
+        assert!(is_algolia_crawler_json_decl(
+            r#""client_secret": "sec" // c"#
+        ));
+        assert!(!is_algolia_crawler_json_decl(r#""client_secret": """#));
+        assert!(!is_algolia_crawler_json_decl(r#""client_secret": true"#));
+        assert!(!is_algolia_crawler_json_decl(r#""client_secrets": "sec""#));
+        assert!(is_algolia_crawler_json_decl(
+            r#""resource": "https://protected.example.com/""#
+        ));
+        assert!(is_algolia_crawler_json_decl(
+            r#""resource": "https://protected.example.com/","#
+        ));
+        assert!(is_algolia_crawler_json_decl(
+            r#""resource": "https://protected.example.com/" // c"#
+        ));
+        assert!(!is_algolia_crawler_json_decl(r#""resource": """#));
+        assert!(!is_algolia_crawler_json_decl(r#""resource": true"#));
+        assert!(!is_algolia_crawler_json_decl(r#""resources": "x""#));
         assert!(!is_algolia_crawler_json_decl(r#""startUrls""#));
         assert!(!is_algolia_crawler_json_decl(r#""schedule""#));
         assert!(!is_algolia_crawler_json_decl(r#""actions""#));
