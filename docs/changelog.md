@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.859] — 2026-11-14
+
+View:
+
+- **Function List** lists more Algolia Crawler JSON keys: `"externalData": [`, `"ignorePaginationAttributes": true` / `false`, `"linkExtractor": {`, `"login": {`, `"requestOptions": {`. Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing `:` stay out. Singular `"externalDatum"` / `"ignorePaginationAttribute"` / `"linkExtractors"` / `"logins"` / `"requestOption"` / array `"login": [` / string bools stay out. Existing Crawler keys unchanged. Algolia Insights / Recommend / neighbouring search JSON families stay out. Bool keys only match `true` / `false`.
+
 ## [0.3.858] — 2026-11-14
 
 View:

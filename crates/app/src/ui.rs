@@ -71350,7 +71350,9 @@ fn searchkit_json_string_and_tail_ok(key: &str, after_colon: &str) -> bool {
 /// `"ignoreNoFollowTo"` / `"ignoreRobotsTxtRules"` / `"ignoreNoIndex"` /
 /// `"saveBackup"` / `"safetyChecks"` / `"hostnameAliases"` / `"rateLimit"` /
 /// `"maxDepth"` / `"indexPrefix"` / `"renderJavaScript"` /
-/// `"ignoreQueryParams"` / prettier `"printWidth"` / karma `"basePath"`
+/// `"ignoreQueryParams"` / `"externalData"` /
+/// `"ignorePaginationAttributes"` / `"linkExtractor"` / `"login"` /
+/// `"requestOptions"` / prettier `"printWidth"` / karma `"basePath"`
 /// stay out. Enum `"model"` only matches Recommend model ids. Numeric keys
 /// reject leading zeros beyond `0`.
 fn is_algolia_recommend_json_decl(s: &str) -> bool {
@@ -71539,7 +71541,9 @@ fn algolia_recommend_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool
 /// `"maxUrls"` / `"ignoreNoFollowTo"` / `"ignoreRobotsTxtRules"` /
 /// `"ignoreNoIndex"` / `"saveBackup"` / `"safetyChecks"` /
 /// `"hostnameAliases"` / `"rateLimit"` / `"maxDepth"` / `"indexPrefix"` /
-/// `"renderJavaScript"` / `"ignoreQueryParams"` / prettier `"printWidth"` /
+/// `"renderJavaScript"` / `"ignoreQueryParams"` / `"externalData"` /
+/// `"ignorePaginationAttributes"` / `"linkExtractor"` / `"login"` /
+/// `"requestOptions"` / prettier `"printWidth"` /
 /// karma `"basePath"` stay out. Enum `"eventSubtype"` only matches Insights
 /// conversion subtypes. Bool keys only match `true` / `false`. Numeric keys
 /// reject leading zeros beyond `0`. String keys require a non-empty quoted
@@ -71672,10 +71676,12 @@ fn algolia_insights_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool 
 /// true` / `false`, `"saveBackup": true` / `false`, `"safetyChecks": {`,
 /// `"hostnameAliases": {`, `"rateLimit": 1` / `10`, `"maxDepth": 1` /
 /// `5`, `"indexPrefix": "…"`, `"renderJavaScript": true` / `false` / `[` /
-/// `{`, `"ignoreQueryParams": [`. Optional trailing `,` and `//` / `/*`
-/// comment. Incomplete quotes / missing `:` stay out. Generic `"$schema"` /
-/// `"name"` / `"id"` / `"q"` / `"query"` / `"url"` / `"appId"` /
-/// `"apiKey"` / `"index"` / `"indexName"` / Algolia Insights
+/// `{`, `"ignoreQueryParams": [`, `"externalData": [`,
+/// `"ignorePaginationAttributes": true` / `false`, `"linkExtractor": {`,
+/// `"login": {`, `"requestOptions": {`. Optional trailing `,` and `//` /
+/// `/*` comment. Incomplete quotes / missing `:` stay out. Generic
+/// `"$schema"` / `"name"` / `"id"` / `"q"` / `"query"` / `"url"` /
+/// `"appId"` / `"apiKey"` / `"index"` / `"indexName"` / Algolia Insights
 /// `"authenticatedUserToken"` / `"userHasOptedOut"` / `"useCookie"` /
 /// `"anonymousUserToken"` / `"cookieDuration"` / `"eventSubtype"` /
 /// `"objectData"` / Algolia Recommend `"maxRecommendations"` /
@@ -71789,6 +71795,11 @@ fn algolia_crawler_json_key_ok(key: &str) -> bool {
             | "indexPrefix"
             | "renderJavaScript"
             | "ignoreQueryParams"
+            | "externalData"
+            | "ignorePaginationAttributes"
+            | "linkExtractor"
+            | "login"
+            | "requestOptions"
     )
 }
 
@@ -71810,6 +71821,7 @@ fn algolia_crawler_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool 
                     | "extraUrls"
                     | "renderJavaScript"
                     | "ignoreQueryParams"
+                    | "externalData"
             ) {
                 return false;
             }
@@ -71818,7 +71830,13 @@ fn algolia_crawler_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool 
         b'{' => {
             if !matches!(
                 key,
-                "initialIndexSettings" | "safetyChecks" | "hostnameAliases" | "renderJavaScript"
+                "initialIndexSettings"
+                    | "safetyChecks"
+                    | "hostnameAliases"
+                    | "renderJavaScript"
+                    | "linkExtractor"
+                    | "login"
+                    | "requestOptions"
             ) {
                 return false;
             }
@@ -71856,6 +71874,7 @@ fn algolia_crawler_json_bool_and_tail_ok(key: &str, after_colon: &str) -> bool {
             | "ignoreNoIndex"
             | "saveBackup"
             | "renderJavaScript"
+            | "ignorePaginationAttributes"
     ) {
         return false;
     }
@@ -150255,6 +150274,20 @@ mod func_like_line_tests {
         assert!(is_algolia_crawler_json_decl(r#""renderJavaScript": true"#));
         assert!(!is_algolia_insights_json_decl(r#""ignoreQueryParams": ["#));
         assert!(is_algolia_crawler_json_decl(r#""ignoreQueryParams": ["#));
+        assert!(!is_algolia_insights_json_decl(r#""externalData": ["#));
+        assert!(is_algolia_crawler_json_decl(r#""externalData": ["#));
+        assert!(!is_algolia_insights_json_decl(
+            r#""ignorePaginationAttributes": true"#
+        ));
+        assert!(is_algolia_crawler_json_decl(
+            r#""ignorePaginationAttributes": true"#
+        ));
+        assert!(!is_algolia_insights_json_decl(r#""linkExtractor": {"#));
+        assert!(is_algolia_crawler_json_decl(r#""linkExtractor": {"#));
+        assert!(!is_algolia_insights_json_decl(r#""login": {"#));
+        assert!(is_algolia_crawler_json_decl(r#""login": {"#));
+        assert!(!is_algolia_insights_json_decl(r#""requestOptions": {"#));
+        assert!(is_algolia_crawler_json_decl(r#""requestOptions": {"#));
     }
 
     #[test]
@@ -150503,6 +150536,20 @@ mod func_like_line_tests {
         assert!(is_algolia_crawler_json_decl(r#""renderJavaScript": true"#));
         assert!(!is_algolia_insights_json_decl(r#""ignoreQueryParams": ["#));
         assert!(is_algolia_crawler_json_decl(r#""ignoreQueryParams": ["#));
+        assert!(!is_algolia_insights_json_decl(r#""externalData": ["#));
+        assert!(is_algolia_crawler_json_decl(r#""externalData": ["#));
+        assert!(!is_algolia_insights_json_decl(
+            r#""ignorePaginationAttributes": true"#
+        ));
+        assert!(is_algolia_crawler_json_decl(
+            r#""ignorePaginationAttributes": true"#
+        ));
+        assert!(!is_algolia_insights_json_decl(r#""linkExtractor": {"#));
+        assert!(is_algolia_crawler_json_decl(r#""linkExtractor": {"#));
+        assert!(!is_algolia_insights_json_decl(r#""login": {"#));
+        assert!(is_algolia_crawler_json_decl(r#""login": {"#));
+        assert!(!is_algolia_insights_json_decl(r#""requestOptions": {"#));
+        assert!(is_algolia_crawler_json_decl(r#""requestOptions": {"#));
         assert!(line_is_func_like(r#""authenticatedUserToken": "user-1""#));
         assert!(line_is_func_like(r#""userHasOptedOut": true"#));
         assert!(line_is_func_like(r#""useCookie": true"#));
@@ -150520,6 +150567,11 @@ mod func_like_line_tests {
         assert!(line_is_func_like(r#""indexPrefix": "dev_""#));
         assert!(line_is_func_like(r#""renderJavaScript": true"#));
         assert!(line_is_func_like(r#""ignoreQueryParams": ["#));
+        assert!(line_is_func_like(r#""externalData": ["#));
+        assert!(line_is_func_like(r#""ignorePaginationAttributes": true"#));
+        assert!(line_is_func_like(r#""linkExtractor": {"#));
+        assert!(line_is_func_like(r#""login": {"#));
+        assert!(line_is_func_like(r#""requestOptions": {"#));
     }
 
     #[test]
@@ -150548,6 +150600,13 @@ mod func_like_line_tests {
         assert!(is_algolia_crawler_json_decl(r#""indexPrefix": "dev_""#));
         assert!(is_algolia_crawler_json_decl(r#""renderJavaScript": true"#));
         assert!(is_algolia_crawler_json_decl(r#""ignoreQueryParams": ["#));
+        assert!(is_algolia_crawler_json_decl(r#""externalData": ["#));
+        assert!(is_algolia_crawler_json_decl(
+            r#""ignorePaginationAttributes": true"#
+        ));
+        assert!(is_algolia_crawler_json_decl(r#""linkExtractor": {"#));
+        assert!(is_algolia_crawler_json_decl(r#""login": {"#));
+        assert!(is_algolia_crawler_json_decl(r#""requestOptions": {"#));
         assert!(!is_algolia_crawler_json_decl(
             r#""authenticatedUserToken": "user-1""#
         ));
@@ -150785,6 +150844,51 @@ mod func_like_line_tests {
             r#""ignoreQueryParams": true"#
         ));
         assert!(!is_algolia_crawler_json_decl(r#""ignoreQueryParam": ["#));
+        assert!(is_algolia_crawler_json_decl(r#""externalData": ["#));
+        assert!(is_algolia_crawler_json_decl(r#""externalData": [,"#));
+        assert!(is_algolia_crawler_json_decl(r#""externalData": [ // c"#));
+        assert!(!is_algolia_crawler_json_decl(r#""externalData": {"#));
+        assert!(!is_algolia_crawler_json_decl(r#""externalData": true"#));
+        assert!(!is_algolia_crawler_json_decl(r#""externalDatum": ["#));
+        assert!(is_algolia_crawler_json_decl(
+            r#""ignorePaginationAttributes": true"#
+        ));
+        assert!(is_algolia_crawler_json_decl(
+            r#""ignorePaginationAttributes": false"#
+        ));
+        assert!(is_algolia_crawler_json_decl(
+            r#""ignorePaginationAttributes": true,"#
+        ));
+        assert!(is_algolia_crawler_json_decl(
+            r#""ignorePaginationAttributes": false // c"#
+        ));
+        assert!(!is_algolia_crawler_json_decl(
+            r#""ignorePaginationAttributes": "true""#
+        ));
+        assert!(!is_algolia_crawler_json_decl(
+            r#""ignorePaginationAttributes": ["#
+        ));
+        assert!(!is_algolia_crawler_json_decl(
+            r#""ignorePaginationAttribute": true"#
+        ));
+        assert!(is_algolia_crawler_json_decl(r#""linkExtractor": {"#));
+        assert!(is_algolia_crawler_json_decl(r#""linkExtractor": {,"#));
+        assert!(is_algolia_crawler_json_decl(r#""linkExtractor": { // c"#));
+        assert!(!is_algolia_crawler_json_decl(r#""linkExtractor": ["#));
+        assert!(!is_algolia_crawler_json_decl(r#""linkExtractor": true"#));
+        assert!(!is_algolia_crawler_json_decl(r#""linkExtractors": {"#));
+        assert!(is_algolia_crawler_json_decl(r#""login": {"#));
+        assert!(is_algolia_crawler_json_decl(r#""login": {,"#));
+        assert!(is_algolia_crawler_json_decl(r#""login": { // c"#));
+        assert!(!is_algolia_crawler_json_decl(r#""login": ["#));
+        assert!(!is_algolia_crawler_json_decl(r#""login": true"#));
+        assert!(!is_algolia_crawler_json_decl(r#""logins": {"#));
+        assert!(is_algolia_crawler_json_decl(r#""requestOptions": {"#));
+        assert!(is_algolia_crawler_json_decl(r#""requestOptions": {,"#));
+        assert!(is_algolia_crawler_json_decl(r#""requestOptions": { // c"#));
+        assert!(!is_algolia_crawler_json_decl(r#""requestOptions": ["#));
+        assert!(!is_algolia_crawler_json_decl(r#""requestOptions": true"#));
+        assert!(!is_algolia_crawler_json_decl(r#""requestOption": {"#));
         assert!(!is_algolia_crawler_json_decl(r#""startUrls""#));
         assert!(!is_algolia_crawler_json_decl(r#""schedule""#));
         assert!(!is_algolia_crawler_json_decl(r#""actions""#));

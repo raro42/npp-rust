@@ -1380,3 +1380,5 @@
 009 keep: Function List Algolia Crawler ignoreRobotsTxtRules/ignoreNoIndex/saveBackup/safetyChecks/hostnameAliases (v0.3.857)
 
 009 keep: Function List Algolia Crawler rateLimit/maxDepth/indexPrefix/renderJavaScript/ignoreQueryParams (v0.3.858)
+
+009 keep: Function List Algolia Crawler externalData/ignorePaginationAttributes/linkExtractor/login/requestOptions (v0.3.859)
