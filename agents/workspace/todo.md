@@ -1,3 +1,5 @@
+009 keep: Function List Typesense InstantSearch Adapter additionalSearchParameters/collectionSpecificSearchParameters/geoLocationField/facetableAttributesWithSpecialCharacters/flattenGroupedHits (v0.3.851)
+
 009 keep: Function List Autocomplete.js detachedMediaQuery/panelPlacement/panelContainer/openOnFocus/stallThreshold/ignoreCompositionEvents/defaultActiveItemId/enterKeyHint/initialState (v0.3.850)
 
 009 keep: Function List Pagefind unfilteredResultCount/weighted_locations/indexWeight/mergeFilter/highlightParam/sub_results/totalFilters/showSubResults (v0.3.846)
