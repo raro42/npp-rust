@@ -71348,10 +71348,11 @@ fn searchkit_json_string_and_tail_ok(key: &str, after_colon: &str) -> bool {
 /// `"exclusionPatterns"` / `"ignoreCanonicalTo"` / `"schedule"` /
 /// `"actions"` / `"initialIndexSettings"` / `"extraUrls"` / `"maxUrls"` /
 /// `"ignoreNoFollowTo"` / `"ignoreRobotsTxtRules"` / `"ignoreNoIndex"` /
-/// `"saveBackup"` / `"safetyChecks"` / `"hostnameAliases"` / prettier
-/// `"printWidth"` / karma `"basePath"` stay out. Enum `"model"` only
-/// matches Recommend model ids. Numeric keys reject leading zeros beyond
-/// `0`.
+/// `"saveBackup"` / `"safetyChecks"` / `"hostnameAliases"` / `"rateLimit"` /
+/// `"maxDepth"` / `"indexPrefix"` / `"renderJavaScript"` /
+/// `"ignoreQueryParams"` / prettier `"printWidth"` / karma `"basePath"`
+/// stay out. Enum `"model"` only matches Recommend model ids. Numeric keys
+/// reject leading zeros beyond `0`.
 fn is_algolia_recommend_json_decl(s: &str) -> bool {
     let s = s.trim_start();
     let Some(rest) = s.strip_prefix('"') else {
@@ -71537,10 +71538,12 @@ fn algolia_recommend_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool
 /// `"schedule"` / `"actions"` / `"initialIndexSettings"` / `"extraUrls"` /
 /// `"maxUrls"` / `"ignoreNoFollowTo"` / `"ignoreRobotsTxtRules"` /
 /// `"ignoreNoIndex"` / `"saveBackup"` / `"safetyChecks"` /
-/// `"hostnameAliases"` / prettier `"printWidth"` / karma `"basePath"`
-/// stay out. Enum `"eventSubtype"` only matches Insights conversion
-/// subtypes. Bool keys only match `true` / `false`. Numeric keys reject
-/// leading zeros beyond `0`. String keys require a non-empty quoted string.
+/// `"hostnameAliases"` / `"rateLimit"` / `"maxDepth"` / `"indexPrefix"` /
+/// `"renderJavaScript"` / `"ignoreQueryParams"` / prettier `"printWidth"` /
+/// karma `"basePath"` stay out. Enum `"eventSubtype"` only matches Insights
+/// conversion subtypes. Bool keys only match `true` / `false`. Numeric keys
+/// reject leading zeros beyond `0`. String keys require a non-empty quoted
+/// string.
 fn is_algolia_insights_json_decl(s: &str) -> bool {
     let s = s.trim_start();
     let Some(rest) = s.strip_prefix('"') else {
@@ -71667,11 +71670,12 @@ fn algolia_insights_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool 
 /// `"extraUrls": [`, `"maxUrls": 0` / `100`, `"ignoreNoFollowTo": true` /
 /// `false`, `"ignoreRobotsTxtRules": true` / `false`, `"ignoreNoIndex":
 /// true` / `false`, `"saveBackup": true` / `false`, `"safetyChecks": {`,
-/// `"hostnameAliases": {`. Optional trailing `,` and `//` / `/*` comment.
-/// Incomplete quotes / missing `:` stay out. Generic `"$schema"` /
+/// `"hostnameAliases": {`, `"rateLimit": 1` / `10`, `"maxDepth": 1` /
+/// `5`, `"indexPrefix": "…"`, `"renderJavaScript": true` / `false` / `[` /
+/// `{`, `"ignoreQueryParams": [`. Optional trailing `,` and `//` / `/*`
+/// comment. Incomplete quotes / missing `:` stay out. Generic `"$schema"` /
 /// `"name"` / `"id"` / `"q"` / `"query"` / `"url"` / `"appId"` /
-/// `"apiKey"` / `"index"` / `"indexName"` / `"rateLimit"` / `"maxDepth"` /
-/// `"indexPrefix"` / `"renderJavaScript"` / Algolia Insights
+/// `"apiKey"` / `"index"` / `"indexName"` / Algolia Insights
 /// `"authenticatedUserToken"` / `"userHasOptedOut"` / `"useCookie"` /
 /// `"anonymousUserToken"` / `"cookieDuration"` / `"eventSubtype"` /
 /// `"objectData"` / Algolia Recommend `"maxRecommendations"` /
@@ -71738,8 +71742,9 @@ fn algolia_insights_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool 
 /// `"responseHeader"` / Elasticsearch `"track_total_hits"` /
 /// `"runtime_mappings"` / prettier `"printWidth"` / karma `"basePath"`
 /// stay out. Bool keys only match `true` / `false`. Numeric keys reject
-/// leading zeros beyond `0`. String `"schedule"` requires a non-empty
-/// quoted string. `"ignoreCanonicalTo"` accepts bool or `[`.
+/// leading zeros beyond `0`. String `"schedule"` / `"indexPrefix"` require
+/// a non-empty quoted string. `"ignoreCanonicalTo"` accepts bool or `[`.
+/// `"renderJavaScript"` accepts bool, `[`, or `{`.
 fn is_algolia_crawler_json_decl(s: &str) -> bool {
     let s = s.trim_start();
     let Some(rest) = s.strip_prefix('"') else {
@@ -71779,6 +71784,11 @@ fn algolia_crawler_json_key_ok(key: &str) -> bool {
             | "saveBackup"
             | "safetyChecks"
             | "hostnameAliases"
+            | "rateLimit"
+            | "maxDepth"
+            | "indexPrefix"
+            | "renderJavaScript"
+            | "ignoreQueryParams"
     )
 }
 
@@ -71798,6 +71808,8 @@ fn algolia_crawler_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool 
                     | "ignoreCanonicalTo"
                     | "actions"
                     | "extraUrls"
+                    | "renderJavaScript"
+                    | "ignoreQueryParams"
             ) {
                 return false;
             }
@@ -71806,14 +71818,14 @@ fn algolia_crawler_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool 
         b'{' => {
             if !matches!(
                 key,
-                "initialIndexSettings" | "safetyChecks" | "hostnameAliases"
+                "initialIndexSettings" | "safetyChecks" | "hostnameAliases" | "renderJavaScript"
             ) {
                 return false;
             }
             package_json_tail_ok(&after_colon[1..])
         }
         b'"' => {
-            if key != "schedule" {
+            if !matches!(key, "schedule" | "indexPrefix") {
                 return false;
             }
             algolia_crawler_json_string_and_tail_ok(after_colon)
@@ -71843,6 +71855,7 @@ fn algolia_crawler_json_bool_and_tail_ok(key: &str, after_colon: &str) -> bool {
             | "ignoreRobotsTxtRules"
             | "ignoreNoIndex"
             | "saveBackup"
+            | "renderJavaScript"
     ) {
         return false;
     }
@@ -71857,7 +71870,7 @@ fn algolia_crawler_json_bool_and_tail_ok(key: &str, after_colon: &str) -> bool {
 }
 
 fn algolia_crawler_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool {
-    if key != "maxUrls" {
+    if !matches!(key, "maxUrls" | "rateLimit" | "maxDepth") {
         return false;
     }
     let bytes = after_colon.as_bytes();
@@ -150230,6 +150243,18 @@ mod func_like_line_tests {
         assert!(is_algolia_crawler_json_decl(r#""safetyChecks": {"#));
         assert!(!is_algolia_insights_json_decl(r#""hostnameAliases": {"#));
         assert!(is_algolia_crawler_json_decl(r#""hostnameAliases": {"#));
+        assert!(!is_algolia_insights_json_decl(r#""rateLimit": 10"#));
+        assert!(is_algolia_crawler_json_decl(r#""rateLimit": 10"#));
+        assert!(!is_algolia_insights_json_decl(r#""maxDepth": 5"#));
+        assert!(is_algolia_crawler_json_decl(r#""maxDepth": 5"#));
+        assert!(!is_algolia_insights_json_decl(r#""indexPrefix": "dev_""#));
+        assert!(is_algolia_crawler_json_decl(r#""indexPrefix": "dev_""#));
+        assert!(!is_algolia_insights_json_decl(
+            r#""renderJavaScript": true"#
+        ));
+        assert!(is_algolia_crawler_json_decl(r#""renderJavaScript": true"#));
+        assert!(!is_algolia_insights_json_decl(r#""ignoreQueryParams": ["#));
+        assert!(is_algolia_crawler_json_decl(r#""ignoreQueryParams": ["#));
     }
 
     #[test]
@@ -150466,6 +150491,18 @@ mod func_like_line_tests {
         assert!(is_algolia_crawler_json_decl(r#""safetyChecks": {"#));
         assert!(!is_algolia_insights_json_decl(r#""hostnameAliases": {"#));
         assert!(is_algolia_crawler_json_decl(r#""hostnameAliases": {"#));
+        assert!(!is_algolia_insights_json_decl(r#""rateLimit": 10"#));
+        assert!(is_algolia_crawler_json_decl(r#""rateLimit": 10"#));
+        assert!(!is_algolia_insights_json_decl(r#""maxDepth": 5"#));
+        assert!(is_algolia_crawler_json_decl(r#""maxDepth": 5"#));
+        assert!(!is_algolia_insights_json_decl(r#""indexPrefix": "dev_""#));
+        assert!(is_algolia_crawler_json_decl(r#""indexPrefix": "dev_""#));
+        assert!(!is_algolia_insights_json_decl(
+            r#""renderJavaScript": true"#
+        ));
+        assert!(is_algolia_crawler_json_decl(r#""renderJavaScript": true"#));
+        assert!(!is_algolia_insights_json_decl(r#""ignoreQueryParams": ["#));
+        assert!(is_algolia_crawler_json_decl(r#""ignoreQueryParams": ["#));
         assert!(line_is_func_like(r#""authenticatedUserToken": "user-1""#));
         assert!(line_is_func_like(r#""userHasOptedOut": true"#));
         assert!(line_is_func_like(r#""useCookie": true"#));
@@ -150478,6 +150515,11 @@ mod func_like_line_tests {
         assert!(line_is_func_like(r#""saveBackup": true"#));
         assert!(line_is_func_like(r#""safetyChecks": {"#));
         assert!(line_is_func_like(r#""hostnameAliases": {"#));
+        assert!(line_is_func_like(r#""rateLimit": 10"#));
+        assert!(line_is_func_like(r#""maxDepth": 5"#));
+        assert!(line_is_func_like(r#""indexPrefix": "dev_""#));
+        assert!(line_is_func_like(r#""renderJavaScript": true"#));
+        assert!(line_is_func_like(r#""ignoreQueryParams": ["#));
     }
 
     #[test]
@@ -150501,6 +150543,11 @@ mod func_like_line_tests {
         assert!(is_algolia_crawler_json_decl(r#""saveBackup": true"#));
         assert!(is_algolia_crawler_json_decl(r#""safetyChecks": {"#));
         assert!(is_algolia_crawler_json_decl(r#""hostnameAliases": {"#));
+        assert!(is_algolia_crawler_json_decl(r#""rateLimit": 10"#));
+        assert!(is_algolia_crawler_json_decl(r#""maxDepth": 5"#));
+        assert!(is_algolia_crawler_json_decl(r#""indexPrefix": "dev_""#));
+        assert!(is_algolia_crawler_json_decl(r#""renderJavaScript": true"#));
+        assert!(is_algolia_crawler_json_decl(r#""ignoreQueryParams": ["#));
         assert!(!is_algolia_crawler_json_decl(
             r#""authenticatedUserToken": "user-1""#
         ));
@@ -150692,6 +150739,52 @@ mod func_like_line_tests {
         assert!(is_algolia_crawler_json_decl(r#""hostnameAliases": { // c"#));
         assert!(!is_algolia_crawler_json_decl(r#""hostnameAliases": ["#));
         assert!(!is_algolia_crawler_json_decl(r#""hostnameAliases": true"#));
+        assert!(is_algolia_crawler_json_decl(r#""rateLimit": 1"#));
+        assert!(is_algolia_crawler_json_decl(r#""rateLimit": 10"#));
+        assert!(is_algolia_crawler_json_decl(r#""rateLimit": 10,"#));
+        assert!(is_algolia_crawler_json_decl(r#""rateLimit": 5 // c"#));
+        assert!(!is_algolia_crawler_json_decl(r#""rateLimit": 00"#));
+        assert!(!is_algolia_crawler_json_decl(r#""rateLimit": 01"#));
+        assert!(!is_algolia_crawler_json_decl(r#""rateLimit": true"#));
+        assert!(!is_algolia_crawler_json_decl(r#""rateLimit": {"#));
+        assert!(is_algolia_crawler_json_decl(r#""maxDepth": 1"#));
+        assert!(is_algolia_crawler_json_decl(r#""maxDepth": 5"#));
+        assert!(is_algolia_crawler_json_decl(r#""maxDepth": 5,"#));
+        assert!(is_algolia_crawler_json_decl(r#""maxDepth": 2 // c"#));
+        assert!(!is_algolia_crawler_json_decl(r#""maxDepth": 00"#));
+        assert!(!is_algolia_crawler_json_decl(r#""maxDepth": true"#));
+        assert!(!is_algolia_crawler_json_decl(r#""maxDepth": ["#));
+        assert!(is_algolia_crawler_json_decl(r#""indexPrefix": "dev_""#));
+        assert!(is_algolia_crawler_json_decl(r#""indexPrefix": "crawler_""#));
+        assert!(is_algolia_crawler_json_decl(r#""indexPrefix": "dev_","#));
+        assert!(is_algolia_crawler_json_decl(
+            r#""indexPrefix": "dev_" // c"#
+        ));
+        assert!(!is_algolia_crawler_json_decl(r#""indexPrefix": """#));
+        assert!(!is_algolia_crawler_json_decl(r#""indexPrefix": true"#));
+        assert!(!is_algolia_crawler_json_decl(r#""indexPrefix": ["#));
+        assert!(is_algolia_crawler_json_decl(r#""renderJavaScript": true"#));
+        assert!(is_algolia_crawler_json_decl(r#""renderJavaScript": false"#));
+        assert!(is_algolia_crawler_json_decl(r#""renderJavaScript": true,"#));
+        assert!(is_algolia_crawler_json_decl(
+            r#""renderJavaScript": false // c"#
+        ));
+        assert!(is_algolia_crawler_json_decl(r#""renderJavaScript": ["#));
+        assert!(is_algolia_crawler_json_decl(r#""renderJavaScript": {"#));
+        assert!(!is_algolia_crawler_json_decl(
+            r#""renderJavaScript": "true""#
+        ));
+        assert!(!is_algolia_crawler_json_decl(r#""renderJavaScript": 1"#));
+        assert!(is_algolia_crawler_json_decl(r#""ignoreQueryParams": ["#));
+        assert!(is_algolia_crawler_json_decl(r#""ignoreQueryParams": [,"#));
+        assert!(is_algolia_crawler_json_decl(
+            r#""ignoreQueryParams": [ // c"#
+        ));
+        assert!(!is_algolia_crawler_json_decl(r#""ignoreQueryParams": {"#));
+        assert!(!is_algolia_crawler_json_decl(
+            r#""ignoreQueryParams": true"#
+        ));
+        assert!(!is_algolia_crawler_json_decl(r#""ignoreQueryParam": ["#));
         assert!(!is_algolia_crawler_json_decl(r#""startUrls""#));
         assert!(!is_algolia_crawler_json_decl(r#""schedule""#));
         assert!(!is_algolia_crawler_json_decl(r#""actions""#));
@@ -150707,10 +150800,6 @@ mod func_like_line_tests {
         assert!(!is_algolia_crawler_json_decl(r#""apiKey": "key""#));
         assert!(!is_algolia_crawler_json_decl(r#""index": "products""#));
         assert!(!is_algolia_crawler_json_decl(r#""indexName": "products""#));
-        assert!(!is_algolia_crawler_json_decl(r#""rateLimit": 10"#));
-        assert!(!is_algolia_crawler_json_decl(r#""maxDepth": 5"#));
-        assert!(!is_algolia_crawler_json_decl(r#""indexPrefix": "dev_""#));
-        assert!(!is_algolia_crawler_json_decl(r#""renderJavaScript": true"#));
         assert!(!is_algolia_crawler_json_decl(
             r#""authenticatedUserToken": "user-1""#
         ));

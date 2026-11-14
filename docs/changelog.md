@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.858] — 2026-11-14
+
+View:
+
+- **Function List** lists more Algolia Crawler JSON keys: `"rateLimit": 1` / `10`, `"maxDepth": 1` / `5`, `"indexPrefix": "…"`, `"renderJavaScript": true` / `false` / `[` / `{`, `"ignoreQueryParams": [`. Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing `:` stay out. Empty `"indexPrefix": ""` / string `"renderJavaScript": "true"` / singular `"ignoreQueryParam"` stay out. Existing Crawler keys unchanged. Algolia Insights / Recommend / neighbouring search JSON families stay out. Bool keys only match `true` / `false`. Numeric keys reject leading zeros beyond `0`.
+
 ## [0.3.857] — 2026-11-14
 
 View:
