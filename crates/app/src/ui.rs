@@ -71362,9 +71362,11 @@ fn searchkit_json_string_and_tail_ok(key: &str, after_colon: &str) -> bool {
 /// `"client_secret"` / `"resource"` / `"username"` / `"password"` /
 /// `"source"` / `"body"` / `"loginRequestOptions"` / `"method"` /
 /// `"aggregateContent"` / `"indexHeadings"` / `"recordVersion"` /
-/// `"recordProps"` / `"maxRecordBytes"` / `"textAttributeName"` / prettier
-/// `"printWidth"` / karma `"basePath"` stay out. Enum `"model"` only matches
-/// Recommend model ids. Numeric keys reject leading zeros beyond `0`.
+/// `"recordProps"` / `"maxRecordBytes"` / `"textAttributeName"` /
+/// `"orderingAttributeName"` / `"baseRecord"` / `"pageRank"` / `"lvl0"` /
+/// `"lvl1"` / `"languageClassPrefix"` / prettier `"printWidth"` / karma
+/// `"basePath"` stay out. Enum `"model"` only matches Recommend model ids.
+/// Numeric keys reject leading zeros beyond `0`.
 fn is_algolia_recommend_json_decl(s: &str) -> bool {
     let s = s.trim_start();
     let Some(rest) = s.strip_prefix('"') else {
@@ -71563,11 +71565,13 @@ fn algolia_recommend_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool
 /// `"client_secret"` / `"resource"` / `"username"` / `"password"` /
 /// `"source"` / `"body"` / `"loginRequestOptions"` / `"method"` /
 /// `"aggregateContent"` / `"indexHeadings"` / `"recordVersion"` /
-/// `"recordProps"` / `"maxRecordBytes"` / `"textAttributeName"` / prettier
-/// `"printWidth"` / karma `"basePath"` stay out. Enum `"eventSubtype"` only
-/// matches Insights conversion subtypes. Bool keys only match `true` /
-/// `false`. Numeric keys reject leading zeros beyond `0`. String keys require
-/// a non-empty quoted string.
+/// `"recordProps"` / `"maxRecordBytes"` / `"textAttributeName"` /
+/// `"orderingAttributeName"` / `"baseRecord"` / `"pageRank"` / `"lvl0"` /
+/// `"lvl1"` / `"languageClassPrefix"` / prettier `"printWidth"` / karma
+/// `"basePath"` stay out. Enum `"eventSubtype"` only matches Insights
+/// conversion subtypes. Bool keys only match `true` / `false`. Numeric keys
+/// reject leading zeros beyond `0`. String keys require a non-empty quoted
+/// string.
 fn is_algolia_insights_json_decl(s: &str) -> bool {
     let s = s.trim_start();
     let Some(rest) = s.strip_prefix('"') else {
@@ -71712,7 +71716,9 @@ fn algolia_insights_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool 
 /// `"loginRequestOptions": {`, `"method": "…"`,
 /// `"aggregateContent": true` / `false`, `"indexHeadings": true` / `false` /
 /// `{`, `"recordVersion": "…"`, `"recordProps": {`, `"maxRecordBytes": 0` /
-/// `1000`, `"textAttributeName": "…"`.
+/// `1000`, `"textAttributeName": "…"`, `"orderingAttributeName": "…"`,
+/// `"baseRecord": {`, `"pageRank": "…"`, `"lvl0": {`, `"lvl1": "…"` / `[`,
+/// `"languageClassPrefix": "…"`.
 /// Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing
 /// `:` stay out. Generic `"$schema"` / `"name"` / `"id"` / `"q"` / `"query"` /
 /// `"url"` / `"appId"` / `"apiKey"` / `"index"` / `"indexName"` / `"cache"` /
@@ -71787,10 +71793,11 @@ fn algolia_insights_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool 
 /// `"clientId"` / `"clientSecret"` / `"grantType"` / `"scope"` /
 /// `"grant_type"` / `"client_id"` / `"client_secret"` / `"resource"` /
 /// `"username"` / `"password"` / `"source"` / `"body"` / `"method"` /
-/// `"recordVersion"` / `"textAttributeName"` require a non-empty quoted
-/// string. `"__type"` only matches `"function"`. `"ignoreCanonicalTo"`
+/// `"recordVersion"` / `"textAttributeName"` / `"orderingAttributeName"` /
+/// `"pageRank"` / `"lvl1"` / `"languageClassPrefix"` require a non-empty
+/// quoted string. `"__type"` only matches `"function"`. `"ignoreCanonicalTo"`
 /// accepts bool or `[`. `"renderJavaScript"` accepts bool, `[`, or `{`.
-/// `"indexHeadings"` accepts bool or `{`.
+/// `"indexHeadings"` accepts bool or `{`. `"lvl1"` accepts string or `[`.
 fn is_algolia_crawler_json_decl(s: &str) -> bool {
     let s = s.trim_start();
     let Some(rest) = s.strip_prefix('"') else {
@@ -71877,6 +71884,12 @@ fn algolia_crawler_json_key_ok(key: &str) -> bool {
             | "recordProps"
             | "maxRecordBytes"
             | "textAttributeName"
+            | "orderingAttributeName"
+            | "baseRecord"
+            | "pageRank"
+            | "lvl0"
+            | "lvl1"
+            | "languageClassPrefix"
     )
 }
 
@@ -71902,6 +71915,7 @@ fn algolia_crawler_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool 
                     | "pathsToMatch"
                     | "fileTypesToMatch"
                     | "selectorsToMatch"
+                    | "lvl1"
             ) {
                 return false;
             }
@@ -71929,6 +71943,8 @@ fn algolia_crawler_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool 
                     | "loginRequestOptions"
                     | "indexHeadings"
                     | "recordProps"
+                    | "baseRecord"
+                    | "lvl0"
             ) {
                 return false;
             }
@@ -71957,6 +71973,10 @@ fn algolia_crawler_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool 
                     | "method"
                     | "recordVersion"
                     | "textAttributeName"
+                    | "orderingAttributeName"
+                    | "pageRank"
+                    | "lvl1"
+                    | "languageClassPrefix"
             ) {
                 return false;
             }
@@ -150932,6 +150952,17 @@ mod func_like_line_tests {
         assert!(is_algolia_crawler_json_decl(
             r#""textAttributeName": "text""#
         ));
+        assert!(is_algolia_crawler_json_decl(
+            r#""orderingAttributeName": "part""#
+        ));
+        assert!(is_algolia_crawler_json_decl(r#""baseRecord": {"#));
+        assert!(is_algolia_crawler_json_decl(r#""pageRank": "30""#));
+        assert!(is_algolia_crawler_json_decl(r#""lvl0": {"#));
+        assert!(is_algolia_crawler_json_decl(r#""lvl1": "article h2""#));
+        assert!(is_algolia_crawler_json_decl(r#""lvl1": ["#));
+        assert!(is_algolia_crawler_json_decl(
+            r#""languageClassPrefix": "language-""#
+        ));
         assert!(!is_algolia_crawler_json_decl(
             r#""authenticatedUserToken": "user-1""#
         ));
@@ -151565,6 +151596,70 @@ mod func_like_line_tests {
         ));
         assert!(!is_algolia_crawler_json_decl(
             r#""textAttributeNames": "text""#
+        ));
+        assert!(is_algolia_crawler_json_decl(
+            r#""orderingAttributeName": "part""#
+        ));
+        assert!(is_algolia_crawler_json_decl(
+            r#""orderingAttributeName": "part","#
+        ));
+        assert!(is_algolia_crawler_json_decl(
+            r#""orderingAttributeName": "part" // c"#
+        ));
+        assert!(!is_algolia_crawler_json_decl(
+            r#""orderingAttributeName": """#
+        ));
+        assert!(!is_algolia_crawler_json_decl(
+            r#""orderingAttributeName": true"#
+        ));
+        assert!(!is_algolia_crawler_json_decl(
+            r#""orderingAttributeNames": "part""#
+        ));
+        assert!(is_algolia_crawler_json_decl(r#""baseRecord": {"#));
+        assert!(is_algolia_crawler_json_decl(r#""baseRecord": {,"#));
+        assert!(is_algolia_crawler_json_decl(r#""baseRecord": { // c"#));
+        assert!(!is_algolia_crawler_json_decl(r#""baseRecord": ["#));
+        assert!(!is_algolia_crawler_json_decl(r#""baseRecord": true"#));
+        assert!(!is_algolia_crawler_json_decl(r#""baseRecords": {"#));
+        assert!(is_algolia_crawler_json_decl(r#""pageRank": "30""#));
+        assert!(is_algolia_crawler_json_decl(r#""pageRank": "30","#));
+        assert!(is_algolia_crawler_json_decl(r#""pageRank": "30" // c"#));
+        assert!(!is_algolia_crawler_json_decl(r#""pageRank": """#));
+        assert!(!is_algolia_crawler_json_decl(r#""pageRank": 30"#));
+        assert!(!is_algolia_crawler_json_decl(r#""pageRanks": "30""#));
+        assert!(is_algolia_crawler_json_decl(r#""lvl0": {"#));
+        assert!(is_algolia_crawler_json_decl(r#""lvl0": {,"#));
+        assert!(is_algolia_crawler_json_decl(r#""lvl0": { // c"#));
+        assert!(!is_algolia_crawler_json_decl(r#""lvl0": ["#));
+        assert!(!is_algolia_crawler_json_decl(r#""lvl0": "header h1""#));
+        assert!(!is_algolia_crawler_json_decl(r#""lvl00": {"#));
+        assert!(is_algolia_crawler_json_decl(r#""lvl1": "article h2""#));
+        assert!(is_algolia_crawler_json_decl(r#""lvl1": "article h2","#));
+        assert!(is_algolia_crawler_json_decl(r#""lvl1": "article h2" // c"#));
+        assert!(is_algolia_crawler_json_decl(r#""lvl1": ["#));
+        assert!(is_algolia_crawler_json_decl(r#""lvl1": [,"#));
+        assert!(is_algolia_crawler_json_decl(r#""lvl1": [ // c"#));
+        assert!(!is_algolia_crawler_json_decl(r#""lvl1": """#));
+        assert!(!is_algolia_crawler_json_decl(r#""lvl1": {"#));
+        assert!(!is_algolia_crawler_json_decl(r#""lvl1": true"#));
+        assert!(!is_algolia_crawler_json_decl(r#""lvl2": "article h3""#));
+        assert!(is_algolia_crawler_json_decl(
+            r#""languageClassPrefix": "language-""#
+        ));
+        assert!(is_algolia_crawler_json_decl(
+            r#""languageClassPrefix": "lang-","#
+        ));
+        assert!(is_algolia_crawler_json_decl(
+            r#""languageClassPrefix": "language-" // c"#
+        ));
+        assert!(!is_algolia_crawler_json_decl(
+            r#""languageClassPrefix": """#
+        ));
+        assert!(!is_algolia_crawler_json_decl(
+            r#""languageClassPrefix": true"#
+        ));
+        assert!(!is_algolia_crawler_json_decl(
+            r#""languageClassPrefixes": "language-""#
         ));
         assert!(!is_algolia_crawler_json_decl(r#""startUrls""#));
         assert!(!is_algolia_crawler_json_decl(r#""schedule""#));
