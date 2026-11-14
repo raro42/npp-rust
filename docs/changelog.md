@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.873] — 2026-11-14
+
+View:
+
+- **Function List** lists more Algolia Crawler JSON keys: `"advancedSyntax": true` / `false`, `"advancedSyntaxFeatures": [`, `"optionalWords": "…"` / `[`, `"disableTypoToleranceOnWords": [`, `"disableTypoToleranceOnAttributes": [`, `"exactOnSingleWordQuery": "attribute"` / `"none"` / `"word"`, `"enableReRanking": true` / `false`. Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing `:` stay out. Empty strings / plural/singular misspellings / generic `"url"` / `"enabled"` / `"proxy"` / `"timeout"` / `"retries"` / `"headers"` / `"cache"` / string bools stay out. Existing Crawler keys unchanged. Algolia Insights / Recommend / neighbouring search JSON families stay out. Bool keys only match `true` / `false`. `"exactOnSingleWordQuery"` only matches its Algolia enums. `"optionalWords"` accepts string or `[`.
+
 ## [0.3.872] — 2026-11-14
 
 View:
