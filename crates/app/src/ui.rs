@@ -71382,9 +71382,12 @@ fn searchkit_json_string_and_tail_ok(key: &str, after_colon: &str) -> bool {
 /// `"exactOnSingleWordQuery"` / `"enableReRanking"` / `"separatorsToIndex"` /
 /// `"ignorePlurals"` / `"removeStopWords"` / `"disablePrefixOnAttributes"` /
 /// `"disableExactOnAttributes"` / `"alternativesAsExact"` /
-/// `"camelCaseAttributes"` / prettier `"printWidth"` / karma `"basePath"` stay
-/// out. Enum `"model"` only matches Recommend model ids. Numeric keys reject
-/// leading zeros beyond `0`.
+/// `"camelCaseAttributes"` / `"attributesToTransliterate"` /
+/// `"decompoundedAttributes"` / `"indexLanguages"` /
+/// `"allowCompressionOfIntegerArray"` / `"numericAttributesForFiltering"` /
+/// `"customNormalization"` / `"keepDiacriticsOnCharacters"` / prettier
+/// `"printWidth"` / karma `"basePath"` stay out. Enum `"model"` only matches
+/// Recommend model ids. Numeric keys reject leading zeros beyond `0`.
 fn is_algolia_recommend_json_decl(s: &str) -> bool {
     let s = s.trim_start();
     let Some(rest) = s.strip_prefix('"') else {
@@ -71603,10 +71606,14 @@ fn algolia_recommend_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool
 /// `"exactOnSingleWordQuery"` / `"enableReRanking"` / `"separatorsToIndex"` /
 /// `"ignorePlurals"` / `"removeStopWords"` / `"disablePrefixOnAttributes"` /
 /// `"disableExactOnAttributes"` / `"alternativesAsExact"` /
-/// `"camelCaseAttributes"` / prettier `"printWidth"` / karma `"basePath"` stay
-/// out. Enum `"eventSubtype"` only matches Insights conversion subtypes. Bool
-/// keys only match `true` / `false`. Numeric keys reject leading zeros beyond
-/// `0`. String keys require a non-empty quoted string.
+/// `"camelCaseAttributes"` / `"attributesToTransliterate"` /
+/// `"decompoundedAttributes"` / `"indexLanguages"` /
+/// `"allowCompressionOfIntegerArray"` / `"numericAttributesForFiltering"` /
+/// `"customNormalization"` / `"keepDiacriticsOnCharacters"` / prettier
+/// `"printWidth"` / karma `"basePath"` stay out. Enum `"eventSubtype"` only
+/// matches Insights conversion subtypes. Bool keys only match `true` /
+/// `false`. Numeric keys reject leading zeros beyond `0`. String keys require
+/// a non-empty quoted string.
 fn is_algolia_insights_json_decl(s: &str) -> bool {
     let s = s.trim_start();
     let Some(rest) = s.strip_prefix('"') else {
@@ -71782,7 +71789,11 @@ fn algolia_insights_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool 
 /// `"ignorePlurals": true` / `false` / `[`,
 /// `"removeStopWords": true` / `false` / `[`,
 /// `"disablePrefixOnAttributes": [`, `"disableExactOnAttributes": [`,
-/// `"alternativesAsExact": [`, `"camelCaseAttributes": [`.
+/// `"alternativesAsExact": [`, `"camelCaseAttributes": [`,
+/// `"attributesToTransliterate": [`, `"decompoundedAttributes": {`,
+/// `"indexLanguages": [`, `"allowCompressionOfIntegerArray": true` / `false`,
+/// `"numericAttributesForFiltering": [`, `"customNormalization": {`,
+/// `"keepDiacriticsOnCharacters": "…"`.
 /// Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing
 /// `:` stay out. Generic `"$schema"` / `"name"` / `"id"` / `"q"` / `"query"` /
 /// `"url"` / `"appId"` / `"apiKey"` / `"index"` / `"indexName"` / `"cache"` /
@@ -71862,17 +71873,18 @@ fn algolia_insights_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool 
 /// `"lvl6"` / `"content"` / `"languageClassPrefix"` /
 /// `"attributeForDistinct"` / `"snippetEllipsisText"` /
 /// `"highlightPostTag"` / `"highlightPreTag"` / `"sortFacetValuesBy"` /
-/// `"separatorsToIndex"` require a non-empty quoted string. `"__type"` only
-/// matches `"function"`. `"queryType"` only matches `"prefixLast"` /
-/// `"prefixAll"` / `"prefixNone"`. `"removeWordsIfNoResults"` only matches
-/// `"none"` / `"lastWords"` / `"firstWords"` / `"allOptional"`.
-/// `"exactOnSingleWordQuery"` only matches `"attribute"` / `"none"` /
-/// `"word"`. `"typoTolerance"` accepts bool or `"min"` / `"strict"` /
-/// `"true"` / `"false"`. `"optionalWords"` accepts string or `[`.
-/// `"ignoreCanonicalTo"` / `"ignorePlurals"` / `"removeStopWords"` accept bool
-/// or `[`. `"renderJavaScript"` accepts bool, `[`, or `{`. `"indexHeadings"`
-/// accepts bool or `{`. `"lvl1"` / `"lvl2"` / `"lvl3"` / `"lvl4"` / `"lvl5"` /
-/// `"lvl6"` / `"content"` accept string or `[`.
+/// `"separatorsToIndex"` / `"keepDiacriticsOnCharacters"` require a non-empty
+/// quoted string. `"__type"` only matches `"function"`. `"queryType"` only
+/// matches `"prefixLast"` / `"prefixAll"` / `"prefixNone"`.
+/// `"removeWordsIfNoResults"` only matches `"none"` / `"lastWords"` /
+/// `"firstWords"` / `"allOptional"`. `"exactOnSingleWordQuery"` only matches
+/// `"attribute"` / `"none"` / `"word"`. `"typoTolerance"` accepts bool or
+/// `"min"` / `"strict"` / `"true"` / `"false"`. `"optionalWords"` accepts
+/// string or `[`. `"ignoreCanonicalTo"` / `"ignorePlurals"` /
+/// `"removeStopWords"` accept bool or `[`. `"renderJavaScript"` accepts bool,
+/// `[`, or `{`. `"indexHeadings"` accepts bool or `{`. `"lvl1"` / `"lvl2"` /
+/// `"lvl3"` / `"lvl4"` / `"lvl5"` / `"lvl6"` / `"content"` accept string or
+/// `[`. `"decompoundedAttributes"` / `"customNormalization"` accept `{`.
 fn is_algolia_crawler_json_decl(s: &str) -> bool {
     let s = s.trim_start();
     let Some(rest) = s.strip_prefix('"') else {
@@ -72014,6 +72026,13 @@ fn algolia_crawler_json_key_ok(key: &str) -> bool {
             | "disableExactOnAttributes"
             | "alternativesAsExact"
             | "camelCaseAttributes"
+            | "attributesToTransliterate"
+            | "decompoundedAttributes"
+            | "indexLanguages"
+            | "allowCompressionOfIntegerArray"
+            | "numericAttributesForFiltering"
+            | "customNormalization"
+            | "keepDiacriticsOnCharacters"
     )
 }
 
@@ -72066,6 +72085,9 @@ fn algolia_crawler_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool 
                     | "disableExactOnAttributes"
                     | "alternativesAsExact"
                     | "camelCaseAttributes"
+                    | "attributesToTransliterate"
+                    | "indexLanguages"
+                    | "numericAttributesForFiltering"
             ) {
                 return false;
             }
@@ -72095,6 +72117,8 @@ fn algolia_crawler_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool 
                     | "recordProps"
                     | "baseRecord"
                     | "lvl0"
+                    | "decompoundedAttributes"
+                    | "customNormalization"
             ) {
                 return false;
             }
@@ -72152,6 +72176,7 @@ fn algolia_crawler_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool 
                     | "sortFacetValuesBy"
                     | "optionalWords"
                     | "separatorsToIndex"
+                    | "keepDiacriticsOnCharacters"
             ) {
                 return false;
             }
@@ -72256,6 +72281,7 @@ fn algolia_crawler_json_bool_and_tail_ok(key: &str, after_colon: &str) -> bool {
             | "enableReRanking"
             | "ignorePlurals"
             | "removeStopWords"
+            | "allowCompressionOfIntegerArray"
     ) {
         return false;
     }
@@ -151294,6 +151320,23 @@ mod func_like_line_tests {
         ));
         assert!(is_algolia_crawler_json_decl(r#""alternativesAsExact": ["#));
         assert!(is_algolia_crawler_json_decl(r#""camelCaseAttributes": ["#));
+        assert!(is_algolia_crawler_json_decl(
+            r#""attributesToTransliterate": ["#
+        ));
+        assert!(is_algolia_crawler_json_decl(
+            r#""decompoundedAttributes": {"#
+        ));
+        assert!(is_algolia_crawler_json_decl(r#""indexLanguages": ["#));
+        assert!(is_algolia_crawler_json_decl(
+            r#""allowCompressionOfIntegerArray": false"#
+        ));
+        assert!(is_algolia_crawler_json_decl(
+            r#""numericAttributesForFiltering": ["#
+        ));
+        assert!(is_algolia_crawler_json_decl(r#""customNormalization": {"#));
+        assert!(is_algolia_crawler_json_decl(
+            r#""keepDiacriticsOnCharacters": "øé""#
+        ));
         assert!(!is_algolia_crawler_json_decl(
             r#""authenticatedUserToken": "user-1""#
         ));
@@ -152880,6 +152923,158 @@ mod func_like_line_tests {
         ));
         assert!(!is_algolia_recommend_json_decl(
             r#""camelCaseAttributes": ["#
+        ));
+        assert!(is_algolia_crawler_json_decl(
+            r#""attributesToTransliterate": ["#
+        ));
+        assert!(is_algolia_crawler_json_decl(
+            r#""attributesToTransliterate": [,"#
+        ));
+        assert!(is_algolia_crawler_json_decl(
+            r#""attributesToTransliterate": [ // c"#
+        ));
+        assert!(!is_algolia_crawler_json_decl(
+            r#""attributesToTransliterate": true"#
+        ));
+        assert!(!is_algolia_crawler_json_decl(
+            r#""attributesToTransliterate": "name""#
+        ));
+        assert!(!is_algolia_crawler_json_decl(
+            r#""attributeToTransliterate": ["#
+        ));
+        assert!(!is_algolia_insights_json_decl(
+            r#""attributesToTransliterate": ["#
+        ));
+        assert!(!is_algolia_recommend_json_decl(
+            r#""attributesToTransliterate": ["#
+        ));
+        assert!(is_algolia_crawler_json_decl(
+            r#""decompoundedAttributes": {"#
+        ));
+        assert!(is_algolia_crawler_json_decl(
+            r#""decompoundedAttributes": {,"#
+        ));
+        assert!(is_algolia_crawler_json_decl(
+            r#""decompoundedAttributes": { // c"#
+        ));
+        assert!(!is_algolia_crawler_json_decl(
+            r#""decompoundedAttributes": true"#
+        ));
+        assert!(!is_algolia_crawler_json_decl(
+            r#""decompoundedAttributes": ["#
+        ));
+        assert!(!is_algolia_crawler_json_decl(
+            r#""decompoundedAttribute": {"#
+        ));
+        assert!(!is_algolia_insights_json_decl(
+            r#""decompoundedAttributes": {"#
+        ));
+        assert!(!is_algolia_recommend_json_decl(
+            r#""decompoundedAttributes": {"#
+        ));
+        assert!(is_algolia_crawler_json_decl(r#""indexLanguages": ["#));
+        assert!(is_algolia_crawler_json_decl(r#""indexLanguages": [,"#));
+        assert!(is_algolia_crawler_json_decl(r#""indexLanguages": [ // c"#));
+        assert!(!is_algolia_crawler_json_decl(r#""indexLanguages": true"#));
+        assert!(!is_algolia_crawler_json_decl(r#""indexLanguages": "ja""#));
+        assert!(!is_algolia_crawler_json_decl(r#""indexLanguage": ["#));
+        assert!(!is_algolia_insights_json_decl(r#""indexLanguages": ["#));
+        assert!(!is_algolia_recommend_json_decl(r#""indexLanguages": ["#));
+        assert!(is_algolia_crawler_json_decl(
+            r#""allowCompressionOfIntegerArray": true"#
+        ));
+        assert!(is_algolia_crawler_json_decl(
+            r#""allowCompressionOfIntegerArray": false"#
+        ));
+        assert!(is_algolia_crawler_json_decl(
+            r#""allowCompressionOfIntegerArray": true,"#
+        ));
+        assert!(is_algolia_crawler_json_decl(
+            r#""allowCompressionOfIntegerArray": false // c"#
+        ));
+        assert!(!is_algolia_crawler_json_decl(
+            r#""allowCompressionOfIntegerArray": "true""#
+        ));
+        assert!(!is_algolia_crawler_json_decl(
+            r#""allowCompressionOfIntegerArray": ["#
+        ));
+        assert!(!is_algolia_crawler_json_decl(
+            r#""allowCompressionOfIntegerArrays": false"#
+        ));
+        assert!(!is_algolia_insights_json_decl(
+            r#""allowCompressionOfIntegerArray": false"#
+        ));
+        assert!(!is_algolia_recommend_json_decl(
+            r#""allowCompressionOfIntegerArray": false"#
+        ));
+        assert!(is_algolia_crawler_json_decl(
+            r#""numericAttributesForFiltering": ["#
+        ));
+        assert!(is_algolia_crawler_json_decl(
+            r#""numericAttributesForFiltering": [,"#
+        ));
+        assert!(is_algolia_crawler_json_decl(
+            r#""numericAttributesForFiltering": [ // c"#
+        ));
+        assert!(!is_algolia_crawler_json_decl(
+            r#""numericAttributesForFiltering": true"#
+        ));
+        assert!(!is_algolia_crawler_json_decl(
+            r#""numericAttributesForFiltering": "price""#
+        ));
+        assert!(!is_algolia_crawler_json_decl(
+            r#""numericAttributeForFiltering": ["#
+        ));
+        assert!(!is_algolia_insights_json_decl(
+            r#""numericAttributesForFiltering": ["#
+        ));
+        assert!(!is_algolia_recommend_json_decl(
+            r#""numericAttributesForFiltering": ["#
+        ));
+        assert!(is_algolia_crawler_json_decl(r#""customNormalization": {"#));
+        assert!(is_algolia_crawler_json_decl(r#""customNormalization": {,"#));
+        assert!(is_algolia_crawler_json_decl(
+            r#""customNormalization": { // c"#
+        ));
+        assert!(!is_algolia_crawler_json_decl(
+            r#""customNormalization": true"#
+        ));
+        assert!(!is_algolia_crawler_json_decl(r#""customNormalization": ["#));
+        assert!(!is_algolia_crawler_json_decl(
+            r#""customNormalizations": {"#
+        ));
+        assert!(!is_algolia_insights_json_decl(
+            r#""customNormalization": {"#
+        ));
+        assert!(!is_algolia_recommend_json_decl(
+            r#""customNormalization": {"#
+        ));
+        assert!(is_algolia_crawler_json_decl(
+            r#""keepDiacriticsOnCharacters": "øé""#
+        ));
+        assert!(is_algolia_crawler_json_decl(
+            r#""keepDiacriticsOnCharacters": "øé","#
+        ));
+        assert!(is_algolia_crawler_json_decl(
+            r#""keepDiacriticsOnCharacters": "øé" // c"#
+        ));
+        assert!(!is_algolia_crawler_json_decl(
+            r#""keepDiacriticsOnCharacters": """#
+        ));
+        assert!(!is_algolia_crawler_json_decl(
+            r#""keepDiacriticsOnCharacters": true"#
+        ));
+        assert!(!is_algolia_crawler_json_decl(
+            r#""keepDiacriticsOnCharacters": ["#
+        ));
+        assert!(!is_algolia_crawler_json_decl(
+            r#""keepDiacriticOnCharacters": "øé""#
+        ));
+        assert!(!is_algolia_insights_json_decl(
+            r#""keepDiacriticsOnCharacters": "øé""#
+        ));
+        assert!(!is_algolia_recommend_json_decl(
+            r#""keepDiacriticsOnCharacters": "øé""#
         ));
         assert!(!is_algolia_crawler_json_decl(r#""startUrls""#));
         assert!(!is_algolia_crawler_json_decl(r#""schedule""#));
