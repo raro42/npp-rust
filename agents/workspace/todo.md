@@ -1376,3 +1376,5 @@
 009 keep: Function List Algolia Insights authenticatedUserToken/userHasOptedOut/useCookie/anonymousUserToken/cookieDuration/eventSubtype/objectData (v0.3.855)
 
 009 keep: Function List Algolia Crawler startUrls/sitemaps/discoveryPatterns/exclusionPatterns/ignoreCanonicalTo/schedule/actions/initialIndexSettings/extraUrls/maxUrls/ignoreNoFollowTo (v0.3.856)
+
+009 keep: Function List Algolia Crawler ignoreRobotsTxtRules/ignoreNoIndex/saveBackup/safetyChecks/hostnameAliases (v0.3.857)

@@ -71347,8 +71347,9 @@ fn searchkit_json_string_and_tail_ok(key: &str, after_colon: &str) -> bool {
 /// Crawler `"startUrls"` / `"sitemaps"` / `"discoveryPatterns"` /
 /// `"exclusionPatterns"` / `"ignoreCanonicalTo"` / `"schedule"` /
 /// `"actions"` / `"initialIndexSettings"` / `"extraUrls"` / `"maxUrls"` /
-/// `"ignoreNoFollowTo"` / prettier `"printWidth"` / karma `"basePath"`
-/// stay out. Enum `"model"` only
+/// `"ignoreNoFollowTo"` / `"ignoreRobotsTxtRules"` / `"ignoreNoIndex"` /
+/// `"saveBackup"` / `"safetyChecks"` / `"hostnameAliases"` / prettier
+/// `"printWidth"` / karma `"basePath"` stay out. Enum `"model"` only
 /// matches Recommend model ids. Numeric keys reject leading zeros beyond
 /// `0`.
 fn is_algolia_recommend_json_decl(s: &str) -> bool {
@@ -71534,8 +71535,10 @@ fn algolia_recommend_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool
 /// `"runtime_mappings"` / Algolia Crawler `"startUrls"` / `"sitemaps"` /
 /// `"discoveryPatterns"` / `"exclusionPatterns"` / `"ignoreCanonicalTo"` /
 /// `"schedule"` / `"actions"` / `"initialIndexSettings"` / `"extraUrls"` /
-/// `"maxUrls"` / `"ignoreNoFollowTo"` / prettier `"printWidth"` / karma
-/// `"basePath"` stay out. Enum `"eventSubtype"` only matches Insights conversion
+/// `"maxUrls"` / `"ignoreNoFollowTo"` / `"ignoreRobotsTxtRules"` /
+/// `"ignoreNoIndex"` / `"saveBackup"` / `"safetyChecks"` /
+/// `"hostnameAliases"` / prettier `"printWidth"` / karma `"basePath"`
+/// stay out. Enum `"eventSubtype"` only matches Insights conversion
 /// subtypes. Bool keys only match `true` / `false`. Numeric keys reject
 /// leading zeros beyond `0`. String keys require a non-empty quoted string.
 fn is_algolia_insights_json_decl(s: &str) -> bool {
@@ -71662,11 +71665,13 @@ fn algolia_insights_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool 
 /// `"exclusionPatterns": [`, `"ignoreCanonicalTo": true` / `false` / `[`,
 /// `"schedule": "…"`, `"actions": [`, `"initialIndexSettings": {`,
 /// `"extraUrls": [`, `"maxUrls": 0` / `100`, `"ignoreNoFollowTo": true` /
-/// `false`. Optional trailing `,` and `//` / `/*` comment. Incomplete
-/// quotes / missing `:` stay out. Generic `"$schema"` / `"name"` / `"id"` /
-/// `"q"` / `"query"` / `"url"` / `"appId"` / `"apiKey"` / `"index"` /
-/// `"indexName"` / `"rateLimit"` / `"maxDepth"` / `"indexPrefix"` /
-/// `"renderJavaScript"` / Algolia Insights
+/// `false`, `"ignoreRobotsTxtRules": true` / `false`, `"ignoreNoIndex":
+/// true` / `false`, `"saveBackup": true` / `false`, `"safetyChecks": {`,
+/// `"hostnameAliases": {`. Optional trailing `,` and `//` / `/*` comment.
+/// Incomplete quotes / missing `:` stay out. Generic `"$schema"` /
+/// `"name"` / `"id"` / `"q"` / `"query"` / `"url"` / `"appId"` /
+/// `"apiKey"` / `"index"` / `"indexName"` / `"rateLimit"` / `"maxDepth"` /
+/// `"indexPrefix"` / `"renderJavaScript"` / Algolia Insights
 /// `"authenticatedUserToken"` / `"userHasOptedOut"` / `"useCookie"` /
 /// `"anonymousUserToken"` / `"cookieDuration"` / `"eventSubtype"` /
 /// `"objectData"` / Algolia Recommend `"maxRecommendations"` /
@@ -71769,6 +71774,11 @@ fn algolia_crawler_json_key_ok(key: &str) -> bool {
             | "extraUrls"
             | "maxUrls"
             | "ignoreNoFollowTo"
+            | "ignoreRobotsTxtRules"
+            | "ignoreNoIndex"
+            | "saveBackup"
+            | "safetyChecks"
+            | "hostnameAliases"
     )
 }
 
@@ -71794,7 +71804,10 @@ fn algolia_crawler_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool 
             package_json_tail_ok(&after_colon[1..])
         }
         b'{' => {
-            if key != "initialIndexSettings" {
+            if !matches!(
+                key,
+                "initialIndexSettings" | "safetyChecks" | "hostnameAliases"
+            ) {
                 return false;
             }
             package_json_tail_ok(&after_colon[1..])
@@ -71823,7 +71836,14 @@ fn algolia_crawler_json_string_and_tail_ok(after_colon: &str) -> bool {
 }
 
 fn algolia_crawler_json_bool_and_tail_ok(key: &str, after_colon: &str) -> bool {
-    if !matches!(key, "ignoreCanonicalTo" | "ignoreNoFollowTo") {
+    if !matches!(
+        key,
+        "ignoreCanonicalTo"
+            | "ignoreNoFollowTo"
+            | "ignoreRobotsTxtRules"
+            | "ignoreNoIndex"
+            | "saveBackup"
+    ) {
         return false;
     }
     let rest = if let Some(r) = after_colon.strip_prefix("true") {
@@ -150196,6 +150216,20 @@ mod func_like_line_tests {
             r#""ignoreNoFollowTo": true"#
         ));
         assert!(is_algolia_crawler_json_decl(r#""ignoreNoFollowTo": true"#));
+        assert!(!is_algolia_insights_json_decl(
+            r#""ignoreRobotsTxtRules": true"#
+        ));
+        assert!(is_algolia_crawler_json_decl(
+            r#""ignoreRobotsTxtRules": true"#
+        ));
+        assert!(!is_algolia_insights_json_decl(r#""ignoreNoIndex": true"#));
+        assert!(is_algolia_crawler_json_decl(r#""ignoreNoIndex": true"#));
+        assert!(!is_algolia_insights_json_decl(r#""saveBackup": true"#));
+        assert!(is_algolia_crawler_json_decl(r#""saveBackup": true"#));
+        assert!(!is_algolia_insights_json_decl(r#""safetyChecks": {"#));
+        assert!(is_algolia_crawler_json_decl(r#""safetyChecks": {"#));
+        assert!(!is_algolia_insights_json_decl(r#""hostnameAliases": {"#));
+        assert!(is_algolia_crawler_json_decl(r#""hostnameAliases": {"#));
     }
 
     #[test]
@@ -150418,6 +150452,20 @@ mod func_like_line_tests {
             r#""ignoreNoFollowTo": true"#
         ));
         assert!(is_algolia_crawler_json_decl(r#""ignoreNoFollowTo": true"#));
+        assert!(!is_algolia_insights_json_decl(
+            r#""ignoreRobotsTxtRules": true"#
+        ));
+        assert!(is_algolia_crawler_json_decl(
+            r#""ignoreRobotsTxtRules": true"#
+        ));
+        assert!(!is_algolia_insights_json_decl(r#""ignoreNoIndex": true"#));
+        assert!(is_algolia_crawler_json_decl(r#""ignoreNoIndex": true"#));
+        assert!(!is_algolia_insights_json_decl(r#""saveBackup": true"#));
+        assert!(is_algolia_crawler_json_decl(r#""saveBackup": true"#));
+        assert!(!is_algolia_insights_json_decl(r#""safetyChecks": {"#));
+        assert!(is_algolia_crawler_json_decl(r#""safetyChecks": {"#));
+        assert!(!is_algolia_insights_json_decl(r#""hostnameAliases": {"#));
+        assert!(is_algolia_crawler_json_decl(r#""hostnameAliases": {"#));
         assert!(line_is_func_like(r#""authenticatedUserToken": "user-1""#));
         assert!(line_is_func_like(r#""userHasOptedOut": true"#));
         assert!(line_is_func_like(r#""useCookie": true"#));
@@ -150425,6 +150473,11 @@ mod func_like_line_tests {
         assert!(line_is_func_like(r#""cookieDuration": 15552000000"#));
         assert!(line_is_func_like(r#""eventSubtype": "purchase""#));
         assert!(line_is_func_like(r#""objectData": ["#));
+        assert!(line_is_func_like(r#""ignoreRobotsTxtRules": true"#));
+        assert!(line_is_func_like(r#""ignoreNoIndex": true"#));
+        assert!(line_is_func_like(r#""saveBackup": true"#));
+        assert!(line_is_func_like(r#""safetyChecks": {"#));
+        assert!(line_is_func_like(r#""hostnameAliases": {"#));
     }
 
     #[test]
@@ -150441,6 +150494,13 @@ mod func_like_line_tests {
         assert!(is_algolia_crawler_json_decl(r#""extraUrls": ["#));
         assert!(is_algolia_crawler_json_decl(r#""maxUrls": 100"#));
         assert!(is_algolia_crawler_json_decl(r#""ignoreNoFollowTo": false"#));
+        assert!(is_algolia_crawler_json_decl(
+            r#""ignoreRobotsTxtRules": true"#
+        ));
+        assert!(is_algolia_crawler_json_decl(r#""ignoreNoIndex": false"#));
+        assert!(is_algolia_crawler_json_decl(r#""saveBackup": true"#));
+        assert!(is_algolia_crawler_json_decl(r#""safetyChecks": {"#));
+        assert!(is_algolia_crawler_json_decl(r#""hostnameAliases": {"#));
         assert!(!is_algolia_crawler_json_decl(
             r#""authenticatedUserToken": "user-1""#
         ));
@@ -150595,6 +150655,43 @@ mod func_like_line_tests {
             r#""ignoreNoFollowTo": "true""#
         ));
         assert!(!is_algolia_crawler_json_decl(r#""ignoreNoFollowTo": ["#));
+        assert!(is_algolia_crawler_json_decl(
+            r#""ignoreRobotsTxtRules": true"#
+        ));
+        assert!(is_algolia_crawler_json_decl(
+            r#""ignoreRobotsTxtRules": false"#
+        ));
+        assert!(is_algolia_crawler_json_decl(
+            r#""ignoreRobotsTxtRules": true,"#
+        ));
+        assert!(is_algolia_crawler_json_decl(
+            r#""ignoreRobotsTxtRules": false // c"#
+        ));
+        assert!(!is_algolia_crawler_json_decl(
+            r#""ignoreRobotsTxtRules": "true""#
+        ));
+        assert!(!is_algolia_crawler_json_decl(
+            r#""ignoreRobotsTxtRules": ["#
+        ));
+        assert!(is_algolia_crawler_json_decl(r#""ignoreNoIndex": true"#));
+        assert!(is_algolia_crawler_json_decl(r#""ignoreNoIndex": false"#));
+        assert!(!is_algolia_crawler_json_decl(r#""ignoreNoIndex": 1"#));
+        assert!(!is_algolia_crawler_json_decl(r#""ignoreNoIndex": {"#));
+        assert!(is_algolia_crawler_json_decl(r#""saveBackup": true"#));
+        assert!(is_algolia_crawler_json_decl(r#""saveBackup": false"#));
+        assert!(!is_algolia_crawler_json_decl(r#""saveBackup": "yes""#));
+        assert!(!is_algolia_crawler_json_decl(r#""saveBackup": ["#));
+        assert!(is_algolia_crawler_json_decl(r#""safetyChecks": {"#));
+        assert!(is_algolia_crawler_json_decl(r#""safetyChecks": {,"#));
+        assert!(is_algolia_crawler_json_decl(r#""safetyChecks": { // c"#));
+        assert!(!is_algolia_crawler_json_decl(r#""safetyChecks": ["#));
+        assert!(!is_algolia_crawler_json_decl(r#""safetyChecks": true"#));
+        assert!(!is_algolia_crawler_json_decl(r#""safetyCheck": {"#));
+        assert!(is_algolia_crawler_json_decl(r#""hostnameAliases": {"#));
+        assert!(is_algolia_crawler_json_decl(r#""hostnameAliases": {,"#));
+        assert!(is_algolia_crawler_json_decl(r#""hostnameAliases": { // c"#));
+        assert!(!is_algolia_crawler_json_decl(r#""hostnameAliases": ["#));
+        assert!(!is_algolia_crawler_json_decl(r#""hostnameAliases": true"#));
         assert!(!is_algolia_crawler_json_decl(r#""startUrls""#));
         assert!(!is_algolia_crawler_json_decl(r#""schedule""#));
         assert!(!is_algolia_crawler_json_decl(r#""actions""#));

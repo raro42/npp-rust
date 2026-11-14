@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.857] — 2026-11-14
+
+View:
+
+- **Function List** lists more Algolia Crawler JSON keys: `"ignoreRobotsTxtRules": true` / `false`, `"ignoreNoIndex": true` / `false`, `"saveBackup": true` / `false`, `"safetyChecks": {`, `"hostnameAliases": {`. Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing `:` stay out. Singular `"safetyCheck"` / array `"hostnameAliases": [` / string bools stay out. Existing Crawler keys (`"startUrls"` / `"sitemaps"` / `"discoveryPatterns"` / `"exclusionPatterns"` / `"ignoreCanonicalTo"` / `"schedule"` / `"actions"` / `"initialIndexSettings"` / `"extraUrls"` / `"maxUrls"` / `"ignoreNoFollowTo"`) unchanged. Generic `"rateLimit"` / `"maxDepth"` / `"indexPrefix"` / `"renderJavaScript"` / Algolia Insights / Recommend / neighbouring search JSON families stay out. Bool keys only match `true` / `false`.
+
 ## [0.3.856] — 2026-11-14
 
 View:
