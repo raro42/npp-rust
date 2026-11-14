@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.861] — 2026-11-14
+
+View:
+
+- **Function List** lists more Algolia Crawler JSON keys: `"fetchRequest": {`, `"browserRequest": {`, `"oauthRequest": {`, `"accessTokenRequest": {`, `"beforeIndexPublishing": {`, `"waitTime": {`, `"adblock": true` / `false`, `"maxLostRecordsPercentage": 0` / `10`. Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing `:` stay out. Plural/singular misspellings / generic `"enabled"` / `"proxy"` / `"timeout"` / `"retries"` / `"headers"` / `"cache"` / string bools stay out. Existing Crawler keys unchanged. Algolia Insights / Recommend / neighbouring search JSON families stay out. Bool keys only match `true` / `false`. Numeric keys reject leading zeros beyond `0`.
+
 ## [0.3.860] — 2026-11-14
 
 View:

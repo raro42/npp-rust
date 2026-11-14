@@ -1384,3 +1384,5 @@
 009 keep: Function List Algolia Crawler rateLimit/maxDepth/indexPrefix/renderJavaScript/ignoreQueryParams (v0.3.858)
 
 009 keep: Function List Algolia Crawler externalData/ignorePaginationAttributes/linkExtractor/login/requestOptions (v0.3.859)
+
+009 keep: Function List Algolia Crawler fetchRequest/browserRequest/oauthRequest/accessTokenRequest/beforeIndexPublishing/waitTime/adblock/maxLostRecordsPercentage (v0.3.861)
