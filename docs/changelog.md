@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.869] — 2026-11-14
+
+View:
+
+- **Function List** lists more Algolia Crawler JSON keys: `"ranking": [`, `"replicas": [`, `"paginationLimitedTo": 0` / `1000`, `"unretrievableAttributes": [`, `"snippetEllipsisText": "…"`, `"highlightPostTag": "…"`. Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing `:` stay out. Empty strings / plural/singular misspellings / Vespa object `"ranking": {` / generic `"url"` / `"enabled"` / `"proxy"` / `"timeout"` / `"retries"` / `"headers"` / `"cache"` / Marqo `"searchableAttributes"` / string bools stay out. Existing Crawler keys unchanged. Algolia Insights / Recommend / neighbouring search JSON families stay out. Bool keys only match `true` / `false`. Numeric keys reject leading zeros beyond `0`. String keys require a non-empty quoted string.
+
 ## [0.3.868] — 2026-11-14
 
 View:

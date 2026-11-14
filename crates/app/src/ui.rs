@@ -71367,9 +71367,11 @@ fn searchkit_json_string_and_tail_ok(key: &str, after_colon: &str) -> bool {
 /// `"lvl1"` / `"lvl2"` / `"lvl3"` / `"lvl4"` / `"lvl5"` / `"lvl6"` /
 /// `"content"` / `"languageClassPrefix"` / `"attributeForDistinct"` /
 /// `"customRanking"` / `"distinct"` / `"attributesForFaceting"` /
-/// `"attributesToSnippet"` / prettier `"printWidth"` / karma `"basePath"`
-/// stay out. Enum `"model"` only matches Recommend model ids. Numeric keys
-/// reject leading zeros beyond `0`.
+/// `"attributesToSnippet"` / `"ranking"` / `"replicas"` /
+/// `"paginationLimitedTo"` / `"unretrievableAttributes"` /
+/// `"snippetEllipsisText"` / `"highlightPostTag"` / prettier `"printWidth"` /
+/// karma `"basePath"` stay out. Enum `"model"` only matches Recommend model
+/// ids. Numeric keys reject leading zeros beyond `0`.
 fn is_algolia_recommend_json_decl(s: &str) -> bool {
     let s = s.trim_start();
     let Some(rest) = s.strip_prefix('"') else {
@@ -71573,10 +71575,13 @@ fn algolia_recommend_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool
 /// `"lvl1"` / `"lvl2"` / `"lvl3"` / `"lvl4"` / `"lvl5"` / `"lvl6"` /
 /// `"content"` / `"languageClassPrefix"` / `"attributeForDistinct"` /
 /// `"customRanking"` / `"distinct"` / `"attributesForFaceting"` /
-/// `"attributesToSnippet"` / prettier `"printWidth"` / karma `"basePath"`
-/// stay out. Enum `"eventSubtype"` only matches Insights conversion
-/// subtypes. Bool keys only match `true` / `false`. Numeric keys reject
-/// leading zeros beyond `0`. String keys require a non-empty quoted string.
+/// `"attributesToSnippet"` / `"ranking"` / `"replicas"` /
+/// `"paginationLimitedTo"` / `"unretrievableAttributes"` /
+/// `"snippetEllipsisText"` / `"highlightPostTag"` / prettier `"printWidth"` /
+/// karma `"basePath"` stay out. Enum `"eventSubtype"` only matches Insights
+/// conversion subtypes. Bool keys only match `true` / `false`. Numeric keys
+/// reject leading zeros beyond `0`. String keys require a non-empty quoted
+/// string.
 fn is_algolia_insights_json_decl(s: &str) -> bool {
     let s = s.trim_start();
     let Some(rest) = s.strip_prefix('"') else {
@@ -71727,7 +71732,10 @@ fn algolia_insights_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool 
 /// `"lvl5": "…"` / `[`, `"lvl6": "…"` / `[`, `"content": "…"` / `[`,
 /// `"languageClassPrefix": "…"`, `"attributeForDistinct": "…"`,
 /// `"customRanking": [`, `"distinct": true` / `false`,
-/// `"attributesForFaceting": [`, `"attributesToSnippet": [`.
+/// `"attributesForFaceting": [`, `"attributesToSnippet": [`,
+/// `"ranking": [`, `"replicas": [`, `"paginationLimitedTo": 0` / `1000`,
+/// `"unretrievableAttributes": [`, `"snippetEllipsisText": "…"`,
+/// `"highlightPostTag": "…"`.
 /// Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing
 /// `:` stay out. Generic `"$schema"` / `"name"` / `"id"` / `"q"` / `"query"` /
 /// `"url"` / `"appId"` / `"apiKey"` / `"index"` / `"indexName"` / `"cache"` /
@@ -71805,8 +71813,9 @@ fn algolia_insights_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool 
 /// `"recordVersion"` / `"textAttributeName"` / `"orderingAttributeName"` /
 /// `"pageRank"` / `"lvl1"` / `"lvl2"` / `"lvl3"` / `"lvl4"` / `"lvl5"` /
 /// `"lvl6"` / `"content"` / `"languageClassPrefix"` /
-/// `"attributeForDistinct"` require a non-empty quoted string. `"__type"`
-/// only matches `"function"`. `"ignoreCanonicalTo"` accepts bool or `[`.
+/// `"attributeForDistinct"` / `"snippetEllipsisText"` /
+/// `"highlightPostTag"` require a non-empty quoted string. `"__type"` only
+/// matches `"function"`. `"ignoreCanonicalTo"` accepts bool or `[`.
 /// `"renderJavaScript"` accepts bool, `[`, or `{`. `"indexHeadings"`
 /// accepts bool or `{`. `"lvl1"` / `"lvl2"` / `"lvl3"` / `"lvl4"` /
 /// `"lvl5"` / `"lvl6"` / `"content"` accept string or `[`.
@@ -71913,6 +71922,12 @@ fn algolia_crawler_json_key_ok(key: &str) -> bool {
             | "distinct"
             | "attributesForFaceting"
             | "attributesToSnippet"
+            | "ranking"
+            | "replicas"
+            | "paginationLimitedTo"
+            | "unretrievableAttributes"
+            | "snippetEllipsisText"
+            | "highlightPostTag"
     )
 }
 
@@ -71948,6 +71963,9 @@ fn algolia_crawler_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool 
                     | "customRanking"
                     | "attributesForFaceting"
                     | "attributesToSnippet"
+                    | "ranking"
+                    | "replicas"
+                    | "unretrievableAttributes"
             ) {
                 return false;
             }
@@ -72016,6 +72034,8 @@ fn algolia_crawler_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool 
                     | "content"
                     | "languageClassPrefix"
                     | "attributeForDistinct"
+                    | "snippetEllipsisText"
+                    | "highlightPostTag"
             ) {
                 return false;
             }
@@ -72086,6 +72106,7 @@ fn algolia_crawler_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool {
             | "maxLostRecordsPercentage"
             | "maxFailedUrls"
             | "maxRecordBytes"
+            | "paginationLimitedTo"
     ) {
         return false;
     }
@@ -151022,6 +151043,20 @@ mod func_like_line_tests {
             r#""attributesForFaceting": ["#
         ));
         assert!(is_algolia_crawler_json_decl(r#""attributesToSnippet": ["#));
+        assert!(is_algolia_crawler_json_decl(r#""ranking": ["#));
+        assert!(is_algolia_crawler_json_decl(r#""replicas": ["#));
+        assert!(is_algolia_crawler_json_decl(
+            r#""paginationLimitedTo": 1000"#
+        ));
+        assert!(is_algolia_crawler_json_decl(
+            r#""unretrievableAttributes": ["#
+        ));
+        assert!(is_algolia_crawler_json_decl(
+            r#""snippetEllipsisText": "…""#
+        ));
+        assert!(is_algolia_crawler_json_decl(
+            r#""highlightPostTag": "</em>""#
+        ));
         assert!(!is_algolia_crawler_json_decl(
             r#""authenticatedUserToken": "user-1""#
         ));
@@ -151846,6 +151881,120 @@ mod func_like_line_tests {
         ));
         assert!(!is_algolia_recommend_json_decl(
             r#""attributesToSnippet": ["#
+        ));
+        assert!(is_algolia_crawler_json_decl(r#""ranking": ["#));
+        assert!(is_algolia_crawler_json_decl(r#""ranking": [,"#));
+        assert!(is_algolia_crawler_json_decl(r#""ranking": [ // c"#));
+        assert!(!is_algolia_crawler_json_decl(r#""ranking": {"#));
+        assert!(!is_algolia_crawler_json_decl(r#""ranking": true"#));
+        assert!(!is_algolia_crawler_json_decl(r#""rankings": ["#));
+        assert!(!is_algolia_insights_json_decl(r#""ranking": ["#));
+        assert!(!is_algolia_recommend_json_decl(r#""ranking": ["#));
+        assert!(!is_vespa_json_decl(r#""ranking": ["#));
+        assert!(is_vespa_json_decl(r#""ranking": {"#));
+        assert!(is_algolia_crawler_json_decl(r#""replicas": ["#));
+        assert!(is_algolia_crawler_json_decl(r#""replicas": [,"#));
+        assert!(is_algolia_crawler_json_decl(r#""replicas": [ // c"#));
+        assert!(!is_algolia_crawler_json_decl(r#""replicas": {"#));
+        assert!(!is_algolia_crawler_json_decl(r#""replicas": true"#));
+        assert!(!is_algolia_crawler_json_decl(r#""replica": ["#));
+        assert!(!is_algolia_insights_json_decl(r#""replicas": ["#));
+        assert!(!is_algolia_recommend_json_decl(r#""replicas": ["#));
+        assert!(is_algolia_crawler_json_decl(
+            r#""paginationLimitedTo": 1000"#
+        ));
+        assert!(is_algolia_crawler_json_decl(r#""paginationLimitedTo": 0"#));
+        assert!(is_algolia_crawler_json_decl(
+            r#""paginationLimitedTo": 1000,"#
+        ));
+        assert!(is_algolia_crawler_json_decl(
+            r#""paginationLimitedTo": 1000 // c"#
+        ));
+        assert!(!is_algolia_crawler_json_decl(
+            r#""paginationLimitedTo": 01000"#
+        ));
+        assert!(!is_algolia_crawler_json_decl(
+            r#""paginationLimitedTo": true"#
+        ));
+        assert!(!is_algolia_crawler_json_decl(r#""paginationLimitedTo": ["#));
+        assert!(!is_algolia_crawler_json_decl(
+            r#""paginationLimitedToo": 1000"#
+        ));
+        assert!(!is_algolia_insights_json_decl(
+            r#""paginationLimitedTo": 1000"#
+        ));
+        assert!(!is_algolia_recommend_json_decl(
+            r#""paginationLimitedTo": 1000"#
+        ));
+        assert!(is_algolia_crawler_json_decl(
+            r#""unretrievableAttributes": ["#
+        ));
+        assert!(is_algolia_crawler_json_decl(
+            r#""unretrievableAttributes": [,"#
+        ));
+        assert!(is_algolia_crawler_json_decl(
+            r#""unretrievableAttributes": [ // c"#
+        ));
+        assert!(!is_algolia_crawler_json_decl(
+            r#""unretrievableAttributes": {"#
+        ));
+        assert!(!is_algolia_crawler_json_decl(
+            r#""unretrievableAttributes": true"#
+        ));
+        assert!(!is_algolia_crawler_json_decl(
+            r#""unretrievableAttribute": ["#
+        ));
+        assert!(!is_algolia_insights_json_decl(
+            r#""unretrievableAttributes": ["#
+        ));
+        assert!(!is_algolia_recommend_json_decl(
+            r#""unretrievableAttributes": ["#
+        ));
+        assert!(is_algolia_crawler_json_decl(
+            r#""snippetEllipsisText": "…""#
+        ));
+        assert!(is_algolia_crawler_json_decl(
+            r#""snippetEllipsisText": "…","#
+        ));
+        assert!(is_algolia_crawler_json_decl(
+            r#""snippetEllipsisText": "…" // c"#
+        ));
+        assert!(!is_algolia_crawler_json_decl(
+            r#""snippetEllipsisText": """#
+        ));
+        assert!(!is_algolia_crawler_json_decl(
+            r#""snippetEllipsisText": true"#
+        ));
+        assert!(!is_algolia_crawler_json_decl(r#""snippetEllipsisText": ["#));
+        assert!(!is_algolia_crawler_json_decl(
+            r#""snippetEllipsisTexts": "…""#
+        ));
+        assert!(!is_algolia_insights_json_decl(
+            r#""snippetEllipsisText": "…""#
+        ));
+        assert!(!is_algolia_recommend_json_decl(
+            r#""snippetEllipsisText": "…""#
+        ));
+        assert!(is_algolia_crawler_json_decl(
+            r#""highlightPostTag": "</em>""#
+        ));
+        assert!(is_algolia_crawler_json_decl(
+            r#""highlightPostTag": "</em>","#
+        ));
+        assert!(is_algolia_crawler_json_decl(
+            r#""highlightPostTag": "</em>" // c"#
+        ));
+        assert!(!is_algolia_crawler_json_decl(r#""highlightPostTag": """#));
+        assert!(!is_algolia_crawler_json_decl(r#""highlightPostTag": true"#));
+        assert!(!is_algolia_crawler_json_decl(r#""highlightPostTag": ["#));
+        assert!(!is_algolia_crawler_json_decl(
+            r#""highlightPostTags": "</em>""#
+        ));
+        assert!(!is_algolia_insights_json_decl(
+            r#""highlightPostTag": "</em>""#
+        ));
+        assert!(!is_algolia_recommend_json_decl(
+            r#""highlightPostTag": "</em>""#
         ));
         assert!(!is_algolia_crawler_json_decl(r#""startUrls""#));
         assert!(!is_algolia_crawler_json_decl(r#""schedule""#));

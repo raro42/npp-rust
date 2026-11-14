@@ -1,3 +1,5 @@
+009 keep: Function List Algolia Crawler ranking/replicas/paginationLimitedTo/unretrievableAttributes/snippetEllipsisText/highlightPostTag (v0.3.869)
+
 009 keep: Function List Algolia Crawler lvl2/lvl3/lvl4/lvl5/lvl6/content (v0.3.867)
 
 009 keep: Function List Algolia Crawler orderingAttributeName/baseRecord/pageRank/lvl0/lvl1/languageClassPrefix (v0.3.866)
