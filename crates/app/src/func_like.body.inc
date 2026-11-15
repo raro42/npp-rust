@@ -40418,9 +40418,15 @@ fn algolia_insights_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool 
 /// `"from": 0` / `1700000000`, `"until": 0` / `1700000000`,
 /// `"params": "…"` / `{`,
 /// `"edits": [`, `"delete": "…"`, `"insert": "…"`,
-/// `"facetName": "…"`, `"facetValue": "…"`.
+/// `"facetName": "…"`, `"facetValue": "…"`,
+/// `"clearExistingRules": true` / `false`,
+/// `"replaceExistingSynonyms": true` / `false`,
+/// `"clearExistingDictionaryEntries": true` / `false`,
+/// `"disjunctive": true` / `false`,
+/// `"facet": "…"`, `"remove": [`, `"query": {`.
 /// Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing
-/// `:` stay out. Generic `"$schema"` / `"name"` / `"id"` / `"q"` / `"query"` /
+/// `:` stay out. Generic `"$schema"` / `"name"` / `"id"` / `"q"` /
+/// string `"query"` /
 /// `"url"` / `"appId"` / `"apiKey"` / `"index"` / `"indexName"` / `"cache"` /
 /// `"enabled"` / `"proxy"` / `"timeout"` / `"retries"` / `"headers"` /
 /// `"order"` / `"values"` / `"words"` / `"filters"` / `"message"` /
@@ -40513,7 +40519,7 @@ fn algolia_insights_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool 
 /// `"explain"` / `"facetQuery"` / `"cursor"` /
 /// `"createdAt"` / `"updatedAt"` / `"queryParameters"` /
 /// `"pattern"` / `"context"` / `"delete"` / `"insert"` / `"facetName"` /
-/// `"facetValue"` require a
+/// `"facetValue"` / `"facet"` require a
 /// non-empty quoted string.
 /// `"__type"` only matches `"function"`. `"queryType"` only matches
 /// `"prefixLast"` / `"prefixAll"` / `"prefixNone"`.
@@ -40555,7 +40561,8 @@ fn algolia_insights_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool 
 /// `"weight"` / `"_highlightResult"` / `"_snippetResult"` /
 /// `"_rankingInfo"` / `"matchedGeoLocation"` / `"personalization"` /
 /// `"exhaustive"` / `"processingTimingsMS"` / `"queryCategorization"` /
-/// `"autofiltering"` / `"consequence"` / `"condition"` / `"params"`
+/// `"autofiltering"` / `"consequence"` / `"condition"` / `"params"` /
+/// `"query"`
 /// accept `{`.
 /// `"eventSources"` / `"banners"` / `"hide"` / `"keywords"` / `"authors"` /
 /// `"hierarchy_camel"` / `"appliedRules"` / `"hierarchyPath"` /
@@ -40567,7 +40574,7 @@ fn algolia_insights_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool 
 /// `"synonyms"` / `"conditions"` / `"promote"` / `"corrections"` /
 /// `"replacements"` / `"validity"` / `"tags"` /
 /// `"automaticFacetFilters"` / `"automaticOptionalFacetFilters"` /
-/// `"edits"`
+/// `"edits"` / `"remove"`
 /// accept `[`.
 fn is_algolia_crawler_json_decl(s: &str) -> bool {
     let s = s.trim_start();
@@ -40896,6 +40903,13 @@ fn algolia_crawler_json_key_ok(key: &str) -> bool {
             | "insert"
             | "facetName"
             | "facetValue"
+            | "clearExistingRules"
+            | "replaceExistingSynonyms"
+            | "clearExistingDictionaryEntries"
+            | "disjunctive"
+            | "facet"
+            | "remove"
+            | "query"
     )
 }
 
@@ -40990,6 +41004,7 @@ fn algolia_crawler_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool 
                     | "automaticFacetFilters"
                     | "automaticOptionalFacetFilters"
                     | "edits"
+                    | "remove"
             ) {
                 return false;
             }
@@ -41049,6 +41064,7 @@ fn algolia_crawler_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool 
                     | "consequence"
                     | "condition"
                     | "params"
+                    | "query"
             ) {
                 return false;
             }
@@ -41183,6 +41199,7 @@ fn algolia_crawler_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool 
                     | "insert"
                     | "facetName"
                     | "facetValue"
+                    | "facet"
             ) {
                 return false;
             }
@@ -41419,6 +41436,10 @@ fn algolia_crawler_json_bool_and_tail_ok(key: &str, after_colon: &str) -> bool {
             | "pendingTask"
             | "filterPromotes"
             | "alternatives"
+            | "clearExistingRules"
+            | "replaceExistingSynonyms"
+            | "clearExistingDictionaryEntries"
+            | "disjunctive"
     ) {
         return false;
     }

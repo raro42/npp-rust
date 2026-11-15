@@ -1452,3 +1452,5 @@
 009 keep: Function List Algolia Rules pattern/context/condition/tags/automaticFacetFilters/automaticOptionalFacetFilters/from/until/params object (v0.3.893)
 
 009 keep: Function List Algolia Rules edits/delete/insert/type remove|replace/facetName/facetValue (v0.3.894)
+
+009 keep: Function List Algolia Rules/Synonym/Dictionary clearExistingRules/replaceExistingSynonyms/clearExistingDictionaryEntries/disjunctive/facet/remove/query object (v0.3.895)

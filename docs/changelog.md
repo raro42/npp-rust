@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.895] — 2026-11-15
+
+View:
+
+- **Function List** lists more Algolia Rules / Synonym / Dictionary JSON keys: `"clearExistingRules": true` / `false`, `"replaceExistingSynonyms": true` / `false`, `"clearExistingDictionaryEntries": true` / `false`, `"disjunctive": true` / `false`, `"facet": "…"`, `"remove": [`, and `"query"` now also accepts `{` (Rules consequence query object; string `"query"` still stays out). Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing `:` stay out. Empty strings / plural/singular misspellings / `"clearExistingRules": 1` / `"replaceExistingSynonyms": 1` / `"clearExistingDictionaryEntries": 1` / `"disjunctive": 1` / `"facet": ""` / `"remove": {` / `"remove": "of"` / `"query": "shoes"` / `"query": [` / generic `"description"` / `"indexes"` / `"input"` / `"word"` / `"filters"` / `"url"` / `"order"` / `"values"` / `"enabled"` / `"proxy"` / `"timeout"` / `"retries"` / `"headers"` / `"cache"` / `"words"` / `"message"` / string bools stay out. Existing Crawler / Rules / Synonym / API-key / geo / highlight / search response / write / batch keys unchanged. Algolia Insights / Recommend / neighbouring search JSON families stay out. Bool keys only match `true` / `false`. `"facet"` requires a non-empty quoted string. `"query"` only matches `{`. Array keys accept `[`.
+
 ## [0.3.894] — 2026-11-15
 
 View:

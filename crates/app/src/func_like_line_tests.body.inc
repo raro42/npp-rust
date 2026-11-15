@@ -52969,6 +52969,107 @@ fn algolia_crawler_json_keys_count() {
     assert!(!is_algolia_crawler_json_decl(r#""facetValues": "Apple""#));
     assert!(!is_algolia_insights_json_decl(r#""facetValue": "Apple""#));
     assert!(!is_algolia_recommend_json_decl(r#""facetValue": "Apple""#));
+    assert!(is_algolia_crawler_json_decl(r#""clearExistingRules": true"#));
+    assert!(is_algolia_crawler_json_decl(r#""clearExistingRules": false"#));
+    assert!(is_algolia_crawler_json_decl(r#""clearExistingRules": true,"#));
+    assert!(is_algolia_crawler_json_decl(
+        r#""clearExistingRules": false // c"#
+    ));
+    assert!(!is_algolia_crawler_json_decl(r#""clearExistingRules": 1"#));
+    assert!(!is_algolia_crawler_json_decl(r#""clearExistingRules": ["#));
+    assert!(!is_algolia_crawler_json_decl(r#""clearExistingRule": true"#));
+    assert!(!is_algolia_insights_json_decl(r#""clearExistingRules": true"#));
+    assert!(!is_algolia_recommend_json_decl(
+        r#""clearExistingRules": true"#
+    ));
+    assert!(is_algolia_crawler_json_decl(
+        r#""replaceExistingSynonyms": true"#
+    ));
+    assert!(is_algolia_crawler_json_decl(
+        r#""replaceExistingSynonyms": false"#
+    ));
+    assert!(is_algolia_crawler_json_decl(
+        r#""replaceExistingSynonyms": true,"#
+    ));
+    assert!(is_algolia_crawler_json_decl(
+        r#""replaceExistingSynonyms": false // c"#
+    ));
+    assert!(!is_algolia_crawler_json_decl(
+        r#""replaceExistingSynonyms": 1"#
+    ));
+    assert!(!is_algolia_crawler_json_decl(
+        r#""replaceExistingSynonyms": ["#
+    ));
+    assert!(!is_algolia_crawler_json_decl(
+        r#""replaceExistingSynonym": true"#
+    ));
+    assert!(!is_algolia_insights_json_decl(
+        r#""replaceExistingSynonyms": true"#
+    ));
+    assert!(!is_algolia_recommend_json_decl(
+        r#""replaceExistingSynonyms": true"#
+    ));
+    assert!(is_algolia_crawler_json_decl(
+        r#""clearExistingDictionaryEntries": true"#
+    ));
+    assert!(is_algolia_crawler_json_decl(
+        r#""clearExistingDictionaryEntries": false"#
+    ));
+    assert!(is_algolia_crawler_json_decl(
+        r#""clearExistingDictionaryEntries": true,"#
+    ));
+    assert!(is_algolia_crawler_json_decl(
+        r#""clearExistingDictionaryEntries": false // c"#
+    ));
+    assert!(!is_algolia_crawler_json_decl(
+        r#""clearExistingDictionaryEntries": 1"#
+    ));
+    assert!(!is_algolia_crawler_json_decl(
+        r#""clearExistingDictionaryEntries": ["#
+    ));
+    assert!(!is_algolia_crawler_json_decl(
+        r#""clearExistingDictionaryEntry": true"#
+    ));
+    assert!(!is_algolia_insights_json_decl(
+        r#""clearExistingDictionaryEntries": true"#
+    ));
+    assert!(!is_algolia_recommend_json_decl(
+        r#""clearExistingDictionaryEntries": true"#
+    ));
+    assert!(is_algolia_crawler_json_decl(r#""disjunctive": true"#));
+    assert!(is_algolia_crawler_json_decl(r#""disjunctive": false"#));
+    assert!(is_algolia_crawler_json_decl(r#""disjunctive": true,"#));
+    assert!(is_algolia_crawler_json_decl(r#""disjunctive": false // c"#));
+    assert!(!is_algolia_crawler_json_decl(r#""disjunctive": 1"#));
+    assert!(!is_algolia_crawler_json_decl(r#""disjunctive": ["#));
+    assert!(!is_algolia_crawler_json_decl(r#""disjunctives": true"#));
+    assert!(!is_algolia_insights_json_decl(r#""disjunctive": true"#));
+    assert!(!is_algolia_recommend_json_decl(r#""disjunctive": true"#));
+    assert!(is_algolia_crawler_json_decl(r#""facet": "brand""#));
+    assert!(is_algolia_crawler_json_decl(r#""facet": "brand","#));
+    assert!(is_algolia_crawler_json_decl(r#""facet": "brand" // c"#));
+    assert!(!is_algolia_crawler_json_decl(r#""facet": """#));
+    assert!(!is_algolia_crawler_json_decl(r#""facet": ["#));
+    assert!(!is_algolia_crawler_json_decl(r#""facet": {"#));
+    assert!(!is_algolia_crawler_json_decl(r#""facets": "brand""#));
+    assert!(!is_algolia_insights_json_decl(r#""facet": "brand""#));
+    assert!(!is_algolia_recommend_json_decl(r#""facet": "brand""#));
+    assert!(is_algolia_crawler_json_decl(r#""remove": ["#));
+    assert!(is_algolia_crawler_json_decl(r#""remove": [,"#));
+    assert!(is_algolia_crawler_json_decl(r#""remove": [ // c"#));
+    assert!(!is_algolia_crawler_json_decl(r#""remove": {"#));
+    assert!(!is_algolia_crawler_json_decl(r#""remove": "of""#));
+    assert!(!is_algolia_crawler_json_decl(r#""removes": ["#));
+    assert!(!is_algolia_insights_json_decl(r#""remove": ["#));
+    assert!(!is_algolia_recommend_json_decl(r#""remove": ["#));
+    assert!(is_algolia_crawler_json_decl(r#""query": {"#));
+    assert!(is_algolia_crawler_json_decl(r#""query": {,"#));
+    assert!(is_algolia_crawler_json_decl(r#""query": { // c"#));
+    assert!(!is_algolia_crawler_json_decl(r#""query": "shoes""#));
+    assert!(!is_algolia_crawler_json_decl(r#""query": ["#));
+    assert!(!is_algolia_crawler_json_decl(r#""queries": {"#));
+    assert!(!is_algolia_insights_json_decl(r#""query": {"#));
+    assert!(!is_algolia_recommend_json_decl(r#""query": {"#));
     assert!(line_is_func_like(r#""conditions": ["#));
     assert!(line_is_func_like(r#""consequence": {"#));
     assert!(line_is_func_like(r#""anchoring": "startsWith""#));
@@ -52994,6 +53095,15 @@ fn algolia_crawler_json_keys_count() {
     assert!(line_is_func_like(r#""type": "replace""#));
     assert!(line_is_func_like(r#""facetName": "brand""#));
     assert!(line_is_func_like(r#""facetValue": "Apple""#));
+    assert!(line_is_func_like(r#""clearExistingRules": true"#));
+    assert!(line_is_func_like(r#""replaceExistingSynonyms": false"#));
+    assert!(line_is_func_like(
+        r#""clearExistingDictionaryEntries": true"#
+    ));
+    assert!(line_is_func_like(r#""disjunctive": true"#));
+    assert!(line_is_func_like(r#""facet": "brand""#));
+    assert!(line_is_func_like(r#""remove": ["#));
+    assert!(line_is_func_like(r#""query": {"#));
     assert!(line_is_func_like(r#""params": {"#));
     assert!(line_is_func_like(r#""nbSortedHits": 20"#));
     assert!(line_is_func_like(r#""processingTimingsMS": {"#));
