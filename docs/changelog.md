@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.892] — 2026-11-15
+
+View:
+
+- **Function List** lists more Algolia Query Rules / Synonym JSON keys: `"conditions": [`, `"consequence": {`, `"anchoring": "is"` / `"startsWith"` / `"endsWith"` / `"contains"`, `"filterPromotes": true` / `false`, `"promote": [`, `"alternatives": true` / `false`, `"corrections": [`, `"replacements": [`, `"placeholder": "…"`, `"validity"` now also accepts `[` (still accepts uint for API keys), and `"type"` now also accepts `"synonym"` / `"oneWaySynonym"` / `"altCorrection1"` / `"altCorrection2"` / `"placeholder"` (still accepts DocSearch `"content"` / `"lvl0"`…`"lvl6"` / `"askAI"`). Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing `:` stay out. Empty strings / plural/singular misspellings / `"anchoring": "exact"` / `"type": "synonyms"` / `"type": "oneWay"` / `"type": "altCorrection"` / `"placeholder": ""` / `"conditions": {` / `"consequence": [` / `"promote": {` / `"corrections": "football"` / `"replacements": "street"` / generic `"description"` / `"indexes"` / `"input"` / `"word"` / `"url"` / `"order"` / `"values"` / `"enabled"` / `"proxy"` / `"timeout"` / `"retries"` / `"headers"` / `"cache"` / `"words"` / `"filters"` / `"message"` / string bools stay out. Existing Crawler / API-key / geo / highlight / search response / write / batch keys unchanged. Algolia Insights / Recommend / neighbouring search JSON families stay out. Bool keys only match `true` / `false`. Numeric keys reject leading zeros beyond `0`. `"validity"` accepts uint or `[`. `"anchoring"` only matches its Algolia enums. `"placeholder"` requires a non-empty quoted string. Array keys accept `[`. Object keys accept `{`.
+
 ## [0.3.891] — 2026-11-15
 
 View:

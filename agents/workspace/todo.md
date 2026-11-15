@@ -1444,3 +1444,7 @@
 009 keep: Function List facetQuery/params/cursor/forwardToReplicas/autoGenerateObjectIDIfNotExist/createIfNotExists/objectIDs/taskID (v0.3.889)
 
 009 keep: Function List Algolia clearExistingIndexDocuments/requests/action/createdAt/updatedAt/nbPendingTasks/pendingTask/queryParameters (v0.3.890)
+
+009 keep: Function List Algolia acl/validity/maxHitsPerQuery/maxQueriesPerIPPerHour/referers/restrictIndices/restrictSources/createdAtTimestamp/updatedAtTimestamp/synonyms[] (v0.3.891)
+
+009 keep: Function List Algolia Rules/Synonym conditions/consequence/anchoring/filterPromotes/promote/alternatives/corrections/replacements/placeholder/validity[]/type synonym enums (v0.3.892)

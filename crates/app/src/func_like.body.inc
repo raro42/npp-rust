@@ -40343,7 +40343,9 @@ fn algolia_insights_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool 
 /// `"hierarchy": {`, `"thumbnailUrl": "…"`, `"articleSection": "…"`,
 /// `"wordCount": 0` / `1200`, `"dateCreated": "…"`,
 /// `"alternativeHeadline": "…"`, `"mainEntityOfPage": "…"`,
-/// `"articleBody": "…"`, `"type": "content"` / `"lvl0"`…`"lvl6"` / `"askAI"`,
+/// `"articleBody": "…"`, `"type": "content"` / `"lvl0"`…`"lvl6"` / `"askAI"` /
+/// `"synonym"` / `"oneWaySynonym"` / `"altCorrection1"` / `"altCorrection2"` /
+/// `"placeholder"`,
 /// `"hierarchy_radio": {`, `"hierarchy_camel": [`, `"weight": {`,
 /// `"position": 0` / `42`, `"_highlightResult": {`, `"_snippetResult": {`,
 /// `"_rankingInfo": {`, `"_distinctSeqID": 0` / `3`,
@@ -40398,19 +40400,24 @@ fn algolia_insights_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool 
 /// `"createdAt": "…"`, `"updatedAt": "…"`,
 /// `"nbPendingTasks": 0` / `3`, `"pendingTask": true` / `false`,
 /// `"queryParameters": "…"`,
-/// `"acl": [`, `"validity": 0` / `3600`,
+/// `"acl": [`, `"validity": 0` / `3600` / `[`,
 /// `"maxHitsPerQuery": 0` / `100`,
 /// `"maxQueriesPerIPPerHour": 0` / `1000`,
 /// `"referers": [`, `"restrictIndices": [`, `"restrictSources": [`,
 /// `"createdAtTimestamp": 0` / `1700000000`,
 /// `"updatedAtTimestamp": 0` / `1700000000`,
-/// `"synonyms": true` / `false` / `[`.
+/// `"synonyms": true` / `false` / `[`,
+/// `"conditions": [`, `"consequence": {`,
+/// `"anchoring": "is"` / `"startsWith"` / `"endsWith"` / `"contains"`,
+/// `"filterPromotes": true` / `false`, `"promote": [`,
+/// `"alternatives": true` / `false`,
+/// `"corrections": [`, `"replacements": [`, `"placeholder": "…"`.
 /// Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing
 /// `:` stay out. Generic `"$schema"` / `"name"` / `"id"` / `"q"` / `"query"` /
 /// `"url"` / `"appId"` / `"apiKey"` / `"index"` / `"indexName"` / `"cache"` /
 /// `"enabled"` / `"proxy"` / `"timeout"` / `"retries"` / `"headers"` /
 /// `"order"` / `"values"` / `"words"` / `"filters"` / `"message"` /
-/// `"description"` / `"indexes"` /
+/// `"description"` / `"indexes"` / `"input"` / `"word"` /
 /// Algolia Insights `"authenticatedUserToken"` /
 /// `"userHasOptedOut"` / `"useCookie"` / `"anonymousUserToken"` /
 /// `"cookieDuration"` / `"eventSubtype"` / `"objectData"` / Algolia Recommend
@@ -40511,19 +40518,24 @@ fn algolia_insights_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool 
 /// `"alpha"` / `"hidden"`. `"attributeCriteriaComputedBy"` only matches
 /// `"minProximity"` / `"best"` / `"sum"`. `"matchLevel"` only matches
 /// `"none"` / `"partial"` / `"full"`. `"type"` only matches `"content"` /
-/// `"lvl0"`…`"lvl6"` / `"askAI"`. `"action"` only matches `"addObject"` /
+/// `"lvl0"`…`"lvl6"` / `"askAI"` / `"synonym"` / `"oneWaySynonym"` /
+/// `"altCorrection1"` / `"altCorrection2"` / `"placeholder"`.
+/// `"anchoring"` only matches `"is"` / `"startsWith"` / `"endsWith"` /
+/// `"contains"`. `"action"` only matches `"addObject"` /
 /// `"updateObject"` / `"partialUpdateObject"` /
 /// `"partialUpdateObjectNoCreate"` / `"deleteObject"` / `"delete"` /
 /// `"clear"`. `"aroundRadius"` accepts uint or `"all"`.
 /// `"typoTolerance"` accepts bool or `"min"` / `"strict"` / `"true"` /
 /// `"false"`. `"optionalWords"` accepts string or `[`.
 /// `"ignoreCanonicalTo"` / `"ignorePlurals"` / `"removeStopWords"` /
-/// `"synonyms"` accept bool or `[`. `"renderJavaScript"` accepts bool, `[`,
+/// `"synonyms"` accept bool or `[`. `"validity"` accepts uint or `[`.
+/// `"renderJavaScript"` accepts bool, `[`,
 /// or `{`.
 /// `"indexHeadings"` accepts bool or `{`. `"facets"` accepts `[` or `{`.
 /// `"lvl1"` / `"lvl2"` / `"lvl3"` / `"lvl4"` / `"lvl5"` / `"lvl6"` /
 /// `"content"` / `"reRankingApplyFilter"` / `"insideBoundingBox"` /
 /// `"insidePolygon"` / `"explain"` accept string or `[`.
+/// `"placeholder"` requires a non-empty quoted string.
 /// `"decompoundedAttributes"` / `"customNormalization"` /
 /// `"renderingContent"` / `"semanticSearch"` / `"userData"` /
 /// `"placeholders"` / `"neuralExpression"` / `"dynamicThreshold"` /
@@ -40532,7 +40544,7 @@ fn algolia_insights_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool 
 /// `"weight"` / `"_highlightResult"` / `"_snippetResult"` /
 /// `"_rankingInfo"` / `"matchedGeoLocation"` / `"personalization"` /
 /// `"exhaustive"` / `"processingTimingsMS"` / `"queryCategorization"` /
-/// `"autofiltering"` accept `{`.
+/// `"autofiltering"` / `"consequence"` accept `{`.
 /// `"eventSources"` / `"banners"` / `"hide"` / `"keywords"` / `"authors"` /
 /// `"hierarchy_camel"` / `"appliedRules"` / `"hierarchyPath"` /
 /// `"optionalFilters"` / `"matchedWords"` / `"ruleContexts"` /
@@ -40540,7 +40552,8 @@ fn algolia_insights_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool 
 /// `"tagFilters"` / `"naturalLanguages"` /
 /// `"restrictSearchableAttributes"` / `"objectIDs"` / `"requests"` /
 /// `"acl"` / `"referers"` / `"restrictIndices"` / `"restrictSources"` /
-/// `"synonyms"` accept `[`.
+/// `"synonyms"` / `"conditions"` / `"promote"` / `"corrections"` /
+/// `"replacements"` / `"validity"` accept `[`.
 fn is_algolia_crawler_json_decl(s: &str) -> bool {
     let s = s.trim_start();
     let Some(rest) = s.strip_prefix('"') else {
@@ -40846,6 +40859,15 @@ fn algolia_crawler_json_key_ok(key: &str) -> bool {
             | "restrictSources"
             | "createdAtTimestamp"
             | "updatedAtTimestamp"
+            | "conditions"
+            | "consequence"
+            | "anchoring"
+            | "filterPromotes"
+            | "promote"
+            | "alternatives"
+            | "corrections"
+            | "replacements"
+            | "placeholder"
     )
 }
 
@@ -40931,6 +40953,11 @@ fn algolia_crawler_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool 
                     | "restrictIndices"
                     | "restrictSources"
                     | "synonyms"
+                    | "conditions"
+                    | "promote"
+                    | "corrections"
+                    | "replacements"
+                    | "validity"
             ) {
                 return false;
             }
@@ -40987,6 +41014,7 @@ fn algolia_crawler_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool 
                     | "processingTimingsMS"
                     | "queryCategorization"
                     | "autofiltering"
+                    | "consequence"
             ) {
                 return false;
             }
@@ -41031,6 +41059,9 @@ fn algolia_crawler_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool 
             }
             if key == "type" {
                 return algolia_crawler_json_docsearch_type_and_tail_ok(after_colon);
+            }
+            if key == "anchoring" {
+                return algolia_crawler_json_anchoring_and_tail_ok(after_colon);
             }
             if key == "action" {
                 return algolia_crawler_json_batch_action_and_tail_ok(after_colon);
@@ -41111,6 +41142,7 @@ fn algolia_crawler_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool 
                     | "createdAt"
                     | "updatedAt"
                     | "queryParameters"
+                    | "placeholder"
             ) {
                 return false;
             }
@@ -41345,6 +41377,8 @@ fn algolia_crawler_json_bool_and_tail_ok(key: &str, after_colon: &str) -> bool {
             | "createIfNotExists"
             | "clearExistingIndexDocuments"
             | "pendingTask"
+            | "filterPromotes"
+            | "alternatives"
     ) {
         return false;
     }
@@ -41433,7 +41467,34 @@ fn algolia_crawler_json_docsearch_type_and_tail_ok(after_colon: &str) -> bool {
     };
     if !matches!(
         &rest[..end],
-        "content" | "lvl0" | "lvl1" | "lvl2" | "lvl3" | "lvl4" | "lvl5" | "lvl6" | "askAI"
+        "content"
+            | "lvl0"
+            | "lvl1"
+            | "lvl2"
+            | "lvl3"
+            | "lvl4"
+            | "lvl5"
+            | "lvl6"
+            | "askAI"
+            | "synonym"
+            | "oneWaySynonym"
+            | "altCorrection1"
+            | "altCorrection2"
+            | "placeholder"
+    ) {
+        return false;
+    }
+    package_json_tail_ok(&rest[end + 1..])
+}
+
+fn algolia_crawler_json_anchoring_and_tail_ok(after_colon: &str) -> bool {
+    let rest = &after_colon[1..];
+    let Some(end) = rest.find('"') else {
+        return false;
+    };
+    if !matches!(
+        &rest[..end],
+        "is" | "startsWith" | "endsWith" | "contains"
     ) {
         return false;
     }
