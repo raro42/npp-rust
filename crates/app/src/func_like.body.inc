@@ -40433,13 +40433,15 @@ fn algolia_insights_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool 
 /// `"conversionCount": 0` / `50`, `"searchCount": 0` / `1200`,
 /// `"eventsScoring": [`, `"facetsScoring": [`,
 /// `"noClickCount": 0` / `40`, `"noResultCount": 0` / `12`,
-/// `"usersCount": 0` / `500`, `"currencies": [`, `"countries": [`,
+/// `"usersCount": 0` / `500`, `"currencies": [` / `{`, `"countries": [`,
 /// `"devices": [`,
 /// `"clickThroughRate": 0` / `0.12` / `1`, `"conversionRate": 0` / `0.05` / `1`,
 /// `"averageClickPosition": 0` / `1` / `3.5`,
 /// `"addToCartCount": 0` / `80`, `"purchaseCount": 0` / `25`,
 /// `"addToCartRate": 0` / `0.08` / `1`, `"purchaseRate": 0` / `0.03` / `1`,
-/// `"dates": [`.
+/// `"dates": [`,
+/// `"clickPositions": [`, `"searches": [`,
+/// `"currency": "…"`, `"revenue": 0` / `999.98` / `1`.
 /// Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing
 /// `:` stay out. Generic `"$schema"` / `"name"` / `"id"` / `"q"` /
 /// string `"query"` /
@@ -40514,7 +40516,8 @@ fn algolia_insights_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool 
 /// `"runtime_mappings"` / prettier `"printWidth"` / karma `"basePath"`
 /// stay out. Bool keys only match `true` / `false`. Numeric keys reject
 /// leading zeros beyond `0`. `"clickThroughRate"` / `"conversionRate"` /
-/// `"averageClickPosition"` / `"addToCartRate"` / `"purchaseRate"` allow a
+/// `"averageClickPosition"` / `"addToCartRate"` / `"purchaseRate"` /
+/// `"revenue"` allow a
 /// simple decimal (no exponent). String
 /// `"schedule"` / `"indexPrefix"` /
 /// `"clientId"` / `"clientSecret"` / `"grantType"` / `"scope"` /
@@ -40538,7 +40541,7 @@ fn algolia_insights_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool 
 /// `"explain"` / `"facetQuery"` / `"cursor"` /
 /// `"createdAt"` / `"updatedAt"` / `"queryParameters"` /
 /// `"pattern"` / `"context"` / `"delete"` / `"insert"` / `"facetName"` /
-/// `"facetValue"` / `"facet"` / `"language"` / `"word"` require a
+/// `"facetValue"` / `"facet"` / `"language"` / `"word"` / `"currency"` require a
 /// non-empty quoted string.
 /// `"__type"` only matches `"function"`. `"queryType"` only matches
 /// `"prefixLast"` / `"prefixAll"` / `"prefixNone"`.
@@ -40597,8 +40600,8 @@ fn algolia_insights_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool 
 /// `"automaticFacetFilters"` / `"automaticOptionalFacetFilters"` /
 /// `"edits"` / `"remove"` / `"words"` / `"decomposition"` /
 /// `"eventsScoring"` / `"facetsScoring"` / `"currencies"` / `"countries"` /
-/// `"devices"` / `"dates"`
-/// accept `[`.
+/// `"devices"` / `"dates"` / `"clickPositions"` / `"searches"`
+/// accept `[`. `"currencies"` also accepts `{`.
 fn is_algolia_crawler_json_decl(s: &str) -> bool {
     let s = s.trim_start();
     let Some(rest) = s.strip_prefix('"') else {
@@ -40960,6 +40963,10 @@ fn algolia_crawler_json_key_ok(key: &str) -> bool {
             | "addToCartRate"
             | "purchaseRate"
             | "dates"
+            | "clickPositions"
+            | "searches"
+            | "currency"
+            | "revenue"
     )
 }
 
@@ -41063,6 +41070,8 @@ fn algolia_crawler_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool 
                     | "countries"
                     | "devices"
                     | "dates"
+                    | "clickPositions"
+                    | "searches"
             ) {
                 return false;
             }
@@ -41123,6 +41132,7 @@ fn algolia_crawler_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool 
                     | "condition"
                     | "params"
                     | "query"
+                    | "currencies"
             ) {
                 return false;
             }
@@ -41266,6 +41276,7 @@ fn algolia_crawler_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool 
                     | "facet"
                     | "language"
                     | "word"
+                    | "currency"
             ) {
                 return false;
             }
@@ -41280,6 +41291,7 @@ fn algolia_crawler_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool 
                     | "averageClickPosition"
                     | "addToCartRate"
                     | "purchaseRate"
+                    | "revenue"
             ) {
                 algolia_crawler_json_decimal_and_tail_ok(after_colon)
             } else {

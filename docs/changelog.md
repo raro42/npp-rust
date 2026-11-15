@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.901] — 2026-11-15
+
+View:
+
+- **Function List** lists more Algolia Analytics revenue / top-search JSON keys: `"clickPositions": [`, `"searches": [`, `"currency": "…"`, `"revenue": 0` / `999.98` / `1`, and `"currencies"` now also accepts `{` (still accepts `[`). Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing `:` stay out. Empty strings / plural/singular misspellings / `"clickPositions": {` / `"searches": {` / `"currency": ""` / `"currency": [` / `"revenue": 0999.98` / `"revenue": 999."` / `"revenue": .98` / `"revenues": 999.98` / `"clickPosition": [` / `"search": [` / `"currencies": "USD"` / generic `"description"` / `"indexes"` / `"input"` / `"filters"` / `"url"` / `"order"` / `"values"` / `"enabled"` / `"proxy"` / `"timeout"` / `"retries"` / `"headers"` / `"cache"` / `"message"` / string bools stay out. Existing Crawler / Rules / Synonym / Dictionary / Analytics count / rate / Personalization / API-key / geo / highlight / search response / write / batch keys unchanged. Algolia Insights / Recommend / neighbouring search JSON families stay out. Bool keys only match `true` / `false`. `"currency"` requires a non-empty quoted string. `"revenue"` allows a simple decimal (no exponent). Array keys accept `[`. `"currencies"` accepts `[` or `{`.
+
 ## [0.3.900] — 2026-11-15
 
 View:

@@ -1,3 +1,5 @@
+009 keep: Function List Algolia Analytics clickPositions/searches/currency/revenue + currencies object (v0.3.901)
+
 009 keep: Function List Algolia geo/request aroundLatLngViaIP/aroundRadius/aroundPrecision/minimumAroundRadius/insideBoundingBox/insidePolygon/restrictSearchableAttributes/facetingAfterDistinct/synonyms/explain (v0.3.888)
 
 009 keep: Function List Algolia search response nbSortedHits/processingTimingsMS/queryCategorization/autofiltering/facetsCount/facetValues/rulesMatch/promotedByReRanking/normalizedQuery/filtersScore/rankingScore/hierarchyPath/optionalFilters (v0.3.886)
