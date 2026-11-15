@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.877] — 2026-11-15
+
+View:
+
+- **Function List** lists more Algolia Crawler JSON keys: `"mode": "neuralSearch"` / `"keywordSearch"`, `"semanticSearch": {`, `"reRankingApplyFilter": "…"` / `[`, `"userData": {`, `"placeholders": {`, `"primary": "…"`. Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing `:` stay out. Empty strings / plural/singular misspellings / `"mode": "semantic"` / generic `"url"` / `"enabled"` / `"proxy"` / `"timeout"` / `"retries"` / `"headers"` / `"cache"` / string bools stay out. Existing Crawler keys unchanged. Algolia Insights / Recommend / neighbouring search JSON families stay out. Bool keys only match `true` / `false`. Numeric keys reject leading zeros beyond `0`. `"mode"` only matches its Algolia enums. `"reRankingApplyFilter"` / `"primary"` require a non-empty quoted string (or `[` for the filter). Object keys accept `{`.
+
 ## [0.3.876] — 2026-11-15
 
 View:

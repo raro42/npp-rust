@@ -71388,9 +71388,10 @@ fn searchkit_json_string_and_tail_ok(key: &str, after_colon: &str) -> bool {
 /// `"customNormalization"` / `"keepDiacriticsOnCharacters"` /
 /// `"queryLanguages"` / `"replaceSynonymsInHighlight"` / `"maxFacetHits"` /
 /// `"attributeCriteriaComputedByMinProximity"` / `"relevancyStrictness"` /
-/// `"renderingContent"` / `"decompoundQuery"` / prettier `"printWidth"` /
-/// karma `"basePath"` stay out. Enum `"model"` only matches Recommend model
-/// ids. Numeric keys reject leading zeros beyond `0`.
+/// `"renderingContent"` / `"decompoundQuery"` / `"mode"` / `"semanticSearch"` /
+/// `"reRankingApplyFilter"` / `"userData"` / `"placeholders"` / `"primary"` /
+/// prettier `"printWidth"` / karma `"basePath"` stay out. Enum `"model"` only
+/// matches Recommend model ids. Numeric keys reject leading zeros beyond `0`.
 fn is_algolia_recommend_json_decl(s: &str) -> bool {
     let s = s.trim_start();
     let Some(rest) = s.strip_prefix('"') else {
@@ -71615,11 +71616,12 @@ fn algolia_recommend_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool
 /// `"customNormalization"` / `"keepDiacriticsOnCharacters"` /
 /// `"queryLanguages"` / `"replaceSynonymsInHighlight"` / `"maxFacetHits"` /
 /// `"attributeCriteriaComputedByMinProximity"` / `"relevancyStrictness"` /
-/// `"renderingContent"` / `"decompoundQuery"` / prettier `"printWidth"` /
-/// karma `"basePath"` stay out. Enum `"eventSubtype"` only matches Insights
-/// conversion subtypes. Bool keys only match `true` / `false`. Numeric keys
-/// reject leading zeros beyond `0`. String keys require a non-empty quoted
-/// string.
+/// `"renderingContent"` / `"decompoundQuery"` / `"mode"` / `"semanticSearch"` /
+/// `"reRankingApplyFilter"` / `"userData"` / `"placeholders"` / `"primary"` /
+/// prettier `"printWidth"` / karma `"basePath"` stay out. Enum `"eventSubtype"`
+/// only matches Insights conversion subtypes. Bool keys only match `true` /
+/// `false`. Numeric keys reject leading zeros beyond `0`. String keys require
+/// a non-empty quoted string.
 fn is_algolia_insights_json_decl(s: &str) -> bool {
     let s = s.trim_start();
     let Some(rest) = s.strip_prefix('"') else {
@@ -71803,7 +71805,10 @@ fn algolia_insights_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool 
 /// `"replaceSynonymsInHighlight": true` / `false`, `"maxFacetHits": 10`,
 /// `"attributeCriteriaComputedByMinProximity": true` / `false`,
 /// `"relevancyStrictness": 90`, `"renderingContent": {`,
-/// `"decompoundQuery": true` / `false`.
+/// `"decompoundQuery": true` / `false`,
+/// `"mode": "neuralSearch"` / `"keywordSearch"`, `"semanticSearch": {`,
+/// `"reRankingApplyFilter": "…"` / `[`, `"userData": {`,
+/// `"placeholders": {`, `"primary": "…"`.
 /// Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing
 /// `:` stay out. Generic `"$schema"` / `"name"` / `"id"` / `"q"` / `"query"` /
 /// `"url"` / `"appId"` / `"apiKey"` / `"index"` / `"indexName"` / `"cache"` /
@@ -71883,19 +71888,23 @@ fn algolia_insights_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool 
 /// `"lvl6"` / `"content"` / `"languageClassPrefix"` /
 /// `"attributeForDistinct"` / `"snippetEllipsisText"` /
 /// `"highlightPostTag"` / `"highlightPreTag"` / `"sortFacetValuesBy"` /
-/// `"separatorsToIndex"` / `"keepDiacriticsOnCharacters"` require a non-empty
-/// quoted string. `"__type"` only matches `"function"`. `"queryType"` only
-/// matches `"prefixLast"` / `"prefixAll"` / `"prefixNone"`.
+/// `"separatorsToIndex"` / `"keepDiacriticsOnCharacters"` /
+/// `"reRankingApplyFilter"` / `"primary"` require a non-empty quoted string.
+/// `"__type"` only matches `"function"`. `"queryType"` only matches
+/// `"prefixLast"` / `"prefixAll"` / `"prefixNone"`.
 /// `"removeWordsIfNoResults"` only matches `"none"` / `"lastWords"` /
 /// `"firstWords"` / `"allOptional"`. `"exactOnSingleWordQuery"` only matches
-/// `"attribute"` / `"none"` / `"word"`. `"typoTolerance"` accepts bool or
+/// `"attribute"` / `"none"` / `"word"`. `"mode"` only matches
+/// `"neuralSearch"` / `"keywordSearch"`. `"typoTolerance"` accepts bool or
 /// `"min"` / `"strict"` / `"true"` / `"false"`. `"optionalWords"` accepts
 /// string or `[`. `"ignoreCanonicalTo"` / `"ignorePlurals"` /
 /// `"removeStopWords"` accept bool or `[`. `"renderJavaScript"` accepts bool,
 /// `[`, or `{`. `"indexHeadings"` accepts bool or `{`. `"lvl1"` / `"lvl2"` /
-/// `"lvl3"` / `"lvl4"` / `"lvl5"` / `"lvl6"` / `"content"` accept string or
-/// `[`. `"decompoundedAttributes"` / `"customNormalization"` /
-/// `"renderingContent"` accept `{`.
+/// `"lvl3"` / `"lvl4"` / `"lvl5"` / `"lvl6"` / `"content"` /
+/// `"reRankingApplyFilter"` accept string or `[`.
+/// `"decompoundedAttributes"` / `"customNormalization"` /
+/// `"renderingContent"` / `"semanticSearch"` / `"userData"` /
+/// `"placeholders"` accept `{`.
 fn is_algolia_crawler_json_decl(s: &str) -> bool {
     let s = s.trim_start();
     let Some(rest) = s.strip_prefix('"') else {
@@ -72051,6 +72060,12 @@ fn algolia_crawler_json_key_ok(key: &str) -> bool {
             | "relevancyStrictness"
             | "renderingContent"
             | "decompoundQuery"
+            | "mode"
+            | "semanticSearch"
+            | "reRankingApplyFilter"
+            | "userData"
+            | "placeholders"
+            | "primary"
     )
 }
 
@@ -72107,6 +72122,7 @@ fn algolia_crawler_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool 
                     | "indexLanguages"
                     | "numericAttributesForFiltering"
                     | "queryLanguages"
+                    | "reRankingApplyFilter"
             ) {
                 return false;
             }
@@ -72139,6 +72155,9 @@ fn algolia_crawler_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool 
                     | "decompoundedAttributes"
                     | "customNormalization"
                     | "renderingContent"
+                    | "semanticSearch"
+                    | "userData"
+                    | "placeholders"
             ) {
                 return false;
             }
@@ -72159,6 +72178,9 @@ fn algolia_crawler_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool 
             }
             if key == "exactOnSingleWordQuery" {
                 return algolia_crawler_json_exact_on_single_word_and_tail_ok(after_colon);
+            }
+            if key == "mode" {
+                return algolia_crawler_json_mode_and_tail_ok(after_colon);
             }
             if !matches!(
                 key,
@@ -72197,6 +72219,8 @@ fn algolia_crawler_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool 
                     | "optionalWords"
                     | "separatorsToIndex"
                     | "keepDiacriticsOnCharacters"
+                    | "reRankingApplyFilter"
+                    | "primary"
             ) {
                 return false;
             }
@@ -72261,6 +72285,17 @@ fn algolia_crawler_json_exact_on_single_word_and_tail_ok(after_colon: &str) -> b
         return false;
     };
     if !matches!(&rest[..end], "attribute" | "none" | "word") {
+        return false;
+    }
+    package_json_tail_ok(&rest[end + 1..])
+}
+
+fn algolia_crawler_json_mode_and_tail_ok(after_colon: &str) -> bool {
+    let rest = &after_colon[1..];
+    let Some(end) = rest.find('"') else {
+        return false;
+    };
+    if !matches!(&rest[..end], "neuralSearch" | "keywordSearch") {
         return false;
     }
     package_json_tail_ok(&rest[end + 1..])
@@ -151373,6 +151408,14 @@ mod func_like_line_tests {
         assert!(is_algolia_crawler_json_decl(r#""relevancyStrictness": 90"#));
         assert!(is_algolia_crawler_json_decl(r#""renderingContent": {"#));
         assert!(is_algolia_crawler_json_decl(r#""decompoundQuery": true"#));
+        assert!(is_algolia_crawler_json_decl(r#""mode": "neuralSearch""#));
+        assert!(is_algolia_crawler_json_decl(r#""semanticSearch": {"#));
+        assert!(is_algolia_crawler_json_decl(
+            r#""reRankingApplyFilter": "category:electronics""#
+        ));
+        assert!(is_algolia_crawler_json_decl(r#""userData": {"#));
+        assert!(is_algolia_crawler_json_decl(r#""placeholders": {"#));
+        assert!(is_algolia_crawler_json_decl(r#""primary": "products""#));
         assert!(!is_algolia_crawler_json_decl(
             r#""authenticatedUserToken": "user-1""#
         ));
@@ -153233,6 +153276,87 @@ mod func_like_line_tests {
         assert!(!is_algolia_recommend_json_decl(
             r#""decompoundQuery": false"#
         ));
+        assert!(is_algolia_crawler_json_decl(r#""mode": "neuralSearch""#));
+        assert!(is_algolia_crawler_json_decl(r#""mode": "keywordSearch""#));
+        assert!(is_algolia_crawler_json_decl(r#""mode": "neuralSearch","#));
+        assert!(is_algolia_crawler_json_decl(
+            r#""mode": "keywordSearch" // c"#
+        ));
+        assert!(!is_algolia_crawler_json_decl(r#""mode": "semantic""#));
+        assert!(!is_algolia_crawler_json_decl(r#""mode": """#));
+        assert!(!is_algolia_crawler_json_decl(r#""mode": true"#));
+        assert!(!is_algolia_crawler_json_decl(r#""modes": "neuralSearch""#));
+        assert!(!is_algolia_insights_json_decl(r#""mode": "neuralSearch""#));
+        assert!(!is_algolia_recommend_json_decl(r#""mode": "neuralSearch""#));
+        assert!(is_algolia_crawler_json_decl(r#""semanticSearch": {"#));
+        assert!(is_algolia_crawler_json_decl(r#""semanticSearch": {,"#));
+        assert!(is_algolia_crawler_json_decl(r#""semanticSearch": { // c"#));
+        assert!(!is_algolia_crawler_json_decl(r#""semanticSearch": true"#));
+        assert!(!is_algolia_crawler_json_decl(r#""semanticSearch": ["#));
+        assert!(!is_algolia_crawler_json_decl(r#""semanticSearches": {"#));
+        assert!(!is_algolia_insights_json_decl(r#""semanticSearch": {"#));
+        assert!(!is_algolia_recommend_json_decl(r#""semanticSearch": {"#));
+        assert!(is_algolia_crawler_json_decl(
+            r#""reRankingApplyFilter": "category:electronics""#
+        ));
+        assert!(is_algolia_crawler_json_decl(
+            r#""reRankingApplyFilter": "category:electronics","#
+        ));
+        assert!(is_algolia_crawler_json_decl(
+            r#""reRankingApplyFilter": "category:electronics" // c"#
+        ));
+        assert!(is_algolia_crawler_json_decl(r#""reRankingApplyFilter": ["#));
+        assert!(is_algolia_crawler_json_decl(
+            r#""reRankingApplyFilter": [,"#
+        ));
+        assert!(is_algolia_crawler_json_decl(
+            r#""reRankingApplyFilter": [ // c"#
+        ));
+        assert!(!is_algolia_crawler_json_decl(
+            r#""reRankingApplyFilter": """#
+        ));
+        assert!(!is_algolia_crawler_json_decl(
+            r#""reRankingApplyFilter": true"#
+        ));
+        assert!(!is_algolia_crawler_json_decl(
+            r#""reRankingApplyFilter": {"#
+        ));
+        assert!(!is_algolia_crawler_json_decl(
+            r#""reRankingApplyFilters": "category:electronics""#
+        ));
+        assert!(!is_algolia_insights_json_decl(
+            r#""reRankingApplyFilter": "category:electronics""#
+        ));
+        assert!(!is_algolia_recommend_json_decl(
+            r#""reRankingApplyFilter": "category:electronics""#
+        ));
+        assert!(is_algolia_crawler_json_decl(r#""userData": {"#));
+        assert!(is_algolia_crawler_json_decl(r#""userData": {,"#));
+        assert!(is_algolia_crawler_json_decl(r#""userData": { // c"#));
+        assert!(!is_algolia_crawler_json_decl(r#""userData": true"#));
+        assert!(!is_algolia_crawler_json_decl(r#""userData": ["#));
+        assert!(!is_algolia_crawler_json_decl(r#""userDatas": {"#));
+        assert!(!is_algolia_insights_json_decl(r#""userData": {"#));
+        assert!(!is_algolia_recommend_json_decl(r#""userData": {"#));
+        assert!(is_algolia_crawler_json_decl(r#""placeholders": {"#));
+        assert!(is_algolia_crawler_json_decl(r#""placeholders": {,"#));
+        assert!(is_algolia_crawler_json_decl(r#""placeholders": { // c"#));
+        assert!(!is_algolia_crawler_json_decl(r#""placeholders": true"#));
+        assert!(!is_algolia_crawler_json_decl(r#""placeholders": ["#));
+        assert!(!is_algolia_crawler_json_decl(r#""placeholder": {"#));
+        assert!(!is_algolia_insights_json_decl(r#""placeholders": {"#));
+        assert!(!is_algolia_recommend_json_decl(r#""placeholders": {"#));
+        assert!(is_algolia_crawler_json_decl(r#""primary": "products""#));
+        assert!(is_algolia_crawler_json_decl(r#""primary": "products","#));
+        assert!(is_algolia_crawler_json_decl(
+            r#""primary": "products" // c"#
+        ));
+        assert!(!is_algolia_crawler_json_decl(r#""primary": """#));
+        assert!(!is_algolia_crawler_json_decl(r#""primary": true"#));
+        assert!(!is_algolia_crawler_json_decl(r#""primary": ["#));
+        assert!(!is_algolia_crawler_json_decl(r#""primaries": "products""#));
+        assert!(!is_algolia_insights_json_decl(r#""primary": "products""#));
+        assert!(!is_algolia_recommend_json_decl(r#""primary": "products""#));
         assert!(!is_algolia_crawler_json_decl(r#""startUrls""#));
         assert!(!is_algolia_crawler_json_decl(r#""schedule""#));
         assert!(!is_algolia_crawler_json_decl(r#""actions""#));
