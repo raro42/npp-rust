@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.897] — 2026-11-15
+
+View:
+
+- **Function List** lists more Algolia Analytics / Personalization JSON keys: `"trackedSearchCount": 0` / `1000`, `"clickCount": 0` / `150`, `"conversionCount": 0` / `50`, `"searchCount": 0` / `1200`, `"eventsScoring": [`, `"facetsScoring": [`. Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing `:` stay out. Empty strings / plural/singular misspellings / `"trackedSearchCount": 01000` / `"clickCount": 0150` / `"conversionCount": 050` / `"searchCount": 01200` / `"eventsScoring": {` / `"facetsScoring": {` / `"eventsScoring": true` / `"facetsScoring": true` / generic `"description"` / `"indexes"` / `"input"` / `"filters"` / `"url"` / `"order"` / `"values"` / `"enabled"` / `"proxy"` / `"timeout"` / `"retries"` / `"headers"` / `"cache"` / `"message"` / string bools stay out. Existing Crawler / Rules / Synonym / Dictionary / API-key / geo / highlight / search response / write / batch keys unchanged. Algolia Insights / Recommend / neighbouring search JSON families stay out. Bool keys only match `true` / `false`. Numeric keys reject leading zeros beyond `0`. Array keys accept `[`.
+
 ## [0.3.896] — 2026-11-15
 
 View:

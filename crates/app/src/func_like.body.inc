@@ -40428,7 +40428,10 @@ fn algolia_insights_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool 
 /// `"state": "enabled"` / `"disabled"`,
 /// `"dictionary": "plurals"` / `"stopwords"` / `"compounds"`,
 /// `"nbPages": 0` / `1`,
-/// `"type"` also `"custom"` / `"standard"`.
+/// `"type"` also `"custom"` / `"standard"`,
+/// `"trackedSearchCount": 0` / `1000`, `"clickCount": 0` / `150`,
+/// `"conversionCount": 0` / `50`, `"searchCount": 0` / `1200`,
+/// `"eventsScoring": [`, `"facetsScoring": [`.
 /// Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing
 /// `:` stay out. Generic `"$schema"` / `"name"` / `"id"` / `"q"` /
 /// string `"query"` /
@@ -40581,7 +40584,8 @@ fn algolia_insights_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool 
 /// `"synonyms"` / `"conditions"` / `"promote"` / `"corrections"` /
 /// `"replacements"` / `"validity"` / `"tags"` /
 /// `"automaticFacetFilters"` / `"automaticOptionalFacetFilters"` /
-/// `"edits"` / `"remove"` / `"words"` / `"decomposition"`
+/// `"edits"` / `"remove"` / `"words"` / `"decomposition"` /
+/// `"eventsScoring"` / `"facetsScoring"`
 /// accept `[`.
 fn is_algolia_crawler_json_decl(s: &str) -> bool {
     let s = s.trim_start();
@@ -40924,6 +40928,12 @@ fn algolia_crawler_json_key_ok(key: &str) -> bool {
             | "state"
             | "dictionary"
             | "nbPages"
+            | "trackedSearchCount"
+            | "clickCount"
+            | "conversionCount"
+            | "searchCount"
+            | "eventsScoring"
+            | "facetsScoring"
     )
 }
 
@@ -41021,6 +41031,8 @@ fn algolia_crawler_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool 
                     | "remove"
                     | "words"
                     | "decomposition"
+                    | "eventsScoring"
+                    | "facetsScoring"
             ) {
                 return false;
             }
@@ -41527,6 +41539,10 @@ fn algolia_crawler_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool {
             | "from"
             | "until"
             | "nbPages"
+            | "trackedSearchCount"
+            | "clickCount"
+            | "conversionCount"
+            | "searchCount"
     ) {
         return false;
     }
