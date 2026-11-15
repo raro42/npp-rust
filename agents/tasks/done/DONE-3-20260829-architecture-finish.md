@@ -13,4 +13,8 @@ Ship remaining high-priority items from the architecture review that are not own
 ## Handoff
 
 - Status: complete (v0.3.0)
-- Handoff: complete
+- Shipped with v0.3.0 architecture/stability batch (already in docs/changelog.md).
+- Issue #3 already closed with agent:done.
+
+Handoff: complete
+GitHub: closed
