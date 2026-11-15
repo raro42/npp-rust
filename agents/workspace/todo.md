@@ -1430,3 +1430,5 @@
 009 keep: Function List Algolia Crawler separatorsToIndex/ignorePlurals/removeStopWords/disablePrefixOnAttributes/disableExactOnAttributes/alternativesAsExact/camelCaseAttributes (v0.3.874)
 
 009 keep: Function List Algolia Crawler eventSources/neuralSearchMode/vectorModelId/neuralSearchPreset/enableNeuralSearchSortBy/usePositionalSemanticRanking/minHitsForSemantic/neuralExpression/dynamicThreshold (v0.3.878)
+
+009 keep: Function List Algolia _rankingInfo nbTypos/firstMatchedWord/proximityDistance/userScore/nbExactWords/geoDistance/geoPrecision/matchedGeoLocation/serverUsed/parsedQuery/timeoutCounts/timeoutHits (v0.3.884)
