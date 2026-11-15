@@ -1432,3 +1432,5 @@
 009 keep: Function List Algolia Crawler eventSources/neuralSearchMode/vectorModelId/neuralSearchPreset/enableNeuralSearchSortBy/usePositionalSemanticRanking/minHitsForSemantic/neuralExpression/dynamicThreshold (v0.3.878)
 
 009 keep: Function List Algolia _rankingInfo nbTypos/firstMatchedWord/proximityDistance/userScore/nbExactWords/geoDistance/geoPrecision/matchedGeoLocation/serverUsed/parsedQuery/timeoutCounts/timeoutHits (v0.3.884)
+
+009 keep: Function List Algolia search response promoted/personalization/exhaustive*/queryID/queryAfterRemoval/appliedRules/appliedRelevancyStrictness/automaticRadius/aroundLatLng/abTestID/abTestVariantID/indexUsed/_automaticInsights (v0.3.885)
