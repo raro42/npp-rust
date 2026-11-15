@@ -1458,3 +1458,5 @@
 009 keep: Function List Algolia Dictionary language/word/words/decomposition/state/dictionary/nbPages/type custom|standard (v0.3.896)
 
 009 keep: Function List Algolia Analytics/Personalization trackedSearchCount/clickCount/conversionCount/searchCount/eventsScoring/facetsScoring (v0.3.897)
+
+009 keep: Function List Algolia Analytics noClickCount/noResultCount/usersCount/currencies/countries/devices (v0.3.898)

@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.898] — 2026-11-15
+
+View:
+
+- **Function List** lists more Algolia Analytics JSON keys: `"noClickCount": 0` / `40`, `"noResultCount": 0` / `12`, `"usersCount": 0` / `500`, `"currencies": [`, `"countries": [`, `"devices": [`. Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing `:` stay out. Empty strings / plural/singular misspellings / `"noClickCount": 040` / `"noResultCount": 012` / `"usersCount": 0500` / `"currencies": {` / `"countries": {` / `"devices": {` / `"currencies": true` / `"countries": true` / `"devices": true` / `"noClickCounts": 40` / `"noResultCounts": 12` / `"userCount": 500` / `"currency": [` / `"country": [` / `"device": [` / generic `"description"` / `"indexes"` / `"input"` / `"filters"` / `"url"` / `"order"` / `"values"` / `"enabled"` / `"proxy"` / `"timeout"` / `"retries"` / `"headers"` / `"cache"` / `"message"` / string bools stay out. Existing Crawler / Rules / Synonym / Dictionary / Analytics count / Personalization / API-key / geo / highlight / search response / write / batch keys unchanged. Algolia Insights / Recommend / neighbouring search JSON families stay out. Bool keys only match `true` / `false`. Numeric keys reject leading zeros beyond `0`. Array keys accept `[`.
+
 ## [0.3.897] — 2026-11-15
 
 View:

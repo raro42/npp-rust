@@ -40431,7 +40431,10 @@ fn algolia_insights_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool 
 /// `"type"` also `"custom"` / `"standard"`,
 /// `"trackedSearchCount": 0` / `1000`, `"clickCount": 0` / `150`,
 /// `"conversionCount": 0` / `50`, `"searchCount": 0` / `1200`,
-/// `"eventsScoring": [`, `"facetsScoring": [`.
+/// `"eventsScoring": [`, `"facetsScoring": [`,
+/// `"noClickCount": 0` / `40`, `"noResultCount": 0` / `12`,
+/// `"usersCount": 0` / `500`, `"currencies": [`, `"countries": [`,
+/// `"devices": [`.
 /// Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing
 /// `:` stay out. Generic `"$schema"` / `"name"` / `"id"` / `"q"` /
 /// string `"query"` /
@@ -40585,7 +40588,8 @@ fn algolia_insights_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool 
 /// `"replacements"` / `"validity"` / `"tags"` /
 /// `"automaticFacetFilters"` / `"automaticOptionalFacetFilters"` /
 /// `"edits"` / `"remove"` / `"words"` / `"decomposition"` /
-/// `"eventsScoring"` / `"facetsScoring"`
+/// `"eventsScoring"` / `"facetsScoring"` / `"currencies"` / `"countries"` /
+/// `"devices"`
 /// accept `[`.
 fn is_algolia_crawler_json_decl(s: &str) -> bool {
     let s = s.trim_start();
@@ -40934,6 +40938,12 @@ fn algolia_crawler_json_key_ok(key: &str) -> bool {
             | "searchCount"
             | "eventsScoring"
             | "facetsScoring"
+            | "noClickCount"
+            | "noResultCount"
+            | "usersCount"
+            | "currencies"
+            | "countries"
+            | "devices"
     )
 }
 
@@ -41033,6 +41043,9 @@ fn algolia_crawler_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool 
                     | "decomposition"
                     | "eventsScoring"
                     | "facetsScoring"
+                    | "currencies"
+                    | "countries"
+                    | "devices"
             ) {
                 return false;
             }
@@ -41543,6 +41556,9 @@ fn algolia_crawler_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool {
             | "clickCount"
             | "conversionCount"
             | "searchCount"
+            | "noClickCount"
+            | "noResultCount"
+            | "usersCount"
     ) {
         return false;
     }
