@@ -1,3 +1,5 @@
+009 keep: Function List Algolia Crawler facetOrdering/sortRemainingBy/widgets/banners/selectors/defaultValue (v0.3.879)
+
 009 keep: Function List Algolia Crawler mode/semanticSearch/reRankingApplyFilter/userData/placeholders/primary (v0.3.877)
 
 009 keep: Function List Algolia Crawler queryLanguages/replaceSynonymsInHighlight/maxFacetHits/attributeCriteriaComputedByMinProximity/relevancyStrictness/renderingContent/decompoundQuery (v0.3.876)
