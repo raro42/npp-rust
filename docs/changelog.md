@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.887] — 2026-11-15
+
+View:
+
+- **Function List** lists more Algolia Search / DocSearch highlight + request JSON keys: `"matchLevel": "none"` / `"partial"` / `"full"`, `"matchedWords": [`, `"fullyHighlighted": true` / `false`, `"nbHits": 0` / `42`, `"sumOrFiltersScores": true` / `false`, `"enableABTest": true` / `false`, `"ruleContexts": [`, `"analyticsTags": [`, `"personalizationImpact": 0` / `100`, `"similarQuery": "…"`, `"facetFilters": [`, `"numericFilters": [`, `"tagFilters": [`, `"naturalLanguages": [`, `"percentileComputation": true` / `false`, `"analytics": true` / `false`. Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing `:` stay out. Empty strings / plural/singular misspellings / `"nbHits": 042` / `"personalizationImpact": 0100` / `"matchLevel": "exact"` / generic `"url"` / `"order"` / `"values"` / `"enabled"` / `"proxy"` / `"timeout"` / `"retries"` / `"headers"` / `"cache"` / `"words"` / `"filters"` / `"message"` / string bools stay out. Existing Crawler / `_rankingInfo` / search response keys unchanged. Algolia Insights / Recommend / neighbouring search JSON families stay out. Bool keys only match `true` / `false`. Numeric keys reject leading zeros beyond `0`. `"similarQuery"` requires a non-empty quoted string. `"matchLevel"` only matches its Algolia enums. Array keys accept `[`.
+
 ## [0.3.886] — 2026-11-15
 
 View:

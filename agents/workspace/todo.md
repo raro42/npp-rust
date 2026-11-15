@@ -1436,3 +1436,5 @@
 009 keep: Function List Algolia _rankingInfo nbTypos/firstMatchedWord/proximityDistance/userScore/nbExactWords/geoDistance/geoPrecision/matchedGeoLocation/serverUsed/parsedQuery/timeoutCounts/timeoutHits (v0.3.884)
 
 009 keep: Function List Algolia search response promoted/personalization/exhaustive*/queryID/queryAfterRemoval/appliedRules/appliedRelevancyStrictness/automaticRadius/aroundLatLng/abTestID/abTestVariantID/indexUsed/_automaticInsights (v0.3.885)
+
+009 keep: Function List Algolia matchLevel/matchedWords/fullyHighlighted/nbHits/sumOrFiltersScores/enableABTest/ruleContexts/analyticsTags/personalizationImpact/similarQuery/facetFilters/numericFilters/tagFilters/naturalLanguages/percentileComputation/analytics (v0.3.887)
