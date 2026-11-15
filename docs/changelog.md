@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.880] — 2026-11-15
+
+View:
+
+- **Function List** lists more Algolia Crawler JSON keys: `"facets": [` / `{`, `"hide": [`, `"redirect": {`, `"dataSources": {`, `"helpers": {`, `"contentLength": 0` / `4096`, `"codeUrl": "…"`, `"datePublished": "…"`. Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing `:` stay out. Empty strings / plural/singular misspellings / `"hide": true` / generic `"url"` / `"order"` / `"values"` / `"enabled"` / `"proxy"` / `"timeout"` / `"retries"` / `"headers"` / `"cache"` / string bools stay out. Existing Crawler keys unchanged. Algolia Insights / Recommend / neighbouring search JSON families stay out. Bool keys only match `true` / `false`. Numeric keys reject leading zeros beyond `0`. `"codeUrl"` / `"datePublished"` require a non-empty quoted string. Object keys accept `{`. Array keys accept `[`. `"facets"` accepts `[` or `{`.
+
 ## [0.3.879] — 2026-11-15
 
 View:

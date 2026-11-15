@@ -71825,18 +71825,21 @@ fn algolia_insights_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool 
 /// `"minHitsForSemantic": 0` / `10`, `"neuralExpression": {`,
 /// `"dynamicThreshold": {`, `"facetOrdering": {`,
 /// `"sortRemainingBy": "count"` / `"alpha"` / `"hidden"`, `"widgets": {`,
-/// `"banners": [`, `"selectors": "…"`, `"defaultValue": "…"`.
+/// `"banners": [`, `"selectors": "…"`, `"defaultValue": "…"`,
+/// `"facets": [` / `{`, `"hide": [`, `"redirect": {`, `"dataSources": {`,
+/// `"helpers": {`, `"contentLength": 0` / `4096`, `"codeUrl": "…"`,
+/// `"datePublished": "…"`.
 /// Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing
 /// `:` stay out. Generic `"$schema"` / `"name"` / `"id"` / `"q"` / `"query"` /
 /// `"url"` / `"appId"` / `"apiKey"` / `"index"` / `"indexName"` / `"cache"` /
 /// `"enabled"` / `"proxy"` / `"timeout"` / `"retries"` / `"headers"` /
-/// Algolia Insights `"authenticatedUserToken"` / `"userHasOptedOut"` /
-/// `"useCookie"` / `"anonymousUserToken"` / `"cookieDuration"` /
-/// `"eventSubtype"` / `"objectData"` / Algolia Recommend `"maxRecommendations"` /
-/// `"fallbackParameters"` / `"frequentlyBoughtTogether"` /
-/// `"relatedProducts"` / `"trendingItems"` / `"lookingSimilar"` /
-/// `"trendingFacets"` / `"model"` / Searchkit `"search_settings"` /
-/// `"search_attributes"` / `"result_attributes"` /
+/// `"order"` / `"values"` / Algolia Insights `"authenticatedUserToken"` /
+/// `"userHasOptedOut"` / `"useCookie"` / `"anonymousUserToken"` /
+/// `"cookieDuration"` / `"eventSubtype"` / `"objectData"` / Algolia Recommend
+/// `"maxRecommendations"` / `"fallbackParameters"` /
+/// `"frequentlyBoughtTogether"` / `"relatedProducts"` / `"trendingItems"` /
+/// `"lookingSimilar"` / `"trendingFacets"` / `"model"` / Searchkit
+/// `"search_settings"` / `"search_attributes"` / `"result_attributes"` /
 /// `"highlight_attributes"` / `"snippet_attributes"` /
 /// `"facet_attributes"` / `"filter_attributes"` / `"query_rules"` /
 /// `"geo_attribute"` / `"fuzziness"` / Instant Meilisearch
@@ -71907,7 +71910,8 @@ fn algolia_insights_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool 
 /// `"highlightPostTag"` / `"highlightPreTag"` / `"sortFacetValuesBy"` /
 /// `"separatorsToIndex"` / `"keepDiacriticsOnCharacters"` /
 /// `"reRankingApplyFilter"` / `"primary"` / `"vectorModelId"` /
-/// `"selectors"` / `"defaultValue"` require a non-empty quoted string.
+/// `"selectors"` / `"defaultValue"` / `"codeUrl"` / `"datePublished"`
+/// require a non-empty quoted string.
 /// `"__type"` only matches `"function"`. `"queryType"` only matches
 /// `"prefixLast"` / `"prefixAll"` / `"prefixNone"`.
 /// `"removeWordsIfNoResults"` only matches `"none"` / `"lastWords"` /
@@ -71921,14 +71925,15 @@ fn algolia_insights_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool 
 /// `"min"` / `"strict"` / `"true"` / `"false"`. `"optionalWords"` accepts
 /// string or `[`. `"ignoreCanonicalTo"` / `"ignorePlurals"` /
 /// `"removeStopWords"` accept bool or `[`. `"renderJavaScript"` accepts bool,
-/// `[`, or `{`. `"indexHeadings"` accepts bool or `{`. `"lvl1"` / `"lvl2"` /
-/// `"lvl3"` / `"lvl4"` / `"lvl5"` / `"lvl6"` / `"content"` /
-/// `"reRankingApplyFilter"` accept string or `[`.
+/// `[`, or `{`. `"indexHeadings"` accepts bool or `{`. `"facets"` accepts
+/// `[` or `{`. `"lvl1"` / `"lvl2"` / `"lvl3"` / `"lvl4"` / `"lvl5"` /
+/// `"lvl6"` / `"content"` / `"reRankingApplyFilter"` accept string or `[`.
 /// `"decompoundedAttributes"` / `"customNormalization"` /
 /// `"renderingContent"` / `"semanticSearch"` / `"userData"` /
 /// `"placeholders"` / `"neuralExpression"` / `"dynamicThreshold"` /
-/// `"facetOrdering"` / `"widgets"` accept `{`.
-/// `"eventSources"` / `"banners"` accept `[`.
+/// `"facetOrdering"` / `"widgets"` / `"redirect"` / `"dataSources"` /
+/// `"helpers"` accept `{`.
+/// `"eventSources"` / `"banners"` / `"hide"` accept `[`.
 fn is_algolia_crawler_json_decl(s: &str) -> bool {
     let s = s.trim_start();
     let Some(rest) = s.strip_prefix('"') else {
@@ -72105,6 +72110,14 @@ fn algolia_crawler_json_key_ok(key: &str) -> bool {
             | "banners"
             | "selectors"
             | "defaultValue"
+            | "facets"
+            | "hide"
+            | "redirect"
+            | "dataSources"
+            | "helpers"
+            | "contentLength"
+            | "codeUrl"
+            | "datePublished"
     )
 }
 
@@ -72164,6 +72177,8 @@ fn algolia_crawler_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool 
                     | "reRankingApplyFilter"
                     | "eventSources"
                     | "banners"
+                    | "facets"
+                    | "hide"
             ) {
                 return false;
             }
@@ -72203,6 +72218,10 @@ fn algolia_crawler_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool 
                     | "dynamicThreshold"
                     | "facetOrdering"
                     | "widgets"
+                    | "facets"
+                    | "redirect"
+                    | "dataSources"
+                    | "helpers"
             ) {
                 return false;
             }
@@ -72278,6 +72297,8 @@ fn algolia_crawler_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool 
                     | "vectorModelId"
                     | "selectors"
                     | "defaultValue"
+                    | "codeUrl"
+                    | "datePublished"
             ) {
                 return false;
             }
@@ -72466,6 +72487,7 @@ fn algolia_crawler_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool {
             | "maxFacetHits"
             | "relevancyStrictness"
             | "minHitsForSemantic"
+            | "contentLength"
     ) {
         return false;
     }
@@ -151541,6 +151563,19 @@ mod func_like_line_tests {
         assert!(is_algolia_crawler_json_decl(
             r#""defaultValue": "documentation""#
         ));
+        assert!(is_algolia_crawler_json_decl(r#""facets": ["#));
+        assert!(is_algolia_crawler_json_decl(r#""facets": {"#));
+        assert!(is_algolia_crawler_json_decl(r#""hide": ["#));
+        assert!(is_algolia_crawler_json_decl(r#""redirect": {"#));
+        assert!(is_algolia_crawler_json_decl(r#""dataSources": {"#));
+        assert!(is_algolia_crawler_json_decl(r#""helpers": {"#));
+        assert!(is_algolia_crawler_json_decl(r#""contentLength": 4096"#));
+        assert!(is_algolia_crawler_json_decl(
+            r#""codeUrl": "https://example.com/snippet.js""#
+        ));
+        assert!(is_algolia_crawler_json_decl(
+            r#""datePublished": "2024-01-15""#
+        ));
         assert!(!is_algolia_crawler_json_decl(
             r#""authenticatedUserToken": "user-1""#
         ));
@@ -153758,6 +153793,103 @@ mod func_like_line_tests {
         assert!(!is_algolia_recommend_json_decl(
             r#""defaultValue": "documentation""#
         ));
+        assert!(is_algolia_crawler_json_decl(r#""facets": ["#));
+        assert!(is_algolia_crawler_json_decl(r#""facets": [,"#));
+        assert!(is_algolia_crawler_json_decl(r#""facets": [ // c"#));
+        assert!(is_algolia_crawler_json_decl(r#""facets": {"#));
+        assert!(is_algolia_crawler_json_decl(r#""facets": {,"#));
+        assert!(is_algolia_crawler_json_decl(r#""facets": { // c"#));
+        assert!(!is_algolia_crawler_json_decl(r#""facets": true"#));
+        assert!(!is_algolia_crawler_json_decl(r#""facets": "brand""#));
+        assert!(!is_algolia_crawler_json_decl(r#""facet": ["#));
+        assert!(!is_algolia_insights_json_decl(r#""facets": ["#));
+        assert!(!is_algolia_recommend_json_decl(r#""facets": ["#));
+        assert!(is_algolia_crawler_json_decl(r#""hide": ["#));
+        assert!(is_algolia_crawler_json_decl(r#""hide": [,"#));
+        assert!(is_algolia_crawler_json_decl(r#""hide": [ // c"#));
+        assert!(!is_algolia_crawler_json_decl(r#""hide": true"#));
+        assert!(!is_algolia_crawler_json_decl(r#""hide": {"#));
+        assert!(!is_algolia_crawler_json_decl(r#""hides": ["#));
+        assert!(!is_algolia_insights_json_decl(r#""hide": ["#));
+        assert!(!is_algolia_recommend_json_decl(r#""hide": ["#));
+        assert!(is_algolia_crawler_json_decl(r#""redirect": {"#));
+        assert!(is_algolia_crawler_json_decl(r#""redirect": {,"#));
+        assert!(is_algolia_crawler_json_decl(r#""redirect": { // c"#));
+        assert!(!is_algolia_crawler_json_decl(r#""redirect": true"#));
+        assert!(!is_algolia_crawler_json_decl(r#""redirect": ["#));
+        assert!(!is_algolia_crawler_json_decl(r#""redirects": {"#));
+        assert!(!is_algolia_insights_json_decl(r#""redirect": {"#));
+        assert!(!is_algolia_recommend_json_decl(r#""redirect": {"#));
+        assert!(is_algolia_crawler_json_decl(r#""dataSources": {"#));
+        assert!(is_algolia_crawler_json_decl(r#""dataSources": {,"#));
+        assert!(is_algolia_crawler_json_decl(r#""dataSources": { // c"#));
+        assert!(!is_algolia_crawler_json_decl(r#""dataSources": true"#));
+        assert!(!is_algolia_crawler_json_decl(r#""dataSources": ["#));
+        assert!(!is_algolia_crawler_json_decl(r#""dataSource": {"#));
+        assert!(!is_algolia_insights_json_decl(r#""dataSources": {"#));
+        assert!(!is_algolia_recommend_json_decl(r#""dataSources": {"#));
+        assert!(is_algolia_crawler_json_decl(r#""helpers": {"#));
+        assert!(is_algolia_crawler_json_decl(r#""helpers": {,"#));
+        assert!(is_algolia_crawler_json_decl(r#""helpers": { // c"#));
+        assert!(!is_algolia_crawler_json_decl(r#""helpers": true"#));
+        assert!(!is_algolia_crawler_json_decl(r#""helpers": ["#));
+        assert!(!is_algolia_crawler_json_decl(r#""helper": {"#));
+        assert!(!is_algolia_insights_json_decl(r#""helpers": {"#));
+        assert!(!is_algolia_recommend_json_decl(r#""helpers": {"#));
+        assert!(is_algolia_crawler_json_decl(r#""contentLength": 0"#));
+        assert!(is_algolia_crawler_json_decl(r#""contentLength": 4096"#));
+        assert!(is_algolia_crawler_json_decl(r#""contentLength": 4096,"#));
+        assert!(is_algolia_crawler_json_decl(
+            r#""contentLength": 4096 // c"#
+        ));
+        assert!(!is_algolia_crawler_json_decl(r#""contentLength": 04096"#));
+        assert!(!is_algolia_crawler_json_decl(r#""contentLength": true"#));
+        assert!(!is_algolia_crawler_json_decl(r#""contentLength": {"#));
+        assert!(!is_algolia_crawler_json_decl(r#""contentLengths": 4096"#));
+        assert!(!is_algolia_insights_json_decl(r#""contentLength": 4096"#));
+        assert!(!is_algolia_recommend_json_decl(r#""contentLength": 4096"#));
+        assert!(is_algolia_crawler_json_decl(
+            r#""codeUrl": "https://example.com/snippet.js""#
+        ));
+        assert!(is_algolia_crawler_json_decl(
+            r#""codeUrl": "https://example.com/snippet.js","#
+        ));
+        assert!(is_algolia_crawler_json_decl(
+            r#""codeUrl": "https://example.com/snippet.js" // c"#
+        ));
+        assert!(!is_algolia_crawler_json_decl(r#""codeUrl": """#));
+        assert!(!is_algolia_crawler_json_decl(r#""codeUrl": true"#));
+        assert!(!is_algolia_crawler_json_decl(r#""codeUrl": {"#));
+        assert!(!is_algolia_crawler_json_decl(
+            r#""codeUrls": "https://example.com/snippet.js""#
+        ));
+        assert!(!is_algolia_insights_json_decl(
+            r#""codeUrl": "https://example.com/snippet.js""#
+        ));
+        assert!(!is_algolia_recommend_json_decl(
+            r#""codeUrl": "https://example.com/snippet.js""#
+        ));
+        assert!(is_algolia_crawler_json_decl(
+            r#""datePublished": "2024-01-15""#
+        ));
+        assert!(is_algolia_crawler_json_decl(
+            r#""datePublished": "2024-01-15","#
+        ));
+        assert!(is_algolia_crawler_json_decl(
+            r#""datePublished": "2024-01-15" // c"#
+        ));
+        assert!(!is_algolia_crawler_json_decl(r#""datePublished": """#));
+        assert!(!is_algolia_crawler_json_decl(r#""datePublished": true"#));
+        assert!(!is_algolia_crawler_json_decl(r#""datePublished": {"#));
+        assert!(!is_algolia_crawler_json_decl(
+            r#""datePublishedAt": "2024-01-15""#
+        ));
+        assert!(!is_algolia_insights_json_decl(
+            r#""datePublished": "2024-01-15""#
+        ));
+        assert!(!is_algolia_recommend_json_decl(
+            r#""datePublished": "2024-01-15""#
+        ));
         assert!(!is_algolia_crawler_json_decl(r#""startUrls""#));
         assert!(!is_algolia_crawler_json_decl(r#""schedule""#));
         assert!(!is_algolia_crawler_json_decl(r#""actions""#));
@@ -153779,6 +153911,8 @@ mod func_like_line_tests {
         assert!(!is_algolia_crawler_json_decl(r#""timeout": 5000"#));
         assert!(!is_algolia_crawler_json_decl(r#""retries": 2"#));
         assert!(!is_algolia_crawler_json_decl(r#""headers": {"#));
+        assert!(!is_algolia_crawler_json_decl(r#""order": ["#));
+        assert!(!is_algolia_crawler_json_decl(r#""values": {"#));
         assert!(!is_algolia_crawler_json_decl(
             r#""authenticatedUserToken": "user-1""#
         ));
