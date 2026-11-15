@@ -3,6 +3,7 @@
 Patterns after operator corrections. Keep short. One lesson per bullet.
 
 - Prefer `./scripts/ci-local.sh` over `cargo check` alone — CI runs fmt + clippy `-D warnings`.
+- Windows CI: rustfmt overflows ~1 MiB main stack on huge sources — split Function List classifiers out of `ui.rs` (`func_like.rs`); avoid `ci.yml` edits without `workflow` token scope; stable rustfmt ignores `ignore=` in rustfmt.toml.
 - Install git hooks once: `./scripts/install-git-hooks.sh` (pre-push blocks bad pushes).
 - Day-to-day branch is **`main`** only (no long-lived `dev`).
 - Do not claim “Coming Soon stubs remain” — they are cleared; depth gaps live in `docs/whats-missing.md`.

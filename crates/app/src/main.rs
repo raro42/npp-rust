@@ -6,6 +6,7 @@ mod commands;
 mod diff;
 mod editor;
 mod fold;
+mod func_like;
 mod menu_data;
 mod ollama;
 mod recent;
