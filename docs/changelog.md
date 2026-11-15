@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.881] — 2026-11-15
+
+View:
+
+- **Function List** lists more Algolia Crawler JSON keys: `"dateModified": "…"`, `"fileType": "…"`, `"headline": "…"`, `"keywords": [`, `"authors": [`, `"category": "…"`, `"lang": "…"`, `"objectID": "…"`, `"attributeCriteriaComputedBy": "minProximity"` / `"best"` / `"sum"`, `"resultCard": {`. Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing `:` stay out. Empty strings / plural/singular misspellings / `"attributeCriteriaComputedBy": "avg"` / generic `"url"` / `"order"` / `"values"` / `"enabled"` / `"proxy"` / `"timeout"` / `"retries"` / `"headers"` / `"cache"` / string bools stay out. Existing Crawler keys unchanged. Algolia Insights / Recommend / neighbouring search JSON families stay out. Bool keys only match `true` / `false`. Numeric keys reject leading zeros beyond `0`. `"dateModified"` / `"fileType"` / `"headline"` / `"category"` / `"lang"` / `"objectID"` require a non-empty quoted string. `"attributeCriteriaComputedBy"` only matches its Algolia enums. Object keys accept `{`. Array keys accept `[`.
+
 ## [0.3.880] — 2026-11-15
 
 View:

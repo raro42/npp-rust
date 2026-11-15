@@ -71828,7 +71828,11 @@ fn algolia_insights_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool 
 /// `"banners": [`, `"selectors": "…"`, `"defaultValue": "…"`,
 /// `"facets": [` / `{`, `"hide": [`, `"redirect": {`, `"dataSources": {`,
 /// `"helpers": {`, `"contentLength": 0` / `4096`, `"codeUrl": "…"`,
-/// `"datePublished": "…"`.
+/// `"datePublished": "…"`, `"dateModified": "…"`, `"fileType": "…"`,
+/// `"headline": "…"`, `"keywords": [`, `"authors": [`, `"category": "…"`,
+/// `"lang": "…"`, `"objectID": "…"`,
+/// `"attributeCriteriaComputedBy": "minProximity"` / `"best"` / `"sum"`,
+/// `"resultCard": {`.
 /// Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing
 /// `:` stay out. Generic `"$schema"` / `"name"` / `"id"` / `"q"` / `"query"` /
 /// `"url"` / `"appId"` / `"apiKey"` / `"index"` / `"indexName"` / `"cache"` /
@@ -71910,8 +71914,9 @@ fn algolia_insights_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool 
 /// `"highlightPostTag"` / `"highlightPreTag"` / `"sortFacetValuesBy"` /
 /// `"separatorsToIndex"` / `"keepDiacriticsOnCharacters"` /
 /// `"reRankingApplyFilter"` / `"primary"` / `"vectorModelId"` /
-/// `"selectors"` / `"defaultValue"` / `"codeUrl"` / `"datePublished"`
-/// require a non-empty quoted string.
+/// `"selectors"` / `"defaultValue"` / `"codeUrl"` / `"datePublished"` /
+/// `"dateModified"` / `"fileType"` / `"headline"` / `"category"` / `"lang"` /
+/// `"objectID"` require a non-empty quoted string.
 /// `"__type"` only matches `"function"`. `"queryType"` only matches
 /// `"prefixLast"` / `"prefixAll"` / `"prefixNone"`.
 /// `"removeWordsIfNoResults"` only matches `"none"` / `"lastWords"` /
@@ -71921,7 +71926,8 @@ fn algolia_insights_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool 
 /// `"active"` / `"preview"` / `"inactive"`. `"neuralSearchPreset"` only
 /// matches `"conservative"` / `"expanded_reach"` / `"append_only"` /
 /// `"default"` / `"custom"`. `"sortRemainingBy"` only matches `"count"` /
-/// `"alpha"` / `"hidden"`. `"typoTolerance"` accepts bool or
+/// `"alpha"` / `"hidden"`. `"attributeCriteriaComputedBy"` only matches
+/// `"minProximity"` / `"best"` / `"sum"`. `"typoTolerance"` accepts bool or
 /// `"min"` / `"strict"` / `"true"` / `"false"`. `"optionalWords"` accepts
 /// string or `[`. `"ignoreCanonicalTo"` / `"ignorePlurals"` /
 /// `"removeStopWords"` accept bool or `[`. `"renderJavaScript"` accepts bool,
@@ -71932,8 +71938,9 @@ fn algolia_insights_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool 
 /// `"renderingContent"` / `"semanticSearch"` / `"userData"` /
 /// `"placeholders"` / `"neuralExpression"` / `"dynamicThreshold"` /
 /// `"facetOrdering"` / `"widgets"` / `"redirect"` / `"dataSources"` /
-/// `"helpers"` accept `{`.
-/// `"eventSources"` / `"banners"` / `"hide"` accept `[`.
+/// `"helpers"` / `"resultCard"` accept `{`.
+/// `"eventSources"` / `"banners"` / `"hide"` / `"keywords"` / `"authors"`
+/// accept `[`.
 fn is_algolia_crawler_json_decl(s: &str) -> bool {
     let s = s.trim_start();
     let Some(rest) = s.strip_prefix('"') else {
@@ -72118,6 +72125,16 @@ fn algolia_crawler_json_key_ok(key: &str) -> bool {
             | "contentLength"
             | "codeUrl"
             | "datePublished"
+            | "dateModified"
+            | "fileType"
+            | "headline"
+            | "keywords"
+            | "authors"
+            | "category"
+            | "lang"
+            | "objectID"
+            | "attributeCriteriaComputedBy"
+            | "resultCard"
     )
 }
 
@@ -72179,6 +72196,8 @@ fn algolia_crawler_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool 
                     | "banners"
                     | "facets"
                     | "hide"
+                    | "keywords"
+                    | "authors"
             ) {
                 return false;
             }
@@ -72222,6 +72241,7 @@ fn algolia_crawler_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool 
                     | "redirect"
                     | "dataSources"
                     | "helpers"
+                    | "resultCard"
             ) {
                 return false;
             }
@@ -72254,6 +72274,9 @@ fn algolia_crawler_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool 
             }
             if key == "sortRemainingBy" {
                 return algolia_crawler_json_sort_remaining_by_and_tail_ok(after_colon);
+            }
+            if key == "attributeCriteriaComputedBy" {
+                return algolia_crawler_json_attribute_criteria_and_tail_ok(after_colon);
             }
             if !matches!(
                 key,
@@ -72299,6 +72322,12 @@ fn algolia_crawler_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool 
                     | "defaultValue"
                     | "codeUrl"
                     | "datePublished"
+                    | "dateModified"
+                    | "fileType"
+                    | "headline"
+                    | "category"
+                    | "lang"
+                    | "objectID"
             ) {
                 return false;
             }
@@ -72410,6 +72439,17 @@ fn algolia_crawler_json_sort_remaining_by_and_tail_ok(after_colon: &str) -> bool
         return false;
     };
     if !matches!(&rest[..end], "count" | "alpha" | "hidden") {
+        return false;
+    }
+    package_json_tail_ok(&rest[end + 1..])
+}
+
+fn algolia_crawler_json_attribute_criteria_and_tail_ok(after_colon: &str) -> bool {
+    let rest = &after_colon[1..];
+    let Some(end) = rest.find('"') else {
+        return false;
+    };
+    if !matches!(&rest[..end], "minProximity" | "best" | "sum") {
         return false;
     }
     package_json_tail_ok(&rest[end + 1..])
@@ -151576,6 +151616,22 @@ mod func_like_line_tests {
         assert!(is_algolia_crawler_json_decl(
             r#""datePublished": "2024-01-15""#
         ));
+        assert!(is_algolia_crawler_json_decl(
+            r#""dateModified": "2024-02-01""#
+        ));
+        assert!(is_algolia_crawler_json_decl(r#""fileType": "html""#));
+        assert!(is_algolia_crawler_json_decl(
+            r#""headline": "Release notes""#
+        ));
+        assert!(is_algolia_crawler_json_decl(r#""keywords": ["#));
+        assert!(is_algolia_crawler_json_decl(r#""authors": ["#));
+        assert!(is_algolia_crawler_json_decl(r#""category": "Docs""#));
+        assert!(is_algolia_crawler_json_decl(r#""lang": "en""#));
+        assert!(is_algolia_crawler_json_decl(r#""objectID": "page-1""#));
+        assert!(is_algolia_crawler_json_decl(
+            r#""attributeCriteriaComputedBy": "best""#
+        ));
+        assert!(is_algolia_crawler_json_decl(r#""resultCard": {"#));
         assert!(!is_algolia_crawler_json_decl(
             r#""authenticatedUserToken": "user-1""#
         ));
@@ -153890,6 +153946,143 @@ mod func_like_line_tests {
         assert!(!is_algolia_recommend_json_decl(
             r#""datePublished": "2024-01-15""#
         ));
+        assert!(is_algolia_crawler_json_decl(
+            r#""dateModified": "2024-02-01""#
+        ));
+        assert!(is_algolia_crawler_json_decl(
+            r#""dateModified": "2024-02-01","#
+        ));
+        assert!(is_algolia_crawler_json_decl(
+            r#""dateModified": "2024-02-01" // c"#
+        ));
+        assert!(!is_algolia_crawler_json_decl(r#""dateModified": """#));
+        assert!(!is_algolia_crawler_json_decl(r#""dateModified": true"#));
+        assert!(!is_algolia_crawler_json_decl(r#""dateModified": {"#));
+        assert!(!is_algolia_crawler_json_decl(
+            r#""dateModifiedAt": "2024-02-01""#
+        ));
+        assert!(!is_algolia_insights_json_decl(
+            r#""dateModified": "2024-02-01""#
+        ));
+        assert!(!is_algolia_recommend_json_decl(
+            r#""dateModified": "2024-02-01""#
+        ));
+        assert!(is_algolia_crawler_json_decl(r#""fileType": "html""#));
+        assert!(is_algolia_crawler_json_decl(r#""fileType": "pdf","#));
+        assert!(is_algolia_crawler_json_decl(r#""fileType": "html" // c"#));
+        assert!(!is_algolia_crawler_json_decl(r#""fileType": """#));
+        assert!(!is_algolia_crawler_json_decl(r#""fileType": true"#));
+        assert!(!is_algolia_crawler_json_decl(r#""fileType": {"#));
+        assert!(!is_algolia_crawler_json_decl(r#""fileTypes": "html""#));
+        assert!(!is_algolia_insights_json_decl(r#""fileType": "html""#));
+        assert!(!is_algolia_recommend_json_decl(r#""fileType": "html""#));
+        assert!(is_algolia_crawler_json_decl(
+            r#""headline": "Release notes""#
+        ));
+        assert!(is_algolia_crawler_json_decl(
+            r#""headline": "Release notes","#
+        ));
+        assert!(is_algolia_crawler_json_decl(
+            r#""headline": "Release notes" // c"#
+        ));
+        assert!(!is_algolia_crawler_json_decl(r#""headline": """#));
+        assert!(!is_algolia_crawler_json_decl(r#""headline": true"#));
+        assert!(!is_algolia_crawler_json_decl(r#""headline": {"#));
+        assert!(!is_algolia_crawler_json_decl(
+            r#""headlines": "Release notes""#
+        ));
+        assert!(!is_algolia_insights_json_decl(
+            r#""headline": "Release notes""#
+        ));
+        assert!(!is_algolia_recommend_json_decl(
+            r#""headline": "Release notes""#
+        ));
+        assert!(is_algolia_crawler_json_decl(r#""keywords": ["#));
+        assert!(is_algolia_crawler_json_decl(r#""keywords": [,"#));
+        assert!(is_algolia_crawler_json_decl(r#""keywords": [ // c"#));
+        assert!(!is_algolia_crawler_json_decl(r#""keywords": true"#));
+        assert!(!is_algolia_crawler_json_decl(r#""keywords": {"#));
+        assert!(!is_algolia_crawler_json_decl(r#""keywords": "seo""#));
+        assert!(!is_algolia_crawler_json_decl(r#""keyword": ["#));
+        assert!(!is_algolia_insights_json_decl(r#""keywords": ["#));
+        assert!(!is_algolia_recommend_json_decl(r#""keywords": ["#));
+        assert!(is_algolia_crawler_json_decl(r#""authors": ["#));
+        assert!(is_algolia_crawler_json_decl(r#""authors": [,"#));
+        assert!(is_algolia_crawler_json_decl(r#""authors": [ // c"#));
+        assert!(!is_algolia_crawler_json_decl(r#""authors": true"#));
+        assert!(!is_algolia_crawler_json_decl(r#""authors": {"#));
+        assert!(!is_algolia_crawler_json_decl(r#""authors": "alice""#));
+        assert!(!is_algolia_crawler_json_decl(r#""author": ["#));
+        assert!(!is_algolia_insights_json_decl(r#""authors": ["#));
+        assert!(!is_algolia_recommend_json_decl(r#""authors": ["#));
+        assert!(is_algolia_crawler_json_decl(r#""category": "Docs""#));
+        assert!(is_algolia_crawler_json_decl(r#""category": "Docs","#));
+        assert!(is_algolia_crawler_json_decl(r#""category": "Docs" // c"#));
+        assert!(!is_algolia_crawler_json_decl(r#""category": """#));
+        assert!(!is_algolia_crawler_json_decl(r#""category": true"#));
+        assert!(!is_algolia_crawler_json_decl(r#""category": {"#));
+        assert!(!is_algolia_crawler_json_decl(r#""categories": "Docs""#));
+        assert!(!is_algolia_insights_json_decl(r#""category": "Docs""#));
+        assert!(!is_algolia_recommend_json_decl(r#""category": "Docs""#));
+        assert!(is_algolia_crawler_json_decl(r#""lang": "en""#));
+        assert!(is_algolia_crawler_json_decl(r#""lang": "en","#));
+        assert!(is_algolia_crawler_json_decl(r#""lang": "en" // c"#));
+        assert!(!is_algolia_crawler_json_decl(r#""lang": """#));
+        assert!(!is_algolia_crawler_json_decl(r#""lang": true"#));
+        assert!(!is_algolia_crawler_json_decl(r#""lang": {"#));
+        assert!(!is_algolia_crawler_json_decl(r#""langs": "en""#));
+        assert!(!is_algolia_insights_json_decl(r#""lang": "en""#));
+        assert!(!is_algolia_recommend_json_decl(r#""lang": "en""#));
+        assert!(is_algolia_crawler_json_decl(r#""objectID": "page-1""#));
+        assert!(is_algolia_crawler_json_decl(r#""objectID": "page-1","#));
+        assert!(is_algolia_crawler_json_decl(r#""objectID": "page-1" // c"#));
+        assert!(!is_algolia_crawler_json_decl(r#""objectID": """#));
+        assert!(!is_algolia_crawler_json_decl(r#""objectID": true"#));
+        assert!(!is_algolia_crawler_json_decl(r#""objectID": {"#));
+        assert!(!is_algolia_crawler_json_decl(r#""objectIDs": "page-1""#));
+        assert!(!is_algolia_insights_json_decl(r#""objectID": "page-1""#));
+        assert!(!is_algolia_recommend_json_decl(r#""objectID": "page-1""#));
+        assert!(is_algolia_crawler_json_decl(
+            r#""attributeCriteriaComputedBy": "minProximity""#
+        ));
+        assert!(is_algolia_crawler_json_decl(
+            r#""attributeCriteriaComputedBy": "best""#
+        ));
+        assert!(is_algolia_crawler_json_decl(
+            r#""attributeCriteriaComputedBy": "sum""#
+        ));
+        assert!(is_algolia_crawler_json_decl(
+            r#""attributeCriteriaComputedBy": "best","#
+        ));
+        assert!(is_algolia_crawler_json_decl(
+            r#""attributeCriteriaComputedBy": "best" // c"#
+        ));
+        assert!(!is_algolia_crawler_json_decl(
+            r#""attributeCriteriaComputedBy": "avg""#
+        ));
+        assert!(!is_algolia_crawler_json_decl(
+            r#""attributeCriteriaComputedBy": true"#
+        ));
+        assert!(!is_algolia_crawler_json_decl(
+            r#""attributeCriteriaComputedBy": {"#
+        ));
+        assert!(!is_algolia_crawler_json_decl(
+            r#""attributeCriteriaComputedBys": "best""#
+        ));
+        assert!(!is_algolia_insights_json_decl(
+            r#""attributeCriteriaComputedBy": "best""#
+        ));
+        assert!(!is_algolia_recommend_json_decl(
+            r#""attributeCriteriaComputedBy": "best""#
+        ));
+        assert!(is_algolia_crawler_json_decl(r#""resultCard": {"#));
+        assert!(is_algolia_crawler_json_decl(r#""resultCard": {,"#));
+        assert!(is_algolia_crawler_json_decl(r#""resultCard": { // c"#));
+        assert!(!is_algolia_crawler_json_decl(r#""resultCard": true"#));
+        assert!(!is_algolia_crawler_json_decl(r#""resultCard": ["#));
+        assert!(!is_algolia_crawler_json_decl(r#""resultCards": {"#));
+        assert!(!is_algolia_insights_json_decl(r#""resultCard": {"#));
+        assert!(!is_algolia_recommend_json_decl(r#""resultCard": {"#));
         assert!(!is_algolia_crawler_json_decl(r#""startUrls""#));
         assert!(!is_algolia_crawler_json_decl(r#""schedule""#));
         assert!(!is_algolia_crawler_json_decl(r#""actions""#));

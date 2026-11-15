@@ -1,3 +1,5 @@
+009 keep: Function List Algolia Crawler dateModified/fileType/headline/keywords/authors/category/lang/objectID/attributeCriteriaComputedBy/resultCard (v0.3.881)
+
 009 keep: Function List Algolia Crawler facets/hide/redirect/dataSources/helpers/contentLength/codeUrl/datePublished (v0.3.880)
 
 009 keep: Function List Algolia Crawler facetOrdering/sortRemainingBy/widgets/banners/selectors/defaultValue (v0.3.879)
