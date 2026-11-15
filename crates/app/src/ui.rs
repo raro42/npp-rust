@@ -71845,12 +71845,22 @@ fn algolia_insights_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool 
 /// `"nbExactWords": 0` / `4`, `"geoDistance": 0` / `120`,
 /// `"geoPrecision": 1` / `10`, `"matchedGeoLocation": {`,
 /// `"serverUsed": "…"`, `"parsedQuery": "…"`,
-/// `"timeoutCounts": true` / `false`, `"timeoutHits": true` / `false`.
+/// `"timeoutCounts": true` / `false`, `"timeoutHits": true` / `false`,
+/// `"promoted": true` / `false`, `"personalization": {`,
+/// `"exhaustiveNbHits": true` / `false`,
+/// `"exhaustiveFacetsCount": true` / `false`,
+/// `"exhaustiveTypo": true` / `false`, `"exhaustive": {`,
+/// `"queryID": "…"`, `"queryAfterRemoval": "…"`, `"appliedRules": [`,
+/// `"appliedRelevancyStrictness": 0` / `90`, `"automaticRadius": "…"`,
+/// `"aroundLatLng": "…"`, `"abTestID": 0` / `42`,
+/// `"abTestVariantID": 1` / `2`, `"indexUsed": "…"`,
+/// `"_automaticInsights": true` / `false`.
 /// Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing
 /// `:` stay out. Generic `"$schema"` / `"name"` / `"id"` / `"q"` / `"query"` /
 /// `"url"` / `"appId"` / `"apiKey"` / `"index"` / `"indexName"` / `"cache"` /
 /// `"enabled"` / `"proxy"` / `"timeout"` / `"retries"` / `"headers"` /
-/// `"order"` / `"values"` / Algolia Insights `"authenticatedUserToken"` /
+/// `"order"` / `"values"` / `"words"` / `"filters"` / `"message"` /
+/// Algolia Insights `"authenticatedUserToken"` /
 /// `"userHasOptedOut"` / `"useCookie"` / `"anonymousUserToken"` /
 /// `"cookieDuration"` / `"eventSubtype"` / `"objectData"` / Algolia Recommend
 /// `"maxRecommendations"` / `"fallbackParameters"` /
@@ -71931,8 +71941,9 @@ fn algolia_insights_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool 
 /// `"dateModified"` / `"fileType"` / `"headline"` / `"category"` / `"lang"` /
 /// `"objectID"` / `"anchor"` / `"url_without_anchor"` / `"thumbnailUrl"` /
 /// `"articleSection"` / `"dateCreated"` / `"alternativeHeadline"` /
-/// `"mainEntityOfPage"` / `"articleBody"` / `"serverUsed"` / `"parsedQuery"`
-/// require a non-empty quoted string.
+/// `"mainEntityOfPage"` / `"articleBody"` / `"serverUsed"` / `"parsedQuery"` /
+/// `"queryID"` / `"queryAfterRemoval"` / `"automaticRadius"` /
+/// `"aroundLatLng"` / `"indexUsed"` require a non-empty quoted string.
 /// `"__type"` only matches `"function"`. `"queryType"` only matches
 /// `"prefixLast"` / `"prefixAll"` / `"prefixNone"`.
 /// `"removeWordsIfNoResults"` only matches `"none"` / `"lastWords"` /
@@ -71957,9 +71968,10 @@ fn algolia_insights_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool 
 /// `"facetOrdering"` / `"widgets"` / `"redirect"` / `"dataSources"` /
 /// `"helpers"` / `"resultCard"` / `"hierarchy"` / `"hierarchy_radio"` /
 /// `"weight"` / `"_highlightResult"` / `"_snippetResult"` /
-/// `"_rankingInfo"` / `"matchedGeoLocation"` accept `{`.
+/// `"_rankingInfo"` / `"matchedGeoLocation"` / `"personalization"` /
+/// `"exhaustive"` accept `{`.
 /// `"eventSources"` / `"banners"` / `"hide"` / `"keywords"` / `"authors"` /
-/// `"hierarchy_camel"` accept `[`.
+/// `"hierarchy_camel"` / `"appliedRules"` accept `[`.
 fn is_algolia_crawler_json_decl(s: &str) -> bool {
     let s = s.trim_start();
     let Some(rest) = s.strip_prefix('"') else {
@@ -72185,6 +72197,22 @@ fn algolia_crawler_json_key_ok(key: &str) -> bool {
             | "parsedQuery"
             | "timeoutCounts"
             | "timeoutHits"
+            | "promoted"
+            | "personalization"
+            | "exhaustiveNbHits"
+            | "exhaustiveFacetsCount"
+            | "exhaustiveTypo"
+            | "exhaustive"
+            | "queryID"
+            | "queryAfterRemoval"
+            | "appliedRules"
+            | "appliedRelevancyStrictness"
+            | "automaticRadius"
+            | "aroundLatLng"
+            | "abTestID"
+            | "abTestVariantID"
+            | "indexUsed"
+            | "_automaticInsights"
     )
 }
 
@@ -72249,6 +72277,7 @@ fn algolia_crawler_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool 
                     | "keywords"
                     | "authors"
                     | "hierarchy_camel"
+                    | "appliedRules"
             ) {
                 return false;
             }
@@ -72300,6 +72329,8 @@ fn algolia_crawler_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool 
                     | "_snippetResult"
                     | "_rankingInfo"
                     | "matchedGeoLocation"
+                    | "personalization"
+                    | "exhaustive"
             ) {
                 return false;
             }
@@ -72399,6 +72430,11 @@ fn algolia_crawler_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool 
                     | "articleBody"
                     | "serverUsed"
                     | "parsedQuery"
+                    | "queryID"
+                    | "queryAfterRemoval"
+                    | "automaticRadius"
+                    | "aroundLatLng"
+                    | "indexUsed"
             ) {
                 return false;
             }
@@ -72569,6 +72605,11 @@ fn algolia_crawler_json_bool_and_tail_ok(key: &str, after_colon: &str) -> bool {
             | "usePositionalSemanticRanking"
             | "timeoutCounts"
             | "timeoutHits"
+            | "promoted"
+            | "exhaustiveNbHits"
+            | "exhaustiveFacetsCount"
+            | "exhaustiveTypo"
+            | "_automaticInsights"
     ) {
         return false;
     }
@@ -72611,6 +72652,9 @@ fn algolia_crawler_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool {
             | "nbExactWords"
             | "geoDistance"
             | "geoPrecision"
+            | "appliedRelevancyStrictness"
+            | "abTestID"
+            | "abTestVariantID"
     ) {
         return false;
     }
@@ -154658,6 +154702,276 @@ mod func_like_line_tests {
         assert!(!is_algolia_crawler_json_decl(r#""timeoutHit": true"#));
         assert!(!is_algolia_insights_json_decl(r#""timeoutHits": true"#));
         assert!(!is_algolia_recommend_json_decl(r#""timeoutHits": true"#));
+        assert!(is_algolia_crawler_json_decl(r#""promoted": true"#));
+        assert!(is_algolia_crawler_json_decl(r#""promoted": false"#));
+        assert!(is_algolia_crawler_json_decl(r#""promoted": true,"#));
+        assert!(is_algolia_crawler_json_decl(r#""promoted": true // c"#));
+        assert!(!is_algolia_crawler_json_decl(r#""promoted": "true""#));
+        assert!(!is_algolia_crawler_json_decl(r#""promoted": 1"#));
+        assert!(!is_algolia_crawler_json_decl(r#""promoted": {"#));
+        assert!(!is_algolia_crawler_json_decl(r#""promoteds": true"#));
+        assert!(!is_algolia_insights_json_decl(r#""promoted": true"#));
+        assert!(!is_algolia_recommend_json_decl(r#""promoted": true"#));
+        assert!(is_algolia_crawler_json_decl(r#""personalization": {"#));
+        assert!(is_algolia_crawler_json_decl(r#""personalization": {,"#));
+        assert!(is_algolia_crawler_json_decl(r#""personalization": { // c"#));
+        assert!(!is_algolia_crawler_json_decl(r#""personalization": true"#));
+        assert!(!is_algolia_crawler_json_decl(r#""personalization": ["#));
+        assert!(!is_algolia_crawler_json_decl(r#""personalizations": {"#));
+        assert!(!is_algolia_insights_json_decl(r#""personalization": {"#));
+        assert!(!is_algolia_recommend_json_decl(r#""personalization": {"#));
+        assert!(is_algolia_crawler_json_decl(r#""exhaustiveNbHits": true"#));
+        assert!(is_algolia_crawler_json_decl(r#""exhaustiveNbHits": false"#));
+        assert!(is_algolia_crawler_json_decl(r#""exhaustiveNbHits": true,"#));
+        assert!(is_algolia_crawler_json_decl(
+            r#""exhaustiveNbHits": true // c"#
+        ));
+        assert!(!is_algolia_crawler_json_decl(
+            r#""exhaustiveNbHits": "true""#
+        ));
+        assert!(!is_algolia_crawler_json_decl(r#""exhaustiveNbHits": 1"#));
+        assert!(!is_algolia_crawler_json_decl(r#""exhaustiveNbHits": {"#));
+        assert!(!is_algolia_crawler_json_decl(r#""exhaustiveNbHit": true"#));
+        assert!(!is_algolia_insights_json_decl(
+            r#""exhaustiveNbHits": true"#
+        ));
+        assert!(!is_algolia_recommend_json_decl(
+            r#""exhaustiveNbHits": true"#
+        ));
+        assert!(is_algolia_crawler_json_decl(
+            r#""exhaustiveFacetsCount": true"#
+        ));
+        assert!(is_algolia_crawler_json_decl(
+            r#""exhaustiveFacetsCount": false"#
+        ));
+        assert!(is_algolia_crawler_json_decl(
+            r#""exhaustiveFacetsCount": true,"#
+        ));
+        assert!(is_algolia_crawler_json_decl(
+            r#""exhaustiveFacetsCount": true // c"#
+        ));
+        assert!(!is_algolia_crawler_json_decl(
+            r#""exhaustiveFacetsCount": "true""#
+        ));
+        assert!(!is_algolia_crawler_json_decl(
+            r#""exhaustiveFacetsCount": 1"#
+        ));
+        assert!(!is_algolia_crawler_json_decl(
+            r#""exhaustiveFacetsCount": {"#
+        ));
+        assert!(!is_algolia_crawler_json_decl(
+            r#""exhaustiveFacetsCounts": true"#
+        ));
+        assert!(!is_algolia_insights_json_decl(
+            r#""exhaustiveFacetsCount": true"#
+        ));
+        assert!(!is_algolia_recommend_json_decl(
+            r#""exhaustiveFacetsCount": true"#
+        ));
+        assert!(is_algolia_crawler_json_decl(r#""exhaustiveTypo": true"#));
+        assert!(is_algolia_crawler_json_decl(r#""exhaustiveTypo": false"#));
+        assert!(is_algolia_crawler_json_decl(r#""exhaustiveTypo": true,"#));
+        assert!(is_algolia_crawler_json_decl(
+            r#""exhaustiveTypo": true // c"#
+        ));
+        assert!(!is_algolia_crawler_json_decl(r#""exhaustiveTypo": "true""#));
+        assert!(!is_algolia_crawler_json_decl(r#""exhaustiveTypo": 1"#));
+        assert!(!is_algolia_crawler_json_decl(r#""exhaustiveTypo": {"#));
+        assert!(!is_algolia_crawler_json_decl(r#""exhaustiveTypos": true"#));
+        assert!(!is_algolia_insights_json_decl(r#""exhaustiveTypo": true"#));
+        assert!(!is_algolia_recommend_json_decl(r#""exhaustiveTypo": true"#));
+        assert!(is_algolia_crawler_json_decl(r#""exhaustive": {"#));
+        assert!(is_algolia_crawler_json_decl(r#""exhaustive": {,"#));
+        assert!(is_algolia_crawler_json_decl(r#""exhaustive": { // c"#));
+        assert!(!is_algolia_crawler_json_decl(r#""exhaustive": true"#));
+        assert!(!is_algolia_crawler_json_decl(r#""exhaustive": ["#));
+        assert!(!is_algolia_crawler_json_decl(r#""exhaustives": {"#));
+        assert!(!is_algolia_insights_json_decl(r#""exhaustive": {"#));
+        assert!(!is_algolia_recommend_json_decl(r#""exhaustive": {"#));
+        assert!(is_algolia_crawler_json_decl(r#""queryID": "abc123XYZ""#));
+        assert!(is_algolia_crawler_json_decl(r#""queryID": "abc123XYZ","#));
+        assert!(is_algolia_crawler_json_decl(
+            r#""queryID": "abc123XYZ" // c"#
+        ));
+        assert!(!is_algolia_crawler_json_decl(r#""queryID": """#));
+        assert!(!is_algolia_crawler_json_decl(r#""queryID": true"#));
+        assert!(!is_algolia_crawler_json_decl(r#""queryID": {"#));
+        assert!(!is_algolia_crawler_json_decl(r#""queryIDs": "abc123XYZ""#));
+        assert!(!is_algolia_insights_json_decl(r#""queryID": "abc123XYZ""#));
+        assert!(!is_algolia_recommend_json_decl(r#""queryID": "abc123XYZ""#));
+        assert!(is_algolia_crawler_json_decl(
+            r#""queryAfterRemoval": "shoe""#
+        ));
+        assert!(is_algolia_crawler_json_decl(
+            r#""queryAfterRemoval": "shoe","#
+        ));
+        assert!(is_algolia_crawler_json_decl(
+            r#""queryAfterRemoval": "shoe" // c"#
+        ));
+        assert!(!is_algolia_crawler_json_decl(r#""queryAfterRemoval": """#));
+        assert!(!is_algolia_crawler_json_decl(
+            r#""queryAfterRemoval": true"#
+        ));
+        assert!(!is_algolia_crawler_json_decl(r#""queryAfterRemoval": {"#));
+        assert!(!is_algolia_crawler_json_decl(
+            r#""queryAfterRemovals": "shoe""#
+        ));
+        assert!(!is_algolia_insights_json_decl(
+            r#""queryAfterRemoval": "shoe""#
+        ));
+        assert!(!is_algolia_recommend_json_decl(
+            r#""queryAfterRemoval": "shoe""#
+        ));
+        assert!(is_algolia_crawler_json_decl(r#""appliedRules": ["#));
+        assert!(is_algolia_crawler_json_decl(r#""appliedRules": [,"#));
+        assert!(is_algolia_crawler_json_decl(r#""appliedRules": [ // c"#));
+        assert!(!is_algolia_crawler_json_decl(r#""appliedRules": true"#));
+        assert!(!is_algolia_crawler_json_decl(r#""appliedRules": {"#));
+        assert!(!is_algolia_crawler_json_decl(r#""appliedRule": ["#));
+        assert!(!is_algolia_insights_json_decl(r#""appliedRules": ["#));
+        assert!(!is_algolia_recommend_json_decl(r#""appliedRules": ["#));
+        assert!(is_algolia_crawler_json_decl(
+            r#""appliedRelevancyStrictness": 0"#
+        ));
+        assert!(is_algolia_crawler_json_decl(
+            r#""appliedRelevancyStrictness": 90"#
+        ));
+        assert!(is_algolia_crawler_json_decl(
+            r#""appliedRelevancyStrictness": 90,"#
+        ));
+        assert!(is_algolia_crawler_json_decl(
+            r#""appliedRelevancyStrictness": 90 // c"#
+        ));
+        assert!(!is_algolia_crawler_json_decl(
+            r#""appliedRelevancyStrictness": 090"#
+        ));
+        assert!(!is_algolia_crawler_json_decl(
+            r#""appliedRelevancyStrictness": true"#
+        ));
+        assert!(!is_algolia_crawler_json_decl(
+            r#""appliedRelevancyStrictness": {"#
+        ));
+        assert!(!is_algolia_crawler_json_decl(
+            r#""appliedRelevancyStrictnesses": 90"#
+        ));
+        assert!(!is_algolia_insights_json_decl(
+            r#""appliedRelevancyStrictness": 90"#
+        ));
+        assert!(!is_algolia_recommend_json_decl(
+            r#""appliedRelevancyStrictness": 90"#
+        ));
+        assert!(is_algolia_crawler_json_decl(
+            r#""automaticRadius": "12345""#
+        ));
+        assert!(is_algolia_crawler_json_decl(
+            r#""automaticRadius": "12345","#
+        ));
+        assert!(is_algolia_crawler_json_decl(
+            r#""automaticRadius": "12345" // c"#
+        ));
+        assert!(!is_algolia_crawler_json_decl(r#""automaticRadius": """#));
+        assert!(!is_algolia_crawler_json_decl(r#""automaticRadius": true"#));
+        assert!(!is_algolia_crawler_json_decl(r#""automaticRadius": {"#));
+        assert!(!is_algolia_crawler_json_decl(
+            r#""automaticRadiuses": "12345""#
+        ));
+        assert!(!is_algolia_insights_json_decl(
+            r#""automaticRadius": "12345""#
+        ));
+        assert!(!is_algolia_recommend_json_decl(
+            r#""automaticRadius": "12345""#
+        ));
+        assert!(is_algolia_crawler_json_decl(
+            r#""aroundLatLng": "40.71,-74.01""#
+        ));
+        assert!(is_algolia_crawler_json_decl(
+            r#""aroundLatLng": "40.71,-74.01","#
+        ));
+        assert!(is_algolia_crawler_json_decl(
+            r#""aroundLatLng": "40.71,-74.01" // c"#
+        ));
+        assert!(!is_algolia_crawler_json_decl(r#""aroundLatLng": """#));
+        assert!(!is_algolia_crawler_json_decl(r#""aroundLatLng": true"#));
+        assert!(!is_algolia_crawler_json_decl(r#""aroundLatLng": {"#));
+        assert!(!is_algolia_crawler_json_decl(
+            r#""aroundLatLngs": "40.71,-74.01""#
+        ));
+        assert!(!is_algolia_insights_json_decl(
+            r#""aroundLatLng": "40.71,-74.01""#
+        ));
+        assert!(!is_algolia_recommend_json_decl(
+            r#""aroundLatLng": "40.71,-74.01""#
+        ));
+        assert!(is_algolia_crawler_json_decl(r#""abTestID": 0"#));
+        assert!(is_algolia_crawler_json_decl(r#""abTestID": 42"#));
+        assert!(is_algolia_crawler_json_decl(r#""abTestID": 42,"#));
+        assert!(is_algolia_crawler_json_decl(r#""abTestID": 42 // c"#));
+        assert!(!is_algolia_crawler_json_decl(r#""abTestID": 042"#));
+        assert!(!is_algolia_crawler_json_decl(r#""abTestID": true"#));
+        assert!(!is_algolia_crawler_json_decl(r#""abTestID": {"#));
+        assert!(!is_algolia_crawler_json_decl(r#""abTestIDs": 42"#));
+        assert!(!is_algolia_insights_json_decl(r#""abTestID": 42"#));
+        assert!(!is_algolia_recommend_json_decl(r#""abTestID": 42"#));
+        assert!(is_algolia_crawler_json_decl(r#""abTestVariantID": 1"#));
+        assert!(is_algolia_crawler_json_decl(r#""abTestVariantID": 2"#));
+        assert!(is_algolia_crawler_json_decl(r#""abTestVariantID": 2,"#));
+        assert!(is_algolia_crawler_json_decl(r#""abTestVariantID": 2 // c"#));
+        assert!(!is_algolia_crawler_json_decl(r#""abTestVariantID": 02"#));
+        assert!(!is_algolia_crawler_json_decl(r#""abTestVariantID": true"#));
+        assert!(!is_algolia_crawler_json_decl(r#""abTestVariantID": {"#));
+        assert!(!is_algolia_crawler_json_decl(r#""abTestVariantIDs": 2"#));
+        assert!(!is_algolia_insights_json_decl(r#""abTestVariantID": 2"#));
+        assert!(!is_algolia_recommend_json_decl(r#""abTestVariantID": 2"#));
+        assert!(is_algolia_crawler_json_decl(
+            r#""indexUsed": "products_replica""#
+        ));
+        assert!(is_algolia_crawler_json_decl(
+            r#""indexUsed": "products_replica","#
+        ));
+        assert!(is_algolia_crawler_json_decl(
+            r#""indexUsed": "products_replica" // c"#
+        ));
+        assert!(!is_algolia_crawler_json_decl(r#""indexUsed": """#));
+        assert!(!is_algolia_crawler_json_decl(r#""indexUsed": true"#));
+        assert!(!is_algolia_crawler_json_decl(r#""indexUsed": {"#));
+        assert!(!is_algolia_crawler_json_decl(
+            r#""indexUseds": "products_replica""#
+        ));
+        assert!(!is_algolia_insights_json_decl(
+            r#""indexUsed": "products_replica""#
+        ));
+        assert!(!is_algolia_recommend_json_decl(
+            r#""indexUsed": "products_replica""#
+        ));
+        assert!(is_algolia_crawler_json_decl(
+            r#""_automaticInsights": true"#
+        ));
+        assert!(is_algolia_crawler_json_decl(
+            r#""_automaticInsights": false"#
+        ));
+        assert!(is_algolia_crawler_json_decl(
+            r#""_automaticInsights": true,"#
+        ));
+        assert!(is_algolia_crawler_json_decl(
+            r#""_automaticInsights": true // c"#
+        ));
+        assert!(!is_algolia_crawler_json_decl(
+            r#""_automaticInsights": "true""#
+        ));
+        assert!(!is_algolia_crawler_json_decl(r#""_automaticInsights": 1"#));
+        assert!(!is_algolia_crawler_json_decl(r#""_automaticInsights": {"#));
+        assert!(!is_algolia_crawler_json_decl(
+            r#""_automaticInsight": true"#
+        ));
+        assert!(!is_algolia_insights_json_decl(
+            r#""_automaticInsights": true"#
+        ));
+        assert!(!is_algolia_recommend_json_decl(
+            r#""_automaticInsights": true"#
+        ));
+        assert!(!is_algolia_crawler_json_decl(r#""words": 3"#));
+        assert!(!is_algolia_crawler_json_decl(r#""filters": 1"#));
+        assert!(!is_algolia_crawler_json_decl(r#""message": "ok""#));
         assert!(!is_algolia_crawler_json_decl(r#""startUrls""#));
         assert!(!is_algolia_crawler_json_decl(r#""schedule""#));
         assert!(!is_algolia_crawler_json_decl(r#""actions""#));

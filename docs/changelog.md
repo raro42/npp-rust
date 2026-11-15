@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.885] — 2026-11-15
+
+View:
+
+- **Function List** lists more Algolia Search / DocSearch response JSON keys: `"promoted": true` / `false`, `"personalization": {`, `"exhaustiveNbHits": true` / `false`, `"exhaustiveFacetsCount": true` / `false`, `"exhaustiveTypo": true` / `false`, `"exhaustive": {`, `"queryID": "…"`, `"queryAfterRemoval": "…"`, `"appliedRules": [`, `"appliedRelevancyStrictness": 0` / `90`, `"automaticRadius": "…"`, `"aroundLatLng": "…"`, `"abTestID": 0` / `42`, `"abTestVariantID": 1` / `2`, `"indexUsed": "…"`, `"_automaticInsights": true` / `false`. Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing `:` stay out. Empty strings / plural/singular misspellings / `"abTestID": 042` / `"appliedRelevancyStrictness": 090` / generic `"url"` / `"order"` / `"values"` / `"enabled"` / `"proxy"` / `"timeout"` / `"retries"` / `"headers"` / `"cache"` / `"words"` / `"filters"` / `"message"` / string bools stay out. Existing Crawler / `_rankingInfo` keys unchanged. Algolia Insights / Recommend / neighbouring search JSON families stay out. Bool keys only match `true` / `false`. Numeric keys reject leading zeros beyond `0`. `"queryID"` / `"queryAfterRemoval"` / `"automaticRadius"` / `"aroundLatLng"` / `"indexUsed"` require a non-empty quoted string. Object keys accept `{`. Array keys accept `[`.
+
 ## [0.3.884] — 2026-11-15
 
 View:
