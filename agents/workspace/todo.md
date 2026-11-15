@@ -1442,3 +1442,5 @@
 009 keep: Function List Algolia matchLevel/matchedWords/fullyHighlighted/nbHits/sumOrFiltersScores/enableABTest/ruleContexts/analyticsTags/personalizationImpact/similarQuery/facetFilters/numericFilters/tagFilters/naturalLanguages/percentileComputation/analytics (v0.3.887)
 
 009 keep: Function List facetQuery/params/cursor/forwardToReplicas/autoGenerateObjectIDIfNotExist/createIfNotExists/objectIDs/taskID (v0.3.889)
+
+009 keep: Function List Algolia clearExistingIndexDocuments/requests/action/createdAt/updatedAt/nbPendingTasks/pendingTask/queryParameters (v0.3.890)

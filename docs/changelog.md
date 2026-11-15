@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.890] — 2026-11-15
+
+View:
+
+- **Function List** lists more Algolia Search batch / write / API-key JSON keys: `"clearExistingIndexDocuments": true` / `false`, `"requests": [`, `"action": "addObject"` / `"updateObject"` / `"partialUpdateObject"` / `"partialUpdateObjectNoCreate"` / `"deleteObject"` / `"delete"` / `"clear"`, `"createdAt": "…"`, `"updatedAt": "…"`, `"nbPendingTasks": 0` / `3`, `"pendingTask": true` / `false`, `"queryParameters": "…"`. Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing `:` stay out. Empty strings / plural/singular misspellings / `"nbPendingTasks": 03` / `"action": "add"` / `"action": "createObject"` / `"requests": {` / `"queryParameters": {` / generic `"url"` / `"order"` / `"values"` / `"enabled"` / `"proxy"` / `"timeout"` / `"retries"` / `"headers"` / `"cache"` / `"words"` / `"filters"` / `"message"` / string bools stay out. Existing Crawler / geo / highlight / search response / write keys unchanged. Algolia Insights / Recommend / neighbouring search JSON families stay out. Bool keys only match `true` / `false`. Numeric keys reject leading zeros beyond `0`. `"createdAt"` / `"updatedAt"` / `"queryParameters"` require a non-empty quoted string. `"action"` only matches its Algolia batch enums. Array keys accept `[`.
+
 ## [0.3.889] — 2026-11-15
 
 View:

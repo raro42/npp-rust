@@ -71881,7 +71881,15 @@ fn algolia_insights_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool 
 /// `"forwardToReplicas": true` / `false`,
 /// `"autoGenerateObjectIDIfNotExist": true` / `false`,
 /// `"createIfNotExists": true` / `false`,
-/// `"objectIDs": [`, `"taskID": 0` / `42`.
+/// `"objectIDs": [`, `"taskID": 0` / `42`,
+/// `"clearExistingIndexDocuments": true` / `false`,
+/// `"requests": [`,
+/// `"action": "addObject"` / `"updateObject"` / `"partialUpdateObject"` /
+/// `"partialUpdateObjectNoCreate"` / `"deleteObject"` / `"delete"` /
+/// `"clear"`,
+/// `"createdAt": "…"`, `"updatedAt": "…"`,
+/// `"nbPendingTasks": 0` / `3`, `"pendingTask": true` / `false`,
+/// `"queryParameters": "…"`.
 /// Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing
 /// `:` stay out. Generic `"$schema"` / `"name"` / `"id"` / `"q"` / `"query"` /
 /// `"url"` / `"appId"` / `"apiKey"` / `"index"` / `"indexName"` / `"cache"` /
@@ -71972,7 +71980,8 @@ fn algolia_insights_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool 
 /// `"queryID"` / `"queryAfterRemoval"` / `"automaticRadius"` /
 /// `"aroundLatLng"` / `"indexUsed"` / `"normalizedQuery"` /
 /// `"similarQuery"` / `"insideBoundingBox"` / `"insidePolygon"` /
-/// `"explain"` / `"facetQuery"` / `"params"` / `"cursor"` require a
+/// `"explain"` / `"facetQuery"` / `"params"` / `"cursor"` /
+/// `"createdAt"` / `"updatedAt"` / `"queryParameters"` require a
 /// non-empty quoted string.
 /// `"__type"` only matches `"function"`. `"queryType"` only matches
 /// `"prefixLast"` / `"prefixAll"` / `"prefixNone"`.
@@ -71986,7 +71995,10 @@ fn algolia_insights_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool 
 /// `"alpha"` / `"hidden"`. `"attributeCriteriaComputedBy"` only matches
 /// `"minProximity"` / `"best"` / `"sum"`. `"matchLevel"` only matches
 /// `"none"` / `"partial"` / `"full"`. `"type"` only matches `"content"` /
-/// `"lvl0"`…`"lvl6"` / `"askAI"`. `"aroundRadius"` accepts uint or `"all"`.
+/// `"lvl0"`…`"lvl6"` / `"askAI"`. `"action"` only matches `"addObject"` /
+/// `"updateObject"` / `"partialUpdateObject"` /
+/// `"partialUpdateObjectNoCreate"` / `"deleteObject"` / `"delete"` /
+/// `"clear"`. `"aroundRadius"` accepts uint or `"all"`.
 /// `"typoTolerance"` accepts bool or `"min"` / `"strict"` / `"true"` /
 /// `"false"`. `"optionalWords"` accepts string or `[`.
 /// `"ignoreCanonicalTo"` / `"ignorePlurals"` / `"removeStopWords"` accept
@@ -72009,7 +72021,7 @@ fn algolia_insights_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool 
 /// `"optionalFilters"` / `"matchedWords"` / `"ruleContexts"` /
 /// `"analyticsTags"` / `"facetFilters"` / `"numericFilters"` /
 /// `"tagFilters"` / `"naturalLanguages"` /
-/// `"restrictSearchableAttributes"` / `"objectIDs"` accept `[`.
+/// `"restrictSearchableAttributes"` / `"objectIDs"` / `"requests"` accept `[`.
 fn is_algolia_crawler_json_decl(s: &str) -> bool {
     let s = s.trim_start();
     let Some(rest) = s.strip_prefix('"') else {
@@ -72298,6 +72310,14 @@ fn algolia_crawler_json_key_ok(key: &str) -> bool {
             | "createIfNotExists"
             | "objectIDs"
             | "taskID"
+            | "clearExistingIndexDocuments"
+            | "requests"
+            | "action"
+            | "createdAt"
+            | "updatedAt"
+            | "nbPendingTasks"
+            | "pendingTask"
+            | "queryParameters"
     )
 }
 
@@ -72377,6 +72397,7 @@ fn algolia_crawler_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool 
                     | "restrictSearchableAttributes"
                     | "explain"
                     | "objectIDs"
+                    | "requests"
             ) {
                 return false;
             }
@@ -72478,6 +72499,9 @@ fn algolia_crawler_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool 
             if key == "type" {
                 return algolia_crawler_json_docsearch_type_and_tail_ok(after_colon);
             }
+            if key == "action" {
+                return algolia_crawler_json_batch_action_and_tail_ok(after_colon);
+            }
             if !matches!(
                 key,
                 "schedule"
@@ -72551,6 +72575,9 @@ fn algolia_crawler_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool 
                     | "facetQuery"
                     | "params"
                     | "cursor"
+                    | "createdAt"
+                    | "updatedAt"
+                    | "queryParameters"
             ) {
                 return false;
             }
@@ -72560,6 +72587,26 @@ fn algolia_crawler_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool 
         b'0'..=b'9' => algolia_crawler_json_uint_and_tail_ok(key, after_colon),
         _ => false,
     }
+}
+
+fn algolia_crawler_json_batch_action_and_tail_ok(after_colon: &str) -> bool {
+    let rest = &after_colon[1..];
+    let Some(end) = rest.find('"') else {
+        return false;
+    };
+    if !matches!(
+        &rest[..end],
+        "addObject"
+            | "updateObject"
+            | "partialUpdateObject"
+            | "partialUpdateObjectNoCreate"
+            | "deleteObject"
+            | "delete"
+            | "clear"
+    ) {
+        return false;
+    }
+    package_json_tail_ok(&rest[end + 1..])
 }
 
 fn algolia_crawler_json_extractor_type_and_tail_ok(after_colon: &str) -> bool {
@@ -72763,6 +72810,8 @@ fn algolia_crawler_json_bool_and_tail_ok(key: &str, after_colon: &str) -> bool {
             | "forwardToReplicas"
             | "autoGenerateObjectIDIfNotExist"
             | "createIfNotExists"
+            | "clearExistingIndexDocuments"
+            | "pendingTask"
     ) {
         return false;
     }
@@ -72817,6 +72866,7 @@ fn algolia_crawler_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool {
             | "aroundPrecision"
             | "minimumAroundRadius"
             | "taskID"
+            | "nbPendingTasks"
     ) {
         return false;
     }
@@ -155861,6 +155911,148 @@ mod func_like_line_tests {
         assert!(!is_algolia_crawler_json_decl(r#""taskIDs": 42"#));
         assert!(!is_algolia_insights_json_decl(r#""taskID": 42"#));
         assert!(!is_algolia_recommend_json_decl(r#""taskID": 42"#));
+        assert!(is_algolia_crawler_json_decl(
+            r#""clearExistingIndexDocuments": true"#
+        ));
+        assert!(is_algolia_crawler_json_decl(
+            r#""clearExistingIndexDocuments": false"#
+        ));
+        assert!(is_algolia_crawler_json_decl(
+            r#""clearExistingIndexDocuments": true,"#
+        ));
+        assert!(is_algolia_crawler_json_decl(
+            r#""clearExistingIndexDocuments": true // c"#
+        ));
+        assert!(!is_algolia_crawler_json_decl(
+            r#""clearExistingIndexDocuments": "true""#
+        ));
+        assert!(!is_algolia_crawler_json_decl(
+            r#""clearExistingIndexDocuments": 1"#
+        ));
+        assert!(!is_algolia_crawler_json_decl(
+            r#""clearExistingIndexDocuments": {"#
+        ));
+        assert!(!is_algolia_crawler_json_decl(
+            r#""clearExistingIndexDocument": true"#
+        ));
+        assert!(!is_algolia_insights_json_decl(
+            r#""clearExistingIndexDocuments": true"#
+        ));
+        assert!(!is_algolia_recommend_json_decl(
+            r#""clearExistingIndexDocuments": true"#
+        ));
+        assert!(is_algolia_crawler_json_decl(r#""requests": ["#));
+        assert!(is_algolia_crawler_json_decl(r#""requests": [,"#));
+        assert!(is_algolia_crawler_json_decl(r#""requests": [ // c"#));
+        assert!(!is_algolia_crawler_json_decl(r#""requests": true"#));
+        assert!(!is_algolia_crawler_json_decl(r#""requests": {"#));
+        assert!(!is_algolia_crawler_json_decl(r#""requests": "batch""#));
+        assert!(!is_algolia_crawler_json_decl(r#""request": ["#));
+        assert!(!is_algolia_insights_json_decl(r#""requests": ["#));
+        assert!(!is_algolia_recommend_json_decl(r#""requests": ["#));
+        assert!(is_algolia_crawler_json_decl(r#""action": "addObject""#));
+        assert!(is_algolia_crawler_json_decl(r#""action": "updateObject""#));
+        assert!(is_algolia_crawler_json_decl(
+            r#""action": "partialUpdateObject""#
+        ));
+        assert!(is_algolia_crawler_json_decl(
+            r#""action": "partialUpdateObjectNoCreate""#
+        ));
+        assert!(is_algolia_crawler_json_decl(r#""action": "deleteObject""#));
+        assert!(is_algolia_crawler_json_decl(r#""action": "delete""#));
+        assert!(is_algolia_crawler_json_decl(r#""action": "clear""#));
+        assert!(is_algolia_crawler_json_decl(r#""action": "addObject","#));
+        assert!(is_algolia_crawler_json_decl(
+            r#""action": "addObject" // c"#
+        ));
+        assert!(!is_algolia_crawler_json_decl(r#""action": "add""#));
+        assert!(!is_algolia_crawler_json_decl(r#""action": "createObject""#));
+        assert!(!is_algolia_crawler_json_decl(r#""action": """#));
+        assert!(!is_algolia_crawler_json_decl(r#""action": true"#));
+        assert!(!is_algolia_crawler_json_decl(r#""action": ["#));
+        assert!(!is_algolia_crawler_json_decl(r#""actions": "addObject""#));
+        assert!(!is_algolia_insights_json_decl(r#""action": "addObject""#));
+        assert!(!is_algolia_recommend_json_decl(r#""action": "addObject""#));
+        assert!(is_algolia_crawler_json_decl(
+            r#""createdAt": "2024-01-15T12:00:00.000Z""#
+        ));
+        assert!(is_algolia_crawler_json_decl(
+            r#""createdAt": "2024-01-15T12:00:00.000Z","#
+        ));
+        assert!(is_algolia_crawler_json_decl(
+            r#""createdAt": "2024-01-15T12:00:00.000Z" // c"#
+        ));
+        assert!(!is_algolia_crawler_json_decl(r#""createdAt": """#));
+        assert!(!is_algolia_crawler_json_decl(r#""createdAt": true"#));
+        assert!(!is_algolia_crawler_json_decl(r#""createdAt": 0"#));
+        assert!(!is_algolia_crawler_json_decl(r#""createdAts": "2024""#));
+        assert!(!is_algolia_insights_json_decl(
+            r#""createdAt": "2024-01-15T12:00:00.000Z""#
+        ));
+        assert!(!is_algolia_recommend_json_decl(
+            r#""createdAt": "2024-01-15T12:00:00.000Z""#
+        ));
+        assert!(is_algolia_crawler_json_decl(
+            r#""updatedAt": "2024-01-15T12:00:00.000Z""#
+        ));
+        assert!(is_algolia_crawler_json_decl(
+            r#""updatedAt": "2024-01-15T12:00:00.000Z","#
+        ));
+        assert!(is_algolia_crawler_json_decl(
+            r#""updatedAt": "2024-01-15T12:00:00.000Z" // c"#
+        ));
+        assert!(!is_algolia_crawler_json_decl(r#""updatedAt": """#));
+        assert!(!is_algolia_crawler_json_decl(r#""updatedAt": true"#));
+        assert!(!is_algolia_crawler_json_decl(r#""updatedAt": 0"#));
+        assert!(!is_algolia_crawler_json_decl(r#""updatedAts": "2024""#));
+        assert!(!is_algolia_insights_json_decl(
+            r#""updatedAt": "2024-01-15T12:00:00.000Z""#
+        ));
+        assert!(!is_algolia_recommend_json_decl(
+            r#""updatedAt": "2024-01-15T12:00:00.000Z""#
+        ));
+        assert!(is_algolia_crawler_json_decl(r#""nbPendingTasks": 0"#));
+        assert!(is_algolia_crawler_json_decl(r#""nbPendingTasks": 3"#));
+        assert!(is_algolia_crawler_json_decl(r#""nbPendingTasks": 3,"#));
+        assert!(is_algolia_crawler_json_decl(r#""nbPendingTasks": 3 // c"#));
+        assert!(!is_algolia_crawler_json_decl(r#""nbPendingTasks": 03"#));
+        assert!(!is_algolia_crawler_json_decl(r#""nbPendingTasks": true"#));
+        assert!(!is_algolia_crawler_json_decl(r#""nbPendingTasks": {"#));
+        assert!(!is_algolia_crawler_json_decl(r#""nbPendingTask": 3"#));
+        assert!(!is_algolia_insights_json_decl(r#""nbPendingTasks": 3"#));
+        assert!(!is_algolia_recommend_json_decl(r#""nbPendingTasks": 3"#));
+        assert!(is_algolia_crawler_json_decl(r#""pendingTask": true"#));
+        assert!(is_algolia_crawler_json_decl(r#""pendingTask": false"#));
+        assert!(is_algolia_crawler_json_decl(r#""pendingTask": true,"#));
+        assert!(is_algolia_crawler_json_decl(r#""pendingTask": true // c"#));
+        assert!(!is_algolia_crawler_json_decl(r#""pendingTask": "true""#));
+        assert!(!is_algolia_crawler_json_decl(r#""pendingTask": 1"#));
+        assert!(!is_algolia_crawler_json_decl(r#""pendingTask": {"#));
+        assert!(!is_algolia_crawler_json_decl(r#""pendingTasks": true"#));
+        assert!(!is_algolia_insights_json_decl(r#""pendingTask": true"#));
+        assert!(!is_algolia_recommend_json_decl(r#""pendingTask": true"#));
+        assert!(is_algolia_crawler_json_decl(
+            r#""queryParameters": "restrictSearchableAttributes=title""#
+        ));
+        assert!(is_algolia_crawler_json_decl(
+            r#""queryParameters": "restrictSearchableAttributes=title","#
+        ));
+        assert!(is_algolia_crawler_json_decl(
+            r#""queryParameters": "restrictSearchableAttributes=title" // c"#
+        ));
+        assert!(!is_algolia_crawler_json_decl(r#""queryParameters": """#));
+        assert!(!is_algolia_crawler_json_decl(r#""queryParameters": true"#));
+        assert!(!is_algolia_crawler_json_decl(r#""queryParameters": {"#));
+        assert!(!is_algolia_crawler_json_decl(r#""queryParameters": ["#));
+        assert!(!is_algolia_crawler_json_decl(
+            r#""queryParameter": "restrictSearchableAttributes=title""#
+        ));
+        assert!(!is_algolia_insights_json_decl(
+            r#""queryParameters": "restrictSearchableAttributes=title""#
+        ));
+        assert!(!is_algolia_recommend_json_decl(
+            r#""queryParameters": "restrictSearchableAttributes=title""#
+        ));
         assert!(line_is_func_like(r#""nbSortedHits": 20"#));
         assert!(line_is_func_like(r#""processingTimingsMS": {"#));
         assert!(line_is_func_like(r#""queryCategorization": {"#));
@@ -155911,6 +156103,20 @@ mod func_like_line_tests {
         assert!(line_is_func_like(r#""createIfNotExists": false"#));
         assert!(line_is_func_like(r#""objectIDs": ["#));
         assert!(line_is_func_like(r#""taskID": 42"#));
+        assert!(line_is_func_like(r#""clearExistingIndexDocuments": true"#));
+        assert!(line_is_func_like(r#""requests": ["#));
+        assert!(line_is_func_like(r#""action": "addObject""#));
+        assert!(line_is_func_like(
+            r#""createdAt": "2024-01-15T12:00:00.000Z""#
+        ));
+        assert!(line_is_func_like(
+            r#""updatedAt": "2024-01-15T12:00:00.000Z""#
+        ));
+        assert!(line_is_func_like(r#""nbPendingTasks": 3"#));
+        assert!(line_is_func_like(r#""pendingTask": true"#));
+        assert!(line_is_func_like(
+            r#""queryParameters": "restrictSearchableAttributes=title""#
+        ));
         assert!(!is_algolia_crawler_json_decl(r#""words": 3"#));
         assert!(!is_algolia_crawler_json_decl(r#""filters": 1"#));
         assert!(!is_algolia_crawler_json_decl(r#""message": "ok""#));
