@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.902] — 2026-11-15
+
+View:
+
+- **Function List** lists more Algolia Analytics top-search / country / hit / rate JSON keys: `"search": "…"`, `"country": "…"`, `"date": "…"`, `"hit": "…"`, `"noResultsRate": 0` / `0.49` / `1`, `"noClickRate": 0` / `0.15` / `1`, `"withFilterCount": 0` / `5`. Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing `:` stay out. Empty strings / plural/singular misspellings / `"search": ""` / `"search": [` / `"searches": "star wars"` / `"country": ""` / `"country": [` / `"countries": "UK"` / `"date": ""` / `"date": [` / `"dates": "2023-06-14"` / `"hit": ""` / `"hit": [` / `"hits": "obj1"` / `"noResultsRate": 00.49` / `"noResultsRate": 0.` / `"noResultsRate": .49` / `"noClickRate": 00.15` / `"noClickRate": 0.` / `"withFilterCount": 05` / `"noResultsRates": 0.49` / `"noClickRates": 0.15` / `"withFilterCounts": 5` / generic `"description"` / `"indexes"` / `"input"` / `"filters"` / `"url"` / `"order"` / `"values"` / `"enabled"` / `"proxy"` / `"timeout"` / `"retries"` / `"headers"` / `"cache"` / `"message"` / string bools stay out. Existing Crawler / Rules / Synonym / Dictionary / Analytics count / rate / revenue / Personalization / API-key / geo / highlight / search response / write / batch keys unchanged. Algolia Insights / Recommend / neighbouring search JSON families stay out. Bool keys only match `true` / `false`. `"search"` / `"country"` / `"date"` / `"hit"` require a non-empty quoted string. Rate keys allow a simple decimal (no exponent). Numeric count keys reject leading zeros beyond `0`.
+
 ## [0.3.901] — 2026-11-15
 
 View:

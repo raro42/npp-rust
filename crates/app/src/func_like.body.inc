@@ -40441,7 +40441,10 @@ fn algolia_insights_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool 
 /// `"addToCartRate": 0` / `0.08` / `1`, `"purchaseRate": 0` / `0.03` / `1`,
 /// `"dates": [`,
 /// `"clickPositions": [`, `"searches": [`,
-/// `"currency": "…"`, `"revenue": 0` / `999.98` / `1`.
+/// `"currency": "…"`, `"revenue": 0` / `999.98` / `1`,
+/// `"search": "…"`, `"country": "…"`, `"date": "…"`, `"hit": "…"`,
+/// `"noResultsRate": 0` / `0.49` / `1`, `"noClickRate": 0` / `0.15` / `1`,
+/// `"withFilterCount": 0` / `5`.
 /// Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing
 /// `:` stay out. Generic `"$schema"` / `"name"` / `"id"` / `"q"` /
 /// string `"query"` /
@@ -40517,7 +40520,7 @@ fn algolia_insights_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool 
 /// stay out. Bool keys only match `true` / `false`. Numeric keys reject
 /// leading zeros beyond `0`. `"clickThroughRate"` / `"conversionRate"` /
 /// `"averageClickPosition"` / `"addToCartRate"` / `"purchaseRate"` /
-/// `"revenue"` allow a
+/// `"revenue"` / `"noResultsRate"` / `"noClickRate"` allow a
 /// simple decimal (no exponent). String
 /// `"schedule"` / `"indexPrefix"` /
 /// `"clientId"` / `"clientSecret"` / `"grantType"` / `"scope"` /
@@ -40541,7 +40544,8 @@ fn algolia_insights_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool 
 /// `"explain"` / `"facetQuery"` / `"cursor"` /
 /// `"createdAt"` / `"updatedAt"` / `"queryParameters"` /
 /// `"pattern"` / `"context"` / `"delete"` / `"insert"` / `"facetName"` /
-/// `"facetValue"` / `"facet"` / `"language"` / `"word"` / `"currency"` require a
+/// `"facetValue"` / `"facet"` / `"language"` / `"word"` / `"currency"` /
+/// `"search"` / `"country"` / `"date"` / `"hit"` require a
 /// non-empty quoted string.
 /// `"__type"` only matches `"function"`. `"queryType"` only matches
 /// `"prefixLast"` / `"prefixAll"` / `"prefixNone"`.
@@ -40967,6 +40971,13 @@ fn algolia_crawler_json_key_ok(key: &str) -> bool {
             | "searches"
             | "currency"
             | "revenue"
+            | "search"
+            | "country"
+            | "date"
+            | "hit"
+            | "noResultsRate"
+            | "noClickRate"
+            | "withFilterCount"
     )
 }
 
@@ -41277,6 +41288,10 @@ fn algolia_crawler_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool 
                     | "language"
                     | "word"
                     | "currency"
+                    | "search"
+                    | "country"
+                    | "date"
+                    | "hit"
             ) {
                 return false;
             }
@@ -41292,6 +41307,8 @@ fn algolia_crawler_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool 
                     | "addToCartRate"
                     | "purchaseRate"
                     | "revenue"
+                    | "noResultsRate"
+                    | "noClickRate"
             ) {
                 algolia_crawler_json_decimal_and_tail_ok(after_colon)
             } else {
@@ -41628,6 +41645,7 @@ fn algolia_crawler_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool {
             | "usersCount"
             | "addToCartCount"
             | "purchaseCount"
+            | "withFilterCount"
     ) {
         return false;
     }
