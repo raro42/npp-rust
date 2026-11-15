@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.894] — 2026-11-15
+
+View:
+
+- **Function List** lists more Algolia Query Rules JSON keys: `"edits": [`, `"delete": "…"`, `"insert": "…"`, `"facetName": "…"`, `"facetValue": "…"`, and `"type"` now also accepts `"remove"` / `"replace"` (still accepts DocSearch / synonym enums). Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing `:` stay out. Empty strings / plural/singular misspellings / `"edits": {` / `"edits": "remove"` / `"delete": ""` / `"insert": ""` / `"type": "removes"` / `"type": "replaces"` / `"type": "edit"` / `"facetName": ""` / `"facetValue": ""` / `"facetNames": "brand"` / `"facetValues": "Apple"` / generic `"description"` / `"indexes"` / `"input"` / `"word"` / `"filters"` / `"url"` / `"order"` / `"values"` / `"enabled"` / `"proxy"` / `"timeout"` / `"retries"` / `"headers"` / `"cache"` / `"words"` / `"message"` / string bools stay out. Existing Crawler / Rules / Synonym / API-key / geo / highlight / search response / write / batch keys unchanged. Algolia Insights / Recommend / neighbouring search JSON families stay out. Bool keys only match `true` / `false`. Numeric keys reject leading zeros beyond `0`. `"delete"` / `"insert"` / `"facetName"` / `"facetValue"` require a non-empty quoted string. `"type"` only matches its Algolia enums. Array keys accept `[`.
+
 ## [0.3.893] — 2026-11-15
 
 View:

@@ -40416,7 +40416,9 @@ fn algolia_insights_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool 
 /// `"tags": [`, `"automaticFacetFilters": [`,
 /// `"automaticOptionalFacetFilters": [`,
 /// `"from": 0` / `1700000000`, `"until": 0` / `1700000000`,
-/// `"params": "…"` / `{`.
+/// `"params": "…"` / `{`,
+/// `"edits": [`, `"delete": "…"`, `"insert": "…"`,
+/// `"facetName": "…"`, `"facetValue": "…"`.
 /// Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing
 /// `:` stay out. Generic `"$schema"` / `"name"` / `"id"` / `"q"` / `"query"` /
 /// `"url"` / `"appId"` / `"apiKey"` / `"index"` / `"indexName"` / `"cache"` /
@@ -40510,7 +40512,8 @@ fn algolia_insights_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool 
 /// `"similarQuery"` / `"insideBoundingBox"` / `"insidePolygon"` /
 /// `"explain"` / `"facetQuery"` / `"cursor"` /
 /// `"createdAt"` / `"updatedAt"` / `"queryParameters"` /
-/// `"pattern"` / `"context"` require a
+/// `"pattern"` / `"context"` / `"delete"` / `"insert"` / `"facetName"` /
+/// `"facetValue"` require a
 /// non-empty quoted string.
 /// `"__type"` only matches `"function"`. `"queryType"` only matches
 /// `"prefixLast"` / `"prefixAll"` / `"prefixNone"`.
@@ -40525,7 +40528,8 @@ fn algolia_insights_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool 
 /// `"minProximity"` / `"best"` / `"sum"`. `"matchLevel"` only matches
 /// `"none"` / `"partial"` / `"full"`. `"type"` only matches `"content"` /
 /// `"lvl0"`…`"lvl6"` / `"askAI"` / `"synonym"` / `"oneWaySynonym"` /
-/// `"altCorrection1"` / `"altCorrection2"` / `"placeholder"`.
+/// `"altCorrection1"` / `"altCorrection2"` / `"placeholder"` / `"remove"` /
+/// `"replace"`.
 /// `"anchoring"` only matches `"is"` / `"startsWith"` / `"endsWith"` /
 /// `"contains"`. `"action"` only matches `"addObject"` /
 /// `"updateObject"` / `"partialUpdateObject"` /
@@ -40562,7 +40566,8 @@ fn algolia_insights_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool 
 /// `"acl"` / `"referers"` / `"restrictIndices"` / `"restrictSources"` /
 /// `"synonyms"` / `"conditions"` / `"promote"` / `"corrections"` /
 /// `"replacements"` / `"validity"` / `"tags"` /
-/// `"automaticFacetFilters"` / `"automaticOptionalFacetFilters"`
+/// `"automaticFacetFilters"` / `"automaticOptionalFacetFilters"` /
+/// `"edits"`
 /// accept `[`.
 fn is_algolia_crawler_json_decl(s: &str) -> bool {
     let s = s.trim_start();
@@ -40886,6 +40891,11 @@ fn algolia_crawler_json_key_ok(key: &str) -> bool {
             | "automaticOptionalFacetFilters"
             | "from"
             | "until"
+            | "edits"
+            | "delete"
+            | "insert"
+            | "facetName"
+            | "facetValue"
     )
 }
 
@@ -40979,6 +40989,7 @@ fn algolia_crawler_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool 
                     | "tags"
                     | "automaticFacetFilters"
                     | "automaticOptionalFacetFilters"
+                    | "edits"
             ) {
                 return false;
             }
@@ -41168,6 +41179,10 @@ fn algolia_crawler_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool 
                     | "placeholder"
                     | "pattern"
                     | "context"
+                    | "delete"
+                    | "insert"
+                    | "facetName"
+                    | "facetValue"
             ) {
                 return false;
             }
@@ -41508,6 +41523,8 @@ fn algolia_crawler_json_docsearch_type_and_tail_ok(after_colon: &str) -> bool {
             | "altCorrection1"
             | "altCorrection2"
             | "placeholder"
+            | "remove"
+            | "replace"
     ) {
         return false;
     }
