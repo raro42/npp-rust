@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.900] — 2026-11-15
+
+View:
+
+- **Function List** lists more Algolia Analytics conversion JSON keys: `"addToCartCount": 0` / `80`, `"purchaseCount": 0` / `25`, `"addToCartRate": 0` / `0.08` / `1`, `"purchaseRate": 0` / `0.03` / `1`, `"dates": [`. Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing `:` stay out. Empty strings / plural/singular misspellings / `"addToCartCount": 080` / `"purchaseCount": 025` / `"addToCartRate": 00.08` / `"addToCartRate": 0.` / `"addToCartRate": .08` / `"purchaseRate": 00.03` / `"purchaseRate": 0.` / `"dates": {` / `"dates": true` / `"addToCartCounts": 80` / `"purchaseCounts": 25` / `"addToCartRates": 0.08` / `"purchaseRates": 0.03` / `"date": [` / generic `"description"` / `"indexes"` / `"input"` / `"filters"` / `"url"` / `"order"` / `"values"` / `"enabled"` / `"proxy"` / `"timeout"` / `"retries"` / `"headers"` / `"cache"` / `"message"` / string bools stay out. Existing Crawler / Rules / Synonym / Dictionary / Analytics count / rate / Personalization / API-key / geo / highlight / search response / write / batch keys unchanged. Algolia Insights / Recommend / neighbouring search JSON families stay out. Bool keys only match `true` / `false`. Rate keys allow a simple decimal (no exponent). Numeric count keys reject leading zeros beyond `0`. Array keys accept `[`.
+
 ## [0.3.899] — 2026-11-15
 
 View:

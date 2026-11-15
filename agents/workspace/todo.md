@@ -1462,3 +1462,5 @@
 009 keep: Function List Algolia Analytics noClickCount/noResultCount/usersCount/currencies/countries/devices (v0.3.898)
 
 009 keep: Function List Algolia Analytics clickThroughRate/conversionRate/averageClickPosition (v0.3.899)
+
+009 keep: Function List Algolia Analytics addToCartCount/purchaseCount/addToCartRate/purchaseRate/dates (v0.3.900)
