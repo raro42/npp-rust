@@ -1,3 +1,5 @@
+009 keep: Function List Algolia search response nbSortedHits/processingTimingsMS/queryCategorization/autofiltering/facetsCount/facetValues/rulesMatch/promotedByReRanking/normalizedQuery/filtersScore/rankingScore/hierarchyPath/optionalFilters (v0.3.886)
+
 009 keep: Function List Algolia Crawler DocSearch type/hierarchy_radio/hierarchy_camel/weight/position/_highlightResult/_snippetResult/_rankingInfo/_distinctSeqID (v0.3.883)
 
 009 keep: Function List Algolia Crawler anchor/url_without_anchor/hierarchy/thumbnailUrl/articleSection/wordCount/dateCreated/alternativeHeadline/mainEntityOfPage/articleBody (v0.3.882)

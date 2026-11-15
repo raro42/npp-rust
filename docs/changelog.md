@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.886] — 2026-11-15
+
+View:
+
+- **Function List** lists more Algolia Search / DocSearch response JSON keys: `"nbSortedHits": 0` / `20`, `"processingTimingsMS": {`, `"queryCategorization": {`, `"autofiltering": {`, `"facetsCount": true` / `false`, `"facetValues": true` / `false`, `"rulesMatch": true` / `false`, `"promotedByReRanking": true` / `false`, `"normalizedQuery": "…"`, `"filtersScore": 0` / `42`, `"rankingScore": 0` / `100`, `"hierarchyPath": [`, `"optionalFilters": [`. Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing `:` stay out. Empty strings / plural/singular misspellings / `"nbSortedHits": 020` / `"filtersScore": 042` / `"rankingScore": 0100` / generic `"url"` / `"order"` / `"values"` / `"enabled"` / `"proxy"` / `"timeout"` / `"retries"` / `"headers"` / `"cache"` / `"words"` / `"filters"` / `"message"` / string bools stay out. Existing Crawler / `_rankingInfo` / search response keys unchanged. Algolia Insights / Recommend / neighbouring search JSON families stay out. Bool keys only match `true` / `false`. Numeric keys reject leading zeros beyond `0`. `"normalizedQuery"` requires a non-empty quoted string. Object keys accept `{`. Array keys accept `[`.
+
 ## [0.3.885] — 2026-11-15
 
 View:
