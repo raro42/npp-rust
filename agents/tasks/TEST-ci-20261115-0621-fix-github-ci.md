@@ -30,3 +30,5 @@ Created: 2026-11-15T06:21:35Z
 - Fix: split Function List classifiers into `crates/app/src/func_like.rs` + `func_like_line_tests.rs` so each file stays under the Windows rustfmt stack limit.
 
 - Commit: `6e2f15dc`
+- Follow-up: Windows Format still stack-overflowed on run `43686169416` after the split. Device auth for `workflow` scope timed out.
+- Fix v2: move classifier/test bodies to `*.body.inc`, copy via `build.rs` into `OUT_DIR`, thin `include!` wrappers so `cargo fmt` never parses the multi-MB sources.
