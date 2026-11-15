@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.884] — 2026-11-15
+
+View:
+
+- **Function List** lists more Algolia Crawler / DocSearch `_rankingInfo` JSON keys: `"nbTypos": 0` / `2`, `"firstMatchedWord": 0` / `2001`, `"proximityDistance": 0` / `3`, `"userScore": 0` / `1`, `"nbExactWords": 0` / `4`, `"geoDistance": 0` / `120`, `"geoPrecision": 1` / `10`, `"matchedGeoLocation": {`, `"serverUsed": "…"`, `"parsedQuery": "…"`, `"timeoutCounts": true` / `false`, `"timeoutHits": true` / `false`. Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing `:` stay out. Empty strings / plural/singular misspellings / `"nbTypos": 02` / generic `"url"` / `"order"` / `"values"` / `"enabled"` / `"proxy"` / `"timeout"` / `"retries"` / `"headers"` / `"cache"` / `"words"` / `"filters"` / string bools stay out. Existing Crawler keys unchanged. Algolia Insights / Recommend / neighbouring search JSON families stay out. Bool keys only match `true` / `false`. Numeric keys reject leading zeros beyond `0`. `"serverUsed"` / `"parsedQuery"` require a non-empty quoted string. Object keys accept `{`.
+
 ## [0.3.883] — 2026-11-15
 
 View:
