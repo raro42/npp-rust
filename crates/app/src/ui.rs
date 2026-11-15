@@ -71832,7 +71832,11 @@ fn algolia_insights_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool 
 /// `"headline": "…"`, `"keywords": [`, `"authors": [`, `"category": "…"`,
 /// `"lang": "…"`, `"objectID": "…"`,
 /// `"attributeCriteriaComputedBy": "minProximity"` / `"best"` / `"sum"`,
-/// `"resultCard": {`.
+/// `"resultCard": {`, `"anchor": "…"`, `"url_without_anchor": "…"`,
+/// `"hierarchy": {`, `"thumbnailUrl": "…"`, `"articleSection": "…"`,
+/// `"wordCount": 0` / `1200`, `"dateCreated": "…"`,
+/// `"alternativeHeadline": "…"`, `"mainEntityOfPage": "…"`,
+/// `"articleBody": "…"`.
 /// Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing
 /// `:` stay out. Generic `"$schema"` / `"name"` / `"id"` / `"q"` / `"query"` /
 /// `"url"` / `"appId"` / `"apiKey"` / `"index"` / `"indexName"` / `"cache"` /
@@ -71916,7 +71920,9 @@ fn algolia_insights_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool 
 /// `"reRankingApplyFilter"` / `"primary"` / `"vectorModelId"` /
 /// `"selectors"` / `"defaultValue"` / `"codeUrl"` / `"datePublished"` /
 /// `"dateModified"` / `"fileType"` / `"headline"` / `"category"` / `"lang"` /
-/// `"objectID"` require a non-empty quoted string.
+/// `"objectID"` / `"anchor"` / `"url_without_anchor"` / `"thumbnailUrl"` /
+/// `"articleSection"` / `"dateCreated"` / `"alternativeHeadline"` /
+/// `"mainEntityOfPage"` / `"articleBody"` require a non-empty quoted string.
 /// `"__type"` only matches `"function"`. `"queryType"` only matches
 /// `"prefixLast"` / `"prefixAll"` / `"prefixNone"`.
 /// `"removeWordsIfNoResults"` only matches `"none"` / `"lastWords"` /
@@ -71938,7 +71944,7 @@ fn algolia_insights_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool 
 /// `"renderingContent"` / `"semanticSearch"` / `"userData"` /
 /// `"placeholders"` / `"neuralExpression"` / `"dynamicThreshold"` /
 /// `"facetOrdering"` / `"widgets"` / `"redirect"` / `"dataSources"` /
-/// `"helpers"` / `"resultCard"` accept `{`.
+/// `"helpers"` / `"resultCard"` / `"hierarchy"` accept `{`.
 /// `"eventSources"` / `"banners"` / `"hide"` / `"keywords"` / `"authors"`
 /// accept `[`.
 fn is_algolia_crawler_json_decl(s: &str) -> bool {
@@ -72135,6 +72141,16 @@ fn algolia_crawler_json_key_ok(key: &str) -> bool {
             | "objectID"
             | "attributeCriteriaComputedBy"
             | "resultCard"
+            | "anchor"
+            | "url_without_anchor"
+            | "hierarchy"
+            | "thumbnailUrl"
+            | "articleSection"
+            | "wordCount"
+            | "dateCreated"
+            | "alternativeHeadline"
+            | "mainEntityOfPage"
+            | "articleBody"
     )
 }
 
@@ -72242,6 +72258,7 @@ fn algolia_crawler_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool 
                     | "dataSources"
                     | "helpers"
                     | "resultCard"
+                    | "hierarchy"
             ) {
                 return false;
             }
@@ -72328,6 +72345,14 @@ fn algolia_crawler_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool 
                     | "category"
                     | "lang"
                     | "objectID"
+                    | "anchor"
+                    | "url_without_anchor"
+                    | "thumbnailUrl"
+                    | "articleSection"
+                    | "dateCreated"
+                    | "alternativeHeadline"
+                    | "mainEntityOfPage"
+                    | "articleBody"
             ) {
                 return false;
             }
@@ -72528,6 +72553,7 @@ fn algolia_crawler_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool {
             | "relevancyStrictness"
             | "minHitsForSemantic"
             | "contentLength"
+            | "wordCount"
     ) {
         return false;
     }
@@ -151632,6 +151658,30 @@ mod func_like_line_tests {
             r#""attributeCriteriaComputedBy": "best""#
         ));
         assert!(is_algolia_crawler_json_decl(r#""resultCard": {"#));
+        assert!(is_algolia_crawler_json_decl(r#""anchor": "intro""#));
+        assert!(is_algolia_crawler_json_decl(
+            r#""url_without_anchor": "https://example.com/docs/""#
+        ));
+        assert!(is_algolia_crawler_json_decl(r#""hierarchy": {"#));
+        assert!(is_algolia_crawler_json_decl(
+            r#""thumbnailUrl": "https://example.com/thumb.png""#
+        ));
+        assert!(is_algolia_crawler_json_decl(
+            r#""articleSection": "Guides""#
+        ));
+        assert!(is_algolia_crawler_json_decl(r#""wordCount": 1200"#));
+        assert!(is_algolia_crawler_json_decl(
+            r#""dateCreated": "2024-01-01""#
+        ));
+        assert!(is_algolia_crawler_json_decl(
+            r#""alternativeHeadline": "Alt title""#
+        ));
+        assert!(is_algolia_crawler_json_decl(
+            r#""mainEntityOfPage": "https://example.com/docs/""#
+        ));
+        assert!(is_algolia_crawler_json_decl(
+            r#""articleBody": "Full article text""#
+        ));
         assert!(!is_algolia_crawler_json_decl(
             r#""authenticatedUserToken": "user-1""#
         ));
@@ -154083,6 +154133,186 @@ mod func_like_line_tests {
         assert!(!is_algolia_crawler_json_decl(r#""resultCards": {"#));
         assert!(!is_algolia_insights_json_decl(r#""resultCard": {"#));
         assert!(!is_algolia_recommend_json_decl(r#""resultCard": {"#));
+        assert!(is_algolia_crawler_json_decl(r#""anchor": "intro""#));
+        assert!(is_algolia_crawler_json_decl(r#""anchor": "intro","#));
+        assert!(is_algolia_crawler_json_decl(r#""anchor": "intro" // c"#));
+        assert!(!is_algolia_crawler_json_decl(r#""anchor": """#));
+        assert!(!is_algolia_crawler_json_decl(r#""anchor": true"#));
+        assert!(!is_algolia_crawler_json_decl(r#""anchor": {"#));
+        assert!(!is_algolia_crawler_json_decl(r#""anchors": "intro""#));
+        assert!(!is_algolia_insights_json_decl(r#""anchor": "intro""#));
+        assert!(!is_algolia_recommend_json_decl(r#""anchor": "intro""#));
+        assert!(is_algolia_crawler_json_decl(
+            r#""url_without_anchor": "https://example.com/docs/""#
+        ));
+        assert!(is_algolia_crawler_json_decl(
+            r#""url_without_anchor": "https://example.com/docs/","#
+        ));
+        assert!(is_algolia_crawler_json_decl(
+            r#""url_without_anchor": "https://example.com/docs/" // c"#
+        ));
+        assert!(!is_algolia_crawler_json_decl(r#""url_without_anchor": """#));
+        assert!(!is_algolia_crawler_json_decl(
+            r#""url_without_anchor": true"#
+        ));
+        assert!(!is_algolia_crawler_json_decl(r#""url_without_anchor": {"#));
+        assert!(!is_algolia_crawler_json_decl(
+            r#""url_without_anchors": "https://example.com/docs/""#
+        ));
+        assert!(!is_algolia_insights_json_decl(
+            r#""url_without_anchor": "https://example.com/docs/""#
+        ));
+        assert!(!is_algolia_recommend_json_decl(
+            r#""url_without_anchor": "https://example.com/docs/""#
+        ));
+        assert!(is_algolia_crawler_json_decl(r#""hierarchy": {"#));
+        assert!(is_algolia_crawler_json_decl(r#""hierarchy": {,"#));
+        assert!(is_algolia_crawler_json_decl(r#""hierarchy": { // c"#));
+        assert!(!is_algolia_crawler_json_decl(r#""hierarchy": true"#));
+        assert!(!is_algolia_crawler_json_decl(r#""hierarchy": ["#));
+        assert!(!is_algolia_crawler_json_decl(r#""hierarchies": {"#));
+        assert!(!is_algolia_insights_json_decl(r#""hierarchy": {"#));
+        assert!(!is_algolia_recommend_json_decl(r#""hierarchy": {"#));
+        assert!(is_algolia_crawler_json_decl(
+            r#""thumbnailUrl": "https://example.com/thumb.png""#
+        ));
+        assert!(is_algolia_crawler_json_decl(
+            r#""thumbnailUrl": "https://example.com/thumb.png","#
+        ));
+        assert!(is_algolia_crawler_json_decl(
+            r#""thumbnailUrl": "https://example.com/thumb.png" // c"#
+        ));
+        assert!(!is_algolia_crawler_json_decl(r#""thumbnailUrl": """#));
+        assert!(!is_algolia_crawler_json_decl(r#""thumbnailUrl": true"#));
+        assert!(!is_algolia_crawler_json_decl(r#""thumbnailUrl": {"#));
+        assert!(!is_algolia_crawler_json_decl(
+            r#""thumbnailUrls": "https://example.com/thumb.png""#
+        ));
+        assert!(!is_algolia_insights_json_decl(
+            r#""thumbnailUrl": "https://example.com/thumb.png""#
+        ));
+        assert!(!is_algolia_recommend_json_decl(
+            r#""thumbnailUrl": "https://example.com/thumb.png""#
+        ));
+        assert!(is_algolia_crawler_json_decl(
+            r#""articleSection": "Guides""#
+        ));
+        assert!(is_algolia_crawler_json_decl(
+            r#""articleSection": "Guides","#
+        ));
+        assert!(is_algolia_crawler_json_decl(
+            r#""articleSection": "Guides" // c"#
+        ));
+        assert!(!is_algolia_crawler_json_decl(r#""articleSection": """#));
+        assert!(!is_algolia_crawler_json_decl(r#""articleSection": true"#));
+        assert!(!is_algolia_crawler_json_decl(r#""articleSection": {"#));
+        assert!(!is_algolia_crawler_json_decl(
+            r#""articleSections": "Guides""#
+        ));
+        assert!(!is_algolia_insights_json_decl(
+            r#""articleSection": "Guides""#
+        ));
+        assert!(!is_algolia_recommend_json_decl(
+            r#""articleSection": "Guides""#
+        ));
+        assert!(is_algolia_crawler_json_decl(r#""wordCount": 0"#));
+        assert!(is_algolia_crawler_json_decl(r#""wordCount": 1200"#));
+        assert!(is_algolia_crawler_json_decl(r#""wordCount": 1200,"#));
+        assert!(is_algolia_crawler_json_decl(r#""wordCount": 1200 // c"#));
+        assert!(!is_algolia_crawler_json_decl(r#""wordCount": 012"#));
+        assert!(!is_algolia_crawler_json_decl(r#""wordCount": true"#));
+        assert!(!is_algolia_crawler_json_decl(r#""wordCount": {"#));
+        assert!(!is_algolia_crawler_json_decl(r#""wordCounts": 1200"#));
+        assert!(!is_algolia_insights_json_decl(r#""wordCount": 1200"#));
+        assert!(!is_algolia_recommend_json_decl(r#""wordCount": 1200"#));
+        assert!(is_algolia_crawler_json_decl(
+            r#""dateCreated": "2024-01-01""#
+        ));
+        assert!(is_algolia_crawler_json_decl(
+            r#""dateCreated": "2024-01-01","#
+        ));
+        assert!(is_algolia_crawler_json_decl(
+            r#""dateCreated": "2024-01-01" // c"#
+        ));
+        assert!(!is_algolia_crawler_json_decl(r#""dateCreated": """#));
+        assert!(!is_algolia_crawler_json_decl(r#""dateCreated": true"#));
+        assert!(!is_algolia_crawler_json_decl(r#""dateCreated": {"#));
+        assert!(!is_algolia_crawler_json_decl(
+            r#""dateCreatedAt": "2024-01-01""#
+        ));
+        assert!(!is_algolia_insights_json_decl(
+            r#""dateCreated": "2024-01-01""#
+        ));
+        assert!(!is_algolia_recommend_json_decl(
+            r#""dateCreated": "2024-01-01""#
+        ));
+        assert!(is_algolia_crawler_json_decl(
+            r#""alternativeHeadline": "Alt title""#
+        ));
+        assert!(is_algolia_crawler_json_decl(
+            r#""alternativeHeadline": "Alt title","#
+        ));
+        assert!(is_algolia_crawler_json_decl(
+            r#""alternativeHeadline": "Alt title" // c"#
+        ));
+        assert!(!is_algolia_crawler_json_decl(
+            r#""alternativeHeadline": """#
+        ));
+        assert!(!is_algolia_crawler_json_decl(
+            r#""alternativeHeadline": true"#
+        ));
+        assert!(!is_algolia_crawler_json_decl(r#""alternativeHeadline": {"#));
+        assert!(!is_algolia_crawler_json_decl(
+            r#""alternativeHeadlines": "Alt title""#
+        ));
+        assert!(!is_algolia_insights_json_decl(
+            r#""alternativeHeadline": "Alt title""#
+        ));
+        assert!(!is_algolia_recommend_json_decl(
+            r#""alternativeHeadline": "Alt title""#
+        ));
+        assert!(is_algolia_crawler_json_decl(
+            r#""mainEntityOfPage": "https://example.com/docs/""#
+        ));
+        assert!(is_algolia_crawler_json_decl(
+            r#""mainEntityOfPage": "https://example.com/docs/","#
+        ));
+        assert!(is_algolia_crawler_json_decl(
+            r#""mainEntityOfPage": "https://example.com/docs/" // c"#
+        ));
+        assert!(!is_algolia_crawler_json_decl(r#""mainEntityOfPage": """#));
+        assert!(!is_algolia_crawler_json_decl(r#""mainEntityOfPage": true"#));
+        assert!(!is_algolia_crawler_json_decl(r#""mainEntityOfPage": {"#));
+        assert!(!is_algolia_crawler_json_decl(
+            r#""mainEntityOfPages": "https://example.com/docs/""#
+        ));
+        assert!(!is_algolia_insights_json_decl(
+            r#""mainEntityOfPage": "https://example.com/docs/""#
+        ));
+        assert!(!is_algolia_recommend_json_decl(
+            r#""mainEntityOfPage": "https://example.com/docs/""#
+        ));
+        assert!(is_algolia_crawler_json_decl(
+            r#""articleBody": "Full article text""#
+        ));
+        assert!(is_algolia_crawler_json_decl(
+            r#""articleBody": "Full article text","#
+        ));
+        assert!(is_algolia_crawler_json_decl(
+            r#""articleBody": "Full article text" // c"#
+        ));
+        assert!(!is_algolia_crawler_json_decl(r#""articleBody": """#));
+        assert!(!is_algolia_crawler_json_decl(r#""articleBody": true"#));
+        assert!(!is_algolia_crawler_json_decl(r#""articleBody": {"#));
+        assert!(!is_algolia_crawler_json_decl(
+            r#""articleBodies": "Full article text""#
+        ));
+        assert!(!is_algolia_insights_json_decl(
+            r#""articleBody": "Full article text""#
+        ));
+        assert!(!is_algolia_recommend_json_decl(
+            r#""articleBody": "Full article text""#
+        ));
         assert!(!is_algolia_crawler_json_decl(r#""startUrls""#));
         assert!(!is_algolia_crawler_json_decl(r#""schedule""#));
         assert!(!is_algolia_crawler_json_decl(r#""actions""#));

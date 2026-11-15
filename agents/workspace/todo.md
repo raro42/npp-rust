@@ -1,3 +1,5 @@
+009 keep: Function List Algolia Crawler anchor/url_without_anchor/hierarchy/thumbnailUrl/articleSection/wordCount/dateCreated/alternativeHeadline/mainEntityOfPage/articleBody (v0.3.882)
+
 009 keep: Function List Algolia Crawler dateModified/fileType/headline/keywords/authors/category/lang/objectID/attributeCriteriaComputedBy/resultCard (v0.3.881)
 
 009 keep: Function List Algolia Crawler facets/hide/redirect/dataSources/helpers/contentLength/codeUrl/datePublished (v0.3.880)

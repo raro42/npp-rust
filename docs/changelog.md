@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.882] — 2026-11-15
+
+View:
+
+- **Function List** lists more Algolia Crawler JSON keys: `"anchor": "…"`, `"url_without_anchor": "…"`, `"hierarchy": {`, `"thumbnailUrl": "…"`, `"articleSection": "…"`, `"wordCount": 0` / `1200`, `"dateCreated": "…"`, `"alternativeHeadline": "…"`, `"mainEntityOfPage": "…"`, `"articleBody": "…"`. Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing `:` stay out. Empty strings / plural/singular misspellings / `"wordCount": 012` / generic `"url"` / `"order"` / `"values"` / `"enabled"` / `"proxy"` / `"timeout"` / `"retries"` / `"headers"` / `"cache"` / string bools stay out. Existing Crawler keys unchanged. Algolia Insights / Recommend / neighbouring search JSON families stay out. Bool keys only match `true` / `false`. Numeric keys reject leading zeros beyond `0`. `"anchor"` / `"url_without_anchor"` / `"thumbnailUrl"` / `"articleSection"` / `"dateCreated"` / `"alternativeHeadline"` / `"mainEntityOfPage"` / `"articleBody"` require a non-empty quoted string. Object keys accept `{`.
+
 ## [0.3.881] — 2026-11-15
 
 View:
