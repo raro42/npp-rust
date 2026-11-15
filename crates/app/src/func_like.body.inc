@@ -40382,7 +40382,8 @@ fn algolia_insights_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool 
 /// `"minimumAroundRadius": 0` / `500`,
 /// `"insideBoundingBox": "…"` / `[`, `"insidePolygon": "…"` / `[`,
 /// `"restrictSearchableAttributes": [`,
-/// `"facetingAfterDistinct": true` / `false`, `"synonyms": true` / `false`,
+/// `"facetingAfterDistinct": true` / `false`,
+/// `"synonyms": true` / `false` / `[`,
 /// `"explain": "…"` / `[`,
 /// `"facetQuery": "…"`, `"params": "…"`, `"cursor": "…"`,
 /// `"forwardToReplicas": true` / `false`,
@@ -40396,12 +40397,20 @@ fn algolia_insights_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool 
 /// `"clear"`,
 /// `"createdAt": "…"`, `"updatedAt": "…"`,
 /// `"nbPendingTasks": 0` / `3`, `"pendingTask": true` / `false`,
-/// `"queryParameters": "…"`.
+/// `"queryParameters": "…"`,
+/// `"acl": [`, `"validity": 0` / `3600`,
+/// `"maxHitsPerQuery": 0` / `100`,
+/// `"maxQueriesPerIPPerHour": 0` / `1000`,
+/// `"referers": [`, `"restrictIndices": [`, `"restrictSources": [`,
+/// `"createdAtTimestamp": 0` / `1700000000`,
+/// `"updatedAtTimestamp": 0` / `1700000000`,
+/// `"synonyms": true` / `false` / `[`.
 /// Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing
 /// `:` stay out. Generic `"$schema"` / `"name"` / `"id"` / `"q"` / `"query"` /
 /// `"url"` / `"appId"` / `"apiKey"` / `"index"` / `"indexName"` / `"cache"` /
 /// `"enabled"` / `"proxy"` / `"timeout"` / `"retries"` / `"headers"` /
 /// `"order"` / `"values"` / `"words"` / `"filters"` / `"message"` /
+/// `"description"` / `"indexes"` /
 /// Algolia Insights `"authenticatedUserToken"` /
 /// `"userHasOptedOut"` / `"useCookie"` / `"anonymousUserToken"` /
 /// `"cookieDuration"` / `"eventSubtype"` / `"objectData"` / Algolia Recommend
@@ -40508,8 +40517,9 @@ fn algolia_insights_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool 
 /// `"clear"`. `"aroundRadius"` accepts uint or `"all"`.
 /// `"typoTolerance"` accepts bool or `"min"` / `"strict"` / `"true"` /
 /// `"false"`. `"optionalWords"` accepts string or `[`.
-/// `"ignoreCanonicalTo"` / `"ignorePlurals"` / `"removeStopWords"` accept
-/// bool or `[`. `"renderJavaScript"` accepts bool, `[`, or `{`.
+/// `"ignoreCanonicalTo"` / `"ignorePlurals"` / `"removeStopWords"` /
+/// `"synonyms"` accept bool or `[`. `"renderJavaScript"` accepts bool, `[`,
+/// or `{`.
 /// `"indexHeadings"` accepts bool or `{`. `"facets"` accepts `[` or `{`.
 /// `"lvl1"` / `"lvl2"` / `"lvl3"` / `"lvl4"` / `"lvl5"` / `"lvl6"` /
 /// `"content"` / `"reRankingApplyFilter"` / `"insideBoundingBox"` /
@@ -40528,7 +40538,9 @@ fn algolia_insights_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool 
 /// `"optionalFilters"` / `"matchedWords"` / `"ruleContexts"` /
 /// `"analyticsTags"` / `"facetFilters"` / `"numericFilters"` /
 /// `"tagFilters"` / `"naturalLanguages"` /
-/// `"restrictSearchableAttributes"` / `"objectIDs"` / `"requests"` accept `[`.
+/// `"restrictSearchableAttributes"` / `"objectIDs"` / `"requests"` /
+/// `"acl"` / `"referers"` / `"restrictIndices"` / `"restrictSources"` /
+/// `"synonyms"` accept `[`.
 fn is_algolia_crawler_json_decl(s: &str) -> bool {
     let s = s.trim_start();
     let Some(rest) = s.strip_prefix('"') else {
@@ -40825,6 +40837,15 @@ fn algolia_crawler_json_key_ok(key: &str) -> bool {
             | "nbPendingTasks"
             | "pendingTask"
             | "queryParameters"
+            | "acl"
+            | "validity"
+            | "maxHitsPerQuery"
+            | "maxQueriesPerIPPerHour"
+            | "referers"
+            | "restrictIndices"
+            | "restrictSources"
+            | "createdAtTimestamp"
+            | "updatedAtTimestamp"
     )
 }
 
@@ -40905,6 +40926,11 @@ fn algolia_crawler_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool 
                     | "explain"
                     | "objectIDs"
                     | "requests"
+                    | "acl"
+                    | "referers"
+                    | "restrictIndices"
+                    | "restrictSources"
+                    | "synonyms"
             ) {
                 return false;
             }
@@ -41374,6 +41400,11 @@ fn algolia_crawler_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool {
             | "minimumAroundRadius"
             | "taskID"
             | "nbPendingTasks"
+            | "validity"
+            | "maxHitsPerQuery"
+            | "maxQueriesPerIPPerHour"
+            | "createdAtTimestamp"
+            | "updatedAtTimestamp"
     ) {
         return false;
     }

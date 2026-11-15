@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.891] — 2026-11-15
+
+View:
+
+- **Function List** lists more Algolia API-key / synonym JSON keys: `"acl": [`, `"validity": 0` / `3600`, `"maxHitsPerQuery": 0` / `100`, `"maxQueriesPerIPPerHour": 0` / `1000`, `"referers": [`, `"restrictIndices": [`, `"restrictSources": [`, `"createdAtTimestamp": 0` / `1700000000`, `"updatedAtTimestamp": 0` / `1700000000`, and `"synonyms"` now also accepts `[` (still accepts `true` / `false`). Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing `:` stay out. Empty strings / plural/singular misspellings / `"validity": 03600` / `"maxHitsPerQuery": 0100` / `"maxQueriesPerIPPerHour": 01000` / `"createdAtTimestamp": 01700000000` / `"updatedAtTimestamp": 01700000000` / `"acl": "search"` / `"referers": "*"` / `"synonyms": "car"` / `"synonyms": {` / generic `"description"` / `"indexes"` / `"url"` / `"order"` / `"values"` / `"enabled"` / `"proxy"` / `"timeout"` / `"retries"` / `"headers"` / `"cache"` / `"words"` / `"filters"` / `"message"` / string bools stay out. Existing Crawler / geo / highlight / search response / write / batch keys unchanged. Algolia Insights / Recommend / neighbouring search JSON families stay out. Bool keys only match `true` / `false`. Numeric keys reject leading zeros beyond `0`. `"synonyms"` accepts bool or `[`. Array keys accept `[`.
+
 ## [0.3.890] — 2026-11-15
 
 View:
