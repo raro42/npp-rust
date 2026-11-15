@@ -53257,6 +53257,51 @@ fn algolia_crawler_json_keys_count() {
     assert!(!is_algolia_crawler_json_decl(r#""device": ["#));
     assert!(!is_algolia_insights_json_decl(r#""devices": ["#));
     assert!(!is_algolia_recommend_json_decl(r#""devices": ["#));
+    assert!(is_algolia_crawler_json_decl(r#""clickThroughRate": 0"#));
+    assert!(is_algolia_crawler_json_decl(r#""clickThroughRate": 0.12"#));
+    assert!(is_algolia_crawler_json_decl(r#""clickThroughRate": 1"#));
+    assert!(is_algolia_crawler_json_decl(r#""clickThroughRate": 0.12,"#));
+    assert!(is_algolia_crawler_json_decl(r#""clickThroughRate": 0.12 // c"#));
+    assert!(!is_algolia_crawler_json_decl(r#""clickThroughRate": 00.12"#));
+    assert!(!is_algolia_crawler_json_decl(r#""clickThroughRate": 0."#));
+    assert!(!is_algolia_crawler_json_decl(r#""clickThroughRate": .12"#));
+    assert!(!is_algolia_crawler_json_decl(r#""clickThroughRate": true"#));
+    assert!(!is_algolia_crawler_json_decl(r#""clickThroughRate": ["#));
+    assert!(!is_algolia_crawler_json_decl(r#""clickThroughRates": 0.12"#));
+    assert!(!is_algolia_insights_json_decl(r#""clickThroughRate": 0.12"#));
+    assert!(!is_algolia_recommend_json_decl(r#""clickThroughRate": 0.12"#));
+    assert!(is_algolia_crawler_json_decl(r#""conversionRate": 0"#));
+    assert!(is_algolia_crawler_json_decl(r#""conversionRate": 0.05"#));
+    assert!(is_algolia_crawler_json_decl(r#""conversionRate": 1"#));
+    assert!(is_algolia_crawler_json_decl(r#""conversionRate": 0.05,"#));
+    assert!(is_algolia_crawler_json_decl(r#""conversionRate": 0.05 // c"#));
+    assert!(!is_algolia_crawler_json_decl(r#""conversionRate": 00.05"#));
+    assert!(!is_algolia_crawler_json_decl(r#""conversionRate": 0."#));
+    assert!(!is_algolia_crawler_json_decl(r#""conversionRate": true"#));
+    assert!(!is_algolia_crawler_json_decl(r#""conversionRate": ["#));
+    assert!(!is_algolia_crawler_json_decl(r#""conversionRates": 0.05"#));
+    assert!(!is_algolia_insights_json_decl(r#""conversionRate": 0.05"#));
+    assert!(!is_algolia_recommend_json_decl(r#""conversionRate": 0.05"#));
+    assert!(is_algolia_crawler_json_decl(r#""averageClickPosition": 0"#));
+    assert!(is_algolia_crawler_json_decl(r#""averageClickPosition": 1"#));
+    assert!(is_algolia_crawler_json_decl(r#""averageClickPosition": 3.5"#));
+    assert!(is_algolia_crawler_json_decl(r#""averageClickPosition": 3.5,"#));
+    assert!(is_algolia_crawler_json_decl(
+        r#""averageClickPosition": 3.5 // c"#
+    ));
+    assert!(!is_algolia_crawler_json_decl(r#""averageClickPosition": 03.5"#));
+    assert!(!is_algolia_crawler_json_decl(r#""averageClickPosition": 3."#));
+    assert!(!is_algolia_crawler_json_decl(r#""averageClickPosition": true"#));
+    assert!(!is_algolia_crawler_json_decl(r#""averageClickPosition": ["#));
+    assert!(!is_algolia_crawler_json_decl(
+        r#""averageClickPositions": 3.5"#
+    ));
+    assert!(!is_algolia_insights_json_decl(
+        r#""averageClickPosition": 3.5"#
+    ));
+    assert!(!is_algolia_recommend_json_decl(
+        r#""averageClickPosition": 3.5"#
+    ));
     assert!(line_is_func_like(r#""conditions": ["#));
     assert!(line_is_func_like(r#""consequence": {"#));
     assert!(line_is_func_like(r#""anchoring": "startsWith""#));
@@ -53311,6 +53356,9 @@ fn algolia_crawler_json_keys_count() {
     assert!(line_is_func_like(r#""currencies": ["#));
     assert!(line_is_func_like(r#""countries": ["#));
     assert!(line_is_func_like(r#""devices": ["#));
+    assert!(line_is_func_like(r#""clickThroughRate": 0.12"#));
+    assert!(line_is_func_like(r#""conversionRate": 0.05"#));
+    assert!(line_is_func_like(r#""averageClickPosition": 3.5"#));
     assert!(line_is_func_like(r#""params": {"#));
     assert!(line_is_func_like(r#""nbSortedHits": 20"#));
     assert!(line_is_func_like(r#""processingTimingsMS": {"#));

@@ -1460,3 +1460,5 @@
 009 keep: Function List Algolia Analytics/Personalization trackedSearchCount/clickCount/conversionCount/searchCount/eventsScoring/facetsScoring (v0.3.897)
 
 009 keep: Function List Algolia Analytics noClickCount/noResultCount/usersCount/currencies/countries/devices (v0.3.898)
+
+009 keep: Function List Algolia Analytics clickThroughRate/conversionRate/averageClickPosition (v0.3.899)

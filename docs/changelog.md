@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.899] — 2026-11-15
+
+View:
+
+- **Function List** lists more Algolia Analytics rate JSON keys: `"clickThroughRate": 0` / `0.12` / `1`, `"conversionRate": 0` / `0.05` / `1`, `"averageClickPosition": 0` / `1` / `3.5`. Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing `:` stay out. Empty strings / plural/singular misspellings / `"clickThroughRate": 00.12` / `"clickThroughRate": 0.` / `"clickThroughRate": .12` / `"conversionRate": 00.05` / `"averageClickPosition": 03.5` / `"averageClickPosition": 3.` / `"clickThroughRates": 0.12` / `"conversionRates": 0.05` / `"averageClickPositions": 3.5` / generic `"description"` / `"indexes"` / `"input"` / `"filters"` / `"url"` / `"order"` / `"values"` / `"enabled"` / `"proxy"` / `"timeout"` / `"retries"` / `"headers"` / `"cache"` / `"message"` / string bools stay out. Existing Crawler / Rules / Synonym / Dictionary / Analytics count / Personalization / API-key / geo / highlight / search response / write / batch keys unchanged. Algolia Insights / Recommend / neighbouring search JSON families stay out. Bool keys only match `true` / `false`. Rate keys allow a simple decimal (no exponent). Numeric count keys reject leading zeros beyond `0`.
+
 ## [0.3.898] — 2026-11-15
 
 View:

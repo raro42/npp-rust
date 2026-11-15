@@ -40434,7 +40434,9 @@ fn algolia_insights_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool 
 /// `"eventsScoring": [`, `"facetsScoring": [`,
 /// `"noClickCount": 0` / `40`, `"noResultCount": 0` / `12`,
 /// `"usersCount": 0` / `500`, `"currencies": [`, `"countries": [`,
-/// `"devices": [`.
+/// `"devices": [`,
+/// `"clickThroughRate": 0` / `0.12` / `1`, `"conversionRate": 0` / `0.05` / `1`,
+/// `"averageClickPosition": 0` / `1` / `3.5`.
 /// Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing
 /// `:` stay out. Generic `"$schema"` / `"name"` / `"id"` / `"q"` /
 /// string `"query"` /
@@ -40508,7 +40510,9 @@ fn algolia_insights_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool 
 /// `"responseHeader"` / Elasticsearch `"track_total_hits"` /
 /// `"runtime_mappings"` / prettier `"printWidth"` / karma `"basePath"`
 /// stay out. Bool keys only match `true` / `false`. Numeric keys reject
-/// leading zeros beyond `0`. String `"schedule"` / `"indexPrefix"` /
+/// leading zeros beyond `0`. `"clickThroughRate"` / `"conversionRate"` /
+/// `"averageClickPosition"` allow a simple decimal (no exponent). String
+/// `"schedule"` / `"indexPrefix"` /
 /// `"clientId"` / `"clientSecret"` / `"grantType"` / `"scope"` /
 /// `"grant_type"` / `"client_id"` / `"client_secret"` / `"resource"` /
 /// `"username"` / `"password"` / `"source"` / `"body"` / `"method"` /
@@ -40944,6 +40948,9 @@ fn algolia_crawler_json_key_ok(key: &str) -> bool {
             | "currencies"
             | "countries"
             | "devices"
+            | "clickThroughRate"
+            | "conversionRate"
+            | "averageClickPosition"
     )
 }
 
@@ -41255,9 +41262,43 @@ fn algolia_crawler_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool 
             algolia_crawler_json_string_and_tail_ok(after_colon)
         }
         b't' | b'f' => algolia_crawler_json_bool_and_tail_ok(key, after_colon),
-        b'0'..=b'9' => algolia_crawler_json_uint_and_tail_ok(key, after_colon),
+        b'0'..=b'9' => {
+            if matches!(
+                key,
+                "clickThroughRate" | "conversionRate" | "averageClickPosition"
+            ) {
+                algolia_crawler_json_decimal_and_tail_ok(after_colon)
+            } else {
+                algolia_crawler_json_uint_and_tail_ok(key, after_colon)
+            }
+        }
         _ => false,
     }
+}
+
+fn algolia_crawler_json_decimal_and_tail_ok(after_colon: &str) -> bool {
+    let bytes = after_colon.as_bytes();
+    let mut i = 0;
+    while i < bytes.len() && bytes[i].is_ascii_digit() {
+        i += 1;
+    }
+    if i == 0 || i > 12 {
+        return false;
+    }
+    if i > 1 && bytes[0] == b'0' {
+        return false;
+    }
+    if i < bytes.len() && bytes[i] == b'.' {
+        i += 1;
+        let frac_start = i;
+        while i < bytes.len() && bytes[i].is_ascii_digit() {
+            i += 1;
+        }
+        if i == frac_start || i - frac_start > 12 {
+            return false;
+        }
+    }
+    package_json_tail_ok(&after_colon[i..])
 }
 
 fn algolia_crawler_json_batch_action_and_tail_ok(after_colon: &str) -> bool {
