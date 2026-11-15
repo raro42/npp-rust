@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.883] — 2026-11-15
+
+View:
+
+- **Function List** lists more Algolia Crawler / DocSearch JSON keys: `"type": "content"` / `"lvl0"`…`"lvl6"` / `"askAI"`, `"hierarchy_radio": {`, `"hierarchy_camel": [`, `"weight": {`, `"position": 0` / `42`, `"_highlightResult": {`, `"_snippetResult": {`, `"_rankingInfo": {`, `"_distinctSeqID": 0` / `3`. Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing `:` stay out. Plural/singular misspellings / `"type": "heading"` / `"type": "function"` / `"position": 042` / generic `"url"` / `"order"` / `"values"` / `"enabled"` / `"proxy"` / `"timeout"` / `"retries"` / `"headers"` / `"cache"` / string bools stay out. Existing Crawler keys unchanged. Algolia Insights / Recommend / neighbouring search JSON families stay out. Bool keys only match `true` / `false`. Numeric keys reject leading zeros beyond `0`. `"type"` only matches DocSearch content-type enums. Object keys accept `{`. Array keys accept `[`.
+
 ## [0.3.882] — 2026-11-15
 
 View:
