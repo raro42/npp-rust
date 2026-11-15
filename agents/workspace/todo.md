@@ -1,3 +1,5 @@
+009 keep: Function List Algolia Analytics hits/attributes/attribute/value/operator/trackedHitCount (v0.3.903)
+
 009 keep: Function List Algolia Analytics search/country/date/hit + noResultsRate/noClickRate/withFilterCount (v0.3.902)
 
 009 keep: Function List Algolia Analytics clickPositions/searches/currency/revenue + currencies object (v0.3.901)

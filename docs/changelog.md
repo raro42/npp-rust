@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.903] — 2026-11-16
+
+View:
+
+- **Function List** lists more Algolia Analytics top-hits / top-filters JSON keys: `"hits": [`, `"attributes": [`, `"attribute": "…"`, `"value": "…"`, `"operator": ":"` / `"<"` / `"<="` / `"="` / `"!="` / `">"` / `">="`, `"trackedHitCount": 0` / `100`. Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing `:` stay out. Empty strings / plural/singular misspellings / `"hits": "obj1"` / `"hits": {` / `"hit": [` / `"attributes": "brand"` / `"attributes": {` / `"attribute": ""` / `"attribute": [` / `"value": ""` / `"value": [` / `"values": "apple"` / `"operator": "=="` / `"operator": "is"` / `"operators": ":"` / `"trackedHitCount": 0100` / `"trackedHitCounts": 100` / generic `"description"` / `"indexes"` / `"input"` / `"filters"` / `"url"` / `"order"` / `"values"` / `"enabled"` / `"proxy"` / `"timeout"` / `"retries"` / `"headers"` / `"cache"` / `"message"` / string bools stay out. Existing Crawler / Rules / Synonym / Dictionary / Analytics count / rate / revenue / Personalization / API-key / geo / highlight / search response / write / batch keys unchanged. Algolia Insights / Recommend / neighbouring search JSON families stay out. Bool keys only match `true` / `false`. `"attribute"` / `"value"` require a non-empty quoted string. `"operator"` only matches the Analytics filter enum. Numeric count keys reject leading zeros beyond `0`. Array keys accept `[`.
+
 ## [0.3.902] — 2026-11-15
 
 View:

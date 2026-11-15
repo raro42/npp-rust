@@ -40444,7 +40444,10 @@ fn algolia_insights_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool 
 /// `"currency": "…"`, `"revenue": 0` / `999.98` / `1`,
 /// `"search": "…"`, `"country": "…"`, `"date": "…"`, `"hit": "…"`,
 /// `"noResultsRate": 0` / `0.49` / `1`, `"noClickRate": 0` / `0.15` / `1`,
-/// `"withFilterCount": 0` / `5`.
+/// `"withFilterCount": 0` / `5`,
+/// `"hits": [`, `"attributes": [`, `"attribute": "…"`, `"value": "…"`,
+/// `"operator": ":"` / `"<"` / `"<="` / `"="` / `"!="` / `">"` / `">="`,
+/// `"trackedHitCount": 0` / `100`.
 /// Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing
 /// `:` stay out. Generic `"$schema"` / `"name"` / `"id"` / `"q"` /
 /// string `"query"` /
@@ -40545,7 +40548,8 @@ fn algolia_insights_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool 
 /// `"createdAt"` / `"updatedAt"` / `"queryParameters"` /
 /// `"pattern"` / `"context"` / `"delete"` / `"insert"` / `"facetName"` /
 /// `"facetValue"` / `"facet"` / `"language"` / `"word"` / `"currency"` /
-/// `"search"` / `"country"` / `"date"` / `"hit"` require a
+/// `"search"` / `"country"` / `"date"` / `"hit"` / `"attribute"` / `"value"`
+/// require a
 /// non-empty quoted string.
 /// `"__type"` only matches `"function"`. `"queryType"` only matches
 /// `"prefixLast"` / `"prefixAll"` / `"prefixNone"`.
@@ -40565,7 +40569,8 @@ fn algolia_insights_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool 
 /// `"state"` only matches `"enabled"` / `"disabled"`. `"dictionary"` only
 /// matches `"plurals"` / `"stopwords"` / `"compounds"`.
 /// `"anchoring"` only matches `"is"` / `"startsWith"` / `"endsWith"` /
-/// `"contains"`. `"action"` only matches `"addObject"` /
+/// `"contains"`. `"operator"` only matches `":"` / `"<"` / `"<="` / `"="` /
+/// `"!="` / `">"` / `">="`. `"action"` only matches `"addObject"` /
 /// `"updateObject"` / `"partialUpdateObject"` /
 /// `"partialUpdateObjectNoCreate"` / `"deleteObject"` / `"delete"` /
 /// `"clear"`. `"aroundRadius"` accepts uint or `"all"`.
@@ -40604,7 +40609,8 @@ fn algolia_insights_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool 
 /// `"automaticFacetFilters"` / `"automaticOptionalFacetFilters"` /
 /// `"edits"` / `"remove"` / `"words"` / `"decomposition"` /
 /// `"eventsScoring"` / `"facetsScoring"` / `"currencies"` / `"countries"` /
-/// `"devices"` / `"dates"` / `"clickPositions"` / `"searches"`
+/// `"devices"` / `"dates"` / `"clickPositions"` / `"searches"` / `"hits"` /
+/// `"attributes"`
 /// accept `[`. `"currencies"` also accepts `{`.
 fn is_algolia_crawler_json_decl(s: &str) -> bool {
     let s = s.trim_start();
@@ -40978,6 +40984,12 @@ fn algolia_crawler_json_key_ok(key: &str) -> bool {
             | "noResultsRate"
             | "noClickRate"
             | "withFilterCount"
+            | "hits"
+            | "attributes"
+            | "attribute"
+            | "value"
+            | "operator"
+            | "trackedHitCount"
     )
 }
 
@@ -41083,6 +41095,8 @@ fn algolia_crawler_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool 
                     | "dates"
                     | "clickPositions"
                     | "searches"
+                    | "hits"
+                    | "attributes"
             ) {
                 return false;
             }
@@ -41192,6 +41206,9 @@ fn algolia_crawler_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool 
             if key == "anchoring" {
                 return algolia_crawler_json_anchoring_and_tail_ok(after_colon);
             }
+            if key == "operator" {
+                return algolia_crawler_json_operator_and_tail_ok(after_colon);
+            }
             if key == "state" {
                 return algolia_crawler_json_dictionary_state_and_tail_ok(after_colon);
             }
@@ -41292,6 +41309,8 @@ fn algolia_crawler_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool 
                     | "country"
                     | "date"
                     | "hit"
+                    | "attribute"
+                    | "value"
             ) {
                 return false;
             }
@@ -41646,6 +41665,7 @@ fn algolia_crawler_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool {
             | "addToCartCount"
             | "purchaseCount"
             | "withFilterCount"
+            | "trackedHitCount"
     ) {
         return false;
     }
@@ -41707,6 +41727,17 @@ fn algolia_crawler_json_anchoring_and_tail_ok(after_colon: &str) -> bool {
         &rest[..end],
         "is" | "startsWith" | "endsWith" | "contains"
     ) {
+        return false;
+    }
+    package_json_tail_ok(&rest[end + 1..])
+}
+
+fn algolia_crawler_json_operator_and_tail_ok(after_colon: &str) -> bool {
+    let rest = &after_colon[1..];
+    let Some(end) = rest.find('"') else {
+        return false;
+    };
+    if !matches!(&rest[..end], ":" | "<" | "<=" | "=" | "!=" | ">" | ">=") {
         return false;
     }
     package_json_tail_ok(&rest[end + 1..])
