@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.893] — 2026-11-15
+
+View:
+
+- **Function List** lists more Algolia Query Rules JSON keys: `"pattern": "…"`, `"context": "…"`, `"condition": {`, `"tags": [`, `"automaticFacetFilters": [`, `"automaticOptionalFacetFilters": [`, `"from": 0` / `1700000000`, `"until": 0` / `1700000000`, and `"params"` now also accepts `{` (still accepts search-API query strings). Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing `:` stay out. Empty strings / plural/singular misspellings / `"pattern": ""` / `"context": ""` / `"condition": [` / `"tags": "promo"` / `"automaticFacetFilters": "brand"` / `"from": 01700000000` / `"until": 01700000000` / generic `"description"` / `"indexes"` / `"input"` / `"word"` / `"filters"` / `"url"` / `"order"` / `"values"` / `"enabled"` / `"proxy"` / `"timeout"` / `"retries"` / `"headers"` / `"cache"` / `"words"` / `"message"` / string bools stay out. Existing Crawler / Rules / Synonym / API-key / geo / highlight / search response / write / batch keys unchanged. Algolia Insights / Recommend / neighbouring search JSON families stay out. Bool keys only match `true` / `false`. Numeric keys reject leading zeros beyond `0`. `"pattern"` / `"context"` require a non-empty quoted string. `"params"` accepts string or `{`. Array keys accept `[`. Object keys accept `{`.
+
 ## [0.3.892] — 2026-11-15
 
 View:

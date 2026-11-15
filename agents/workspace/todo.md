@@ -1448,3 +1448,5 @@
 009 keep: Function List Algolia acl/validity/maxHitsPerQuery/maxQueriesPerIPPerHour/referers/restrictIndices/restrictSources/createdAtTimestamp/updatedAtTimestamp/synonyms[] (v0.3.891)
 
 009 keep: Function List Algolia Rules/Synonym conditions/consequence/anchoring/filterPromotes/promote/alternatives/corrections/replacements/placeholder/validity[]/type synonym enums (v0.3.892)
+
+009 keep: Function List Algolia Rules pattern/context/condition/tags/automaticFacetFilters/automaticOptionalFacetFilters/from/until/params object (v0.3.893)

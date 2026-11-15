@@ -52288,13 +52288,17 @@ fn algolia_crawler_json_keys_count() {
     ));
     assert!(!is_algolia_crawler_json_decl(r#""params": """#));
     assert!(!is_algolia_crawler_json_decl(r#""params": true"#));
-    assert!(!is_algolia_crawler_json_decl(r#""params": {"#));
+    assert!(is_algolia_crawler_json_decl(r#""params": {"#));
+    assert!(is_algolia_crawler_json_decl(r#""params": {,"#));
+    assert!(is_algolia_crawler_json_decl(r#""params": { // c"#));
     assert!(!is_algolia_crawler_json_decl(r#""params": ["#));
     assert!(!is_algolia_crawler_json_decl(r#""param": "query=shoes""#));
     assert!(!is_algolia_insights_json_decl(r#""params": "query=shoes""#));
     assert!(!is_algolia_recommend_json_decl(
         r#""params": "query=shoes""#
     ));
+    assert!(!is_algolia_insights_json_decl(r#""params": {"#));
+    assert!(!is_algolia_recommend_json_decl(r#""params": {"#));
     assert!(is_algolia_crawler_json_decl(r#""cursor": "cursor-abc123""#));
     assert!(is_algolia_crawler_json_decl(
         r#""cursor": "cursor-abc123","#
@@ -52815,6 +52819,105 @@ fn algolia_crawler_json_keys_count() {
     assert!(!is_algolia_crawler_json_decl(r#""indexes": ["#));
     assert!(!is_algolia_crawler_json_decl(r#""input": "smartphone""#));
     assert!(!is_algolia_crawler_json_decl(r#""word": "footbal""#));
+    assert!(is_algolia_crawler_json_decl(r#""pattern": "smartphone""#));
+    assert!(is_algolia_crawler_json_decl(r#""pattern": "{facet:genre}""#));
+    assert!(is_algolia_crawler_json_decl(r#""pattern": "smartphone","#));
+    assert!(is_algolia_crawler_json_decl(
+        r#""pattern": "smartphone" // c"#
+    ));
+    assert!(!is_algolia_crawler_json_decl(r#""pattern": """#));
+    assert!(!is_algolia_crawler_json_decl(r#""pattern": ["#));
+    assert!(!is_algolia_crawler_json_decl(r#""pattern": {"#));
+    assert!(!is_algolia_crawler_json_decl(r#""patterns": "smartphone""#));
+    assert!(!is_algolia_insights_json_decl(r#""pattern": "smartphone""#));
+    assert!(!is_algolia_recommend_json_decl(r#""pattern": "smartphone""#));
+    assert!(is_algolia_crawler_json_decl(r#""context": "mobile""#));
+    assert!(is_algolia_crawler_json_decl(r#""context": "mobile","#));
+    assert!(is_algolia_crawler_json_decl(r#""context": "mobile" // c"#));
+    assert!(!is_algolia_crawler_json_decl(r#""context": """#));
+    assert!(!is_algolia_crawler_json_decl(r#""context": ["#));
+    assert!(!is_algolia_crawler_json_decl(r#""context": {"#));
+    assert!(!is_algolia_crawler_json_decl(r#""contexts": "mobile""#));
+    assert!(!is_algolia_insights_json_decl(r#""context": "mobile""#));
+    assert!(!is_algolia_recommend_json_decl(r#""context": "mobile""#));
+    assert!(is_algolia_crawler_json_decl(r#""condition": {"#));
+    assert!(is_algolia_crawler_json_decl(r#""condition": {,"#));
+    assert!(is_algolia_crawler_json_decl(r#""condition": { // c"#));
+    assert!(!is_algolia_crawler_json_decl(r#""condition": ["#));
+    assert!(!is_algolia_crawler_json_decl(r#""condition": true"#));
+    assert!(!is_algolia_crawler_json_decl(r#""condition": "smartphone""#));
+    assert!(!is_algolia_insights_json_decl(r#""condition": {"#));
+    assert!(!is_algolia_recommend_json_decl(r#""condition": {"#));
+    assert!(is_algolia_crawler_json_decl(r#""tags": ["#));
+    assert!(is_algolia_crawler_json_decl(r#""tags": [,"#));
+    assert!(is_algolia_crawler_json_decl(r#""tags": [ // c"#));
+    assert!(!is_algolia_crawler_json_decl(r#""tags": {"#));
+    assert!(!is_algolia_crawler_json_decl(r#""tags": "promo""#));
+    assert!(!is_algolia_crawler_json_decl(r#""tag": ["#));
+    assert!(!is_algolia_insights_json_decl(r#""tags": ["#));
+    assert!(!is_algolia_recommend_json_decl(r#""tags": ["#));
+    assert!(is_algolia_crawler_json_decl(r#""automaticFacetFilters": ["#));
+    assert!(is_algolia_crawler_json_decl(r#""automaticFacetFilters": [,"#));
+    assert!(is_algolia_crawler_json_decl(
+        r#""automaticFacetFilters": [ // c"#
+    ));
+    assert!(!is_algolia_crawler_json_decl(
+        r#""automaticFacetFilters": {"#
+    ));
+    assert!(!is_algolia_crawler_json_decl(
+        r#""automaticFacetFilters": "brand"#
+    ));
+    assert!(!is_algolia_crawler_json_decl(r#""automaticFacetFilter": ["#));
+    assert!(!is_algolia_insights_json_decl(
+        r#""automaticFacetFilters": ["#
+    ));
+    assert!(!is_algolia_recommend_json_decl(
+        r#""automaticFacetFilters": ["#
+    ));
+    assert!(is_algolia_crawler_json_decl(
+        r#""automaticOptionalFacetFilters": ["#
+    ));
+    assert!(is_algolia_crawler_json_decl(
+        r#""automaticOptionalFacetFilters": [,"#
+    ));
+    assert!(is_algolia_crawler_json_decl(
+        r#""automaticOptionalFacetFilters": [ // c"#
+    ));
+    assert!(!is_algolia_crawler_json_decl(
+        r#""automaticOptionalFacetFilters": {"#
+    ));
+    assert!(!is_algolia_crawler_json_decl(
+        r#""automaticOptionalFacetFilters": "brand"#
+    ));
+    assert!(!is_algolia_crawler_json_decl(
+        r#""automaticOptionalFacetFilter": ["#
+    ));
+    assert!(!is_algolia_insights_json_decl(
+        r#""automaticOptionalFacetFilters": ["#
+    ));
+    assert!(!is_algolia_recommend_json_decl(
+        r#""automaticOptionalFacetFilters": ["#
+    ));
+    assert!(is_algolia_crawler_json_decl(r#""from": 0"#));
+    assert!(is_algolia_crawler_json_decl(r#""from": 1700000000"#));
+    assert!(is_algolia_crawler_json_decl(r#""from": 1700000000,"#));
+    assert!(is_algolia_crawler_json_decl(r#""from": 1700000000 // c"#));
+    assert!(!is_algolia_crawler_json_decl(r#""from": 01700000000"#));
+    assert!(!is_algolia_crawler_json_decl(r#""from": ["#));
+    assert!(!is_algolia_crawler_json_decl(r#""from": "1700000000""#));
+    assert!(!is_algolia_crawler_json_decl(r#""froms": 1700000000"#));
+    assert!(!is_algolia_insights_json_decl(r#""from": 1700000000"#));
+    assert!(!is_algolia_recommend_json_decl(r#""from": 1700000000"#));
+    assert!(is_algolia_crawler_json_decl(r#""until": 0"#));
+    assert!(is_algolia_crawler_json_decl(r#""until": 1700000000"#));
+    assert!(is_algolia_crawler_json_decl(r#""until": 1700000000,"#));
+    assert!(is_algolia_crawler_json_decl(r#""until": 1700000000 // c"#));
+    assert!(!is_algolia_crawler_json_decl(r#""until": 01700000000"#));
+    assert!(!is_algolia_crawler_json_decl(r#""until": ["#));
+    assert!(!is_algolia_crawler_json_decl(r#""until": "1700000000""#));
+    assert!(!is_algolia_crawler_json_decl(r#""untils": 1700000000"#));
+    assert!(!is_algolia_insights_json_decl(r#""until": 1700000000"#));
+    assert!(!is_algolia_recommend_json_decl(r#""until": 1700000000"#));
     assert!(line_is_func_like(r#""conditions": ["#));
     assert!(line_is_func_like(r#""consequence": {"#));
     assert!(line_is_func_like(r#""anchoring": "startsWith""#));
@@ -52826,6 +52929,15 @@ fn algolia_crawler_json_keys_count() {
     assert!(line_is_func_like(r#""placeholder": "<street>""#));
     assert!(line_is_func_like(r#""type": "oneWaySynonym""#));
     assert!(line_is_func_like(r#""validity": ["#));
+    assert!(line_is_func_like(r#""pattern": "smartphone""#));
+    assert!(line_is_func_like(r#""context": "mobile""#));
+    assert!(line_is_func_like(r#""condition": {"#));
+    assert!(line_is_func_like(r#""tags": ["#));
+    assert!(line_is_func_like(r#""automaticFacetFilters": ["#));
+    assert!(line_is_func_like(r#""automaticOptionalFacetFilters": ["#));
+    assert!(line_is_func_like(r#""from": 1700000000"#));
+    assert!(line_is_func_like(r#""until": 1700000000"#));
+    assert!(line_is_func_like(r#""params": {"#));
     assert!(line_is_func_like(r#""nbSortedHits": 20"#));
     assert!(line_is_func_like(r#""processingTimingsMS": {"#));
     assert!(line_is_func_like(r#""queryCategorization": {"#));

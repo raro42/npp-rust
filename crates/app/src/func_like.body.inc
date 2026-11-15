@@ -40387,7 +40387,7 @@ fn algolia_insights_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool 
 /// `"facetingAfterDistinct": true` / `false`,
 /// `"synonyms": true` / `false` / `[`,
 /// `"explain": "…"` / `[`,
-/// `"facetQuery": "…"`, `"params": "…"`, `"cursor": "…"`,
+/// `"facetQuery": "…"`, `"params": "…"` / `{`, `"cursor": "…"`,
 /// `"forwardToReplicas": true` / `false`,
 /// `"autoGenerateObjectIDIfNotExist": true` / `false`,
 /// `"createIfNotExists": true` / `false`,
@@ -40411,7 +40411,12 @@ fn algolia_insights_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool 
 /// `"anchoring": "is"` / `"startsWith"` / `"endsWith"` / `"contains"`,
 /// `"filterPromotes": true` / `false`, `"promote": [`,
 /// `"alternatives": true` / `false`,
-/// `"corrections": [`, `"replacements": [`, `"placeholder": "…"`.
+/// `"corrections": [`, `"replacements": [`, `"placeholder": "…"`,
+/// `"pattern": "…"`, `"context": "…"`, `"condition": {`,
+/// `"tags": [`, `"automaticFacetFilters": [`,
+/// `"automaticOptionalFacetFilters": [`,
+/// `"from": 0` / `1700000000`, `"until": 0` / `1700000000`,
+/// `"params": "…"` / `{`.
 /// Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing
 /// `:` stay out. Generic `"$schema"` / `"name"` / `"id"` / `"q"` / `"query"` /
 /// `"url"` / `"appId"` / `"apiKey"` / `"index"` / `"indexName"` / `"cache"` /
@@ -40503,8 +40508,9 @@ fn algolia_insights_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool 
 /// `"queryID"` / `"queryAfterRemoval"` / `"automaticRadius"` /
 /// `"aroundLatLng"` / `"indexUsed"` / `"normalizedQuery"` /
 /// `"similarQuery"` / `"insideBoundingBox"` / `"insidePolygon"` /
-/// `"explain"` / `"facetQuery"` / `"params"` / `"cursor"` /
-/// `"createdAt"` / `"updatedAt"` / `"queryParameters"` require a
+/// `"explain"` / `"facetQuery"` / `"cursor"` /
+/// `"createdAt"` / `"updatedAt"` / `"queryParameters"` /
+/// `"pattern"` / `"context"` require a
 /// non-empty quoted string.
 /// `"__type"` only matches `"function"`. `"queryType"` only matches
 /// `"prefixLast"` / `"prefixAll"` / `"prefixNone"`.
@@ -40529,6 +40535,7 @@ fn algolia_insights_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool 
 /// `"false"`. `"optionalWords"` accepts string or `[`.
 /// `"ignoreCanonicalTo"` / `"ignorePlurals"` / `"removeStopWords"` /
 /// `"synonyms"` accept bool or `[`. `"validity"` accepts uint or `[`.
+/// `"params"` accepts string or `{`.
 /// `"renderJavaScript"` accepts bool, `[`,
 /// or `{`.
 /// `"indexHeadings"` accepts bool or `{`. `"facets"` accepts `[` or `{`.
@@ -40544,7 +40551,8 @@ fn algolia_insights_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool 
 /// `"weight"` / `"_highlightResult"` / `"_snippetResult"` /
 /// `"_rankingInfo"` / `"matchedGeoLocation"` / `"personalization"` /
 /// `"exhaustive"` / `"processingTimingsMS"` / `"queryCategorization"` /
-/// `"autofiltering"` / `"consequence"` accept `{`.
+/// `"autofiltering"` / `"consequence"` / `"condition"` / `"params"`
+/// accept `{`.
 /// `"eventSources"` / `"banners"` / `"hide"` / `"keywords"` / `"authors"` /
 /// `"hierarchy_camel"` / `"appliedRules"` / `"hierarchyPath"` /
 /// `"optionalFilters"` / `"matchedWords"` / `"ruleContexts"` /
@@ -40553,7 +40561,9 @@ fn algolia_insights_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool 
 /// `"restrictSearchableAttributes"` / `"objectIDs"` / `"requests"` /
 /// `"acl"` / `"referers"` / `"restrictIndices"` / `"restrictSources"` /
 /// `"synonyms"` / `"conditions"` / `"promote"` / `"corrections"` /
-/// `"replacements"` / `"validity"` accept `[`.
+/// `"replacements"` / `"validity"` / `"tags"` /
+/// `"automaticFacetFilters"` / `"automaticOptionalFacetFilters"`
+/// accept `[`.
 fn is_algolia_crawler_json_decl(s: &str) -> bool {
     let s = s.trim_start();
     let Some(rest) = s.strip_prefix('"') else {
@@ -40868,6 +40878,14 @@ fn algolia_crawler_json_key_ok(key: &str) -> bool {
             | "corrections"
             | "replacements"
             | "placeholder"
+            | "pattern"
+            | "context"
+            | "condition"
+            | "tags"
+            | "automaticFacetFilters"
+            | "automaticOptionalFacetFilters"
+            | "from"
+            | "until"
     )
 }
 
@@ -40958,6 +40976,9 @@ fn algolia_crawler_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool 
                     | "corrections"
                     | "replacements"
                     | "validity"
+                    | "tags"
+                    | "automaticFacetFilters"
+                    | "automaticOptionalFacetFilters"
             ) {
                 return false;
             }
@@ -41015,6 +41036,8 @@ fn algolia_crawler_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool 
                     | "queryCategorization"
                     | "autofiltering"
                     | "consequence"
+                    | "condition"
+                    | "params"
             ) {
                 return false;
             }
@@ -41143,6 +41166,8 @@ fn algolia_crawler_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool 
                     | "updatedAt"
                     | "queryParameters"
                     | "placeholder"
+                    | "pattern"
+                    | "context"
             ) {
                 return false;
             }
@@ -41439,6 +41464,8 @@ fn algolia_crawler_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool {
             | "maxQueriesPerIPPerHour"
             | "createdAtTimestamp"
             | "updatedAtTimestamp"
+            | "from"
+            | "until"
     ) {
         return false;
     }
