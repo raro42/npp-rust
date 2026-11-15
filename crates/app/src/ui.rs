@@ -71869,7 +71869,14 @@ fn algolia_insights_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool 
 /// `"analyticsTags": [`, `"personalizationImpact": 0` / `100`,
 /// `"similarQuery": "…"`, `"facetFilters": [`, `"numericFilters": [`,
 /// `"tagFilters": [`, `"naturalLanguages": [`,
-/// `"percentileComputation": true` / `false`, `"analytics": true` / `false`.
+/// `"percentileComputation": true` / `false`, `"analytics": true` / `false`,
+/// `"aroundLatLngViaIP": true` / `false`,
+/// `"aroundRadius": 0` / `1000` / `"all"`, `"aroundPrecision": 1` / `100`,
+/// `"minimumAroundRadius": 0` / `500`,
+/// `"insideBoundingBox": "…"` / `[`, `"insidePolygon": "…"` / `[`,
+/// `"restrictSearchableAttributes": [`,
+/// `"facetingAfterDistinct": true` / `false`, `"synonyms": true` / `false`,
+/// `"explain": "…"` / `[`.
 /// Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing
 /// `:` stay out. Generic `"$schema"` / `"name"` / `"id"` / `"q"` / `"query"` /
 /// `"url"` / `"appId"` / `"apiKey"` / `"index"` / `"indexName"` / `"cache"` /
@@ -71959,7 +71966,8 @@ fn algolia_insights_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool 
 /// `"mainEntityOfPage"` / `"articleBody"` / `"serverUsed"` / `"parsedQuery"` /
 /// `"queryID"` / `"queryAfterRemoval"` / `"automaticRadius"` /
 /// `"aroundLatLng"` / `"indexUsed"` / `"normalizedQuery"` /
-/// `"similarQuery"` require a non-empty quoted string.
+/// `"similarQuery"` / `"insideBoundingBox"` / `"insidePolygon"` /
+/// `"explain"` require a non-empty quoted string.
 /// `"__type"` only matches `"function"`. `"queryType"` only matches
 /// `"prefixLast"` / `"prefixAll"` / `"prefixNone"`.
 /// `"removeWordsIfNoResults"` only matches `"none"` / `"lastWords"` /
@@ -71972,13 +71980,15 @@ fn algolia_insights_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool 
 /// `"alpha"` / `"hidden"`. `"attributeCriteriaComputedBy"` only matches
 /// `"minProximity"` / `"best"` / `"sum"`. `"matchLevel"` only matches
 /// `"none"` / `"partial"` / `"full"`. `"type"` only matches `"content"` /
-/// `"lvl0"`…`"lvl6"` / `"askAI"`. `"typoTolerance"` accepts bool or
-/// `"min"` / `"strict"` / `"true"` / `"false"`. `"optionalWords"` accepts
-/// string or `[`. `"ignoreCanonicalTo"` / `"ignorePlurals"` /
-/// `"removeStopWords"` accept bool or `[`. `"renderJavaScript"` accepts bool,
-/// `[`, or `{`. `"indexHeadings"` accepts bool or `{`. `"facets"` accepts
-/// `[` or `{`. `"lvl1"` / `"lvl2"` / `"lvl3"` / `"lvl4"` / `"lvl5"` /
-/// `"lvl6"` / `"content"` / `"reRankingApplyFilter"` accept string or `[`.
+/// `"lvl0"`…`"lvl6"` / `"askAI"`. `"aroundRadius"` accepts uint or `"all"`.
+/// `"typoTolerance"` accepts bool or `"min"` / `"strict"` / `"true"` /
+/// `"false"`. `"optionalWords"` accepts string or `[`.
+/// `"ignoreCanonicalTo"` / `"ignorePlurals"` / `"removeStopWords"` accept
+/// bool or `[`. `"renderJavaScript"` accepts bool, `[`, or `{`.
+/// `"indexHeadings"` accepts bool or `{`. `"facets"` accepts `[` or `{`.
+/// `"lvl1"` / `"lvl2"` / `"lvl3"` / `"lvl4"` / `"lvl5"` / `"lvl6"` /
+/// `"content"` / `"reRankingApplyFilter"` / `"insideBoundingBox"` /
+/// `"insidePolygon"` / `"explain"` accept string or `[`.
 /// `"decompoundedAttributes"` / `"customNormalization"` /
 /// `"renderingContent"` / `"semanticSearch"` / `"userData"` /
 /// `"placeholders"` / `"neuralExpression"` / `"dynamicThreshold"` /
@@ -71992,7 +72002,8 @@ fn algolia_insights_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool 
 /// `"hierarchy_camel"` / `"appliedRules"` / `"hierarchyPath"` /
 /// `"optionalFilters"` / `"matchedWords"` / `"ruleContexts"` /
 /// `"analyticsTags"` / `"facetFilters"` / `"numericFilters"` /
-/// `"tagFilters"` / `"naturalLanguages"` accept `[`.
+/// `"tagFilters"` / `"naturalLanguages"` /
+/// `"restrictSearchableAttributes"` accept `[`.
 fn is_algolia_crawler_json_decl(s: &str) -> bool {
     let s = s.trim_start();
     let Some(rest) = s.strip_prefix('"') else {
@@ -72263,6 +72274,16 @@ fn algolia_crawler_json_key_ok(key: &str) -> bool {
             | "naturalLanguages"
             | "percentileComputation"
             | "analytics"
+            | "aroundLatLngViaIP"
+            | "aroundRadius"
+            | "aroundPrecision"
+            | "minimumAroundRadius"
+            | "insideBoundingBox"
+            | "insidePolygon"
+            | "restrictSearchableAttributes"
+            | "facetingAfterDistinct"
+            | "synonyms"
+            | "explain"
     )
 }
 
@@ -72337,6 +72358,10 @@ fn algolia_crawler_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool 
                     | "numericFilters"
                     | "tagFilters"
                     | "naturalLanguages"
+                    | "insideBoundingBox"
+                    | "insidePolygon"
+                    | "restrictSearchableAttributes"
+                    | "explain"
             ) {
                 return false;
             }
@@ -72432,6 +72457,9 @@ fn algolia_crawler_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool 
             if key == "matchLevel" {
                 return algolia_crawler_json_match_level_and_tail_ok(after_colon);
             }
+            if key == "aroundRadius" {
+                return algolia_crawler_json_around_radius_string_and_tail_ok(after_colon);
+            }
             if key == "type" {
                 return algolia_crawler_json_docsearch_type_and_tail_ok(after_colon);
             }
@@ -72502,6 +72530,9 @@ fn algolia_crawler_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool 
                     | "indexUsed"
                     | "normalizedQuery"
                     | "similarQuery"
+                    | "insideBoundingBox"
+                    | "insidePolygon"
+                    | "explain"
             ) {
                 return false;
             }
@@ -72640,6 +72671,17 @@ fn algolia_crawler_json_match_level_and_tail_ok(after_colon: &str) -> bool {
     package_json_tail_ok(&rest[end + 1..])
 }
 
+fn algolia_crawler_json_around_radius_string_and_tail_ok(after_colon: &str) -> bool {
+    let rest = &after_colon[1..];
+    let Some(end) = rest.find('"') else {
+        return false;
+    };
+    if &rest[..end] != "all" {
+        return false;
+    }
+    package_json_tail_ok(&rest[end + 1..])
+}
+
 fn algolia_crawler_json_string_and_tail_ok(after_colon: &str) -> bool {
     let rest = &after_colon[1..];
     let Some(end) = rest.find('"') else {
@@ -72697,6 +72739,9 @@ fn algolia_crawler_json_bool_and_tail_ok(key: &str, after_colon: &str) -> bool {
             | "enableABTest"
             | "percentileComputation"
             | "analytics"
+            | "aroundLatLngViaIP"
+            | "facetingAfterDistinct"
+            | "synonyms"
     ) {
         return false;
     }
@@ -72747,6 +72792,9 @@ fn algolia_crawler_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool {
             | "rankingScore"
             | "nbHits"
             | "personalizationImpact"
+            | "aroundRadius"
+            | "aroundPrecision"
+            | "minimumAroundRadius"
     ) {
         return false;
     }
@@ -155452,6 +155500,207 @@ mod func_like_line_tests {
         assert!(!is_algolia_crawler_json_decl(r#""analytic": true"#));
         assert!(!is_algolia_insights_json_decl(r#""analytics": true"#));
         assert!(!is_algolia_recommend_json_decl(r#""analytics": true"#));
+        assert!(is_algolia_crawler_json_decl(r#""aroundLatLngViaIP": true"#));
+        assert!(is_algolia_crawler_json_decl(
+            r#""aroundLatLngViaIP": false"#
+        ));
+        assert!(is_algolia_crawler_json_decl(
+            r#""aroundLatLngViaIP": true,"#
+        ));
+        assert!(is_algolia_crawler_json_decl(
+            r#""aroundLatLngViaIP": true // c"#
+        ));
+        assert!(!is_algolia_crawler_json_decl(
+            r#""aroundLatLngViaIP": "true""#
+        ));
+        assert!(!is_algolia_crawler_json_decl(r#""aroundLatLngViaIP": 1"#));
+        assert!(!is_algolia_crawler_json_decl(r#""aroundLatLngViaIP": {"#));
+        assert!(!is_algolia_crawler_json_decl(
+            r#""aroundLatLngViaIPs": true"#
+        ));
+        assert!(!is_algolia_insights_json_decl(
+            r#""aroundLatLngViaIP": true"#
+        ));
+        assert!(!is_algolia_recommend_json_decl(
+            r#""aroundLatLngViaIP": true"#
+        ));
+        assert!(is_algolia_crawler_json_decl(r#""aroundRadius": 0"#));
+        assert!(is_algolia_crawler_json_decl(r#""aroundRadius": 1000"#));
+        assert!(is_algolia_crawler_json_decl(r#""aroundRadius": 1000,"#));
+        assert!(is_algolia_crawler_json_decl(r#""aroundRadius": 1000 // c"#));
+        assert!(is_algolia_crawler_json_decl(r#""aroundRadius": "all""#));
+        assert!(is_algolia_crawler_json_decl(r#""aroundRadius": "all","#));
+        assert!(is_algolia_crawler_json_decl(
+            r#""aroundRadius": "all" // c"#
+        ));
+        assert!(!is_algolia_crawler_json_decl(r#""aroundRadius": 01000"#));
+        assert!(!is_algolia_crawler_json_decl(r#""aroundRadius": "1000""#));
+        assert!(!is_algolia_crawler_json_decl(r#""aroundRadius": "none""#));
+        assert!(!is_algolia_crawler_json_decl(r#""aroundRadius": true"#));
+        assert!(!is_algolia_crawler_json_decl(r#""aroundRadius": ["#));
+        assert!(!is_algolia_crawler_json_decl(r#""aroundRadii": 1000"#));
+        assert!(!is_algolia_insights_json_decl(r#""aroundRadius": 1000"#));
+        assert!(!is_algolia_recommend_json_decl(r#""aroundRadius": 1000"#));
+        assert!(is_algolia_crawler_json_decl(r#""aroundPrecision": 1"#));
+        assert!(is_algolia_crawler_json_decl(r#""aroundPrecision": 100"#));
+        assert!(is_algolia_crawler_json_decl(r#""aroundPrecision": 100,"#));
+        assert!(is_algolia_crawler_json_decl(
+            r#""aroundPrecision": 100 // c"#
+        ));
+        assert!(!is_algolia_crawler_json_decl(r#""aroundPrecision": 0100"#));
+        assert!(!is_algolia_crawler_json_decl(r#""aroundPrecision": true"#));
+        assert!(!is_algolia_crawler_json_decl(r#""aroundPrecision": {"#));
+        assert!(!is_algolia_crawler_json_decl(r#""aroundPrecisions": 100"#));
+        assert!(!is_algolia_insights_json_decl(r#""aroundPrecision": 100"#));
+        assert!(!is_algolia_recommend_json_decl(r#""aroundPrecision": 100"#));
+        assert!(is_algolia_crawler_json_decl(r#""minimumAroundRadius": 0"#));
+        assert!(is_algolia_crawler_json_decl(
+            r#""minimumAroundRadius": 500"#
+        ));
+        assert!(is_algolia_crawler_json_decl(
+            r#""minimumAroundRadius": 500,"#
+        ));
+        assert!(is_algolia_crawler_json_decl(
+            r#""minimumAroundRadius": 500 // c"#
+        ));
+        assert!(!is_algolia_crawler_json_decl(
+            r#""minimumAroundRadius": 0500"#
+        ));
+        assert!(!is_algolia_crawler_json_decl(
+            r#""minimumAroundRadius": true"#
+        ));
+        assert!(!is_algolia_crawler_json_decl(r#""minimumAroundRadius": {"#));
+        assert!(!is_algolia_crawler_json_decl(
+            r#""minimumAroundRadii": 500"#
+        ));
+        assert!(!is_algolia_insights_json_decl(
+            r#""minimumAroundRadius": 500"#
+        ));
+        assert!(!is_algolia_recommend_json_decl(
+            r#""minimumAroundRadius": 500"#
+        ));
+        assert!(is_algolia_crawler_json_decl(
+            r#""insideBoundingBox": "47.3165,4.9665,47.3424,5.0201""#
+        ));
+        assert!(is_algolia_crawler_json_decl(
+            r#""insideBoundingBox": "47.3165,4.9665,47.3424,5.0201","#
+        ));
+        assert!(is_algolia_crawler_json_decl(
+            r#""insideBoundingBox": "47.3165,4.9665,47.3424,5.0201" // c"#
+        ));
+        assert!(is_algolia_crawler_json_decl(r#""insideBoundingBox": ["#));
+        assert!(is_algolia_crawler_json_decl(r#""insideBoundingBox": [,"#));
+        assert!(is_algolia_crawler_json_decl(
+            r#""insideBoundingBox": [ // c"#
+        ));
+        assert!(!is_algolia_crawler_json_decl(r#""insideBoundingBox": """#));
+        assert!(!is_algolia_crawler_json_decl(
+            r#""insideBoundingBox": true"#
+        ));
+        assert!(!is_algolia_crawler_json_decl(r#""insideBoundingBox": {"#));
+        assert!(!is_algolia_crawler_json_decl(r#""insideBoundingBoxes": ["#));
+        assert!(!is_algolia_insights_json_decl(r#""insideBoundingBox": ["#));
+        assert!(!is_algolia_recommend_json_decl(r#""insideBoundingBox": ["#));
+        assert!(is_algolia_crawler_json_decl(
+            r#""insidePolygon": "47.3165,4.9665,47.3424,5.0201,47.32,4.99""#
+        ));
+        assert!(is_algolia_crawler_json_decl(
+            r#""insidePolygon": "47.3165,4.9665,47.3424,5.0201,47.32,4.99","#
+        ));
+        assert!(is_algolia_crawler_json_decl(
+            r#""insidePolygon": "47.3165,4.9665,47.3424,5.0201,47.32,4.99" // c"#
+        ));
+        assert!(is_algolia_crawler_json_decl(r#""insidePolygon": ["#));
+        assert!(is_algolia_crawler_json_decl(r#""insidePolygon": [,"#));
+        assert!(is_algolia_crawler_json_decl(r#""insidePolygon": [ // c"#));
+        assert!(!is_algolia_crawler_json_decl(r#""insidePolygon": """#));
+        assert!(!is_algolia_crawler_json_decl(r#""insidePolygon": true"#));
+        assert!(!is_algolia_crawler_json_decl(r#""insidePolygon": {"#));
+        assert!(!is_algolia_crawler_json_decl(r#""insidePolygons": ["#));
+        assert!(!is_algolia_insights_json_decl(r#""insidePolygon": ["#));
+        assert!(!is_algolia_recommend_json_decl(r#""insidePolygon": ["#));
+        assert!(is_algolia_crawler_json_decl(
+            r#""restrictSearchableAttributes": ["#
+        ));
+        assert!(is_algolia_crawler_json_decl(
+            r#""restrictSearchableAttributes": [,"#
+        ));
+        assert!(is_algolia_crawler_json_decl(
+            r#""restrictSearchableAttributes": [ // c"#
+        ));
+        assert!(!is_algolia_crawler_json_decl(
+            r#""restrictSearchableAttributes": true"#
+        ));
+        assert!(!is_algolia_crawler_json_decl(
+            r#""restrictSearchableAttributes": {"#
+        ));
+        assert!(!is_algolia_crawler_json_decl(
+            r#""restrictSearchableAttribute": ["#
+        ));
+        assert!(!is_algolia_insights_json_decl(
+            r#""restrictSearchableAttributes": ["#
+        ));
+        assert!(!is_algolia_recommend_json_decl(
+            r#""restrictSearchableAttributes": ["#
+        ));
+        assert!(is_algolia_crawler_json_decl(
+            r#""facetingAfterDistinct": true"#
+        ));
+        assert!(is_algolia_crawler_json_decl(
+            r#""facetingAfterDistinct": false"#
+        ));
+        assert!(is_algolia_crawler_json_decl(
+            r#""facetingAfterDistinct": true,"#
+        ));
+        assert!(is_algolia_crawler_json_decl(
+            r#""facetingAfterDistinct": true // c"#
+        ));
+        assert!(!is_algolia_crawler_json_decl(
+            r#""facetingAfterDistinct": "true""#
+        ));
+        assert!(!is_algolia_crawler_json_decl(
+            r#""facetingAfterDistinct": 1"#
+        ));
+        assert!(!is_algolia_crawler_json_decl(
+            r#""facetingAfterDistinct": {"#
+        ));
+        assert!(!is_algolia_crawler_json_decl(
+            r#""facetingAfterDistincts": true"#
+        ));
+        assert!(!is_algolia_insights_json_decl(
+            r#""facetingAfterDistinct": true"#
+        ));
+        assert!(!is_algolia_recommend_json_decl(
+            r#""facetingAfterDistinct": true"#
+        ));
+        assert!(is_algolia_crawler_json_decl(r#""synonyms": true"#));
+        assert!(is_algolia_crawler_json_decl(r#""synonyms": false"#));
+        assert!(is_algolia_crawler_json_decl(r#""synonyms": true,"#));
+        assert!(is_algolia_crawler_json_decl(r#""synonyms": true // c"#));
+        assert!(!is_algolia_crawler_json_decl(r#""synonyms": "true""#));
+        assert!(!is_algolia_crawler_json_decl(r#""synonyms": 1"#));
+        assert!(!is_algolia_crawler_json_decl(r#""synonyms": {"#));
+        assert!(!is_algolia_crawler_json_decl(r#""synonym": true"#));
+        assert!(!is_algolia_insights_json_decl(r#""synonyms": true"#));
+        assert!(!is_algolia_recommend_json_decl(r#""synonyms": true"#));
+        assert!(is_algolia_crawler_json_decl(
+            r#""explain": "match.alternatives""#
+        ));
+        assert!(is_algolia_crawler_json_decl(
+            r#""explain": "match.alternatives","#
+        ));
+        assert!(is_algolia_crawler_json_decl(
+            r#""explain": "match.alternatives" // c"#
+        ));
+        assert!(is_algolia_crawler_json_decl(r#""explain": ["#));
+        assert!(is_algolia_crawler_json_decl(r#""explain": [,"#));
+        assert!(is_algolia_crawler_json_decl(r#""explain": [ // c"#));
+        assert!(!is_algolia_crawler_json_decl(r#""explain": """#));
+        assert!(!is_algolia_crawler_json_decl(r#""explain": true"#));
+        assert!(!is_algolia_crawler_json_decl(r#""explain": {"#));
+        assert!(!is_algolia_crawler_json_decl(r#""explains": ["#));
+        assert!(!is_algolia_insights_json_decl(r#""explain": ["#));
+        assert!(!is_algolia_recommend_json_decl(r#""explain": ["#));
         assert!(line_is_func_like(r#""nbSortedHits": 20"#));
         assert!(line_is_func_like(r#""processingTimingsMS": {"#));
         assert!(line_is_func_like(r#""queryCategorization": {"#));
@@ -155481,6 +155730,17 @@ mod func_like_line_tests {
         assert!(line_is_func_like(r#""naturalLanguages": ["#));
         assert!(line_is_func_like(r#""percentileComputation": true"#));
         assert!(line_is_func_like(r#""analytics": false"#));
+        assert!(line_is_func_like(r#""aroundLatLngViaIP": true"#));
+        assert!(line_is_func_like(r#""aroundRadius": 1000"#));
+        assert!(line_is_func_like(r#""aroundRadius": "all""#));
+        assert!(line_is_func_like(r#""aroundPrecision": 100"#));
+        assert!(line_is_func_like(r#""minimumAroundRadius": 500"#));
+        assert!(line_is_func_like(r#""insideBoundingBox": ["#));
+        assert!(line_is_func_like(r#""insidePolygon": ["#));
+        assert!(line_is_func_like(r#""restrictSearchableAttributes": ["#));
+        assert!(line_is_func_like(r#""facetingAfterDistinct": true"#));
+        assert!(line_is_func_like(r#""synonyms": false"#));
+        assert!(line_is_func_like(r#""explain": ["#));
         assert!(!is_algolia_crawler_json_decl(r#""words": 3"#));
         assert!(!is_algolia_crawler_json_decl(r#""filters": 1"#));
         assert!(!is_algolia_crawler_json_decl(r#""message": "ok""#));

@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.888] — 2026-11-15
+
+View:
+
+- **Function List** lists more Algolia Search / DocSearch geo + request JSON keys: `"aroundLatLngViaIP": true` / `false`, `"aroundRadius": 0` / `1000` / `"all"`, `"aroundPrecision": 1` / `100`, `"minimumAroundRadius": 0` / `500`, `"insideBoundingBox": "…"` / `[`, `"insidePolygon": "…"` / `[`, `"restrictSearchableAttributes": [`, `"facetingAfterDistinct": true` / `false`, `"synonyms": true` / `false`, `"explain": "…"` / `[`. Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing `:` stay out. Empty strings / plural/singular misspellings / `"aroundRadius": 01000` / `"aroundPrecision": 0100` / `"minimumAroundRadius": 0500` / `"aroundRadius": "none"` / `"aroundRadius": "1000"` / generic `"url"` / `"order"` / `"values"` / `"enabled"` / `"proxy"` / `"timeout"` / `"retries"` / `"headers"` / `"cache"` / `"words"` / `"filters"` / `"message"` / string bools stay out. Existing Crawler / `_rankingInfo` / highlight / search response keys unchanged. Algolia Insights / Recommend / neighbouring search JSON families stay out. Bool keys only match `true` / `false`. Numeric keys reject leading zeros beyond `0`. `"aroundRadius"` accepts uint or `"all"`. `"insideBoundingBox"` / `"insidePolygon"` / `"explain"` require a non-empty quoted string (or `[`). Array keys accept `[`.
+
 ## [0.3.887] — 2026-11-15
 
 View:
