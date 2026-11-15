@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.889] — 2026-11-15
+
+View:
+
+- **Function List** lists more Algolia Search / write API JSON keys: `"facetQuery": "…"`, `"params": "…"`, `"cursor": "…"`, `"forwardToReplicas": true` / `false`, `"autoGenerateObjectIDIfNotExist": true` / `false`, `"createIfNotExists": true` / `false`, `"objectIDs": [`, `"taskID": 0` / `42`. Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing `:` stay out. Empty strings / plural/singular misspellings / `"taskID": 042` / `"params": {` / `"objectIDs": "page-1"` / generic `"url"` / `"order"` / `"values"` / `"enabled"` / `"proxy"` / `"timeout"` / `"retries"` / `"headers"` / `"cache"` / `"words"` / `"filters"` / `"message"` / string bools stay out. Existing Crawler / geo / highlight / search response keys unchanged. Algolia Insights / Recommend / neighbouring search JSON families stay out. Bool keys only match `true` / `false`. Numeric keys reject leading zeros beyond `0`. `"facetQuery"` / `"params"` / `"cursor"` require a non-empty quoted string. Array keys accept `[`.
+
 ## [0.3.888] — 2026-11-15
 
 View:

@@ -71876,7 +71876,12 @@ fn algolia_insights_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool 
 /// `"insideBoundingBox": "…"` / `[`, `"insidePolygon": "…"` / `[`,
 /// `"restrictSearchableAttributes": [`,
 /// `"facetingAfterDistinct": true` / `false`, `"synonyms": true` / `false`,
-/// `"explain": "…"` / `[`.
+/// `"explain": "…"` / `[`,
+/// `"facetQuery": "…"`, `"params": "…"`, `"cursor": "…"`,
+/// `"forwardToReplicas": true` / `false`,
+/// `"autoGenerateObjectIDIfNotExist": true` / `false`,
+/// `"createIfNotExists": true` / `false`,
+/// `"objectIDs": [`, `"taskID": 0` / `42`.
 /// Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing
 /// `:` stay out. Generic `"$schema"` / `"name"` / `"id"` / `"q"` / `"query"` /
 /// `"url"` / `"appId"` / `"apiKey"` / `"index"` / `"indexName"` / `"cache"` /
@@ -71967,7 +71972,8 @@ fn algolia_insights_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool 
 /// `"queryID"` / `"queryAfterRemoval"` / `"automaticRadius"` /
 /// `"aroundLatLng"` / `"indexUsed"` / `"normalizedQuery"` /
 /// `"similarQuery"` / `"insideBoundingBox"` / `"insidePolygon"` /
-/// `"explain"` require a non-empty quoted string.
+/// `"explain"` / `"facetQuery"` / `"params"` / `"cursor"` require a
+/// non-empty quoted string.
 /// `"__type"` only matches `"function"`. `"queryType"` only matches
 /// `"prefixLast"` / `"prefixAll"` / `"prefixNone"`.
 /// `"removeWordsIfNoResults"` only matches `"none"` / `"lastWords"` /
@@ -72003,7 +72009,7 @@ fn algolia_insights_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool 
 /// `"optionalFilters"` / `"matchedWords"` / `"ruleContexts"` /
 /// `"analyticsTags"` / `"facetFilters"` / `"numericFilters"` /
 /// `"tagFilters"` / `"naturalLanguages"` /
-/// `"restrictSearchableAttributes"` accept `[`.
+/// `"restrictSearchableAttributes"` / `"objectIDs"` accept `[`.
 fn is_algolia_crawler_json_decl(s: &str) -> bool {
     let s = s.trim_start();
     let Some(rest) = s.strip_prefix('"') else {
@@ -72284,6 +72290,14 @@ fn algolia_crawler_json_key_ok(key: &str) -> bool {
             | "facetingAfterDistinct"
             | "synonyms"
             | "explain"
+            | "facetQuery"
+            | "params"
+            | "cursor"
+            | "forwardToReplicas"
+            | "autoGenerateObjectIDIfNotExist"
+            | "createIfNotExists"
+            | "objectIDs"
+            | "taskID"
     )
 }
 
@@ -72362,6 +72376,7 @@ fn algolia_crawler_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool 
                     | "insidePolygon"
                     | "restrictSearchableAttributes"
                     | "explain"
+                    | "objectIDs"
             ) {
                 return false;
             }
@@ -72533,6 +72548,9 @@ fn algolia_crawler_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool 
                     | "insideBoundingBox"
                     | "insidePolygon"
                     | "explain"
+                    | "facetQuery"
+                    | "params"
+                    | "cursor"
             ) {
                 return false;
             }
@@ -72742,6 +72760,9 @@ fn algolia_crawler_json_bool_and_tail_ok(key: &str, after_colon: &str) -> bool {
             | "aroundLatLngViaIP"
             | "facetingAfterDistinct"
             | "synonyms"
+            | "forwardToReplicas"
+            | "autoGenerateObjectIDIfNotExist"
+            | "createIfNotExists"
     ) {
         return false;
     }
@@ -72795,6 +72816,7 @@ fn algolia_crawler_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool {
             | "aroundRadius"
             | "aroundPrecision"
             | "minimumAroundRadius"
+            | "taskID"
     ) {
         return false;
     }
@@ -155701,6 +155723,144 @@ mod func_like_line_tests {
         assert!(!is_algolia_crawler_json_decl(r#""explains": ["#));
         assert!(!is_algolia_insights_json_decl(r#""explain": ["#));
         assert!(!is_algolia_recommend_json_decl(r#""explain": ["#));
+        assert!(is_algolia_crawler_json_decl(r#""facetQuery": "red""#));
+        assert!(is_algolia_crawler_json_decl(r#""facetQuery": "red","#));
+        assert!(is_algolia_crawler_json_decl(r#""facetQuery": "red" // c"#));
+        assert!(!is_algolia_crawler_json_decl(r#""facetQuery": """#));
+        assert!(!is_algolia_crawler_json_decl(r#""facetQuery": true"#));
+        assert!(!is_algolia_crawler_json_decl(r#""facetQuery": ["#));
+        assert!(!is_algolia_crawler_json_decl(r#""facetQueries": "red""#));
+        assert!(!is_algolia_insights_json_decl(r#""facetQuery": "red""#));
+        assert!(!is_algolia_recommend_json_decl(r#""facetQuery": "red""#));
+        assert!(is_algolia_crawler_json_decl(
+            r#""params": "query=shoes&hitsPerPage=20""#
+        ));
+        assert!(is_algolia_crawler_json_decl(
+            r#""params": "query=shoes&hitsPerPage=20","#
+        ));
+        assert!(is_algolia_crawler_json_decl(
+            r#""params": "query=shoes&hitsPerPage=20" // c"#
+        ));
+        assert!(!is_algolia_crawler_json_decl(r#""params": """#));
+        assert!(!is_algolia_crawler_json_decl(r#""params": true"#));
+        assert!(!is_algolia_crawler_json_decl(r#""params": {"#));
+        assert!(!is_algolia_crawler_json_decl(r#""params": ["#));
+        assert!(!is_algolia_crawler_json_decl(r#""param": "query=shoes""#));
+        assert!(!is_algolia_insights_json_decl(r#""params": "query=shoes""#));
+        assert!(!is_algolia_recommend_json_decl(
+            r#""params": "query=shoes""#
+        ));
+        assert!(is_algolia_crawler_json_decl(r#""cursor": "cursor-abc123""#));
+        assert!(is_algolia_crawler_json_decl(
+            r#""cursor": "cursor-abc123","#
+        ));
+        assert!(is_algolia_crawler_json_decl(
+            r#""cursor": "cursor-abc123" // c"#
+        ));
+        assert!(!is_algolia_crawler_json_decl(r#""cursor": """#));
+        assert!(!is_algolia_crawler_json_decl(r#""cursor": true"#));
+        assert!(!is_algolia_crawler_json_decl(r#""cursor": {"#));
+        assert!(!is_algolia_crawler_json_decl(
+            r#""cursors": "cursor-abc123""#
+        ));
+        assert!(!is_algolia_insights_json_decl(
+            r#""cursor": "cursor-abc123""#
+        ));
+        assert!(!is_algolia_recommend_json_decl(
+            r#""cursor": "cursor-abc123""#
+        ));
+        assert!(is_algolia_crawler_json_decl(r#""forwardToReplicas": true"#));
+        assert!(is_algolia_crawler_json_decl(
+            r#""forwardToReplicas": false"#
+        ));
+        assert!(is_algolia_crawler_json_decl(
+            r#""forwardToReplicas": true,"#
+        ));
+        assert!(is_algolia_crawler_json_decl(
+            r#""forwardToReplicas": true // c"#
+        ));
+        assert!(!is_algolia_crawler_json_decl(
+            r#""forwardToReplicas": "true""#
+        ));
+        assert!(!is_algolia_crawler_json_decl(r#""forwardToReplicas": 1"#));
+        assert!(!is_algolia_crawler_json_decl(r#""forwardToReplicas": {"#));
+        assert!(!is_algolia_crawler_json_decl(r#""forwardToReplica": true"#));
+        assert!(!is_algolia_insights_json_decl(
+            r#""forwardToReplicas": true"#
+        ));
+        assert!(!is_algolia_recommend_json_decl(
+            r#""forwardToReplicas": true"#
+        ));
+        assert!(is_algolia_crawler_json_decl(
+            r#""autoGenerateObjectIDIfNotExist": true"#
+        ));
+        assert!(is_algolia_crawler_json_decl(
+            r#""autoGenerateObjectIDIfNotExist": false"#
+        ));
+        assert!(is_algolia_crawler_json_decl(
+            r#""autoGenerateObjectIDIfNotExist": true,"#
+        ));
+        assert!(is_algolia_crawler_json_decl(
+            r#""autoGenerateObjectIDIfNotExist": true // c"#
+        ));
+        assert!(!is_algolia_crawler_json_decl(
+            r#""autoGenerateObjectIDIfNotExist": "true""#
+        ));
+        assert!(!is_algolia_crawler_json_decl(
+            r#""autoGenerateObjectIDIfNotExist": 1"#
+        ));
+        assert!(!is_algolia_crawler_json_decl(
+            r#""autoGenerateObjectIDIfNotExist": {"#
+        ));
+        assert!(!is_algolia_crawler_json_decl(
+            r#""autoGenerateObjectIDsIfNotExist": true"#
+        ));
+        assert!(!is_algolia_insights_json_decl(
+            r#""autoGenerateObjectIDIfNotExist": true"#
+        ));
+        assert!(!is_algolia_recommend_json_decl(
+            r#""autoGenerateObjectIDIfNotExist": true"#
+        ));
+        assert!(is_algolia_crawler_json_decl(r#""createIfNotExists": true"#));
+        assert!(is_algolia_crawler_json_decl(
+            r#""createIfNotExists": false"#
+        ));
+        assert!(is_algolia_crawler_json_decl(
+            r#""createIfNotExists": true,"#
+        ));
+        assert!(is_algolia_crawler_json_decl(
+            r#""createIfNotExists": true // c"#
+        ));
+        assert!(!is_algolia_crawler_json_decl(
+            r#""createIfNotExists": "true""#
+        ));
+        assert!(!is_algolia_crawler_json_decl(r#""createIfNotExists": 1"#));
+        assert!(!is_algolia_crawler_json_decl(r#""createIfNotExists": {"#));
+        assert!(!is_algolia_crawler_json_decl(r#""createIfNotExist": true"#));
+        assert!(!is_algolia_insights_json_decl(
+            r#""createIfNotExists": true"#
+        ));
+        assert!(!is_algolia_recommend_json_decl(
+            r#""createIfNotExists": true"#
+        ));
+        assert!(is_algolia_crawler_json_decl(r#""objectIDs": ["#));
+        assert!(is_algolia_crawler_json_decl(r#""objectIDs": [,"#));
+        assert!(is_algolia_crawler_json_decl(r#""objectIDs": [ // c"#));
+        assert!(!is_algolia_crawler_json_decl(r#""objectIDs": true"#));
+        assert!(!is_algolia_crawler_json_decl(r#""objectIDs": {"#));
+        assert!(!is_algolia_crawler_json_decl(r#""objectID": ["#));
+        assert!(!is_algolia_insights_json_decl(r#""objectIDs": ["#));
+        assert!(!is_algolia_recommend_json_decl(r#""objectIDs": ["#));
+        assert!(is_algolia_crawler_json_decl(r#""taskID": 0"#));
+        assert!(is_algolia_crawler_json_decl(r#""taskID": 42"#));
+        assert!(is_algolia_crawler_json_decl(r#""taskID": 42,"#));
+        assert!(is_algolia_crawler_json_decl(r#""taskID": 42 // c"#));
+        assert!(!is_algolia_crawler_json_decl(r#""taskID": 042"#));
+        assert!(!is_algolia_crawler_json_decl(r#""taskID": true"#));
+        assert!(!is_algolia_crawler_json_decl(r#""taskID": {"#));
+        assert!(!is_algolia_crawler_json_decl(r#""taskIDs": 42"#));
+        assert!(!is_algolia_insights_json_decl(r#""taskID": 42"#));
+        assert!(!is_algolia_recommend_json_decl(r#""taskID": 42"#));
         assert!(line_is_func_like(r#""nbSortedHits": 20"#));
         assert!(line_is_func_like(r#""processingTimingsMS": {"#));
         assert!(line_is_func_like(r#""queryCategorization": {"#));
@@ -155741,6 +155901,16 @@ mod func_like_line_tests {
         assert!(line_is_func_like(r#""facetingAfterDistinct": true"#));
         assert!(line_is_func_like(r#""synonyms": false"#));
         assert!(line_is_func_like(r#""explain": ["#));
+        assert!(line_is_func_like(r#""facetQuery": "red""#));
+        assert!(line_is_func_like(r#""params": "query=shoes""#));
+        assert!(line_is_func_like(r#""cursor": "cursor-abc123""#));
+        assert!(line_is_func_like(r#""forwardToReplicas": true"#));
+        assert!(line_is_func_like(
+            r#""autoGenerateObjectIDIfNotExist": true"#
+        ));
+        assert!(line_is_func_like(r#""createIfNotExists": false"#));
+        assert!(line_is_func_like(r#""objectIDs": ["#));
+        assert!(line_is_func_like(r#""taskID": 42"#));
         assert!(!is_algolia_crawler_json_decl(r#""words": 3"#));
         assert!(!is_algolia_crawler_json_decl(r#""filters": 1"#));
         assert!(!is_algolia_crawler_json_decl(r#""message": "ok""#));
