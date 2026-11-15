@@ -28,3 +28,5 @@ Created: 2026-11-15T06:21:35Z
 - Root cause: Windows `cargo fmt` stack-overflows on large `crates/app/src/ui.rs` (rustfmt main thread ~1 MiB stack). Ubuntu + macOS were green on run `43684352554`.
 - `ci.yml` Windows skip could not be pushed (OAuth token lacks `workflow` scope). `rustfmt.toml` `ignore` is nightly-only on stable.
 - Fix: split Function List classifiers into `crates/app/src/func_like.rs` + `func_like_line_tests.rs` so each file stays under the Windows rustfmt stack limit.
+
+- Commit: `6e2f15dc`
