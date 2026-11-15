@@ -40423,14 +40423,19 @@ fn algolia_insights_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool 
 /// `"replaceExistingSynonyms": true` / `false`,
 /// `"clearExistingDictionaryEntries": true` / `false`,
 /// `"disjunctive": true` / `false`,
-/// `"facet": "…"`, `"remove": [`, `"query": {`.
+/// `"facet": "…"`, `"remove": [`, `"query": {`,
+/// `"language": "…"`, `"word": "…"`, `"words": [`, `"decomposition": [`,
+/// `"state": "enabled"` / `"disabled"`,
+/// `"dictionary": "plurals"` / `"stopwords"` / `"compounds"`,
+/// `"nbPages": 0` / `1`,
+/// `"type"` also `"custom"` / `"standard"`.
 /// Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing
 /// `:` stay out. Generic `"$schema"` / `"name"` / `"id"` / `"q"` /
 /// string `"query"` /
 /// `"url"` / `"appId"` / `"apiKey"` / `"index"` / `"indexName"` / `"cache"` /
 /// `"enabled"` / `"proxy"` / `"timeout"` / `"retries"` / `"headers"` /
-/// `"order"` / `"values"` / `"words"` / `"filters"` / `"message"` /
-/// `"description"` / `"indexes"` / `"input"` / `"word"` /
+/// `"order"` / `"values"` / `"filters"` / `"message"` /
+/// `"description"` / `"indexes"` / `"input"` /
 /// Algolia Insights `"authenticatedUserToken"` /
 /// `"userHasOptedOut"` / `"useCookie"` / `"anonymousUserToken"` /
 /// `"cookieDuration"` / `"eventSubtype"` / `"objectData"` / Algolia Recommend
@@ -40519,7 +40524,7 @@ fn algolia_insights_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool 
 /// `"explain"` / `"facetQuery"` / `"cursor"` /
 /// `"createdAt"` / `"updatedAt"` / `"queryParameters"` /
 /// `"pattern"` / `"context"` / `"delete"` / `"insert"` / `"facetName"` /
-/// `"facetValue"` / `"facet"` require a
+/// `"facetValue"` / `"facet"` / `"language"` / `"word"` require a
 /// non-empty quoted string.
 /// `"__type"` only matches `"function"`. `"queryType"` only matches
 /// `"prefixLast"` / `"prefixAll"` / `"prefixNone"`.
@@ -40535,7 +40540,9 @@ fn algolia_insights_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool 
 /// `"none"` / `"partial"` / `"full"`. `"type"` only matches `"content"` /
 /// `"lvl0"`…`"lvl6"` / `"askAI"` / `"synonym"` / `"oneWaySynonym"` /
 /// `"altCorrection1"` / `"altCorrection2"` / `"placeholder"` / `"remove"` /
-/// `"replace"`.
+/// `"replace"` / `"custom"` / `"standard"`.
+/// `"state"` only matches `"enabled"` / `"disabled"`. `"dictionary"` only
+/// matches `"plurals"` / `"stopwords"` / `"compounds"`.
 /// `"anchoring"` only matches `"is"` / `"startsWith"` / `"endsWith"` /
 /// `"contains"`. `"action"` only matches `"addObject"` /
 /// `"updateObject"` / `"partialUpdateObject"` /
@@ -40574,7 +40581,7 @@ fn algolia_insights_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool 
 /// `"synonyms"` / `"conditions"` / `"promote"` / `"corrections"` /
 /// `"replacements"` / `"validity"` / `"tags"` /
 /// `"automaticFacetFilters"` / `"automaticOptionalFacetFilters"` /
-/// `"edits"` / `"remove"`
+/// `"edits"` / `"remove"` / `"words"` / `"decomposition"`
 /// accept `[`.
 fn is_algolia_crawler_json_decl(s: &str) -> bool {
     let s = s.trim_start();
@@ -40910,6 +40917,13 @@ fn algolia_crawler_json_key_ok(key: &str) -> bool {
             | "facet"
             | "remove"
             | "query"
+            | "language"
+            | "word"
+            | "words"
+            | "decomposition"
+            | "state"
+            | "dictionary"
+            | "nbPages"
     )
 }
 
@@ -41005,6 +41019,8 @@ fn algolia_crawler_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool 
                     | "automaticOptionalFacetFilters"
                     | "edits"
                     | "remove"
+                    | "words"
+                    | "decomposition"
             ) {
                 return false;
             }
@@ -41113,6 +41129,12 @@ fn algolia_crawler_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool 
             if key == "anchoring" {
                 return algolia_crawler_json_anchoring_and_tail_ok(after_colon);
             }
+            if key == "state" {
+                return algolia_crawler_json_dictionary_state_and_tail_ok(after_colon);
+            }
+            if key == "dictionary" {
+                return algolia_crawler_json_dictionary_kind_and_tail_ok(after_colon);
+            }
             if key == "action" {
                 return algolia_crawler_json_batch_action_and_tail_ok(after_colon);
             }
@@ -41200,6 +41222,8 @@ fn algolia_crawler_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool 
                     | "facetName"
                     | "facetValue"
                     | "facet"
+                    | "language"
+                    | "word"
             ) {
                 return false;
             }
@@ -41502,6 +41526,7 @@ fn algolia_crawler_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool {
             | "updatedAtTimestamp"
             | "from"
             | "until"
+            | "nbPages"
     ) {
         return false;
     }
@@ -41546,6 +41571,8 @@ fn algolia_crawler_json_docsearch_type_and_tail_ok(after_colon: &str) -> bool {
             | "placeholder"
             | "remove"
             | "replace"
+            | "custom"
+            | "standard"
     ) {
         return false;
     }
@@ -41561,6 +41588,28 @@ fn algolia_crawler_json_anchoring_and_tail_ok(after_colon: &str) -> bool {
         &rest[..end],
         "is" | "startsWith" | "endsWith" | "contains"
     ) {
+        return false;
+    }
+    package_json_tail_ok(&rest[end + 1..])
+}
+
+fn algolia_crawler_json_dictionary_state_and_tail_ok(after_colon: &str) -> bool {
+    let rest = &after_colon[1..];
+    let Some(end) = rest.find('"') else {
+        return false;
+    };
+    if !matches!(&rest[..end], "enabled" | "disabled") {
+        return false;
+    }
+    package_json_tail_ok(&rest[end + 1..])
+}
+
+fn algolia_crawler_json_dictionary_kind_and_tail_ok(after_colon: &str) -> bool {
+    let rest = &after_colon[1..];
+    let Some(end) = rest.find('"') else {
+        return false;
+    };
+    if !matches!(&rest[..end], "plurals" | "stopwords" | "compounds") {
         return false;
     }
     package_json_tail_ok(&rest[end + 1..])

@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.896] — 2026-11-15
+
+View:
+
+- **Function List** lists more Algolia Dictionary entry JSON keys: `"language": "…"`, `"word": "…"`, `"words": [`, `"decomposition": [`, `"state": "enabled"` / `"disabled"`, `"dictionary": "plurals"` / `"stopwords"` / `"compounds"`, `"nbPages": 0` / `1`, and `"type"` now also accepts `"custom"` / `"standard"` (still accepts DocSearch / synonym / edit enums). Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing `:` stay out. Empty strings / plural/singular misspellings / `"language": ""` / `"word": ""` / `"words": "cheval"` / `"words": {` / `"decomposition": "kopf"` / `"decomposition": {` / `"state": "enable"` / `"state": "active"` / `"state": true` / `"dictionary": "plural"` / `"dictionary": "stopword"` / `"dictionary": "compound"` / `"nbPages": 01` / `"type": "customs"` / `"type": "standards"` / `"type": "default"` / generic `"description"` / `"indexes"` / `"input"` / `"filters"` / `"url"` / `"order"` / `"values"` / `"enabled"` / `"proxy"` / `"timeout"` / `"retries"` / `"headers"` / `"cache"` / `"message"` / string bools stay out. Existing Crawler / Rules / Synonym / API-key / geo / highlight / search response / write / batch keys unchanged. Algolia Insights / Recommend / neighbouring search JSON families stay out. Bool keys only match `true` / `false`. Numeric keys reject leading zeros beyond `0`. `"language"` / `"word"` require a non-empty quoted string. `"state"` / `"dictionary"` / `"type"` only match their Algolia enums. Array keys accept `[`.
+
 ## [0.3.895] — 2026-11-15
 
 View:

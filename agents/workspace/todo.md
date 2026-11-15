@@ -1454,3 +1454,5 @@
 009 keep: Function List Algolia Rules edits/delete/insert/type remove|replace/facetName/facetValue (v0.3.894)
 
 009 keep: Function List Algolia Rules/Synonym/Dictionary clearExistingRules/replaceExistingSynonyms/clearExistingDictionaryEntries/disjunctive/facet/remove/query object (v0.3.895)
+
+009 keep: Function List Algolia Dictionary language/word/words/decomposition/state/dictionary/nbPages/type custom|standard (v0.3.896)
