@@ -1,3 +1,5 @@
+009 keep: Function List Algolia Analytics count/average/rate/positions/device + position[] (v0.3.904)
+
 009 keep: Function List Algolia Analytics hits/attributes/attribute/value/operator/trackedHitCount (v0.3.903)
 
 009 keep: Function List Algolia Analytics search/country/date/hit + noResultsRate/noClickRate/withFilterCount (v0.3.902)

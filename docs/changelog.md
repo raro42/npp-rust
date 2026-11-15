@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.904] — 2026-11-16
+
+View:
+
+- **Function List** lists more Algolia Analytics count / click-position / rate / device JSON keys: `"count": 0` / `504`, `"average": 0` / `2.035` / `1`, `"rate": 0` / `0.12` / `1`, `"positions": [`, `"device": "…"`, and `"position"` now also accepts `[` (still accepts uint). Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing `:` stay out. Empty strings / plural/singular misspellings / `"count": 0504` / `"counts": 504` / `"average": 02.035` / `"average": 2."` / `"average": .035` / `"averages": 2.035` / `"rate": 00.12` / `"rate": 0."` / `"rates": 0.12` / `"positions": {` / `"positions": 42` / `"position": {` / `"device": ""` / `"device": [` / `"devices": "Desktop"` / generic `"description"` / `"indexes"` / `"input"` / `"filters"` / `"url"` / `"order"` / `"values"` / `"enabled"` / `"proxy"` / `"timeout"` / `"retries"` / `"headers"` / `"cache"` / `"message"` / string bools stay out. Existing Crawler / Rules / Synonym / Dictionary / Analytics top-hits / filters / rate / revenue / Personalization / API-key / geo / highlight / search response / write / batch keys unchanged. Algolia Insights / Recommend / neighbouring search JSON families stay out. Bool keys only match `true` / `false`. `"device"` requires a non-empty quoted string. `"average"` / `"rate"` allow a simple decimal (no exponent). Numeric count keys reject leading zeros beyond `0`. Array keys accept `[`. `"position"` accepts uint or `[`.
+
 ## [0.3.903] — 2026-11-16
 
 View:

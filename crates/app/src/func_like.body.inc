@@ -40447,7 +40447,10 @@ fn algolia_insights_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool 
 /// `"withFilterCount": 0` / `5`,
 /// `"hits": [`, `"attributes": [`, `"attribute": "…"`, `"value": "…"`,
 /// `"operator": ":"` / `"<"` / `"<="` / `"="` / `"!="` / `">"` / `">="`,
-/// `"trackedHitCount": 0` / `100`.
+/// `"trackedHitCount": 0` / `100`,
+/// `"count": 0` / `504`, `"average": 0` / `2.035` / `1`,
+/// `"rate": 0` / `0.12` / `1`, `"positions": [`, `"device": "…"`,
+/// and `"position"` now also accepts `[` (still accepts uint).
 /// Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing
 /// `:` stay out. Generic `"$schema"` / `"name"` / `"id"` / `"q"` /
 /// string `"query"` /
@@ -40523,7 +40526,8 @@ fn algolia_insights_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool 
 /// stay out. Bool keys only match `true` / `false`. Numeric keys reject
 /// leading zeros beyond `0`. `"clickThroughRate"` / `"conversionRate"` /
 /// `"averageClickPosition"` / `"addToCartRate"` / `"purchaseRate"` /
-/// `"revenue"` / `"noResultsRate"` / `"noClickRate"` allow a
+/// `"revenue"` / `"noResultsRate"` / `"noClickRate"` / `"average"` /
+/// `"rate"` allow a
 /// simple decimal (no exponent). String
 /// `"schedule"` / `"indexPrefix"` /
 /// `"clientId"` / `"clientSecret"` / `"grantType"` / `"scope"` /
@@ -40548,7 +40552,8 @@ fn algolia_insights_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool 
 /// `"createdAt"` / `"updatedAt"` / `"queryParameters"` /
 /// `"pattern"` / `"context"` / `"delete"` / `"insert"` / `"facetName"` /
 /// `"facetValue"` / `"facet"` / `"language"` / `"word"` / `"currency"` /
-/// `"search"` / `"country"` / `"date"` / `"hit"` / `"attribute"` / `"value"`
+/// `"search"` / `"country"` / `"date"` / `"hit"` / `"attribute"` / `"value"` /
+/// `"device"`
 /// require a
 /// non-empty quoted string.
 /// `"__type"` only matches `"function"`. `"queryType"` only matches
@@ -40610,8 +40615,8 @@ fn algolia_insights_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool 
 /// `"edits"` / `"remove"` / `"words"` / `"decomposition"` /
 /// `"eventsScoring"` / `"facetsScoring"` / `"currencies"` / `"countries"` /
 /// `"devices"` / `"dates"` / `"clickPositions"` / `"searches"` / `"hits"` /
-/// `"attributes"`
-/// accept `[`. `"currencies"` also accepts `{`.
+/// `"attributes"` / `"positions"` / `"position"`
+/// accept `[`. `"currencies"` also accepts `{`. `"position"` also accepts uint.
 fn is_algolia_crawler_json_decl(s: &str) -> bool {
     let s = s.trim_start();
     let Some(rest) = s.strip_prefix('"') else {
@@ -40990,6 +40995,11 @@ fn algolia_crawler_json_key_ok(key: &str) -> bool {
             | "value"
             | "operator"
             | "trackedHitCount"
+            | "count"
+            | "average"
+            | "rate"
+            | "positions"
+            | "device"
     )
 }
 
@@ -41097,6 +41107,8 @@ fn algolia_crawler_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool 
                     | "searches"
                     | "hits"
                     | "attributes"
+                    | "positions"
+                    | "position"
             ) {
                 return false;
             }
@@ -41311,6 +41323,7 @@ fn algolia_crawler_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool 
                     | "hit"
                     | "attribute"
                     | "value"
+                    | "device"
             ) {
                 return false;
             }
@@ -41328,6 +41341,8 @@ fn algolia_crawler_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool 
                     | "revenue"
                     | "noResultsRate"
                     | "noClickRate"
+                    | "average"
+                    | "rate"
             ) {
                 algolia_crawler_json_decimal_and_tail_ok(after_colon)
             } else {
@@ -41666,6 +41681,7 @@ fn algolia_crawler_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool {
             | "purchaseCount"
             | "withFilterCount"
             | "trackedHitCount"
+            | "count"
     ) {
         return false;
     }
