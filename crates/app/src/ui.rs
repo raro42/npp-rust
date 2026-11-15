@@ -71390,6 +71390,10 @@ fn searchkit_json_string_and_tail_ok(key: &str, after_colon: &str) -> bool {
 /// `"attributeCriteriaComputedByMinProximity"` / `"relevancyStrictness"` /
 /// `"renderingContent"` / `"decompoundQuery"` / `"mode"` / `"semanticSearch"` /
 /// `"reRankingApplyFilter"` / `"userData"` / `"placeholders"` / `"primary"` /
+/// `"eventSources"` / `"neuralSearchMode"` / `"vectorModelId"` /
+/// `"neuralSearchPreset"` / `"enableNeuralSearchSortBy"` /
+/// `"usePositionalSemanticRanking"` / `"minHitsForSemantic"` /
+/// `"neuralExpression"` / `"dynamicThreshold"` /
 /// prettier `"printWidth"` / karma `"basePath"` stay out. Enum `"model"` only
 /// matches Recommend model ids. Numeric keys reject leading zeros beyond `0`.
 fn is_algolia_recommend_json_decl(s: &str) -> bool {
@@ -71618,6 +71622,10 @@ fn algolia_recommend_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool
 /// `"attributeCriteriaComputedByMinProximity"` / `"relevancyStrictness"` /
 /// `"renderingContent"` / `"decompoundQuery"` / `"mode"` / `"semanticSearch"` /
 /// `"reRankingApplyFilter"` / `"userData"` / `"placeholders"` / `"primary"` /
+/// `"eventSources"` / `"neuralSearchMode"` / `"vectorModelId"` /
+/// `"neuralSearchPreset"` / `"enableNeuralSearchSortBy"` /
+/// `"usePositionalSemanticRanking"` / `"minHitsForSemantic"` /
+/// `"neuralExpression"` / `"dynamicThreshold"` /
 /// prettier `"printWidth"` / karma `"basePath"` stay out. Enum `"eventSubtype"`
 /// only matches Insights conversion subtypes. Bool keys only match `true` /
 /// `false`. Numeric keys reject leading zeros beyond `0`. String keys require
@@ -71808,7 +71816,14 @@ fn algolia_insights_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool 
 /// `"decompoundQuery": true` / `false`,
 /// `"mode": "neuralSearch"` / `"keywordSearch"`, `"semanticSearch": {`,
 /// `"reRankingApplyFilter": "…"` / `[`, `"userData": {`,
-/// `"placeholders": {`, `"primary": "…"`.
+/// `"placeholders": {`, `"primary": "…"`, `"eventSources": [`,
+/// `"neuralSearchMode": "active"` / `"preview"` / `"inactive"`,
+/// `"vectorModelId": "…"`, `"neuralSearchPreset": "conservative"` /
+/// `"expanded_reach"` / `"append_only"` / `"default"` / `"custom"`,
+/// `"enableNeuralSearchSortBy": true` / `false`,
+/// `"usePositionalSemanticRanking": true` / `false`,
+/// `"minHitsForSemantic": 0` / `10`, `"neuralExpression": {`,
+/// `"dynamicThreshold": {`.
 /// Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing
 /// `:` stay out. Generic `"$schema"` / `"name"` / `"id"` / `"q"` / `"query"` /
 /// `"url"` / `"appId"` / `"apiKey"` / `"index"` / `"indexName"` / `"cache"` /
@@ -71889,13 +71904,17 @@ fn algolia_insights_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool 
 /// `"attributeForDistinct"` / `"snippetEllipsisText"` /
 /// `"highlightPostTag"` / `"highlightPreTag"` / `"sortFacetValuesBy"` /
 /// `"separatorsToIndex"` / `"keepDiacriticsOnCharacters"` /
-/// `"reRankingApplyFilter"` / `"primary"` require a non-empty quoted string.
+/// `"reRankingApplyFilter"` / `"primary"` / `"vectorModelId"` require a
+/// non-empty quoted string.
 /// `"__type"` only matches `"function"`. `"queryType"` only matches
 /// `"prefixLast"` / `"prefixAll"` / `"prefixNone"`.
 /// `"removeWordsIfNoResults"` only matches `"none"` / `"lastWords"` /
 /// `"firstWords"` / `"allOptional"`. `"exactOnSingleWordQuery"` only matches
 /// `"attribute"` / `"none"` / `"word"`. `"mode"` only matches
-/// `"neuralSearch"` / `"keywordSearch"`. `"typoTolerance"` accepts bool or
+/// `"neuralSearch"` / `"keywordSearch"`. `"neuralSearchMode"` only matches
+/// `"active"` / `"preview"` / `"inactive"`. `"neuralSearchPreset"` only
+/// matches `"conservative"` / `"expanded_reach"` / `"append_only"` /
+/// `"default"` / `"custom"`. `"typoTolerance"` accepts bool or
 /// `"min"` / `"strict"` / `"true"` / `"false"`. `"optionalWords"` accepts
 /// string or `[`. `"ignoreCanonicalTo"` / `"ignorePlurals"` /
 /// `"removeStopWords"` accept bool or `[`. `"renderJavaScript"` accepts bool,
@@ -71904,7 +71923,8 @@ fn algolia_insights_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool 
 /// `"reRankingApplyFilter"` accept string or `[`.
 /// `"decompoundedAttributes"` / `"customNormalization"` /
 /// `"renderingContent"` / `"semanticSearch"` / `"userData"` /
-/// `"placeholders"` accept `{`.
+/// `"placeholders"` / `"neuralExpression"` / `"dynamicThreshold"` accept `{`.
+/// `"eventSources"` accepts `[`.
 fn is_algolia_crawler_json_decl(s: &str) -> bool {
     let s = s.trim_start();
     let Some(rest) = s.strip_prefix('"') else {
@@ -72066,6 +72086,15 @@ fn algolia_crawler_json_key_ok(key: &str) -> bool {
             | "userData"
             | "placeholders"
             | "primary"
+            | "eventSources"
+            | "neuralSearchMode"
+            | "vectorModelId"
+            | "neuralSearchPreset"
+            | "enableNeuralSearchSortBy"
+            | "usePositionalSemanticRanking"
+            | "minHitsForSemantic"
+            | "neuralExpression"
+            | "dynamicThreshold"
     )
 }
 
@@ -72123,6 +72152,7 @@ fn algolia_crawler_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool 
                     | "numericAttributesForFiltering"
                     | "queryLanguages"
                     | "reRankingApplyFilter"
+                    | "eventSources"
             ) {
                 return false;
             }
@@ -72158,6 +72188,8 @@ fn algolia_crawler_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool 
                     | "semanticSearch"
                     | "userData"
                     | "placeholders"
+                    | "neuralExpression"
+                    | "dynamicThreshold"
             ) {
                 return false;
             }
@@ -72181,6 +72213,12 @@ fn algolia_crawler_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool 
             }
             if key == "mode" {
                 return algolia_crawler_json_mode_and_tail_ok(after_colon);
+            }
+            if key == "neuralSearchMode" {
+                return algolia_crawler_json_neural_search_mode_and_tail_ok(after_colon);
+            }
+            if key == "neuralSearchPreset" {
+                return algolia_crawler_json_neural_search_preset_and_tail_ok(after_colon);
             }
             if !matches!(
                 key,
@@ -72221,6 +72259,7 @@ fn algolia_crawler_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool 
                     | "keepDiacriticsOnCharacters"
                     | "reRankingApplyFilter"
                     | "primary"
+                    | "vectorModelId"
             ) {
                 return false;
             }
@@ -72301,6 +72340,31 @@ fn algolia_crawler_json_mode_and_tail_ok(after_colon: &str) -> bool {
     package_json_tail_ok(&rest[end + 1..])
 }
 
+fn algolia_crawler_json_neural_search_mode_and_tail_ok(after_colon: &str) -> bool {
+    let rest = &after_colon[1..];
+    let Some(end) = rest.find('"') else {
+        return false;
+    };
+    if !matches!(&rest[..end], "active" | "preview" | "inactive") {
+        return false;
+    }
+    package_json_tail_ok(&rest[end + 1..])
+}
+
+fn algolia_crawler_json_neural_search_preset_and_tail_ok(after_colon: &str) -> bool {
+    let rest = &after_colon[1..];
+    let Some(end) = rest.find('"') else {
+        return false;
+    };
+    if !matches!(
+        &rest[..end],
+        "conservative" | "expanded_reach" | "append_only" | "default" | "custom"
+    ) {
+        return false;
+    }
+    package_json_tail_ok(&rest[end + 1..])
+}
+
 fn algolia_crawler_json_string_and_tail_ok(after_colon: &str) -> bool {
     let rest = &after_colon[1..];
     let Some(end) = rest.find('"') else {
@@ -72340,6 +72404,8 @@ fn algolia_crawler_json_bool_and_tail_ok(key: &str, after_colon: &str) -> bool {
             | "replaceSynonymsInHighlight"
             | "attributeCriteriaComputedByMinProximity"
             | "decompoundQuery"
+            | "enableNeuralSearchSortBy"
+            | "usePositionalSemanticRanking"
     ) {
         return false;
     }
@@ -72370,6 +72436,7 @@ fn algolia_crawler_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool {
             | "minWordSizefor2Typos"
             | "maxFacetHits"
             | "relevancyStrictness"
+            | "minHitsForSemantic"
     ) {
         return false;
     }
@@ -151416,6 +151483,25 @@ mod func_like_line_tests {
         assert!(is_algolia_crawler_json_decl(r#""userData": {"#));
         assert!(is_algolia_crawler_json_decl(r#""placeholders": {"#));
         assert!(is_algolia_crawler_json_decl(r#""primary": "products""#));
+        assert!(is_algolia_crawler_json_decl(r#""eventSources": ["#));
+        assert!(is_algolia_crawler_json_decl(
+            r#""neuralSearchMode": "active""#
+        ));
+        assert!(is_algolia_crawler_json_decl(
+            r#""vectorModelId": "algolia-neural-default""#
+        ));
+        assert!(is_algolia_crawler_json_decl(
+            r#""neuralSearchPreset": "conservative""#
+        ));
+        assert!(is_algolia_crawler_json_decl(
+            r#""enableNeuralSearchSortBy": true"#
+        ));
+        assert!(is_algolia_crawler_json_decl(
+            r#""usePositionalSemanticRanking": false"#
+        ));
+        assert!(is_algolia_crawler_json_decl(r#""minHitsForSemantic": 10"#));
+        assert!(is_algolia_crawler_json_decl(r#""neuralExpression": {"#));
+        assert!(is_algolia_crawler_json_decl(r#""dynamicThreshold": {"#));
         assert!(!is_algolia_crawler_json_decl(
             r#""authenticatedUserToken": "user-1""#
         ));
@@ -153357,6 +153443,194 @@ mod func_like_line_tests {
         assert!(!is_algolia_crawler_json_decl(r#""primaries": "products""#));
         assert!(!is_algolia_insights_json_decl(r#""primary": "products""#));
         assert!(!is_algolia_recommend_json_decl(r#""primary": "products""#));
+        assert!(is_algolia_crawler_json_decl(r#""eventSources": ["#));
+        assert!(is_algolia_crawler_json_decl(r#""eventSources": [,"#));
+        assert!(is_algolia_crawler_json_decl(r#""eventSources": [ // c"#));
+        assert!(!is_algolia_crawler_json_decl(r#""eventSources": true"#));
+        assert!(!is_algolia_crawler_json_decl(r#""eventSources": {"#));
+        assert!(!is_algolia_crawler_json_decl(r#""eventSource": ["#));
+        assert!(!is_algolia_insights_json_decl(r#""eventSources": ["#));
+        assert!(!is_algolia_recommend_json_decl(r#""eventSources": ["#));
+        assert!(is_algolia_crawler_json_decl(
+            r#""neuralSearchMode": "active""#
+        ));
+        assert!(is_algolia_crawler_json_decl(
+            r#""neuralSearchMode": "preview""#
+        ));
+        assert!(is_algolia_crawler_json_decl(
+            r#""neuralSearchMode": "inactive""#
+        ));
+        assert!(is_algolia_crawler_json_decl(
+            r#""neuralSearchMode": "active","#
+        ));
+        assert!(is_algolia_crawler_json_decl(
+            r#""neuralSearchMode": "preview" // c"#
+        ));
+        assert!(!is_algolia_crawler_json_decl(
+            r#""neuralSearchMode": "enabled""#
+        ));
+        assert!(!is_algolia_crawler_json_decl(r#""neuralSearchMode": """#));
+        assert!(!is_algolia_crawler_json_decl(r#""neuralSearchMode": true"#));
+        assert!(!is_algolia_crawler_json_decl(
+            r#""neuralSearchModes": "active""#
+        ));
+        assert!(!is_algolia_insights_json_decl(
+            r#""neuralSearchMode": "active""#
+        ));
+        assert!(!is_algolia_recommend_json_decl(
+            r#""neuralSearchMode": "active""#
+        ));
+        assert!(is_algolia_crawler_json_decl(
+            r#""vectorModelId": "algolia-neural-default""#
+        ));
+        assert!(is_algolia_crawler_json_decl(
+            r#""vectorModelId": "algolia-neural-default","#
+        ));
+        assert!(is_algolia_crawler_json_decl(
+            r#""vectorModelId": "algolia-neural-default" // c"#
+        ));
+        assert!(!is_algolia_crawler_json_decl(r#""vectorModelId": """#));
+        assert!(!is_algolia_crawler_json_decl(r#""vectorModelId": true"#));
+        assert!(!is_algolia_crawler_json_decl(r#""vectorModelId": ["#));
+        assert!(!is_algolia_crawler_json_decl(
+            r#""vectorModelIds": "algolia-neural-default""#
+        ));
+        assert!(!is_algolia_insights_json_decl(
+            r#""vectorModelId": "algolia-neural-default""#
+        ));
+        assert!(!is_algolia_recommend_json_decl(
+            r#""vectorModelId": "algolia-neural-default""#
+        ));
+        assert!(is_algolia_crawler_json_decl(
+            r#""neuralSearchPreset": "conservative""#
+        ));
+        assert!(is_algolia_crawler_json_decl(
+            r#""neuralSearchPreset": "expanded_reach""#
+        ));
+        assert!(is_algolia_crawler_json_decl(
+            r#""neuralSearchPreset": "append_only""#
+        ));
+        assert!(is_algolia_crawler_json_decl(
+            r#""neuralSearchPreset": "default""#
+        ));
+        assert!(is_algolia_crawler_json_decl(
+            r#""neuralSearchPreset": "custom""#
+        ));
+        assert!(is_algolia_crawler_json_decl(
+            r#""neuralSearchPreset": "conservative","#
+        ));
+        assert!(is_algolia_crawler_json_decl(
+            r#""neuralSearchPreset": "custom" // c"#
+        ));
+        assert!(!is_algolia_crawler_json_decl(
+            r#""neuralSearchPreset": "aggressive""#
+        ));
+        assert!(!is_algolia_crawler_json_decl(r#""neuralSearchPreset": """#));
+        assert!(!is_algolia_crawler_json_decl(
+            r#""neuralSearchPreset": true"#
+        ));
+        assert!(!is_algolia_crawler_json_decl(
+            r#""neuralSearchPresets": "conservative""#
+        ));
+        assert!(!is_algolia_insights_json_decl(
+            r#""neuralSearchPreset": "conservative""#
+        ));
+        assert!(!is_algolia_recommend_json_decl(
+            r#""neuralSearchPreset": "conservative""#
+        ));
+        assert!(is_algolia_crawler_json_decl(
+            r#""enableNeuralSearchSortBy": true"#
+        ));
+        assert!(is_algolia_crawler_json_decl(
+            r#""enableNeuralSearchSortBy": false"#
+        ));
+        assert!(is_algolia_crawler_json_decl(
+            r#""enableNeuralSearchSortBy": true,"#
+        ));
+        assert!(is_algolia_crawler_json_decl(
+            r#""enableNeuralSearchSortBy": false // c"#
+        ));
+        assert!(!is_algolia_crawler_json_decl(
+            r#""enableNeuralSearchSortBy": "true""#
+        ));
+        assert!(!is_algolia_crawler_json_decl(
+            r#""enableNeuralSearchSortBy": 1"#
+        ));
+        assert!(!is_algolia_crawler_json_decl(
+            r#""enableNeuralSearchSortBys": true"#
+        ));
+        assert!(!is_algolia_insights_json_decl(
+            r#""enableNeuralSearchSortBy": true"#
+        ));
+        assert!(!is_algolia_recommend_json_decl(
+            r#""enableNeuralSearchSortBy": true"#
+        ));
+        assert!(is_algolia_crawler_json_decl(
+            r#""usePositionalSemanticRanking": true"#
+        ));
+        assert!(is_algolia_crawler_json_decl(
+            r#""usePositionalSemanticRanking": false"#
+        ));
+        assert!(is_algolia_crawler_json_decl(
+            r#""usePositionalSemanticRanking": true,"#
+        ));
+        assert!(is_algolia_crawler_json_decl(
+            r#""usePositionalSemanticRanking": false // c"#
+        ));
+        assert!(!is_algolia_crawler_json_decl(
+            r#""usePositionalSemanticRanking": "true""#
+        ));
+        assert!(!is_algolia_crawler_json_decl(
+            r#""usePositionalSemanticRanking": 1"#
+        ));
+        assert!(!is_algolia_crawler_json_decl(
+            r#""usePositionalSemanticRankings": true"#
+        ));
+        assert!(!is_algolia_insights_json_decl(
+            r#""usePositionalSemanticRanking": true"#
+        ));
+        assert!(!is_algolia_recommend_json_decl(
+            r#""usePositionalSemanticRanking": true"#
+        ));
+        assert!(is_algolia_crawler_json_decl(r#""minHitsForSemantic": 0"#));
+        assert!(is_algolia_crawler_json_decl(r#""minHitsForSemantic": 10"#));
+        assert!(is_algolia_crawler_json_decl(r#""minHitsForSemantic": 10,"#));
+        assert!(is_algolia_crawler_json_decl(
+            r#""minHitsForSemantic": 10 // c"#
+        ));
+        assert!(!is_algolia_crawler_json_decl(r#""minHitsForSemantic": 01"#));
+        assert!(!is_algolia_crawler_json_decl(
+            r#""minHitsForSemantic": true"#
+        ));
+        assert!(!is_algolia_crawler_json_decl(
+            r#""minHitsForSemantics": 10"#
+        ));
+        assert!(!is_algolia_insights_json_decl(
+            r#""minHitsForSemantic": 10"#
+        ));
+        assert!(!is_algolia_recommend_json_decl(
+            r#""minHitsForSemantic": 10"#
+        ));
+        assert!(is_algolia_crawler_json_decl(r#""neuralExpression": {"#));
+        assert!(is_algolia_crawler_json_decl(r#""neuralExpression": {,"#));
+        assert!(is_algolia_crawler_json_decl(
+            r#""neuralExpression": { // c"#
+        ));
+        assert!(!is_algolia_crawler_json_decl(r#""neuralExpression": true"#));
+        assert!(!is_algolia_crawler_json_decl(r#""neuralExpression": ["#));
+        assert!(!is_algolia_crawler_json_decl(r#""neuralExpressions": {"#));
+        assert!(!is_algolia_insights_json_decl(r#""neuralExpression": {"#));
+        assert!(!is_algolia_recommend_json_decl(r#""neuralExpression": {"#));
+        assert!(is_algolia_crawler_json_decl(r#""dynamicThreshold": {"#));
+        assert!(is_algolia_crawler_json_decl(r#""dynamicThreshold": {,"#));
+        assert!(is_algolia_crawler_json_decl(
+            r#""dynamicThreshold": { // c"#
+        ));
+        assert!(!is_algolia_crawler_json_decl(r#""dynamicThreshold": true"#));
+        assert!(!is_algolia_crawler_json_decl(r#""dynamicThreshold": ["#));
+        assert!(!is_algolia_crawler_json_decl(r#""dynamicThresholds": {"#));
+        assert!(!is_algolia_insights_json_decl(r#""dynamicThreshold": {"#));
+        assert!(!is_algolia_recommend_json_decl(r#""dynamicThreshold": {"#));
         assert!(!is_algolia_crawler_json_decl(r#""startUrls""#));
         assert!(!is_algolia_crawler_json_decl(r#""schedule""#));
         assert!(!is_algolia_crawler_json_decl(r#""actions""#));

@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.878] — 2026-11-15
+
+View:
+
+- **Function List** lists more Algolia Crawler JSON keys: `"eventSources": [`, `"neuralSearchMode": "active"` / `"preview"` / `"inactive"`, `"vectorModelId": "…"`, `"neuralSearchPreset": "conservative"` / `"expanded_reach"` / `"append_only"` / `"default"` / `"custom"`, `"enableNeuralSearchSortBy": true` / `false`, `"usePositionalSemanticRanking": true` / `false`, `"minHitsForSemantic": 0` / `10`, `"neuralExpression": {`, `"dynamicThreshold": {`. Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing `:` stay out. Empty strings / plural/singular misspellings / `"neuralSearchMode": "enabled"` / `"neuralSearchPreset": "aggressive"` / generic `"url"` / `"enabled"` / `"proxy"` / `"timeout"` / `"retries"` / `"headers"` / `"cache"` / string bools stay out. Existing Crawler keys unchanged. Algolia Insights / Recommend / neighbouring search JSON families stay out. Bool keys only match `true` / `false`. Numeric keys reject leading zeros beyond `0`. `"neuralSearchMode"` / `"neuralSearchPreset"` only match their Algolia enums. `"vectorModelId"` requires a non-empty quoted string. Object keys accept `{`.
+
 ## [0.3.877] — 2026-11-15
 
 View:
