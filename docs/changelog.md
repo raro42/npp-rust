@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.913] — 2026-11-16
+
+View:
+
+- **Function List** lists Algolia Query Suggestions config / status / log JSON keys: `"sourceIndices": [`, `"minHits": 0` / `5`, `"minLetters": 0` / `4`, `"allowSpecialCharacters": true` / `false`, `"isRunning": true` / `false`, `"lastBuiltAt": "…"`, `"lastSuccessfulBuiltAt": "…"`, `"lastSuccessfulBuildDuration": "…"`, `"contextLevel": 0` / `1`, `"level": "SKIP"` / `"INFO"` / `"ERROR"`. Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing `:` stay out. Empty strings / plural/singular misspellings / `"sourceIndices": {` / `"minHits": 05` / `"minHits": true` / `"minLetters": 04` / `"allowSpecialCharacters": "true"` / `"isRunning": 0` / `"lastBuiltAt": ""` / `"lastSuccessfulBuildDuration": 28` / `"contextLevel": 01` / `"level": "skip"` / `"level": "WARN"` / generic `"message"` / `"description"` / `"indexes"` / `"input"` / string `"filters"` / `"url"` / `"order"` / `"enabled"` / `"proxy"` / `"timeout"` / `"retries"` / `"headers"` / `"cache"` / `"indexName"` / `"appId"` stay out. Existing Crawler / Rules / Synonym / Dictionary / Analytics / Personalization / API-key / geo / highlight / search response / write / batch keys unchanged. Algolia Insights client-config / Recommend / neighbouring search JSON families stay out. `"sourceIndices"` accepts `[`. `"minHits"` / `"minLetters"` / `"contextLevel"` accept uint. Bool keys only match `true` / `false`. `"level"` only matches the Query Suggestions log enum.
+
 ## [0.3.912] — 2026-11-16
 
 View:

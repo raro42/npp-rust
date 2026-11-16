@@ -54099,6 +54099,118 @@ fn algolia_crawler_json_keys_count() {
     assert!(!is_algolia_recommend_json_decl(r#""scores": {"#));
     assert!(!is_algolia_insights_json_decl(r#""userToken": "u""#));
     assert!(!is_algolia_recommend_json_decl(r#""deletedUntil": "x""#));
+    assert!(is_algolia_crawler_json_decl(r#""sourceIndices": ["#));
+    assert!(is_algolia_crawler_json_decl(r#""sourceIndices": [ // c"#));
+    assert!(is_algolia_crawler_json_decl(r#""minHits": 0"#));
+    assert!(is_algolia_crawler_json_decl(r#""minHits": 5"#));
+    assert!(is_algolia_crawler_json_decl(r#""minHits": 5,"#));
+    assert!(is_algolia_crawler_json_decl(r#""minHits": 5 // c"#));
+    assert!(is_algolia_crawler_json_decl(r#""minLetters": 0"#));
+    assert!(is_algolia_crawler_json_decl(r#""minLetters": 4"#));
+    assert!(is_algolia_crawler_json_decl(r#""minLetters": 4,"#));
+    assert!(is_algolia_crawler_json_decl(r#""minLetters": 4 // c"#));
+    assert!(is_algolia_crawler_json_decl(r#""allowSpecialCharacters": true"#));
+    assert!(is_algolia_crawler_json_decl(r#""allowSpecialCharacters": false"#));
+    assert!(is_algolia_crawler_json_decl(
+        r#""allowSpecialCharacters": true,"#
+    ));
+    assert!(is_algolia_crawler_json_decl(
+        r#""allowSpecialCharacters": false // c"#
+    ));
+    assert!(is_algolia_crawler_json_decl(r#""isRunning": true"#));
+    assert!(is_algolia_crawler_json_decl(r#""isRunning": false"#));
+    assert!(is_algolia_crawler_json_decl(r#""isRunning": false,"#));
+    assert!(is_algolia_crawler_json_decl(r#""isRunning": true // c"#));
+    assert!(is_algolia_crawler_json_decl(r#""lastBuiltAt": "2023-07-05T08:03:53Z""#));
+    assert!(is_algolia_crawler_json_decl(
+        r#""lastBuiltAt": "2023-07-05T08:03:53Z","#
+    ));
+    assert!(is_algolia_crawler_json_decl(
+        r#""lastBuiltAt": "2023-07-05T08:03:53Z" // c"#
+    ));
+    assert!(is_algolia_crawler_json_decl(
+        r#""lastSuccessfulBuiltAt": "2023-07-05T08:03:53Z""#
+    ));
+    assert!(is_algolia_crawler_json_decl(
+        r#""lastSuccessfulBuiltAt": "2023-07-05T08:03:53Z","#
+    ));
+    assert!(is_algolia_crawler_json_decl(
+        r#""lastSuccessfulBuiltAt": "2023-07-05T08:03:53Z" // c"#
+    ));
+    assert!(is_algolia_crawler_json_decl(
+        r#""lastSuccessfulBuildDuration": "28""#
+    ));
+    assert!(is_algolia_crawler_json_decl(
+        r#""lastSuccessfulBuildDuration": "28","#
+    ));
+    assert!(is_algolia_crawler_json_decl(
+        r#""lastSuccessfulBuildDuration": "28" // c"#
+    ));
+    assert!(is_algolia_crawler_json_decl(r#""contextLevel": 0"#));
+    assert!(is_algolia_crawler_json_decl(r#""contextLevel": 1"#));
+    assert!(is_algolia_crawler_json_decl(r#""contextLevel": 1,"#));
+    assert!(is_algolia_crawler_json_decl(r#""contextLevel": 1 // c"#));
+    assert!(is_algolia_crawler_json_decl(r#""level": "SKIP""#));
+    assert!(is_algolia_crawler_json_decl(r#""level": "INFO""#));
+    assert!(is_algolia_crawler_json_decl(r#""level": "ERROR""#));
+    assert!(is_algolia_crawler_json_decl(r#""level": "INFO","#));
+    assert!(is_algolia_crawler_json_decl(r#""level": "ERROR" // c"#));
+    assert!(!is_algolia_crawler_json_decl(r#""sourceIndices": {"#));
+    assert!(!is_algolia_crawler_json_decl(r#""sourceIndices": true"#));
+    assert!(!is_algolia_crawler_json_decl(r#""sourceIndex": ["#));
+    assert!(!is_algolia_crawler_json_decl(r#""minHits": 05"#));
+    assert!(!is_algolia_crawler_json_decl(r#""minHits": true"#));
+    assert!(!is_algolia_crawler_json_decl(r#""minHits": ["#));
+    assert!(!is_algolia_crawler_json_decl(r#""minHit": 5"#));
+    assert!(!is_algolia_crawler_json_decl(r#""minLetters": 04"#));
+    assert!(!is_algolia_crawler_json_decl(r#""minLetters": true"#));
+    assert!(!is_algolia_crawler_json_decl(r#""minLetters": ["#));
+    assert!(!is_algolia_crawler_json_decl(r#""minLetter": 4"#));
+    assert!(!is_algolia_crawler_json_decl(
+        r#""allowSpecialCharacters": "true""#
+    ));
+    assert!(!is_algolia_crawler_json_decl(
+        r#""allowSpecialCharacters": 1"#
+    ));
+    assert!(!is_algolia_crawler_json_decl(
+        r#""allowSpecialCharacter": true"#
+    ));
+    assert!(!is_algolia_crawler_json_decl(r#""isRunning": "false""#));
+    assert!(!is_algolia_crawler_json_decl(r#""isRunning": 0"#));
+    assert!(!is_algolia_crawler_json_decl(r#""isRunnings": false"#));
+    assert!(!is_algolia_crawler_json_decl(r#""lastBuiltAt": """#));
+    assert!(!is_algolia_crawler_json_decl(r#""lastBuiltAt": ["#));
+    assert!(!is_algolia_crawler_json_decl(r#""lastBuiltAts": "x""#));
+    assert!(!is_algolia_crawler_json_decl(r#""lastSuccessfulBuiltAt": """#));
+    assert!(!is_algolia_crawler_json_decl(r#""lastSuccessfulBuiltAt": ["#));
+    assert!(!is_algolia_crawler_json_decl(
+        r#""lastSuccessfulBuiltAts": "x""#
+    ));
+    assert!(!is_algolia_crawler_json_decl(
+        r#""lastSuccessfulBuildDuration": """#
+    ));
+    assert!(!is_algolia_crawler_json_decl(
+        r#""lastSuccessfulBuildDuration": 28"#
+    ));
+    assert!(!is_algolia_crawler_json_decl(
+        r#""lastSuccessfulBuildDurations": "28""#
+    ));
+    assert!(!is_algolia_crawler_json_decl(r#""contextLevel": 01"#));
+    assert!(!is_algolia_crawler_json_decl(r#""contextLevel": true"#));
+    assert!(!is_algolia_crawler_json_decl(r#""contextLevel": ["#));
+    assert!(!is_algolia_crawler_json_decl(r#""contextLevels": 1"#));
+    assert!(!is_algolia_crawler_json_decl(r#""appId": "latency""#));
+    assert!(!is_algolia_crawler_json_decl(r#""level": "skip""#));
+    assert!(!is_algolia_crawler_json_decl(r#""level": "WARN""#));
+    assert!(!is_algolia_crawler_json_decl(r#""level": ["#));
+    assert!(!is_algolia_crawler_json_decl(r#""levels": "INFO""#));
+    assert!(!is_algolia_insights_json_decl(r#""sourceIndices": ["#));
+    assert!(!is_algolia_recommend_json_decl(r#""minHits": 5"#));
+    assert!(!is_algolia_insights_json_decl(
+        r#""allowSpecialCharacters": true"#
+    ));
+    assert!(!is_algolia_recommend_json_decl(r#""isRunning": false"#));
+    assert!(!is_algolia_recommend_json_decl(r#""level": "INFO""#));
     assert!(line_is_func_like(r#""clickAnalytics": true"#));
     assert!(line_is_func_like(r#""revenueAnalytics": false"#));
     assert!(line_is_func_like(r#""groupBy": ["#));
@@ -54125,6 +54237,18 @@ fn algolia_crawler_json_keys_count() {
     assert!(line_is_func_like(r#""lastEventAt": "2023-07-04T12:49:15Z""#));
     assert!(line_is_func_like(r#""userToken": "test-user-123""#));
     assert!(line_is_func_like(r#""deletedUntil": "2023-07-04T12:49:15Z""#));
+    assert!(line_is_func_like(r#""sourceIndices": ["#));
+    assert!(line_is_func_like(r#""minHits": 5"#));
+    assert!(line_is_func_like(r#""minLetters": 4"#));
+    assert!(line_is_func_like(r#""allowSpecialCharacters": true"#));
+    assert!(line_is_func_like(r#""isRunning": false"#));
+    assert!(line_is_func_like(r#""lastBuiltAt": "2023-07-05T08:03:53Z""#));
+    assert!(line_is_func_like(
+        r#""lastSuccessfulBuiltAt": "2023-07-05T08:03:53Z""#
+    ));
+    assert!(line_is_func_like(r#""lastSuccessfulBuildDuration": "28""#));
+    assert!(line_is_func_like(r#""contextLevel": 1"#));
+    assert!(line_is_func_like(r#""level": "INFO""#));
     assert!(line_is_func_like(r#""kind": "searchesCount""#));
     assert!(line_is_func_like(r#""domain": "core""#));
     assert!(line_is_func_like(r#""filterOperator": "IN""#));

@@ -1,3 +1,5 @@
+009 keep: Function List Algolia Query Suggestions sourceIndices/minHits/minLetters/allowSpecialCharacters/isRunning/lastBuiltAt/lastSuccessfulBuiltAt/lastSuccessfulBuildDuration/contextLevel/level (v0.3.913)
+
 009 keep: Function List Algolia Personalization eventName/eventType/score/scores/lastEventAt/userToken/deletedUntil (v0.3.912)
 
 009 keep: Function List Algolia Analytics noResultsRate/noClickRate/average/rate/revenue null (v0.3.911)

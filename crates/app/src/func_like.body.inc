@@ -40488,7 +40488,13 @@ fn algolia_insights_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool 
 /// `"eventName": "…"`, `"eventType": "click"` / `"conversion"` / `"view"`,
 /// `"score": 0` / `42` / `100`, `"scores": {`, `"lastEventAt": "…"`,
 /// `"userToken": "…"`, `"deletedUntil": "…"` (Personalization strategy /
-/// profile / delete-profile).
+/// profile / delete-profile),
+/// `"sourceIndices": [`, `"minHits": 0` / `5`, `"minLetters": 0` / `4`,
+/// `"allowSpecialCharacters": true` / `false`, `"isRunning": true` / `false`,
+/// `"lastBuiltAt": "…"`, `"lastSuccessfulBuiltAt": "…"`,
+/// `"lastSuccessfulBuildDuration": "…"`, `"contextLevel": 0` / `1`,
+/// `"level": "SKIP"` / `"INFO"` / `"ERROR"` (Query Suggestions config /
+/// status / logs).
 /// Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing
 /// `:` stay out. Generic `"$schema"` / `"name"` / `"id"` / `"q"` /
 /// string `"query"` /
@@ -40596,7 +40602,8 @@ fn algolia_insights_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool 
 /// `"search"` / `"country"` / `"date"` / `"hit"` / `"attribute"` / `"value"` /
 /// `"device"` / `"startDate"` / `"endDate"` / `"kind"` / `"domain"` /
 /// `"parameterValue"` / `"value"` / `"eventName"` / `"lastEventAt"` /
-/// `"userToken"` / `"deletedUntil"`
+/// `"userToken"` / `"deletedUntil"` / `"lastBuiltAt"` /
+/// `"lastSuccessfulBuiltAt"` / `"lastSuccessfulBuildDuration"`
 /// require a
 /// non-empty quoted string when the value is a string.
 /// `"filterOperator"` only matches `"="` / `"!="` / `">"` / `"<"` / `">="` /
@@ -40620,6 +40627,7 @@ fn algolia_insights_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool 
 /// `"state"` only matches `"enabled"` / `"disabled"`. `"dictionary"` only
 /// matches `"plurals"` / `"stopwords"` / `"compounds"`.
 /// `"eventType"` only matches `"click"` / `"conversion"` / `"view"`.
+/// `"level"` only matches `"SKIP"` / `"INFO"` / `"ERROR"`.
 /// `"anchoring"` only matches `"is"` / `"startsWith"` / `"endsWith"` /
 /// `"contains"`. `"operator"` only matches `":"` / `"<"` / `"<="` / `"="` /
 /// `"!="` / `">"` / `">="` / `"IN"` / `"TAG_TREE"` / `"CONTAINS"` /
@@ -40671,7 +40679,9 @@ fn algolia_insights_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool 
 /// `"parameterValue"` / `"value"` / `"filters"` / `"series"`
 /// accept `[`. `"currencies"` also accepts `{`. `"metrics"` also accepts `{`.
 /// `"parameter"` accepts `{`. `"scores"` accepts `{`. `"position"` also
-/// accepts uint. `"score"` accepts uint.
+/// accepts uint. `"score"` accepts uint. `"sourceIndices"` accepts `[`.
+/// `"minHits"` / `"minLetters"` / `"contextLevel"` accept uint.
+/// `"allowSpecialCharacters"` / `"isRunning"` accept bool.
 /// `"orderBy"` also accepts the Analytics order enum string.
 /// `"parameterValue"` / `"value"` also accept uint / decimal / bool.
 /// `"values"` / `"series"` / `"updatedAt"` also accept `null`.
@@ -41097,6 +41107,16 @@ fn algolia_crawler_json_key_ok(key: &str) -> bool {
             | "lastEventAt"
             | "userToken"
             | "deletedUntil"
+            | "sourceIndices"
+            | "minHits"
+            | "minLetters"
+            | "allowSpecialCharacters"
+            | "isRunning"
+            | "lastBuiltAt"
+            | "lastSuccessfulBuiltAt"
+            | "lastSuccessfulBuildDuration"
+            | "contextLevel"
+            | "level"
     )
 }
 
@@ -41221,6 +41241,7 @@ fn algolia_crawler_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool 
                     | "parameterValue"
                     | "value"
                     | "filters"
+                    | "sourceIndices"
             ) {
                 return false;
             }
@@ -41357,6 +41378,9 @@ fn algolia_crawler_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool 
             if key == "eventType" {
                 return algolia_crawler_json_event_type_and_tail_ok(after_colon);
             }
+            if key == "level" {
+                return algolia_crawler_json_qs_log_level_and_tail_ok(after_colon);
+            }
             if key == "action" {
                 return algolia_crawler_json_batch_action_and_tail_ok(after_colon);
             }
@@ -41463,6 +41487,9 @@ fn algolia_crawler_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool 
                     | "lastEventAt"
                     | "userToken"
                     | "deletedUntil"
+                    | "lastBuiltAt"
+                    | "lastSuccessfulBuiltAt"
+                    | "lastSuccessfulBuildDuration"
             ) {
                 return false;
             }
@@ -41781,6 +41808,8 @@ fn algolia_crawler_json_bool_and_tail_ok(key: &str, after_colon: &str) -> bool {
             | "continuous"
             | "parameterValue"
             | "value"
+            | "allowSpecialCharacters"
+            | "isRunning"
     ) {
         return false;
     }
@@ -41859,6 +41888,9 @@ fn algolia_crawler_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool {
             | "limit"
             | "offset"
             | "score"
+            | "minHits"
+            | "minLetters"
+            | "contextLevel"
     ) {
         return false;
     }
@@ -42026,6 +42058,18 @@ fn algolia_crawler_json_event_type_and_tail_ok(after_colon: &str) -> bool {
         return false;
     };
     if !matches!(&rest[..end], "click" | "conversion" | "view") {
+        return false;
+    }
+    package_json_tail_ok(&rest[end + 1..])
+}
+
+/// Query Suggestions log `"level": "SKIP"` / `"INFO"` / `"ERROR"`.
+fn algolia_crawler_json_qs_log_level_and_tail_ok(after_colon: &str) -> bool {
+    let rest = &after_colon[1..];
+    let Some(end) = rest.find('"') else {
+        return false;
+    };
+    if !matches!(&rest[..end], "SKIP" | "INFO" | "ERROR") {
         return false;
     }
     package_json_tail_ok(&rest[end + 1..])
