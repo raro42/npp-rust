@@ -40455,7 +40455,13 @@ fn algolia_insights_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool 
 /// `"averageClickPosition"` / `[`,
 /// `"direction": "asc"` / `"desc"`, `"values": [`,
 /// `"limit": 0` / `1` / `100` / `1000`, `"offset": 0` / `10`,
-/// `"startDate": "…"`, `"endDate": "…"`.
+/// `"startDate": "…"`, `"endDate": "…"`,
+/// `"clickAnalytics": true` / `false`, `"revenueAnalytics": true` / `false`,
+/// `"continuous": true` / `false`,
+/// `"groupBy": [`, `"metrics": [`, `"series": [`, `"distributions": [`,
+/// `"bins": [`, `"groups": [`, `"roots": [`, `"requires": [`, `"rows": [`,
+/// `"parameters": [`, `"domains": {`, `"totals": {`,
+/// `"kind": "…"`, `"domain": "…"`.
 /// Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing
 /// `:` stay out. Generic `"$schema"` / `"name"` / `"id"` / `"q"` /
 /// string `"query"` /
@@ -40558,7 +40564,7 @@ fn algolia_insights_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool 
 /// `"pattern"` / `"context"` / `"delete"` / `"insert"` / `"facetName"` /
 /// `"facetValue"` / `"facet"` / `"language"` / `"word"` / `"currency"` /
 /// `"search"` / `"country"` / `"date"` / `"hit"` / `"attribute"` / `"value"` /
-/// `"device"` / `"startDate"` / `"endDate"`
+/// `"device"` / `"startDate"` / `"endDate"` / `"kind"` / `"domain"`
 /// require a
 /// non-empty quoted string.
 /// `"__type"` only matches `"function"`. `"queryType"` only matches
@@ -41016,6 +41022,23 @@ fn algolia_crawler_json_key_ok(key: &str) -> bool {
             | "offset"
             | "startDate"
             | "endDate"
+            | "clickAnalytics"
+            | "revenueAnalytics"
+            | "continuous"
+            | "groupBy"
+            | "metrics"
+            | "series"
+            | "distributions"
+            | "bins"
+            | "groups"
+            | "roots"
+            | "requires"
+            | "rows"
+            | "parameters"
+            | "domains"
+            | "totals"
+            | "kind"
+            | "domain"
     )
 }
 
@@ -41127,6 +41150,16 @@ fn algolia_crawler_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool 
                     | "position"
                     | "values"
                     | "orderBy"
+                    | "groupBy"
+                    | "metrics"
+                    | "series"
+                    | "distributions"
+                    | "bins"
+                    | "groups"
+                    | "roots"
+                    | "requires"
+                    | "rows"
+                    | "parameters"
             ) {
                 return false;
             }
@@ -41188,6 +41221,8 @@ fn algolia_crawler_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool 
                     | "params"
                     | "query"
                     | "currencies"
+                    | "domains"
+                    | "totals"
             ) {
                 return false;
             }
@@ -41350,6 +41385,8 @@ fn algolia_crawler_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool 
                     | "device"
                     | "startDate"
                     | "endDate"
+                    | "kind"
+                    | "domain"
             ) {
                 return false;
             }
@@ -41633,6 +41670,9 @@ fn algolia_crawler_json_bool_and_tail_ok(key: &str, after_colon: &str) -> bool {
             | "replaceExistingSynonyms"
             | "clearExistingDictionaryEntries"
             | "disjunctive"
+            | "clickAnalytics"
+            | "revenueAnalytics"
+            | "continuous"
     ) {
         return false;
     }

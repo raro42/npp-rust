@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.906] — 2026-11-16
+
+View:
+
+- **Function List** lists more Algolia Analytics click / revenue / custom-query JSON keys: `"clickAnalytics": true` / `false`, `"revenueAnalytics": true` / `false`, `"continuous": true` / `false`, `"groupBy": [`, `"metrics": [`, `"series": [`, `"distributions": [`, `"bins": [`, `"groups": [`, `"roots": [`, `"requires": [`, `"rows": [`, `"parameters": [`, `"domains": {`, `"totals": {`, `"kind": "…"`, `"domain": "…"`. Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing `:` stay out. Empty strings / plural/singular misspellings / `"clickAnalytics": "true"` / `"clickAnalytics": 1` / `"revenueAnalytics": {"` / `"continuous": "true"` / `"groupBy": {"` / `"groupBy": "search"` / `"groupBys": [` / `"metrics": {"` / `"metric": [` / `"series": {"` / `"distributions": true` / `"bins": {"` / `"groups": true` / `"roots": {"` / `"requires": true` / `"rows": {"` / `"parameters": {"` / `"parameter": [` / `"domains": [` / `"domain": {"` / `"domains": "core"` / `"totals": [` / `"total": {"` / `"kind": ""` / `"kind": [` / `"kinds": "searchesCount"` / generic `"description"` / `"indexes"` / `"input"` / `"filters"` / `"url"` / `"order"` / `"enabled"` / `"proxy"` / `"timeout"` / `"retries"` / `"headers"` / `"cache"` / `"message"` / string bools stay out. Existing Crawler / Rules / Synonym / Dictionary / Analytics order / paging / count / rate / revenue / Personalization / API-key / geo / highlight / search response / write / batch keys unchanged. Algolia Insights / Recommend / neighbouring search JSON families stay out. Bool keys only match `true` / `false`. `"kind"` / `"domain"` require a non-empty quoted string. Array keys accept `[`. Object keys accept `{`.
+
 ## [0.3.905] — 2026-11-16
 
 View:

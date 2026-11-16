@@ -1,3 +1,5 @@
+009 keep: Function List Algolia Analytics clickAnalytics/revenueAnalytics/continuous + custom groupBy/metrics/series/… (v0.3.906)
+
 009 keep: Function List Algolia Analytics orderBy/direction/values/limit/offset/startDate/endDate (v0.3.905)
 
 009 keep: Function List Algolia Analytics count/average/rate/positions/device + position[] (v0.3.904)
