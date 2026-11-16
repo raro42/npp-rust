@@ -40397,7 +40397,7 @@ fn algolia_insights_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool 
 /// `"action": "addObject"` / `"updateObject"` / `"partialUpdateObject"` /
 /// `"partialUpdateObjectNoCreate"` / `"deleteObject"` / `"delete"` /
 /// `"clear"`,
-/// `"createdAt": "…"`, `"updatedAt": "…"`,
+/// `"createdAt": "…"`, `"updatedAt": "…"` / `null`,
 /// `"nbPendingTasks": 0` / `3`, `"pendingTask": true` / `false`,
 /// `"queryParameters": "…"`,
 /// `"acl": [`, `"validity": 0` / `3600` / `[`,
@@ -40461,7 +40461,8 @@ fn algolia_insights_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool 
 /// `"startDate": "…"`, `"endDate": "…"`,
 /// `"clickAnalytics": true` / `false`, `"revenueAnalytics": true` / `false`,
 /// `"continuous": true` / `false`,
-/// `"groupBy": [`, `"metrics": [` / `{`, `"series": [`, `"distributions": [`,
+/// `"groupBy": [`, `"metrics": [` / `{`, `"series": [` / `null`,
+/// `"distributions": [`,
 /// `"bins": [`, `"groups": [`, `"roots": [`, `"requires": [`, `"rows": [`,
 /// `"parameters": [`, `"domains": {`, `"totals": {`,
 /// `"kind": "…"`, `"domain": "…"`,
@@ -40476,7 +40477,10 @@ fn algolia_insights_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool 
 /// `"key": {`,
 /// and `"operator"` now also accepts `"IN"` / `"TAG_TREE"` / `"CONTAINS"` /
 /// `"STARTS_WITH"` / `"CONTAINS_PREFIX"` (still accepts `":"` / `"<"` /
-/// `"<="` / `"="` / `"!="` / `">"` / `">="`).
+/// `"<="` / `"="` / `"!="` / `">"` / `">="`),
+/// `"values": [` / `null` (top-filters-no-results empty payload),
+/// and `"updatedAt"` now also accepts `null` (still accepts non-empty string;
+/// Analytics status).
 /// Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing
 /// `:` stay out. Generic `"$schema"` / `"name"` / `"id"` / `"q"` /
 /// string `"query"` /
@@ -40651,11 +40655,12 @@ fn algolia_insights_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool 
 /// `"eventsScoring"` / `"facetsScoring"` / `"currencies"` / `"countries"` /
 /// `"devices"` / `"dates"` / `"clickPositions"` / `"searches"` / `"hits"` /
 /// `"attributes"` / `"positions"` / `"position"` / `"values"` / `"orderBy"` /
-/// `"parameterValue"` / `"value"` / `"filters"`
+/// `"parameterValue"` / `"value"` / `"filters"` / `"series"`
 /// accept `[`. `"currencies"` also accepts `{`. `"metrics"` also accepts `{`.
 /// `"parameter"` accepts `{`. `"position"` also accepts uint.
 /// `"orderBy"` also accepts the Analytics order enum string.
 /// `"parameterValue"` / `"value"` also accept uint / decimal / bool.
+/// `"values"` / `"series"` / `"updatedAt"` also accept `null`.
 fn is_algolia_crawler_json_decl(s: &str) -> bool {
     let s = s.trim_start();
     let Some(rest) = s.strip_prefix('"') else {
@@ -41452,6 +41457,17 @@ fn algolia_crawler_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool 
             } else {
                 algolia_crawler_json_uint_and_tail_ok(key, after_colon)
             }
+        }
+        b'n' => {
+            // Analytics nullable payloads: top-filters-no-results `values`,
+            // patterns timeseries `series`, status `updatedAt`.
+            if !matches!(key, "values" | "series" | "updatedAt") {
+                return false;
+            }
+            let Some(rest) = after_colon.strip_prefix("null") else {
+                return false;
+            };
+            package_json_tail_ok(rest)
         }
         _ => false,
     }

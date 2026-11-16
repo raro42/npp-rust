@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.909] — 2026-11-16
+
+View:
+
+- **Function List** lists more Algolia Analytics nullable JSON payloads: `"values": null` (top-filters-no-results empty), `"series": null` (patterns timeseries empty), and `"updatedAt": null` (Analytics status; still accepts non-empty string). Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing `:` stay out. `"values": nil` / `"values": Null` / `"values": nulls` / `"series": nil` / `"series": Null` / `"updatedAt": nil` / `"updatedAt": Null` / `"filters": null` / `"hits": null` / `"metrics": null` / `"parameterValue": null` / `"createdAt": null` / plural/singular misspellings / generic `"description"` / `"indexes"` / `"input"` / string `"filters"` / `"url"` / `"order"` / `"enabled"` / `"proxy"` / `"timeout"` / `"retries"` / `"headers"` / `"cache"` / `"message"` stay out. Existing Crawler / Rules / Synonym / Dictionary / Analytics order / paging / count / rate / revenue / Personalization / API-key / geo / highlight / search response / write / batch / filterOperator / parameter / parameterValue / filters / key / operator keys unchanged. Algolia Insights / Recommend / neighbouring search JSON families stay out. `"values"` / `"series"` still accept `[`. `"updatedAt"` still accepts a non-empty quoted string.
+
 ## [0.3.908] — 2026-11-16
 
 View:
