@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.905] — 2026-11-16
+
+View:
+
+- **Function List** lists more Algolia Analytics order / filter-values / paging JSON keys: `"orderBy": "searchCount"` / `"clickThroughRate"` / `"conversionRate"` / `"averageClickPosition"` / `[`, `"direction": "asc"` / `"desc"`, `"values": [`, `"limit": 0` / `1` / `100` / `1000`, `"offset": 0` / `10`, `"startDate": "…"`, `"endDate": "…"`. Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing `:` stay out. Empty strings / plural/singular misspellings / `"orderBy": "count"` / `"orderBy": "asc"` / `"orderBy": {` / `"order": "searchCount"` / `"direction": "up"` / `"direction": [` / `"directions": "asc"` / `"values": "apple"` / `"values": {` / `"value": [` / `"limit": 0100` / `"limits": 100` / `"offset": 010` / `"offsets": 10` / `"startDate": ""` / `"startDate": [` / `"endDate": ""` / `"endDate": [` / generic `"description"` / `"indexes"` / `"input"` / `"filters"` / `"url"` / `"order"` / `"enabled"` / `"proxy"` / `"timeout"` / `"retries"` / `"headers"` / `"cache"` / `"message"` / string bools stay out. Existing Crawler / Rules / Synonym / Dictionary / Analytics count / rate / revenue / Personalization / API-key / geo / highlight / search response / write / batch keys unchanged. Algolia Insights / Recommend / neighbouring search JSON families stay out. Bool keys only match `true` / `false`. `"orderBy"` only matches the Analytics order enum or `[`. `"direction"` only matches `"asc"` / `"desc"`. `"startDate"` / `"endDate"` require a non-empty quoted string. Numeric paging keys reject leading zeros beyond `0`. Array keys accept `[`.
+
 ## [0.3.904] — 2026-11-16
 
 View:

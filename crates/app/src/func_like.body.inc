@@ -40450,13 +40450,18 @@ fn algolia_insights_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool 
 /// `"trackedHitCount": 0` / `100`,
 /// `"count": 0` / `504`, `"average": 0` / `2.035` / `1`,
 /// `"rate": 0` / `0.12` / `1`, `"positions": [`, `"device": "…"`,
-/// and `"position"` now also accepts `[` (still accepts uint).
+/// and `"position"` now also accepts `[` (still accepts uint),
+/// `"orderBy": "searchCount"` / `"clickThroughRate"` / `"conversionRate"` /
+/// `"averageClickPosition"` / `[`,
+/// `"direction": "asc"` / `"desc"`, `"values": [`,
+/// `"limit": 0` / `1` / `100` / `1000`, `"offset": 0` / `10`,
+/// `"startDate": "…"`, `"endDate": "…"`.
 /// Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing
 /// `:` stay out. Generic `"$schema"` / `"name"` / `"id"` / `"q"` /
 /// string `"query"` /
 /// `"url"` / `"appId"` / `"apiKey"` / `"index"` / `"indexName"` / `"cache"` /
 /// `"enabled"` / `"proxy"` / `"timeout"` / `"retries"` / `"headers"` /
-/// `"order"` / `"values"` / `"filters"` / `"message"` /
+/// `"order"` / `"filters"` / `"message"` /
 /// `"description"` / `"indexes"` / `"input"` /
 /// Algolia Insights `"authenticatedUserToken"` /
 /// `"userHasOptedOut"` / `"useCookie"` / `"anonymousUserToken"` /
@@ -40553,7 +40558,7 @@ fn algolia_insights_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool 
 /// `"pattern"` / `"context"` / `"delete"` / `"insert"` / `"facetName"` /
 /// `"facetValue"` / `"facet"` / `"language"` / `"word"` / `"currency"` /
 /// `"search"` / `"country"` / `"date"` / `"hit"` / `"attribute"` / `"value"` /
-/// `"device"`
+/// `"device"` / `"startDate"` / `"endDate"`
 /// require a
 /// non-empty quoted string.
 /// `"__type"` only matches `"function"`. `"queryType"` only matches
@@ -40575,7 +40580,10 @@ fn algolia_insights_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool 
 /// matches `"plurals"` / `"stopwords"` / `"compounds"`.
 /// `"anchoring"` only matches `"is"` / `"startsWith"` / `"endsWith"` /
 /// `"contains"`. `"operator"` only matches `":"` / `"<"` / `"<="` / `"="` /
-/// `"!="` / `">"` / `">="`. `"action"` only matches `"addObject"` /
+/// `"!="` / `">"` / `">="`. `"orderBy"` only matches `"searchCount"` /
+/// `"clickThroughRate"` / `"conversionRate"` / `"averageClickPosition"`
+/// (or `[`). `"direction"` only matches `"asc"` / `"desc"`. `"action"` only
+/// matches `"addObject"` /
 /// `"updateObject"` / `"partialUpdateObject"` /
 /// `"partialUpdateObjectNoCreate"` / `"deleteObject"` / `"delete"` /
 /// `"clear"`. `"aroundRadius"` accepts uint or `"all"`.
@@ -40615,8 +40623,9 @@ fn algolia_insights_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool 
 /// `"edits"` / `"remove"` / `"words"` / `"decomposition"` /
 /// `"eventsScoring"` / `"facetsScoring"` / `"currencies"` / `"countries"` /
 /// `"devices"` / `"dates"` / `"clickPositions"` / `"searches"` / `"hits"` /
-/// `"attributes"` / `"positions"` / `"position"`
+/// `"attributes"` / `"positions"` / `"position"` / `"values"` / `"orderBy"`
 /// accept `[`. `"currencies"` also accepts `{`. `"position"` also accepts uint.
+/// `"orderBy"` also accepts the Analytics order enum string.
 fn is_algolia_crawler_json_decl(s: &str) -> bool {
     let s = s.trim_start();
     let Some(rest) = s.strip_prefix('"') else {
@@ -41000,6 +41009,13 @@ fn algolia_crawler_json_key_ok(key: &str) -> bool {
             | "rate"
             | "positions"
             | "device"
+            | "orderBy"
+            | "direction"
+            | "values"
+            | "limit"
+            | "offset"
+            | "startDate"
+            | "endDate"
     )
 }
 
@@ -41109,6 +41125,8 @@ fn algolia_crawler_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool 
                     | "attributes"
                     | "positions"
                     | "position"
+                    | "values"
+                    | "orderBy"
             ) {
                 return false;
             }
@@ -41221,6 +41239,12 @@ fn algolia_crawler_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool 
             if key == "operator" {
                 return algolia_crawler_json_operator_and_tail_ok(after_colon);
             }
+            if key == "orderBy" {
+                return algolia_crawler_json_order_by_and_tail_ok(after_colon);
+            }
+            if key == "direction" {
+                return algolia_crawler_json_direction_and_tail_ok(after_colon);
+            }
             if key == "state" {
                 return algolia_crawler_json_dictionary_state_and_tail_ok(after_colon);
             }
@@ -41324,6 +41348,8 @@ fn algolia_crawler_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool 
                     | "attribute"
                     | "value"
                     | "device"
+                    | "startDate"
+                    | "endDate"
             ) {
                 return false;
             }
@@ -41682,6 +41708,8 @@ fn algolia_crawler_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool {
             | "withFilterCount"
             | "trackedHitCount"
             | "count"
+            | "limit"
+            | "offset"
     ) {
         return false;
     }
@@ -41743,6 +41771,31 @@ fn algolia_crawler_json_anchoring_and_tail_ok(after_colon: &str) -> bool {
         &rest[..end],
         "is" | "startsWith" | "endsWith" | "contains"
     ) {
+        return false;
+    }
+    package_json_tail_ok(&rest[end + 1..])
+}
+
+fn algolia_crawler_json_order_by_and_tail_ok(after_colon: &str) -> bool {
+    let rest = &after_colon[1..];
+    let Some(end) = rest.find('"') else {
+        return false;
+    };
+    if !matches!(
+        &rest[..end],
+        "searchCount" | "clickThroughRate" | "conversionRate" | "averageClickPosition"
+    ) {
+        return false;
+    }
+    package_json_tail_ok(&rest[end + 1..])
+}
+
+fn algolia_crawler_json_direction_and_tail_ok(after_colon: &str) -> bool {
+    let rest = &after_colon[1..];
+    let Some(end) = rest.find('"') else {
+        return false;
+    };
+    if !matches!(&rest[..end], "asc" | "desc") {
         return false;
     }
     package_json_tail_ok(&rest[end + 1..])

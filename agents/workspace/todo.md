@@ -1,3 +1,5 @@
+009 keep: Function List Algolia Analytics orderBy/direction/values/limit/offset/startDate/endDate (v0.3.905)
+
 009 keep: Function List Algolia Analytics count/average/rate/positions/device + position[] (v0.3.904)
 
 009 keep: Function List Algolia Analytics hits/attributes/attribute/value/operator/trackedHitCount (v0.3.903)
