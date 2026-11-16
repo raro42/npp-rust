@@ -40484,7 +40484,11 @@ fn algolia_insights_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool 
 /// and `"clickThroughRate"` / `"conversionRate"` / `"averageClickPosition"` /
 /// `"addToCartRate"` / `"purchaseRate"` / `"noResultsRate"` / `"noClickRate"` /
 /// `"average"` / `"rate"` / `"revenue"` now also accept `null` (still accept
-/// decimal; missing clickAnalytics / empty metric windows).
+/// decimal; missing clickAnalytics / empty metric windows),
+/// `"eventName": "…"`, `"eventType": "click"` / `"conversion"` / `"view"`,
+/// `"score": 0` / `42` / `100`, `"scores": {`, `"lastEventAt": "…"`,
+/// `"userToken": "…"`, `"deletedUntil": "…"` (Personalization strategy /
+/// profile / delete-profile).
 /// Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing
 /// `:` stay out. Generic `"$schema"` / `"name"` / `"id"` / `"q"` /
 /// string `"query"` /
@@ -40591,7 +40595,8 @@ fn algolia_insights_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool 
 /// `"facetValue"` / `"facet"` / `"language"` / `"word"` / `"currency"` /
 /// `"search"` / `"country"` / `"date"` / `"hit"` / `"attribute"` / `"value"` /
 /// `"device"` / `"startDate"` / `"endDate"` / `"kind"` / `"domain"` /
-/// `"parameterValue"` / `"value"`
+/// `"parameterValue"` / `"value"` / `"eventName"` / `"lastEventAt"` /
+/// `"userToken"` / `"deletedUntil"`
 /// require a
 /// non-empty quoted string when the value is a string.
 /// `"filterOperator"` only matches `"="` / `"!="` / `">"` / `"<"` / `">="` /
@@ -40614,6 +40619,7 @@ fn algolia_insights_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool 
 /// `"replace"` / `"custom"` / `"standard"`.
 /// `"state"` only matches `"enabled"` / `"disabled"`. `"dictionary"` only
 /// matches `"plurals"` / `"stopwords"` / `"compounds"`.
+/// `"eventType"` only matches `"click"` / `"conversion"` / `"view"`.
 /// `"anchoring"` only matches `"is"` / `"startsWith"` / `"endsWith"` /
 /// `"contains"`. `"operator"` only matches `":"` / `"<"` / `"<="` / `"="` /
 /// `"!="` / `">"` / `">="` / `"IN"` / `"TAG_TREE"` / `"CONTAINS"` /
@@ -40664,7 +40670,8 @@ fn algolia_insights_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool 
 /// `"attributes"` / `"positions"` / `"position"` / `"values"` / `"orderBy"` /
 /// `"parameterValue"` / `"value"` / `"filters"` / `"series"`
 /// accept `[`. `"currencies"` also accepts `{`. `"metrics"` also accepts `{`.
-/// `"parameter"` accepts `{`. `"position"` also accepts uint.
+/// `"parameter"` accepts `{`. `"scores"` accepts `{`. `"position"` also
+/// accepts uint. `"score"` accepts uint.
 /// `"orderBy"` also accepts the Analytics order enum string.
 /// `"parameterValue"` / `"value"` also accept uint / decimal / bool.
 /// `"values"` / `"series"` / `"updatedAt"` also accept `null`.
@@ -41083,6 +41090,13 @@ fn algolia_crawler_json_key_ok(key: &str) -> bool {
             | "parameterValue"
             | "filters"
             | "key"
+            | "eventName"
+            | "eventType"
+            | "score"
+            | "scores"
+            | "lastEventAt"
+            | "userToken"
+            | "deletedUntil"
     )
 }
 
@@ -41273,6 +41287,7 @@ fn algolia_crawler_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool 
                     | "metrics"
                     | "parameter"
                     | "key"
+                    | "scores"
             ) {
                 return false;
             }
@@ -41338,6 +41353,9 @@ fn algolia_crawler_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool 
             }
             if key == "dictionary" {
                 return algolia_crawler_json_dictionary_kind_and_tail_ok(after_colon);
+            }
+            if key == "eventType" {
+                return algolia_crawler_json_event_type_and_tail_ok(after_colon);
             }
             if key == "action" {
                 return algolia_crawler_json_batch_action_and_tail_ok(after_colon);
@@ -41441,6 +41459,10 @@ fn algolia_crawler_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool 
                     | "kind"
                     | "domain"
                     | "parameterValue"
+                    | "eventName"
+                    | "lastEventAt"
+                    | "userToken"
+                    | "deletedUntil"
             ) {
                 return false;
             }
@@ -41836,6 +41858,7 @@ fn algolia_crawler_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool {
             | "count"
             | "limit"
             | "offset"
+            | "score"
     ) {
         return false;
     }
@@ -41991,6 +42014,18 @@ fn algolia_crawler_json_dictionary_kind_and_tail_ok(after_colon: &str) -> bool {
         return false;
     };
     if !matches!(&rest[..end], "plurals" | "stopwords" | "compounds") {
+        return false;
+    }
+    package_json_tail_ok(&rest[end + 1..])
+}
+
+/// Personalization / Insights `"eventType": "click"` / `"conversion"` / `"view"`.
+fn algolia_crawler_json_event_type_and_tail_ok(after_colon: &str) -> bool {
+    let rest = &after_colon[1..];
+    let Some(end) = rest.find('"') else {
+        return false;
+    };
+    if !matches!(&rest[..end], "click" | "conversion" | "view") {
         return false;
     }
     package_json_tail_ok(&rest[end + 1..])

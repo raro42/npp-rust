@@ -1,3 +1,5 @@
+009 keep: Function List Algolia Personalization eventName/eventType/score/scores/lastEventAt/userToken/deletedUntil (v0.3.912)
+
 009 keep: Function List Algolia Analytics noResultsRate/noClickRate/average/rate/revenue null (v0.3.911)
 
 009 keep: Function List Algolia Analytics clickThroughRate/conversionRate/averageClickPosition/addToCartRate/purchaseRate null (v0.3.910)

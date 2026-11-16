@@ -54030,6 +54030,75 @@ fn algolia_crawler_json_keys_count() {
     assert!(!is_algolia_recommend_json_decl(r#""purchaseRate": null"#));
     assert!(!is_algolia_insights_json_decl(r#""noResultsRate": null"#));
     assert!(!is_algolia_recommend_json_decl(r#""revenue": null"#));
+    assert!(is_algolia_crawler_json_decl(r#""eventName": "purchase""#));
+    assert!(is_algolia_crawler_json_decl(r#""eventName": "purchase","#));
+    assert!(is_algolia_crawler_json_decl(r#""eventName": "purchase" // c"#));
+    assert!(is_algolia_crawler_json_decl(r#""eventType": "click""#));
+    assert!(is_algolia_crawler_json_decl(r#""eventType": "conversion""#));
+    assert!(is_algolia_crawler_json_decl(r#""eventType": "view""#));
+    assert!(is_algolia_crawler_json_decl(r#""eventType": "view","#));
+    assert!(is_algolia_crawler_json_decl(r#""eventType": "click" // c"#));
+    assert!(is_algolia_crawler_json_decl(r#""score": 0"#));
+    assert!(is_algolia_crawler_json_decl(r#""score": 42"#));
+    assert!(is_algolia_crawler_json_decl(r#""score": 100"#));
+    assert!(is_algolia_crawler_json_decl(r#""score": 100,"#));
+    assert!(is_algolia_crawler_json_decl(r#""score": 100 // c"#));
+    assert!(is_algolia_crawler_json_decl(r#""scores": {"#));
+    assert!(is_algolia_crawler_json_decl(r#""scores": { // c"#));
+    assert!(is_algolia_crawler_json_decl(
+        r#""lastEventAt": "2023-07-04T12:49:15Z""#
+    ));
+    assert!(is_algolia_crawler_json_decl(
+        r#""lastEventAt": "2023-07-04T12:49:15Z","#
+    ));
+    assert!(is_algolia_crawler_json_decl(
+        r#""lastEventAt": "2023-07-04T12:49:15Z" // c"#
+    ));
+    assert!(is_algolia_crawler_json_decl(r#""userToken": "test-user-123""#));
+    assert!(is_algolia_crawler_json_decl(
+        r#""userToken": "test-user-123","#
+    ));
+    assert!(is_algolia_crawler_json_decl(
+        r#""userToken": "test-user-123" // c"#
+    ));
+    assert!(is_algolia_crawler_json_decl(
+        r#""deletedUntil": "2023-07-04T12:49:15Z""#
+    ));
+    assert!(is_algolia_crawler_json_decl(
+        r#""deletedUntil": "2023-07-04T12:49:15Z","#
+    ));
+    assert!(is_algolia_crawler_json_decl(
+        r#""deletedUntil": "2023-07-04T12:49:15Z" // c"#
+    ));
+    assert!(!is_algolia_crawler_json_decl(r#""eventName": """#));
+    assert!(!is_algolia_crawler_json_decl(r#""eventName": ["#));
+    assert!(!is_algolia_crawler_json_decl(r#""eventNames": "purchase""#));
+    assert!(!is_algolia_crawler_json_decl(r#""eventType": "addToCart""#));
+    assert!(!is_algolia_crawler_json_decl(r#""eventType": "search""#));
+    assert!(!is_algolia_crawler_json_decl(r#""eventType": ["#));
+    assert!(!is_algolia_crawler_json_decl(r#""eventTypes": "click""#));
+    assert!(!is_algolia_crawler_json_decl(r#""score": 0100"#));
+    assert!(!is_algolia_crawler_json_decl(r#""score": true"#));
+    assert!(!is_algolia_crawler_json_decl(r#""score": {"#));
+    assert!(!is_algolia_crawler_json_decl(r#""scores": 42"#));
+    assert!(!is_algolia_crawler_json_decl(r#""scores": ["#));
+    assert!(!is_algolia_crawler_json_decl(r#""score": ["#));
+    assert!(!is_algolia_crawler_json_decl(r#""lastEventAt": """#));
+    assert!(!is_algolia_crawler_json_decl(r#""lastEventAt": ["#));
+    assert!(!is_algolia_crawler_json_decl(r#""lastEventAts": "x""#));
+    assert!(!is_algolia_crawler_json_decl(r#""userToken": """#));
+    assert!(!is_algolia_crawler_json_decl(r#""userToken": ["#));
+    assert!(!is_algolia_crawler_json_decl(r#""userTokens": "u""#));
+    assert!(!is_algolia_crawler_json_decl(r#""deletedUntil": """#));
+    assert!(!is_algolia_crawler_json_decl(r#""deletedUntil": ["#));
+    assert!(!is_algolia_crawler_json_decl(r#""deletedUntils": "x""#));
+    assert!(!is_algolia_crawler_json_decl(r#""message": "Strategy was successfully updated""#));
+    assert!(!is_algolia_insights_json_decl(r#""eventName": "purchase""#));
+    assert!(!is_algolia_recommend_json_decl(r#""eventType": "click""#));
+    assert!(!is_algolia_insights_json_decl(r#""score": 100"#));
+    assert!(!is_algolia_recommend_json_decl(r#""scores": {"#));
+    assert!(!is_algolia_insights_json_decl(r#""userToken": "u""#));
+    assert!(!is_algolia_recommend_json_decl(r#""deletedUntil": "x""#));
     assert!(line_is_func_like(r#""clickAnalytics": true"#));
     assert!(line_is_func_like(r#""revenueAnalytics": false"#));
     assert!(line_is_func_like(r#""groupBy": ["#));
@@ -54049,6 +54118,13 @@ fn algolia_crawler_json_keys_count() {
     assert!(line_is_func_like(r#""average": null"#));
     assert!(line_is_func_like(r#""rate": null"#));
     assert!(line_is_func_like(r#""revenue": null"#));
+    assert!(line_is_func_like(r#""eventName": "purchase""#));
+    assert!(line_is_func_like(r#""eventType": "conversion""#));
+    assert!(line_is_func_like(r#""score": 100"#));
+    assert!(line_is_func_like(r#""scores": {"#));
+    assert!(line_is_func_like(r#""lastEventAt": "2023-07-04T12:49:15Z""#));
+    assert!(line_is_func_like(r#""userToken": "test-user-123""#));
+    assert!(line_is_func_like(r#""deletedUntil": "2023-07-04T12:49:15Z""#));
     assert!(line_is_func_like(r#""kind": "searchesCount""#));
     assert!(line_is_func_like(r#""domain": "core""#));
     assert!(line_is_func_like(r#""filterOperator": "IN""#));

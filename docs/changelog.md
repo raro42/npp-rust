@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.912] — 2026-11-16
+
+View:
+
+- **Function List** lists Algolia Personalization strategy / profile JSON keys: `"eventName": "…"`, `"eventType": "click"` / `"conversion"` / `"view"`, `"score": 0` / `42` / `100`, `"scores": {`, `"lastEventAt": "…"`, `"userToken": "…"`, `"deletedUntil": "…"`. Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing `:` stay out. Empty strings / plural/singular misspellings / `"eventName": ""` / `"eventName": [` / `"eventType": "addToCart"` / `"eventType": "search"` / `"eventType": [` / `"score": 0100` / `"score": true` / `"score": {` / `"scores": [` / `"scores": 42` / `"lastEventAt": ""` / `"userToken": ""` / `"deletedUntil": ""` / generic `"message"` / `"description"` / `"indexes"` / `"input"` / string `"filters"` / `"url"` / `"order"` / `"enabled"` / `"proxy"` / `"timeout"` / `"retries"` / `"headers"` / `"cache"` stay out. Existing Crawler / Rules / Synonym / Dictionary / Analytics order / paging / count / rate / revenue / Personalization eventsScoring / facetsScoring / personalizationImpact / API-key / geo / highlight / search response / write / batch / filterOperator / parameter / parameterValue / filters / key / operator / values / series / updatedAt / clickThroughRate / conversionRate / averageClickPosition / addToCartRate / purchaseRate / noResultsRate / noClickRate / average / rate / revenue null keys unchanged. Algolia Insights client-config / Recommend / neighbouring search JSON families stay out. `"eventsScoring"` / `"facetsScoring"` still accept `[`. `"personalizationImpact"` still accepts uint.
+
 ## [0.3.911] — 2026-11-16
 
 View:
