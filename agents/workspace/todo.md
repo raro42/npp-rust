@@ -1,3 +1,5 @@
+009 keep: Function List Algolia Query Suggestions languages/exclude/generate/external/replicas bool/amount (v0.3.914)
+
 009 keep: Function List Algolia Query Suggestions sourceIndices/minHits/minLetters/allowSpecialCharacters/isRunning/lastBuiltAt/lastSuccessfulBuiltAt/lastSuccessfulBuildDuration/contextLevel/level (v0.3.913)
 
 009 keep: Function List Algolia Personalization eventName/eventType/score/scores/lastEventAt/userToken/deletedUntil (v0.3.912)

@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.914] — 2026-11-16
+
+View:
+
+- **Function List** lists more Algolia Query Suggestions config / SourceIndex / Facet JSON keys: `"languages": [` / `true` / `false`, `"exclude": [`, `"generate": [`, `"external": [`, `"replicas": true` / `false` (still accepts `[` for index settings), `"amount": 0` / `3`. Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing `:` stay out. Empty strings / plural/singular misspellings / `"languages": {` / `"languages": "en"` / `"languages": 1` / `"language": [` / `"exclude": {` / `"exclude": true` / `"exclude": "test"` / `"generate": {` / `"generate": true` / `"generate": "color"` / `"external": {` / `"external": true` / `"external": "popular"` / `"amount": 03` / `"amount": true` / `"amount": [` / `"replicas": "true"` / generic `"message"` / `"description"` / `"indexes"` / `"input"` / string `"filters"` / `"url"` / `"order"` / `"enabled"` / `"proxy"` / `"timeout"` / `"retries"` / `"headers"` / `"cache"` / `"indexName"` / `"appId"` stay out. Existing Crawler / Rules / Synonym / Dictionary / Analytics / Personalization / API-key / geo / highlight / search response / write / batch / prior Query Suggestions keys unchanged. Algolia Insights client-config / Recommend / neighbouring search JSON families stay out. `"languages"` / `"exclude"` / `"generate"` / `"external"` accept `[`. `"languages"` also accepts bool. `"replicas"` also accepts bool. `"amount"` accepts uint.
+
 ## [0.3.913] — 2026-11-16
 
 View:

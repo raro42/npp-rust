@@ -40493,8 +40493,11 @@ fn algolia_insights_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool 
 /// `"allowSpecialCharacters": true` / `false`, `"isRunning": true` / `false`,
 /// `"lastBuiltAt": "…"`, `"lastSuccessfulBuiltAt": "…"`,
 /// `"lastSuccessfulBuildDuration": "…"`, `"contextLevel": 0` / `1`,
-/// `"level": "SKIP"` / `"INFO"` / `"ERROR"` (Query Suggestions config /
-/// status / logs).
+/// `"level": "SKIP"` / `"INFO"` / `"ERROR"`,
+/// `"languages": [` / `true` / `false`, `"exclude": [`, `"generate": [`,
+/// `"external": [`, `"replicas": true` / `false` (still accepts `[` for index
+/// settings), `"amount": 0` / `3` (Query Suggestions config / SourceIndex /
+/// Facet / status / logs).
 /// Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing
 /// `:` stay out. Generic `"$schema"` / `"name"` / `"id"` / `"q"` /
 /// string `"query"` /
@@ -40680,8 +40683,11 @@ fn algolia_insights_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool 
 /// accept `[`. `"currencies"` also accepts `{`. `"metrics"` also accepts `{`.
 /// `"parameter"` accepts `{`. `"scores"` accepts `{`. `"position"` also
 /// accepts uint. `"score"` accepts uint. `"sourceIndices"` accepts `[`.
-/// `"minHits"` / `"minLetters"` / `"contextLevel"` accept uint.
+/// `"minHits"` / `"minLetters"` / `"contextLevel"` / `"amount"` accept uint.
 /// `"allowSpecialCharacters"` / `"isRunning"` accept bool.
+/// `"languages"` / `"exclude"` / `"generate"` / `"external"` accept `[`.
+/// `"languages"` also accepts bool. `"replicas"` also accepts bool (still
+/// accepts `[`).
 /// `"orderBy"` also accepts the Analytics order enum string.
 /// `"parameterValue"` / `"value"` also accept uint / decimal / bool.
 /// `"values"` / `"series"` / `"updatedAt"` also accept `null`.
@@ -41117,6 +41123,11 @@ fn algolia_crawler_json_key_ok(key: &str) -> bool {
             | "lastSuccessfulBuildDuration"
             | "contextLevel"
             | "level"
+            | "languages"
+            | "exclude"
+            | "generate"
+            | "external"
+            | "amount"
     )
 }
 
@@ -41242,6 +41253,10 @@ fn algolia_crawler_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool 
                     | "value"
                     | "filters"
                     | "sourceIndices"
+                    | "languages"
+                    | "exclude"
+                    | "generate"
+                    | "external"
             ) {
                 return false;
             }
@@ -41810,6 +41825,8 @@ fn algolia_crawler_json_bool_and_tail_ok(key: &str, after_colon: &str) -> bool {
             | "value"
             | "allowSpecialCharacters"
             | "isRunning"
+            | "languages"
+            | "replicas"
     ) {
         return false;
     }
@@ -41891,6 +41908,7 @@ fn algolia_crawler_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool {
             | "minHits"
             | "minLetters"
             | "contextLevel"
+            | "amount"
     ) {
         return false;
     }
