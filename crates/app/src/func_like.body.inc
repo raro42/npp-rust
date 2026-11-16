@@ -40494,10 +40494,12 @@ fn algolia_insights_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool 
 /// `"lastBuiltAt": "…"`, `"lastSuccessfulBuiltAt": "…"`,
 /// `"lastSuccessfulBuildDuration": "…"`, `"contextLevel": 0` / `1`,
 /// `"level": "SKIP"` / `"INFO"` / `"ERROR"`,
-/// `"languages": [` / `true` / `false`, `"exclude": [`, `"generate": [`,
-/// `"external": [`, `"replicas": true` / `false` (still accepts `[` for index
-/// settings), `"amount": 0` / `3` (Query Suggestions config / SourceIndex /
-/// Facet / status / logs).
+/// `"languages": [` / `true` / `false`, `"exclude": [` / `null`,
+/// `"generate": [` / `null`, `"external": [` / `null`,
+/// `"facets": [` / `{` / `null`, `"analyticsTags": [` / `null`,
+/// `"replicas": true` / `false` (still accepts `[` for index settings),
+/// `"amount": 0` / `3`, `"appID": "…"` (Query Suggestions config /
+/// SourceIndex / Facet / ConfigurationResponse / status / logs).
 /// Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing
 /// `:` stay out. Generic `"$schema"` / `"name"` / `"id"` / `"q"` /
 /// string `"query"` /
@@ -40606,7 +40608,7 @@ fn algolia_insights_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool 
 /// `"device"` / `"startDate"` / `"endDate"` / `"kind"` / `"domain"` /
 /// `"parameterValue"` / `"value"` / `"eventName"` / `"lastEventAt"` /
 /// `"userToken"` / `"deletedUntil"` / `"lastBuiltAt"` /
-/// `"lastSuccessfulBuiltAt"` / `"lastSuccessfulBuildDuration"`
+/// `"lastSuccessfulBuiltAt"` / `"lastSuccessfulBuildDuration"` / `"appID"`
 /// require a
 /// non-empty quoted string when the value is a string.
 /// `"filterOperator"` only matches `"="` / `"!="` / `">"` / `"<"` / `">="` /
@@ -40687,13 +40689,16 @@ fn algolia_insights_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool 
 /// `"allowSpecialCharacters"` / `"isRunning"` accept bool.
 /// `"languages"` / `"exclude"` / `"generate"` / `"external"` accept `[`.
 /// `"languages"` also accepts bool. `"replicas"` also accepts bool (still
-/// accepts `[`).
+/// accepts `[`). `"appID"` accepts a non-empty quoted string (distinct from
+/// Capacitor / stayed-out `"appId"`).
 /// `"orderBy"` also accepts the Analytics order enum string.
 /// `"parameterValue"` / `"value"` also accept uint / decimal / bool.
 /// `"values"` / `"series"` / `"updatedAt"` also accept `null`.
 /// `"clickThroughRate"` / `"conversionRate"` / `"averageClickPosition"` /
 /// `"addToCartRate"` / `"purchaseRate"` / `"noResultsRate"` / `"noClickRate"` /
 /// `"average"` / `"rate"` / `"revenue"` also accept `null`.
+/// `"exclude"` / `"generate"` / `"external"` / `"facets"` / `"analyticsTags"`
+/// also accept `null` (Query Suggestions optional defaults).
 fn is_algolia_crawler_json_decl(s: &str) -> bool {
     let s = s.trim_start();
     let Some(rest) = s.strip_prefix('"') else {
@@ -41128,6 +41133,7 @@ fn algolia_crawler_json_key_ok(key: &str) -> bool {
             | "generate"
             | "external"
             | "amount"
+            | "appID"
     )
 }
 
@@ -41505,6 +41511,7 @@ fn algolia_crawler_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool 
                     | "lastBuiltAt"
                     | "lastSuccessfulBuiltAt"
                     | "lastSuccessfulBuildDuration"
+                    | "appID"
             ) {
                 return false;
             }
@@ -41536,7 +41543,8 @@ fn algolia_crawler_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool 
             // Analytics nullable payloads: top-filters-no-results `values`,
             // patterns timeseries `series`, status `updatedAt`, and click /
             // revenue / search rates when clickAnalytics was never sent or the
-            // metric window is empty.
+            // metric window is empty. Query Suggestions optional defaults:
+            // `exclude` / `generate` / `external` / `facets` / `analyticsTags`.
             if !matches!(
                 key,
                 "values"
@@ -41552,6 +41560,11 @@ fn algolia_crawler_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool 
                     | "average"
                     | "rate"
                     | "revenue"
+                    | "exclude"
+                    | "generate"
+                    | "external"
+                    | "facets"
+                    | "analyticsTags"
             ) {
                 return false;
             }

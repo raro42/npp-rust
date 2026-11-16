@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.915] — 2026-11-16
+
+View:
+
+- **Function List** lists more Algolia Query Suggestions nullable / ConfigurationResponse JSON keys: `"exclude": null`, `"generate": null`, `"external": null`, `"facets": null` (still accepts `[` / `{`), `"analyticsTags": null` (still accepts `[`), `"appID": "…"` (list-configs response; distinct from Capacitor / stayed-out `"appId"`). Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing `:` stay out. `"exclude": nil` / `"exclude": Null` / `"excludes": null` / `"generate": nil` / `"generates": null` / `"external": nil` / `"externals": null` / `"facets": nil` / `"facet": null` / `"analyticsTags": nil` / `"analyticsTag": null` / `"analyticsTags": Null` / `"appID": ""` / `"appID": [` / `"appID": true` / `"appId": "latency"` / `"appIDs": "latency"` / `"languages": null` / `"amount": null` / `"replicas": null` / `"sourceIndices": null` / generic `"message"` / `"description"` / `"indexes"` / `"input"` / string `"filters"` / `"url"` / `"order"` / `"enabled"` / `"proxy"` / `"timeout"` / `"retries"` / `"headers"` / `"cache"` / `"indexName"` stay out. Existing Crawler / Rules / Synonym / Dictionary / Analytics / Personalization / API-key / geo / highlight / search response / write / batch / prior Query Suggestions keys unchanged. Algolia Insights client-config / Recommend / neighbouring search JSON families stay out. `"exclude"` / `"generate"` / `"external"` / `"facets"` / `"analyticsTags"` also accept `null`. `"appID"` accepts a non-empty quoted string.
+
 ## [0.3.914] — 2026-11-16
 
 View:

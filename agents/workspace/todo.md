@@ -1,3 +1,5 @@
+009 keep: Function List Algolia Query Suggestions exclude/generate/external/facets/analyticsTags null + appID (v0.3.915)
+
 009 keep: Function List Algolia Query Suggestions languages/exclude/generate/external/replicas bool/amount (v0.3.914)
 
 009 keep: Function List Algolia Query Suggestions sourceIndices/minHits/minLetters/allowSpecialCharacters/isRunning/lastBuiltAt/lastSuccessfulBuiltAt/lastSuccessfulBuildDuration/contextLevel/level (v0.3.913)
