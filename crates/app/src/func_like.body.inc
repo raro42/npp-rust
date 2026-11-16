@@ -39692,9 +39692,10 @@ fn instant_meilisearch_json_bool_and_tail_ok(key: &str, after_colon: &str) -> bo
 /// `"processingTimeMs"` / Typesense `"search_time_ms"` / Solr
 /// `"responseHeader"` / Elasticsearch `"track_total_hits"` /
 /// `"runtime_mappings"` / Algolia Recommend `"maxRecommendations"` /
-/// `"fallbackParameters"` / `"frequentlyBoughtTogether"` /
-/// `"relatedProducts"` / `"trendingItems"` / `"lookingSimilar"` /
-/// `"trendingFacets"` / `"model"` / prettier `"printWidth"` / karma
+/// `"threshold"` / `"fallbackParameters"` / `"queryParameters"` /
+/// `"frequentlyBoughtTogether"` / `"relatedProducts"` / `"trendingItems"` /
+/// `"lookingSimilar"` / `"trendingFacets"` / `"facetName"` / `"model"` /
+/// prettier `"printWidth"` / karma
 /// `"basePath"` stay out. String keys require a non-empty quoted string.
 fn is_searchkit_json_decl(s: &str) -> bool {
     let s = s.trim_start();
@@ -39781,16 +39782,16 @@ fn searchkit_json_string_and_tail_ok(key: &str, after_colon: &str) -> bool {
 
 /// Algolia Recommend (`@algolia/recommend` / Recommend API / InstantSearch
 /// Recommend widgets) JSON keys: `"maxRecommendations": 0` / `10`,
-/// `"fallbackParameters": {`, `"frequentlyBoughtTogether": [`,
+/// `"threshold": 0` / `50` / `100`, `"fallbackParameters": {`,
+/// `"queryParameters": {`, `"frequentlyBoughtTogether": [`,
 /// `"relatedProducts": [`, `"trendingItems": [`, `"lookingSimilar": [`,
-/// `"trendingFacets": [`, `"model": "related-products"` /
+/// `"trendingFacets": [`, `"facetName": "…"`, `"model": "related-products"` /
 /// `"bought-together"` / `"trending-items"` / `"trending-facets"` /
 /// `"looking-similar"`.
 /// Optional trailing `,` and `//` / `/*` comment. Incomplete quotes /
 /// missing `:` stay out. Generic `"$schema"` / `"name"` / `"id"` / `"q"` /
 /// `"query"` / `"url"` / `"appId"` / `"apiKey"` / `"indexName"` /
-/// `"objectID"` / `"objectIDs"` / `"threshold"` / `"queryParameters"` /
-/// `"facetName"` / `"facetValue"` / Searchkit `"search_settings"` /
+/// `"objectID"` / `"objectIDs"` / `"facetValue"` / Searchkit `"search_settings"` /
 /// `"search_attributes"` / `"result_attributes"` /
 /// `"highlight_attributes"` / `"snippet_attributes"` /
 /// `"facet_attributes"` / `"filter_attributes"` / `"query_rules"` /
@@ -39902,7 +39903,10 @@ fn searchkit_json_string_and_tail_ok(key: &str, after_colon: &str) -> bool {
 /// `"usePositionalSemanticRanking"` / `"minHitsForSemantic"` /
 /// `"neuralExpression"` / `"dynamicThreshold"` /
 /// prettier `"printWidth"` / karma `"basePath"` stay out. Enum `"model"` only
-/// matches Recommend model ids. Numeric keys reject leading zeros beyond `0`.
+/// matches Recommend model ids. `"facetName"` requires a non-empty quoted
+/// string. `"threshold"` / `"maxRecommendations"` accept uint. Numeric keys
+/// reject leading zeros beyond `0`. `"queryParameters"` / `"fallbackParameters"`
+/// accept `{`.
 fn is_algolia_recommend_json_decl(s: &str) -> bool {
     let s = s.trim_start();
     let Some(rest) = s.strip_prefix('"') else {
@@ -39927,12 +39931,15 @@ fn algolia_recommend_json_key_ok(key: &str) -> bool {
     matches!(
         key,
         "maxRecommendations"
+            | "threshold"
             | "fallbackParameters"
+            | "queryParameters"
             | "frequentlyBoughtTogether"
             | "relatedProducts"
             | "trendingItems"
             | "lookingSimilar"
             | "trendingFacets"
+            | "facetName"
             | "model"
     )
 }
@@ -39944,7 +39951,7 @@ fn algolia_recommend_json_value_and_tail_ok(key: &str, after_colon: &str) -> boo
     };
     match first {
         b'{' => {
-            if key != "fallbackParameters" {
+            if !matches!(key, "fallbackParameters" | "queryParameters") {
                 return false;
             }
             package_json_tail_ok(&after_colon[1..])
@@ -39962,10 +39969,27 @@ fn algolia_recommend_json_value_and_tail_ok(key: &str, after_colon: &str) -> boo
             }
             package_json_tail_ok(&after_colon[1..])
         }
-        b'"' => algolia_recommend_json_model_and_tail_ok(key, after_colon),
+        b'"' => {
+            if key == "facetName" {
+                algolia_recommend_json_facet_name_and_tail_ok(after_colon)
+            } else {
+                algolia_recommend_json_model_and_tail_ok(key, after_colon)
+            }
+        }
         b'0'..=b'9' => algolia_recommend_json_uint_and_tail_ok(key, after_colon),
         _ => false,
     }
+}
+
+fn algolia_recommend_json_facet_name_and_tail_ok(after_colon: &str) -> bool {
+    let rest = &after_colon[1..];
+    let Some(end) = rest.find('"') else {
+        return false;
+    };
+    if end == 0 {
+        return false;
+    }
+    package_json_tail_ok(&rest[end + 1..])
 }
 
 fn algolia_recommend_json_model_and_tail_ok(key: &str, after_colon: &str) -> bool {
@@ -39991,7 +40015,7 @@ fn algolia_recommend_json_model_and_tail_ok(key: &str, after_colon: &str) -> boo
 }
 
 fn algolia_recommend_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool {
-    if key != "maxRecommendations" {
+    if !matches!(key, "maxRecommendations" | "threshold") {
         return false;
     }
     let bytes = after_colon.as_bytes();
@@ -40023,9 +40047,10 @@ fn algolia_recommend_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool
 /// `"userToken"` / `"eventType"` / `"eventName"` / `"queryID"` /
 /// `"objectIDs"` / `"positions"` / `"filters"` / `"value"` / `"currency"` /
 /// `"host"` / `"region"` / `"partial"` / Algolia Recommend
-/// `"maxRecommendations"` / `"fallbackParameters"` /
-/// `"frequentlyBoughtTogether"` / `"relatedProducts"` / `"trendingItems"` /
-/// `"lookingSimilar"` / `"trendingFacets"` / `"model"` / Searchkit
+/// `"maxRecommendations"` / `"threshold"` / `"fallbackParameters"` /
+/// `"queryParameters"` / `"frequentlyBoughtTogether"` / `"relatedProducts"` /
+/// `"trendingItems"` / `"lookingSimilar"` / `"trendingFacets"` /
+/// `"facetName"` / `"model"` / Searchkit
 /// `"search_settings"` / `"search_attributes"` / `"result_attributes"` /
 /// `"highlight_attributes"` / `"snippet_attributes"` /
 /// `"facet_attributes"` / `"filter_attributes"` / `"query_rules"` /
@@ -40510,7 +40535,7 @@ fn algolia_insights_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool 
 /// Algolia Insights `"authenticatedUserToken"` /
 /// `"userHasOptedOut"` / `"useCookie"` / `"anonymousUserToken"` /
 /// `"cookieDuration"` / `"eventSubtype"` / `"objectData"` / Algolia Recommend
-/// `"maxRecommendations"` / `"fallbackParameters"` /
+/// `"maxRecommendations"` / `"threshold"` / `"fallbackParameters"` /
 /// `"frequentlyBoughtTogether"` / `"relatedProducts"` / `"trendingItems"` /
 /// `"lookingSimilar"` / `"trendingFacets"` / `"model"` / Searchkit
 /// `"search_settings"` / `"search_attributes"` / `"result_attributes"` /

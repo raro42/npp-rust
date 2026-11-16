@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.916] — 2026-11-16
+
+View:
+
+- **Function List** lists Algolia Recommend request JSON keys: `"threshold": 0` / `50` / `100`, `"queryParameters": {`, `"facetName": "…"`. Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing `:` stay out. Empty strings / plural/singular misspellings / `"threshold": 00` / `"threshold": 01` / `"threshold": true` / `"threshold": {` / `"queryParameters": [` / `"queryParameters": true` / `"facetName": ""` / `"facetName": [` / `"facetName": true` / `"facetValue": "Nike"` / `"objectID": "123"` / `"objectIDs": [` / `"indexName": "products"` / `"appId"` / `"apiKey"` / generic `"name"` / `"id"` / `"q"` / `"query"` / `"url"` stay out. Existing Recommend `maxRecommendations` / `fallbackParameters` / model / widget-array keys unchanged. Algolia Crawler / Insights / Searchkit / neighbouring search JSON families stay out of the Recommend matcher for `"threshold"`. `"queryParameters"` accepts `{`. `"facetName"` accepts a non-empty quoted string. `"threshold"` accepts uint.
+
 ## [0.3.915] — 2026-11-16
 
 View:
