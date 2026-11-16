@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.910] — 2026-11-16
+
+View:
+
+- **Function List** lists Algolia Analytics click / revenue rate JSON keys when the API returns `null` (no `clickAnalytics` traffic yet): `"clickThroughRate": null`, `"conversionRate": null`, `"averageClickPosition": null`, `"addToCartRate": null`, `"purchaseRate": null`. Still accepts decimal. Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing `:` stay out. `"clickThroughRate": nil` / `"clickThroughRate": Null` / `"clickThroughRates": null` / `"conversionRate": nil` / `"conversionRates": null` / `"averageClickPosition": nil` / `"averageClickPositions": null` / `"addToCartRate": nil` / `"addToCartRates": null` / `"purchaseRate": nil` / `"purchaseRates": null` / `"rate": null` / `"noResultsRate": null` / `"noClickRate": null` / `"average": null` / `"revenue": null` / `"filters": null` / `"hits": null` / `"metrics": null` / `"parameterValue": null` / `"createdAt": null` / generic `"description"` / `"indexes"` / `"input"` / string `"filters"` / `"url"` / `"order"` / `"enabled"` / `"proxy"` / `"timeout"` / `"retries"` / `"headers"` / `"cache"` / `"message"` stay out. Existing Crawler / Rules / Synonym / Dictionary / Analytics order / paging / count / rate / revenue / Personalization / API-key / geo / highlight / search response / write / batch / filterOperator / parameter / parameterValue / filters / key / operator / values / series / updatedAt null keys unchanged. Algolia Insights / Recommend / neighbouring search JSON families stay out. Decimal rate keys still match. `"values"` / `"series"` / `"updatedAt"` still accept `null`.
+
 ## [0.3.909] — 2026-11-16
 
 View:

@@ -40480,7 +40480,10 @@ fn algolia_insights_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool 
 /// `"<="` / `"="` / `"!="` / `">"` / `">="`),
 /// `"values": [` / `null` (top-filters-no-results empty payload),
 /// and `"updatedAt"` now also accepts `null` (still accepts non-empty string;
-/// Analytics status).
+/// Analytics status),
+/// and `"clickThroughRate"` / `"conversionRate"` / `"averageClickPosition"` /
+/// `"addToCartRate"` / `"purchaseRate"` now also accept `null` (still accept
+/// decimal; missing clickAnalytics).
 /// Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing
 /// `:` stay out. Generic `"$schema"` / `"name"` / `"id"` / `"q"` /
 /// string `"query"` /
@@ -40558,7 +40561,9 @@ fn algolia_insights_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool 
 /// `"averageClickPosition"` / `"addToCartRate"` / `"purchaseRate"` /
 /// `"revenue"` / `"noResultsRate"` / `"noClickRate"` / `"average"` /
 /// `"rate"` allow a
-/// simple decimal (no exponent). String
+/// simple decimal (no exponent). `"clickThroughRate"` / `"conversionRate"` /
+/// `"averageClickPosition"` / `"addToCartRate"` / `"purchaseRate"` also
+/// accept `null`. String
 /// `"schedule"` / `"indexPrefix"` /
 /// `"clientId"` / `"clientSecret"` / `"grantType"` / `"scope"` /
 /// `"grant_type"` / `"client_id"` / `"client_secret"` / `"resource"` /
@@ -40661,6 +40666,8 @@ fn algolia_insights_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool 
 /// `"orderBy"` also accepts the Analytics order enum string.
 /// `"parameterValue"` / `"value"` also accept uint / decimal / bool.
 /// `"values"` / `"series"` / `"updatedAt"` also accept `null`.
+/// `"clickThroughRate"` / `"conversionRate"` / `"averageClickPosition"` /
+/// `"addToCartRate"` / `"purchaseRate"` also accept `null`.
 fn is_algolia_crawler_json_decl(s: &str) -> bool {
     let s = s.trim_start();
     let Some(rest) = s.strip_prefix('"') else {
@@ -41460,8 +41467,19 @@ fn algolia_crawler_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool 
         }
         b'n' => {
             // Analytics nullable payloads: top-filters-no-results `values`,
-            // patterns timeseries `series`, status `updatedAt`.
-            if !matches!(key, "values" | "series" | "updatedAt") {
+            // patterns timeseries `series`, status `updatedAt`, and click /
+            // revenue rates when clickAnalytics was never sent.
+            if !matches!(
+                key,
+                "values"
+                    | "series"
+                    | "updatedAt"
+                    | "clickThroughRate"
+                    | "conversionRate"
+                    | "averageClickPosition"
+                    | "addToCartRate"
+                    | "purchaseRate"
+            ) {
                 return false;
             }
             let Some(rest) = after_colon.strip_prefix("null") else {

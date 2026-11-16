@@ -1,3 +1,5 @@
+009 keep: Function List Algolia Analytics clickThroughRate/conversionRate/averageClickPosition/addToCartRate/purchaseRate null (v0.3.910)
+
 009 keep: Function List Algolia Analytics values/series/updatedAt null (top-filters-no-results / timeseries / status) (v0.3.909)
 
 009 keep: Function List Algolia Analytics value ParameterValue + filters[] / key{} / operator FilterDefinition (v0.3.908)

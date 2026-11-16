@@ -53933,6 +53933,29 @@ fn algolia_crawler_json_keys_count() {
     assert!(is_algolia_crawler_json_decl(r#""updatedAt": null"#));
     assert!(is_algolia_crawler_json_decl(r#""updatedAt": null,"#));
     assert!(is_algolia_crawler_json_decl(r#""updatedAt": null // c"#));
+    assert!(is_algolia_crawler_json_decl(r#""clickThroughRate": null"#));
+    assert!(is_algolia_crawler_json_decl(r#""clickThroughRate": null,"#));
+    assert!(is_algolia_crawler_json_decl(
+        r#""clickThroughRate": null // c"#
+    ));
+    assert!(is_algolia_crawler_json_decl(r#""conversionRate": null"#));
+    assert!(is_algolia_crawler_json_decl(r#""conversionRate": null,"#));
+    assert!(is_algolia_crawler_json_decl(r#""conversionRate": null // c"#));
+    assert!(is_algolia_crawler_json_decl(
+        r#""averageClickPosition": null"#
+    ));
+    assert!(is_algolia_crawler_json_decl(
+        r#""averageClickPosition": null,"#
+    ));
+    assert!(is_algolia_crawler_json_decl(
+        r#""averageClickPosition": null // c"#
+    ));
+    assert!(is_algolia_crawler_json_decl(r#""addToCartRate": null"#));
+    assert!(is_algolia_crawler_json_decl(r#""addToCartRate": null,"#));
+    assert!(is_algolia_crawler_json_decl(r#""addToCartRate": null // c"#));
+    assert!(is_algolia_crawler_json_decl(r#""purchaseRate": null"#));
+    assert!(is_algolia_crawler_json_decl(r#""purchaseRate": null,"#));
+    assert!(is_algolia_crawler_json_decl(r#""purchaseRate": null // c"#));
     assert!(!is_algolia_crawler_json_decl(r#""values": nil"#));
     assert!(!is_algolia_crawler_json_decl(r#""values": Null"#));
     assert!(!is_algolia_crawler_json_decl(r#""values": nulls"#));
@@ -53940,13 +53963,45 @@ fn algolia_crawler_json_keys_count() {
     assert!(!is_algolia_crawler_json_decl(r#""series": Null"#));
     assert!(!is_algolia_crawler_json_decl(r#""updatedAt": nil"#));
     assert!(!is_algolia_crawler_json_decl(r#""updatedAt": Null"#));
+    assert!(!is_algolia_crawler_json_decl(r#""clickThroughRate": nil"#));
+    assert!(!is_algolia_crawler_json_decl(r#""clickThroughRate": Null"#));
+    assert!(!is_algolia_crawler_json_decl(
+        r#""clickThroughRates": null"#
+    ));
+    assert!(!is_algolia_crawler_json_decl(r#""conversionRate": nil"#));
+    assert!(!is_algolia_crawler_json_decl(r#""conversionRate": Null"#));
+    assert!(!is_algolia_crawler_json_decl(r#""conversionRates": null"#));
+    assert!(!is_algolia_crawler_json_decl(
+        r#""averageClickPosition": nil"#
+    ));
+    assert!(!is_algolia_crawler_json_decl(
+        r#""averageClickPosition": Null"#
+    ));
+    assert!(!is_algolia_crawler_json_decl(
+        r#""averageClickPositions": null"#
+    ));
+    assert!(!is_algolia_crawler_json_decl(r#""addToCartRate": nil"#));
+    assert!(!is_algolia_crawler_json_decl(r#""addToCartRate": Null"#));
+    assert!(!is_algolia_crawler_json_decl(r#""addToCartRates": null"#));
+    assert!(!is_algolia_crawler_json_decl(r#""purchaseRate": nil"#));
+    assert!(!is_algolia_crawler_json_decl(r#""purchaseRate": Null"#));
+    assert!(!is_algolia_crawler_json_decl(r#""purchaseRates": null"#));
     assert!(!is_algolia_crawler_json_decl(r#""filters": null"#));
     assert!(!is_algolia_crawler_json_decl(r#""hits": null"#));
     assert!(!is_algolia_crawler_json_decl(r#""metrics": null"#));
     assert!(!is_algolia_crawler_json_decl(r#""parameterValue": null"#));
     assert!(!is_algolia_crawler_json_decl(r#""createdAt": null"#));
+    assert!(!is_algolia_crawler_json_decl(r#""rate": null"#));
+    assert!(!is_algolia_crawler_json_decl(r#""noResultsRate": null"#));
+    assert!(!is_algolia_crawler_json_decl(r#""noClickRate": null"#));
+    assert!(!is_algolia_crawler_json_decl(r#""average": null"#));
+    assert!(!is_algolia_crawler_json_decl(r#""revenue": null"#));
     assert!(!is_algolia_insights_json_decl(r#""values": null"#));
     assert!(!is_algolia_recommend_json_decl(r#""series": null"#));
+    assert!(!is_algolia_insights_json_decl(
+        r#""clickThroughRate": null"#
+    ));
+    assert!(!is_algolia_recommend_json_decl(r#""purchaseRate": null"#));
     assert!(line_is_func_like(r#""clickAnalytics": true"#));
     assert!(line_is_func_like(r#""revenueAnalytics": false"#));
     assert!(line_is_func_like(r#""groupBy": ["#));
@@ -53956,6 +54011,11 @@ fn algolia_crawler_json_keys_count() {
     assert!(line_is_func_like(r#""series": null"#));
     assert!(line_is_func_like(r#""values": null"#));
     assert!(line_is_func_like(r#""updatedAt": null"#));
+    assert!(line_is_func_like(r#""clickThroughRate": null"#));
+    assert!(line_is_func_like(r#""conversionRate": null"#));
+    assert!(line_is_func_like(r#""averageClickPosition": null"#));
+    assert!(line_is_func_like(r#""addToCartRate": null"#));
+    assert!(line_is_func_like(r#""purchaseRate": null"#));
     assert!(line_is_func_like(r#""kind": "searchesCount""#));
     assert!(line_is_func_like(r#""domain": "core""#));
     assert!(line_is_func_like(r#""filterOperator": "IN""#));
