@@ -47300,6 +47300,9 @@ fn algolia_recommend_json_keys_smoke() {
     assert!(is_algolia_recommend_json_decl(r#""threshold": 50"#));
     assert!(is_algolia_recommend_json_decl(r#""queryParameters": {"#));
     assert!(is_algolia_recommend_json_decl(r#""facetName": "brand""#));
+    assert!(is_algolia_recommend_json_decl(r#""facetValue": "Nike""#));
+    assert!(is_algolia_recommend_json_decl(r#""objectID": "123""#));
+    assert!(is_algolia_recommend_json_decl(r#""objectIDs": ["#));
     assert!(!is_algolia_recommend_json_decl(r#""search_settings": {"#));
     assert!(is_searchkit_json_decl(r#""search_settings": {"#));
     assert!(!is_algolia_recommend_json_decl(
@@ -47505,8 +47508,18 @@ fn algolia_recommend_json_keys_count() {
     assert!(!is_algolia_recommend_json_decl(
         r#""indexName": "products""#
     ));
-    assert!(!is_algolia_recommend_json_decl(r#""objectID": "123""#));
-    assert!(!is_algolia_recommend_json_decl(r#""objectIDs": ["#));
+    assert!(is_algolia_recommend_json_decl(r#""objectID": "123""#));
+    assert!(is_algolia_recommend_json_decl(r#""objectID": "123","#));
+    assert!(is_algolia_recommend_json_decl(r#""objectID": "123" // c"#));
+    assert!(!is_algolia_recommend_json_decl(r#""objectID": """#));
+    assert!(!is_algolia_recommend_json_decl(r#""objectID": ["#));
+    assert!(!is_algolia_recommend_json_decl(r#""objectID": true"#));
+    assert!(!is_algolia_recommend_json_decl(r#""objectIDs": "123""#));
+    assert!(is_algolia_recommend_json_decl(r#""objectIDs": ["#));
+    assert!(is_algolia_recommend_json_decl(r#""objectIDs": [,"#));
+    assert!(is_algolia_recommend_json_decl(r#""objectIDs": [ // c"#));
+    assert!(!is_algolia_recommend_json_decl(r#""objectIDs": true"#));
+    assert!(!is_algolia_recommend_json_decl(r#""objectIDs": {"#));
     assert!(is_algolia_recommend_json_decl(r#""threshold": 0"#));
     assert!(is_algolia_recommend_json_decl(r#""threshold": 10"#));
     assert!(is_algolia_recommend_json_decl(r#""threshold": 100"#));
@@ -47536,15 +47549,31 @@ fn algolia_recommend_json_keys_count() {
     assert!(!is_algolia_recommend_json_decl(r#""facetName": ["#));
     assert!(!is_algolia_recommend_json_decl(r#""facetName": true"#));
     assert!(!is_algolia_recommend_json_decl(r#""facetNames": "brand""#));
-    assert!(!is_algolia_recommend_json_decl(r#""facetValue": "Nike""#));
+    assert!(is_algolia_recommend_json_decl(r#""facetValue": "Nike""#));
+    assert!(is_algolia_recommend_json_decl(r#""facetValue": "Nike","#));
+    assert!(is_algolia_recommend_json_decl(
+        r#""facetValue": "Nike" // c"#
+    ));
+    assert!(!is_algolia_recommend_json_decl(r#""facetValue": """#));
+    assert!(!is_algolia_recommend_json_decl(r#""facetValue": ["#));
+    assert!(!is_algolia_recommend_json_decl(r#""facetValue": true"#));
+    assert!(!is_algolia_recommend_json_decl(r#""facetValues": "Nike""#));
     assert!(!is_algolia_crawler_json_decl(r#""threshold": 50"#));
     assert!(!is_algolia_insights_json_decl(r#""threshold": 50"#));
     assert!(!is_searchkit_json_decl(r#""threshold": 50"#));
     assert!(!is_algolia_insights_json_decl(r#""facetName": "brand""#));
     assert!(!is_algolia_insights_json_decl(r#""queryParameters": {"#));
+    assert!(!is_algolia_insights_json_decl(r#""facetValue": "Nike""#));
+    assert!(!is_algolia_insights_json_decl(r#""objectID": "123""#));
+    assert!(!is_searchkit_json_decl(r#""objectID": "123""#));
+    assert!(!is_searchkit_json_decl(r#""objectIDs": ["#));
+    assert!(!is_searchkit_json_decl(r#""facetValue": "Nike""#));
     assert!(line_is_func_like(r#""threshold": 50"#));
     assert!(line_is_func_like(r#""queryParameters": {"#));
     assert!(line_is_func_like(r#""facetName": "brand""#));
+    assert!(line_is_func_like(r#""facetValue": "Nike""#));
+    assert!(line_is_func_like(r#""objectID": "123""#));
+    assert!(line_is_func_like(r#""objectIDs": ["#));
     assert!(!is_algolia_recommend_json_decl(r#""search_settings": {"#));
     assert!(is_searchkit_json_decl(r#""search_settings": {"#));
     assert!(!is_algolia_recommend_json_decl(
@@ -50979,7 +51008,7 @@ fn algolia_crawler_json_keys_count() {
     assert!(!is_algolia_crawler_json_decl(r#""objectID": {"#));
     assert!(!is_algolia_crawler_json_decl(r#""objectIDs": "page-1""#));
     assert!(!is_algolia_insights_json_decl(r#""objectID": "page-1""#));
-    assert!(!is_algolia_recommend_json_decl(r#""objectID": "page-1""#));
+    assert!(is_algolia_recommend_json_decl(r#""objectID": "page-1""#));
     assert!(is_algolia_crawler_json_decl(
         r#""attributeCriteriaComputedBy": "minProximity""#
     ));
@@ -52440,7 +52469,7 @@ fn algolia_crawler_json_keys_count() {
     assert!(!is_algolia_crawler_json_decl(r#""objectIDs": {"#));
     assert!(!is_algolia_crawler_json_decl(r#""objectID": ["#));
     assert!(!is_algolia_insights_json_decl(r#""objectIDs": ["#));
-    assert!(!is_algolia_recommend_json_decl(r#""objectIDs": ["#));
+    assert!(is_algolia_recommend_json_decl(r#""objectIDs": ["#));
     assert!(is_algolia_crawler_json_decl(r#""taskID": 0"#));
     assert!(is_algolia_crawler_json_decl(r#""taskID": 42"#));
     assert!(is_algolia_crawler_json_decl(r#""taskID": 42,"#));
@@ -53009,7 +53038,7 @@ fn algolia_crawler_json_keys_count() {
     assert!(!is_algolia_crawler_json_decl(r#""facetValue": {"#));
     assert!(!is_algolia_crawler_json_decl(r#""facetValues": "Apple""#));
     assert!(!is_algolia_insights_json_decl(r#""facetValue": "Apple""#));
-    assert!(!is_algolia_recommend_json_decl(r#""facetValue": "Apple""#));
+    assert!(is_algolia_recommend_json_decl(r#""facetValue": "Apple""#));
     assert!(is_algolia_crawler_json_decl(r#""clearExistingRules": true"#));
     assert!(is_algolia_crawler_json_decl(r#""clearExistingRules": false"#));
     assert!(is_algolia_crawler_json_decl(r#""clearExistingRules": true,"#));

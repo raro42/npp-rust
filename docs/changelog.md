@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.917] — 2026-11-16
+
+View:
+
+- **Function List** lists Algolia Recommend request JSON keys: `"objectID": "…"`, `"objectIDs": [`, `"facetValue": "…"`. Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing `:` stay out. Empty strings / plural/singular misspellings / `"objectID": ""` / `"objectID": [` / `"objectID": true` / `"objectIDs": "123"` / `"objectIDs": true` / `"objectIDs": {` / `"facetValue": ""` / `"facetValue": [` / `"facetValue": true` / `"facetValues": "Nike"` / `"indexName": "products"` / `"appId"` / `"apiKey"` / generic `"name"` / `"id"` / `"q"` / `"query"` / `"url"` stay out. Existing Recommend `maxRecommendations` / `threshold` / `queryParameters` / `fallbackParameters` / `facetName` / model / widget-array keys unchanged. Algolia Insights / Searchkit stay out of the Recommend matcher for these keys (Crawler still also matches `"objectID"` / `"objectIDs"` / `"facetValue"`). `"objectID"` / `"facetValue"` accept a non-empty quoted string. `"objectIDs"` accepts `[`.
+
 ## [0.3.916] — 2026-11-16
 
 View:

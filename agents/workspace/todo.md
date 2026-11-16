@@ -1,3 +1,7 @@
+009 keep: Function List Algolia Recommend objectID/objectIDs/facetValue (v0.3.917)
+
+009 keep: Function List Algolia Recommend threshold/queryParameters/facetName (v0.3.916)
+
 009 keep: Function List Algolia Query Suggestions exclude/generate/external/facets/analyticsTags null + appID (v0.3.915)
 
 009 keep: Function List Algolia Query Suggestions languages/exclude/generate/external/replicas bool/amount (v0.3.914)
