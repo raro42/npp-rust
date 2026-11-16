@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.918] — 2026-11-16
+
+View:
+
+- **Function List** lists Algolia Insights conversion `objectData` JSON keys: `"price": 0` / `9.99` / `"9.99"`, `"quantity": 0` / `2`, `"discount": 0` / `1.99` / `"1.99"`. Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing `:` stay out. Empty strings / plural/singular misspellings / `"price": 09.99` / `"price": 9."` / `"price": .99` / `"price": ""` / `"price": true` / `"price": [` / `"prices": 9.99` / `"quantity": 02` / `"quantity": 2.5` / `"quantity": "2"` / `"quantity": true` / `"quantities": 2` / `"discount": 01.99` / `"discount": 1."` / `"discount": .99` / `"discount": ""` / `"discount": true` / `"discounts": 1.99` / generic `"value"` / `"currency"` / `"name"` / `"id"` / `"q"` / `"query"` / `"url"` stay out. Existing Insights `authenticatedUserToken` / `userHasOptedOut` / `useCookie` / `anonymousUserToken` / `cookieDuration` / `eventSubtype` / `objectData` unchanged. Algolia Recommend / Crawler / Searchkit / neighbouring search JSON families stay out. `"price"` / `"discount"` accept a simple decimal (no exponent) or a non-empty quoted string. `"quantity"` accepts uint. Numeric keys reject leading zeros beyond `0`.
+
 ## [0.3.917] — 2026-11-16
 
 View:

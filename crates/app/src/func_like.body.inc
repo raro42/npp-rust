@@ -39852,7 +39852,8 @@ fn searchkit_json_string_and_tail_ok(key: &str, after_colon: &str) -> bool {
 /// `"responseHeader"` / Elasticsearch `"track_total_hits"` /
 /// `"runtime_mappings"` / Algolia Insights `"authenticatedUserToken"` /
 /// `"userHasOptedOut"` / `"useCookie"` / `"anonymousUserToken"` /
-/// `"cookieDuration"` / `"eventSubtype"` / `"objectData"` / Algolia
+/// `"cookieDuration"` / `"eventSubtype"` / `"objectData"` / `"price"` /
+/// `"quantity"` / `"discount"` / Algolia
 /// Crawler `"startUrls"` / `"sitemaps"` / `"discoveryPatterns"` /
 /// `"exclusionPatterns"` / `"ignoreCanonicalTo"` / `"schedule"` /
 /// `"actions"` / `"initialIndexSettings"` / `"extraUrls"` / `"maxUrls"` /
@@ -40045,7 +40046,9 @@ fn algolia_recommend_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool
 /// JSON keys: `"authenticatedUserToken": "…"`, `"userHasOptedOut": true` /
 /// `false`, `"useCookie": true` / `false`, `"anonymousUserToken": true` /
 /// `false`, `"cookieDuration": 0` / `15552000000`,
-/// `"eventSubtype": "addToCart"` / `"purchase"`, `"objectData": [`.
+/// `"eventSubtype": "addToCart"` / `"purchase"`, `"objectData": [`,
+/// `"price": 0` / `9.99` / `"9.99"`, `"quantity": 0` / `2`,
+/// `"discount": 0` / `1.99` / `"1.99"`.
 /// Optional trailing `,` and `//` / `/*` comment. Incomplete quotes /
 /// missing `:` stay out. Generic `"$schema"` / `"name"` / `"id"` / `"q"` /
 /// `"query"` / `"url"` / `"appId"` / `"apiKey"` / `"index"` / `"indexName"` /
@@ -40165,8 +40168,10 @@ fn algolia_recommend_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool
 /// `"neuralExpression"` / `"dynamicThreshold"` /
 /// prettier `"printWidth"` / karma `"basePath"` stay out. Enum `"eventSubtype"`
 /// only matches Insights conversion subtypes. Bool keys only match `true` /
-/// `false`. Numeric keys reject leading zeros beyond `0`. String keys require
-/// a non-empty quoted string.
+/// `false`. `"price"` / `"discount"` accept a simple decimal (no exponent) or
+/// a non-empty quoted string. `"quantity"` / `"cookieDuration"` accept uint.
+/// Numeric keys reject leading zeros beyond `0`. Other string keys require a
+/// non-empty quoted string.
 fn is_algolia_insights_json_decl(s: &str) -> bool {
     let s = s.trim_start();
     let Some(rest) = s.strip_prefix('"') else {
@@ -40197,6 +40202,9 @@ fn algolia_insights_json_key_ok(key: &str) -> bool {
             | "cookieDuration"
             | "eventSubtype"
             | "objectData"
+            | "price"
+            | "quantity"
+            | "discount"
     )
 }
 
@@ -40213,7 +40221,7 @@ fn algolia_insights_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool
             package_json_tail_ok(&after_colon[1..])
         }
         b'"' => {
-            if key == "authenticatedUserToken" {
+            if matches!(key, "authenticatedUserToken" | "price" | "discount") {
                 algolia_insights_json_string_and_tail_ok(after_colon)
             } else if key == "eventSubtype" {
                 algolia_insights_json_event_subtype_and_tail_ok(after_colon)
@@ -40222,7 +40230,13 @@ fn algolia_insights_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool
             }
         }
         b't' | b'f' => algolia_insights_json_bool_and_tail_ok(key, after_colon),
-        b'0'..=b'9' => algolia_insights_json_uint_and_tail_ok(key, after_colon),
+        b'0'..=b'9' => {
+            if matches!(key, "price" | "discount") {
+                algolia_insights_json_decimal_and_tail_ok(after_colon)
+            } else {
+                algolia_insights_json_uint_and_tail_ok(key, after_colon)
+            }
+        }
         _ => false,
     }
 }
@@ -40265,7 +40279,7 @@ fn algolia_insights_json_bool_and_tail_ok(key: &str, after_colon: &str) -> bool 
 }
 
 fn algolia_insights_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool {
-    if key != "cookieDuration" {
+    if !matches!(key, "cookieDuration" | "quantity") {
         return false;
     }
     let bytes = after_colon.as_bytes();
@@ -40281,6 +40295,31 @@ fn algolia_insights_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool 
     } else {
         while i < bytes.len() && bytes[i].is_ascii_digit() {
             i += 1;
+        }
+    }
+    package_json_tail_ok(&after_colon[i..])
+}
+
+fn algolia_insights_json_decimal_and_tail_ok(after_colon: &str) -> bool {
+    let bytes = after_colon.as_bytes();
+    let mut i = 0;
+    while i < bytes.len() && bytes[i].is_ascii_digit() {
+        i += 1;
+    }
+    if i == 0 || i > 12 {
+        return false;
+    }
+    if i > 1 && bytes[0] == b'0' {
+        return false;
+    }
+    if i < bytes.len() && bytes[i] == b'.' {
+        i += 1;
+        let frac_start = i;
+        while i < bytes.len() && bytes[i].is_ascii_digit() {
+            i += 1;
+        }
+        if i == frac_start || i - frac_start > 12 {
+            return false;
         }
     }
     package_json_tail_ok(&after_colon[i..])
@@ -40539,7 +40578,8 @@ fn algolia_insights_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool 
 /// `"description"` / `"indexes"` / `"input"` /
 /// Algolia Insights `"authenticatedUserToken"` /
 /// `"userHasOptedOut"` / `"useCookie"` / `"anonymousUserToken"` /
-/// `"cookieDuration"` / `"eventSubtype"` / `"objectData"` / Algolia Recommend
+/// `"cookieDuration"` / `"eventSubtype"` / `"objectData"` / `"price"` /
+/// `"quantity"` / `"discount"` / Algolia Recommend
 /// `"maxRecommendations"` / `"threshold"` / `"fallbackParameters"` /
 /// `"queryParameters"` / `"frequentlyBoughtTogether"` / `"relatedProducts"` /
 /// `"trendingItems"` / `"lookingSimilar"` / `"trendingFacets"` /

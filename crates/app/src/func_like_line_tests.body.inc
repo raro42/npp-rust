@@ -47691,12 +47691,23 @@ fn algolia_insights_json_keys_smoke() {
         r#""eventSubtype": "addToCart""#
     ));
     assert!(is_algolia_insights_json_decl(r#""objectData": ["#));
+    assert!(is_algolia_insights_json_decl(r#""price": 9.99"#));
+    assert!(is_algolia_insights_json_decl(r#""price": "9.99""#));
+    assert!(is_algolia_insights_json_decl(r#""quantity": 2"#));
+    assert!(is_algolia_insights_json_decl(r#""discount": 1.99"#));
+    assert!(is_algolia_insights_json_decl(r#""discount": "1.99""#));
     assert!(!is_algolia_insights_json_decl(
         r#""maxRecommendations": 10"#
     ));
     assert!(is_algolia_recommend_json_decl(
         r#""maxRecommendations": 10"#
     ));
+    assert!(!is_algolia_recommend_json_decl(r#""price": 9.99"#));
+    assert!(!is_algolia_recommend_json_decl(r#""quantity": 2"#));
+    assert!(!is_algolia_recommend_json_decl(r#""discount": 1.99"#));
+    assert!(!is_algolia_crawler_json_decl(r#""price": 9.99"#));
+    assert!(!is_algolia_crawler_json_decl(r#""quantity": 2"#));
+    assert!(!is_algolia_crawler_json_decl(r#""discount": 1.99"#));
     assert!(!is_algolia_insights_json_decl(r#""search_settings": {"#));
     assert!(is_searchkit_json_decl(r#""search_settings": {"#));
     assert!(!is_algolia_insights_json_decl(
@@ -47976,11 +47987,55 @@ fn algolia_insights_json_keys_count() {
     assert!(is_algolia_insights_json_decl(r#""objectData": [ // c"#));
     assert!(!is_algolia_insights_json_decl(r#""objectData": {"#));
     assert!(!is_algolia_insights_json_decl(r#""objectData": true"#));
+    assert!(is_algolia_insights_json_decl(r#""price": 0"#));
+    assert!(is_algolia_insights_json_decl(r#""price": 9.99"#));
+    assert!(is_algolia_insights_json_decl(r#""price": 50"#));
+    assert!(is_algolia_insights_json_decl(r#""price": 9.99,"#));
+    assert!(is_algolia_insights_json_decl(r#""price": 9.99 // c"#));
+    assert!(is_algolia_insights_json_decl(r#""price": "9.99""#));
+    assert!(is_algolia_insights_json_decl(r#""price": "9.99","#));
+    assert!(is_algolia_insights_json_decl(r#""price": "9.99" // c"#));
+    assert!(!is_algolia_insights_json_decl(r#""price": 09.99"#));
+    assert!(!is_algolia_insights_json_decl(r#""price": 9."#));
+    assert!(!is_algolia_insights_json_decl(r#""price": .99"#));
+    assert!(!is_algolia_insights_json_decl(r#""price": """#));
+    assert!(!is_algolia_insights_json_decl(r#""price": true"#));
+    assert!(!is_algolia_insights_json_decl(r#""price": ["#));
+    assert!(!is_algolia_insights_json_decl(r#""price": {"#));
+    assert!(!is_algolia_insights_json_decl(r#""prices": 9.99"#));
+    assert!(is_algolia_insights_json_decl(r#""quantity": 0"#));
+    assert!(is_algolia_insights_json_decl(r#""quantity": 1"#));
+    assert!(is_algolia_insights_json_decl(r#""quantity": 2"#));
+    assert!(is_algolia_insights_json_decl(r#""quantity": 2,"#));
+    assert!(is_algolia_insights_json_decl(r#""quantity": 2 // c"#));
+    assert!(!is_algolia_insights_json_decl(r#""quantity": 02"#));
+    assert!(!is_algolia_insights_json_decl(r#""quantity": 2.5"#));
+    assert!(!is_algolia_insights_json_decl(r#""quantity": "2""#));
+    assert!(!is_algolia_insights_json_decl(r#""quantity": true"#));
+    assert!(!is_algolia_insights_json_decl(r#""quantity": ["#));
+    assert!(!is_algolia_insights_json_decl(r#""quantities": 2"#));
+    assert!(is_algolia_insights_json_decl(r#""discount": 0"#));
+    assert!(is_algolia_insights_json_decl(r#""discount": 1.99"#));
+    assert!(is_algolia_insights_json_decl(r#""discount": 20"#));
+    assert!(is_algolia_insights_json_decl(r#""discount": 1.99,"#));
+    assert!(is_algolia_insights_json_decl(r#""discount": 1.99 // c"#));
+    assert!(is_algolia_insights_json_decl(r#""discount": "1.99""#));
+    assert!(is_algolia_insights_json_decl(r#""discount": "20""#));
+    assert!(!is_algolia_insights_json_decl(r#""discount": 01.99"#));
+    assert!(!is_algolia_insights_json_decl(r#""discount": 1."#));
+    assert!(!is_algolia_insights_json_decl(r#""discount": .99"#));
+    assert!(!is_algolia_insights_json_decl(r#""discount": """#));
+    assert!(!is_algolia_insights_json_decl(r#""discount": true"#));
+    assert!(!is_algolia_insights_json_decl(r#""discount": ["#));
+    assert!(!is_algolia_insights_json_decl(r#""discounts": 1.99"#));
     assert!(!is_algolia_insights_json_decl(
         r#""authenticatedUserToken""#
     ));
     assert!(!is_algolia_insights_json_decl(r#""eventSubtype""#));
     assert!(!is_algolia_insights_json_decl(r#""objectData""#));
+    assert!(!is_algolia_insights_json_decl(r#""price""#));
+    assert!(!is_algolia_insights_json_decl(r#""quantity""#));
+    assert!(!is_algolia_insights_json_decl(r#""discount""#));
     assert!(!is_algolia_insights_json_decl(
         r#""$schema": "https://example.com""#
     ));
@@ -48013,6 +48068,12 @@ fn algolia_insights_json_keys_count() {
     assert!(is_algolia_recommend_json_decl(
         r#""maxRecommendations": 10"#
     ));
+    assert!(!is_algolia_recommend_json_decl(r#""price": 9.99"#));
+    assert!(!is_algolia_recommend_json_decl(r#""quantity": 2"#));
+    assert!(!is_algolia_recommend_json_decl(r#""discount": 1.99"#));
+    assert!(!is_algolia_crawler_json_decl(r#""price": 9.99"#));
+    assert!(!is_algolia_crawler_json_decl(r#""quantity": 2"#));
+    assert!(!is_algolia_crawler_json_decl(r#""discount": 1.99"#));
     assert!(!is_algolia_insights_json_decl(r#""search_settings": {"#));
     assert!(is_searchkit_json_decl(r#""search_settings": {"#));
     assert!(!is_algolia_insights_json_decl(
@@ -48222,6 +48283,11 @@ fn algolia_insights_json_keys_count() {
     assert!(line_is_func_like(r#""cookieDuration": 15552000000"#));
     assert!(line_is_func_like(r#""eventSubtype": "purchase""#));
     assert!(line_is_func_like(r#""objectData": ["#));
+    assert!(line_is_func_like(r#""price": 9.99"#));
+    assert!(line_is_func_like(r#""price": "9.99""#));
+    assert!(line_is_func_like(r#""quantity": 2"#));
+    assert!(line_is_func_like(r#""discount": 1.99"#));
+    assert!(line_is_func_like(r#""discount": "1.99""#));
     assert!(line_is_func_like(r#""ignoreRobotsTxtRules": true"#));
     assert!(line_is_func_like(r#""ignoreNoIndex": true"#));
     assert!(line_is_func_like(r#""saveBackup": true"#));
