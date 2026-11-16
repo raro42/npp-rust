@@ -1,3 +1,5 @@
+009 keep: Function List Algolia Analytics value ParameterValue + filters[] / key{} / operator FilterDefinition (v0.3.908)
+
 009 keep: Function List Algolia Analytics filterOperator/parameter/parameterValue + metrics object (v0.3.907)
 
 009 keep: Function List Algolia Analytics clickAnalytics/revenueAnalytics/continuous + custom groupBy/metrics/series/… (v0.3.906)

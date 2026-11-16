@@ -40445,8 +40445,11 @@ fn algolia_insights_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool 
 /// `"search": "…"`, `"country": "…"`, `"date": "…"`, `"hit": "…"`,
 /// `"noResultsRate": 0` / `0.49` / `1`, `"noClickRate": 0` / `0.15` / `1`,
 /// `"withFilterCount": 0` / `5`,
-/// `"hits": [`, `"attributes": [`, `"attribute": "…"`, `"value": "…"`,
-/// `"operator": ":"` / `"<"` / `"<="` / `"="` / `"!="` / `">"` / `">="`,
+/// `"hits": [`, `"attributes": [`, `"attribute": "…"`,
+/// `"value": "…"` / `0` / `1.5` / `true` / `false` / `[`,
+/// `"operator": ":"` / `"<"` / `"<="` / `"="` / `"!="` / `">"` / `">="` /
+/// `"IN"` / `"TAG_TREE"` / `"CONTAINS"` / `"STARTS_WITH"` /
+/// `"CONTAINS_PREFIX"`,
 /// `"trackedHitCount": 0` / `100`,
 /// `"count": 0` / `504`, `"average": 0` / `2.035` / `1`,
 /// `"rate": 0` / `0.12` / `1`, `"positions": [`, `"device": "…"`,
@@ -40466,13 +40469,20 @@ fn algolia_insights_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool 
 /// `"IN"` / `"TAG_TREE"` / `"CONTAINS"` / `"STARTS_WITH"` /
 /// `"CONTAINS_PREFIX"`,
 /// `"parameter": {`,
-/// `"parameterValue": "…"` / `0` / `1.5` / `true` / `false` / `[`.
+/// `"parameterValue": "…"` / `0` / `1.5` / `true` / `false` / `[`,
+/// and `"value"` now also accepts uint / decimal / bool / `[`
+/// (still accepts non-empty string; ParameterDefinition),
+/// `"filters": [`,
+/// `"key": {`,
+/// and `"operator"` now also accepts `"IN"` / `"TAG_TREE"` / `"CONTAINS"` /
+/// `"STARTS_WITH"` / `"CONTAINS_PREFIX"` (still accepts `":"` / `"<"` /
+/// `"<="` / `"="` / `"!="` / `">"` / `">="`).
 /// Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing
 /// `:` stay out. Generic `"$schema"` / `"name"` / `"id"` / `"q"` /
 /// string `"query"` /
 /// `"url"` / `"appId"` / `"apiKey"` / `"index"` / `"indexName"` / `"cache"` /
 /// `"enabled"` / `"proxy"` / `"timeout"` / `"retries"` / `"headers"` /
-/// `"order"` / `"filters"` / `"message"` /
+/// `"order"` / string `"filters"` / `"message"` /
 /// `"description"` / `"indexes"` / `"input"` /
 /// Algolia Insights `"authenticatedUserToken"` /
 /// `"userHasOptedOut"` / `"useCookie"` / `"anonymousUserToken"` /
@@ -40570,7 +40580,7 @@ fn algolia_insights_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool 
 /// `"facetValue"` / `"facet"` / `"language"` / `"word"` / `"currency"` /
 /// `"search"` / `"country"` / `"date"` / `"hit"` / `"attribute"` / `"value"` /
 /// `"device"` / `"startDate"` / `"endDate"` / `"kind"` / `"domain"` /
-/// `"parameterValue"`
+/// `"parameterValue"` / `"value"`
 /// require a
 /// non-empty quoted string when the value is a string.
 /// `"filterOperator"` only matches `"="` / `"!="` / `">"` / `"<"` / `">="` /
@@ -40595,7 +40605,9 @@ fn algolia_insights_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool 
 /// matches `"plurals"` / `"stopwords"` / `"compounds"`.
 /// `"anchoring"` only matches `"is"` / `"startsWith"` / `"endsWith"` /
 /// `"contains"`. `"operator"` only matches `":"` / `"<"` / `"<="` / `"="` /
-/// `"!="` / `">"` / `">="`. `"orderBy"` only matches `"searchCount"` /
+/// `"!="` / `">"` / `">="` / `"IN"` / `"TAG_TREE"` / `"CONTAINS"` /
+/// `"STARTS_WITH"` / `"CONTAINS_PREFIX"`. `"orderBy"` only matches
+/// `"searchCount"` /
 /// `"clickThroughRate"` / `"conversionRate"` / `"averageClickPosition"`
 /// (or `[`). `"direction"` only matches `"asc"` / `"desc"`. `"action"` only
 /// matches `"addObject"` /
@@ -40623,7 +40635,7 @@ fn algolia_insights_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool 
 /// `"_rankingInfo"` / `"matchedGeoLocation"` / `"personalization"` /
 /// `"exhaustive"` / `"processingTimingsMS"` / `"queryCategorization"` /
 /// `"autofiltering"` / `"consequence"` / `"condition"` / `"params"` /
-/// `"query"`
+/// `"query"` / `"key"`
 /// accept `{`.
 /// `"eventSources"` / `"banners"` / `"hide"` / `"keywords"` / `"authors"` /
 /// `"hierarchy_camel"` / `"appliedRules"` / `"hierarchyPath"` /
@@ -40639,11 +40651,11 @@ fn algolia_insights_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool 
 /// `"eventsScoring"` / `"facetsScoring"` / `"currencies"` / `"countries"` /
 /// `"devices"` / `"dates"` / `"clickPositions"` / `"searches"` / `"hits"` /
 /// `"attributes"` / `"positions"` / `"position"` / `"values"` / `"orderBy"` /
-/// `"parameterValue"`
+/// `"parameterValue"` / `"value"` / `"filters"`
 /// accept `[`. `"currencies"` also accepts `{`. `"metrics"` also accepts `{`.
 /// `"parameter"` accepts `{`. `"position"` also accepts uint.
 /// `"orderBy"` also accepts the Analytics order enum string.
-/// `"parameterValue"` also accepts uint / decimal / bool.
+/// `"parameterValue"` / `"value"` also accept uint / decimal / bool.
 fn is_algolia_crawler_json_decl(s: &str) -> bool {
     let s = s.trim_start();
     let Some(rest) = s.strip_prefix('"') else {
@@ -41054,6 +41066,8 @@ fn algolia_crawler_json_key_ok(key: &str) -> bool {
             | "filterOperator"
             | "parameter"
             | "parameterValue"
+            | "filters"
+            | "key"
     )
 }
 
@@ -41176,6 +41190,8 @@ fn algolia_crawler_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool 
                     | "rows"
                     | "parameters"
                     | "parameterValue"
+                    | "value"
+                    | "filters"
             ) {
                 return false;
             }
@@ -41241,6 +41257,7 @@ fn algolia_crawler_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool 
                     | "totals"
                     | "metrics"
                     | "parameter"
+                    | "key"
             ) {
                 return false;
             }
@@ -41429,6 +41446,7 @@ fn algolia_crawler_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool 
                     | "average"
                     | "rate"
                     | "parameterValue"
+                    | "value"
             ) {
                 algolia_crawler_json_decimal_and_tail_ok(after_colon)
             } else {
@@ -41697,6 +41715,7 @@ fn algolia_crawler_json_bool_and_tail_ok(key: &str, after_colon: &str) -> bool {
             | "revenueAnalytics"
             | "continuous"
             | "parameterValue"
+            | "value"
     ) {
         return false;
     }
@@ -41870,7 +41889,20 @@ fn algolia_crawler_json_operator_and_tail_ok(after_colon: &str) -> bool {
     let Some(end) = rest.find('"') else {
         return false;
     };
-    if !matches!(&rest[..end], ":" | "<" | "<=" | "=" | "!=" | ">" | ">=") {
+    if !matches!(
+        &rest[..end],
+        ":" | "<"
+            | "<="
+            | "="
+            | "!="
+            | ">"
+            | ">="
+            | "IN"
+            | "TAG_TREE"
+            | "CONTAINS"
+            | "STARTS_WITH"
+            | "CONTAINS_PREFIX"
+    ) {
         return false;
     }
     package_json_tail_ok(&rest[end + 1..])
