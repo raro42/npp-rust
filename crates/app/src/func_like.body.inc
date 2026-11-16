@@ -40458,10 +40458,15 @@ fn algolia_insights_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool 
 /// `"startDate": "…"`, `"endDate": "…"`,
 /// `"clickAnalytics": true` / `false`, `"revenueAnalytics": true` / `false`,
 /// `"continuous": true` / `false`,
-/// `"groupBy": [`, `"metrics": [`, `"series": [`, `"distributions": [`,
+/// `"groupBy": [`, `"metrics": [` / `{`, `"series": [`, `"distributions": [`,
 /// `"bins": [`, `"groups": [`, `"roots": [`, `"requires": [`, `"rows": [`,
 /// `"parameters": [`, `"domains": {`, `"totals": {`,
-/// `"kind": "…"`, `"domain": "…"`.
+/// `"kind": "…"`, `"domain": "…"`,
+/// `"filterOperator": "="` / `"!="` / `">"` / `"<"` / `">="` / `"<="` /
+/// `"IN"` / `"TAG_TREE"` / `"CONTAINS"` / `"STARTS_WITH"` /
+/// `"CONTAINS_PREFIX"`,
+/// `"parameter": {`,
+/// `"parameterValue": "…"` / `0` / `1.5` / `true` / `false` / `[`.
 /// Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing
 /// `:` stay out. Generic `"$schema"` / `"name"` / `"id"` / `"q"` /
 /// string `"query"` /
@@ -40564,9 +40569,13 @@ fn algolia_insights_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool 
 /// `"pattern"` / `"context"` / `"delete"` / `"insert"` / `"facetName"` /
 /// `"facetValue"` / `"facet"` / `"language"` / `"word"` / `"currency"` /
 /// `"search"` / `"country"` / `"date"` / `"hit"` / `"attribute"` / `"value"` /
-/// `"device"` / `"startDate"` / `"endDate"` / `"kind"` / `"domain"`
+/// `"device"` / `"startDate"` / `"endDate"` / `"kind"` / `"domain"` /
+/// `"parameterValue"`
 /// require a
-/// non-empty quoted string.
+/// non-empty quoted string when the value is a string.
+/// `"filterOperator"` only matches `"="` / `"!="` / `">"` / `"<"` / `">="` /
+/// `"<="` / `"IN"` / `"TAG_TREE"` / `"CONTAINS"` / `"STARTS_WITH"` /
+/// `"CONTAINS_PREFIX"`.
 /// `"__type"` only matches `"function"`. `"queryType"` only matches
 /// `"prefixLast"` / `"prefixAll"` / `"prefixNone"`.
 /// `"removeWordsIfNoResults"` only matches `"none"` / `"lastWords"` /
@@ -40629,9 +40638,12 @@ fn algolia_insights_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool 
 /// `"edits"` / `"remove"` / `"words"` / `"decomposition"` /
 /// `"eventsScoring"` / `"facetsScoring"` / `"currencies"` / `"countries"` /
 /// `"devices"` / `"dates"` / `"clickPositions"` / `"searches"` / `"hits"` /
-/// `"attributes"` / `"positions"` / `"position"` / `"values"` / `"orderBy"`
-/// accept `[`. `"currencies"` also accepts `{`. `"position"` also accepts uint.
+/// `"attributes"` / `"positions"` / `"position"` / `"values"` / `"orderBy"` /
+/// `"parameterValue"`
+/// accept `[`. `"currencies"` also accepts `{`. `"metrics"` also accepts `{`.
+/// `"parameter"` accepts `{`. `"position"` also accepts uint.
 /// `"orderBy"` also accepts the Analytics order enum string.
+/// `"parameterValue"` also accepts uint / decimal / bool.
 fn is_algolia_crawler_json_decl(s: &str) -> bool {
     let s = s.trim_start();
     let Some(rest) = s.strip_prefix('"') else {
@@ -41039,6 +41051,9 @@ fn algolia_crawler_json_key_ok(key: &str) -> bool {
             | "totals"
             | "kind"
             | "domain"
+            | "filterOperator"
+            | "parameter"
+            | "parameterValue"
     )
 }
 
@@ -41160,6 +41175,7 @@ fn algolia_crawler_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool 
                     | "requires"
                     | "rows"
                     | "parameters"
+                    | "parameterValue"
             ) {
                 return false;
             }
@@ -41223,6 +41239,8 @@ fn algolia_crawler_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool 
                     | "currencies"
                     | "domains"
                     | "totals"
+                    | "metrics"
+                    | "parameter"
             ) {
                 return false;
             }
@@ -41273,6 +41291,9 @@ fn algolia_crawler_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool 
             }
             if key == "operator" {
                 return algolia_crawler_json_operator_and_tail_ok(after_colon);
+            }
+            if key == "filterOperator" {
+                return algolia_crawler_json_filter_operator_and_tail_ok(after_colon);
             }
             if key == "orderBy" {
                 return algolia_crawler_json_order_by_and_tail_ok(after_colon);
@@ -41387,6 +41408,7 @@ fn algolia_crawler_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool 
                     | "endDate"
                     | "kind"
                     | "domain"
+                    | "parameterValue"
             ) {
                 return false;
             }
@@ -41406,6 +41428,7 @@ fn algolia_crawler_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool 
                     | "noClickRate"
                     | "average"
                     | "rate"
+                    | "parameterValue"
             ) {
                 algolia_crawler_json_decimal_and_tail_ok(after_colon)
             } else {
@@ -41673,6 +41696,7 @@ fn algolia_crawler_json_bool_and_tail_ok(key: &str, after_colon: &str) -> bool {
             | "clickAnalytics"
             | "revenueAnalytics"
             | "continuous"
+            | "parameterValue"
     ) {
         return false;
     }
@@ -41847,6 +41871,29 @@ fn algolia_crawler_json_operator_and_tail_ok(after_colon: &str) -> bool {
         return false;
     };
     if !matches!(&rest[..end], ":" | "<" | "<=" | "=" | "!=" | ">" | ">=") {
+        return false;
+    }
+    package_json_tail_ok(&rest[end + 1..])
+}
+
+fn algolia_crawler_json_filter_operator_and_tail_ok(after_colon: &str) -> bool {
+    let rest = &after_colon[1..];
+    let Some(end) = rest.find('"') else {
+        return false;
+    };
+    if !matches!(
+        &rest[..end],
+        "=" | "!="
+            | ">"
+            | "<"
+            | ">="
+            | "<="
+            | "IN"
+            | "TAG_TREE"
+            | "CONTAINS"
+            | "STARTS_WITH"
+            | "CONTAINS_PREFIX"
+    ) {
         return false;
     }
     package_json_tail_ok(&rest[end + 1..])

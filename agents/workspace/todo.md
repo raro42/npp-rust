@@ -1,3 +1,5 @@
+009 keep: Function List Algolia Analytics filterOperator/parameter/parameterValue + metrics object (v0.3.907)
+
 009 keep: Function List Algolia Analytics clickAnalytics/revenueAnalytics/continuous + custom groupBy/metrics/series/… (v0.3.906)
 
 009 keep: Function List Algolia Analytics orderBy/direction/values/limit/offset/startDate/endDate (v0.3.905)

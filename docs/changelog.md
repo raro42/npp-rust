@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.907] — 2026-11-16
+
+View:
+
+- **Function List** lists more Algolia Analytics custom-query filter / parameter JSON keys: `"filterOperator": "="` / `"!="` / `">"` / `"<"` / `">="` / `"<="` / `"IN"` / `"TAG_TREE"` / `"CONTAINS"` / `"STARTS_WITH"` / `"CONTAINS_PREFIX"`, `"parameter": {`, `"parameterValue": "…"` / `0` / `42` / `1.5` / `true` / `false` / `[`, and `"metrics"` now also accepts `{` (still accepts `[`). Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing `:` stay out. Empty strings / plural/singular misspellings / `"filterOperator": ":"` / `"filterOperator": "is"` / `"filterOperator": [` / `"filterOperators": "="` / `"parameter": [` / `"parameter": "country"` / `"parameters": {` / `"parameterValue": ""` / `"parameterValue": {` / `"parameterValue": 01` / `"parameterValue": 1."` / `"parameterValue": .5` / `"parameterValues": "US"` / `"metrics": "searchesCount"` / `"metric": [` / generic `"description"` / `"indexes"` / `"input"` / `"filters"` / `"url"` / `"order"` / `"enabled"` / `"proxy"` / `"timeout"` / `"retries"` / `"headers"` / `"cache"` / `"message"` / string bools stay out. Existing Crawler / Rules / Synonym / Dictionary / Analytics order / paging / count / rate / revenue / Personalization / API-key / geo / highlight / search response / write / batch keys unchanged. Algolia Insights / Recommend / neighbouring search JSON families stay out. Bool keys only match `true` / `false`. `"filterOperator"` only matches the Analytics filter-operator enum. `"parameter"` accepts `{`. `"parameterValue"` accepts non-empty string / uint / decimal / bool / `[`. `"metrics"` accepts `[` or `{`.
+
 ## [0.3.906] — 2026-11-16
 
 View:
