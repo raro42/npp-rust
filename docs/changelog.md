@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.911] — 2026-11-16
+
+View:
+
+- **Function List** lists more Algolia Analytics metric JSON keys when the API returns `null` (empty search / click windows): `"noResultsRate": null`, `"noClickRate": null`, `"average": null`, `"rate": null`, `"revenue": null`. Still accepts decimal. Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing `:` stay out. `"noResultsRate": nil` / `"noResultsRate": Null` / `"noResultsRates": null` / `"noClickRate": nil` / `"noClickRates": null` / `"average": nil` / `"averages": null` / `"rate": nil` / `"rates": null` / `"revenue": nil` / `"revenues": null` / `"count": null` / `"filters": null` / `"hits": null` / `"metrics": null` / `"parameterValue": null` / `"createdAt": null` / generic `"description"` / `"indexes"` / `"input"` / string `"filters"` / `"url"` / `"order"` / `"enabled"` / `"proxy"` / `"timeout"` / `"retries"` / `"headers"` / `"cache"` / `"message"` stay out. Existing Crawler / Rules / Synonym / Dictionary / Analytics order / paging / count / rate / revenue / Personalization / API-key / geo / highlight / search response / write / batch / filterOperator / parameter / parameterValue / filters / key / operator / values / series / updatedAt / clickThroughRate / conversionRate / averageClickPosition / addToCartRate / purchaseRate null keys unchanged. Algolia Insights / Recommend / neighbouring search JSON families stay out. Decimal rate keys still match. `"values"` / `"series"` / `"updatedAt"` / click and cart rate keys still accept `null`.
+
 ## [0.3.910] — 2026-11-16
 
 View:

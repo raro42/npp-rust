@@ -40482,8 +40482,9 @@ fn algolia_insights_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool 
 /// and `"updatedAt"` now also accepts `null` (still accepts non-empty string;
 /// Analytics status),
 /// and `"clickThroughRate"` / `"conversionRate"` / `"averageClickPosition"` /
-/// `"addToCartRate"` / `"purchaseRate"` now also accept `null` (still accept
-/// decimal; missing clickAnalytics).
+/// `"addToCartRate"` / `"purchaseRate"` / `"noResultsRate"` / `"noClickRate"` /
+/// `"average"` / `"rate"` / `"revenue"` now also accept `null` (still accept
+/// decimal; missing clickAnalytics / empty metric windows).
 /// Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing
 /// `:` stay out. Generic `"$schema"` / `"name"` / `"id"` / `"q"` /
 /// string `"query"` /
@@ -40562,8 +40563,9 @@ fn algolia_insights_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool 
 /// `"revenue"` / `"noResultsRate"` / `"noClickRate"` / `"average"` /
 /// `"rate"` allow a
 /// simple decimal (no exponent). `"clickThroughRate"` / `"conversionRate"` /
-/// `"averageClickPosition"` / `"addToCartRate"` / `"purchaseRate"` also
-/// accept `null`. String
+/// `"averageClickPosition"` / `"addToCartRate"` / `"purchaseRate"` /
+/// `"noResultsRate"` / `"noClickRate"` / `"average"` / `"rate"` / `"revenue"`
+/// also accept `null`. String
 /// `"schedule"` / `"indexPrefix"` /
 /// `"clientId"` / `"clientSecret"` / `"grantType"` / `"scope"` /
 /// `"grant_type"` / `"client_id"` / `"client_secret"` / `"resource"` /
@@ -40667,7 +40669,8 @@ fn algolia_insights_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool 
 /// `"parameterValue"` / `"value"` also accept uint / decimal / bool.
 /// `"values"` / `"series"` / `"updatedAt"` also accept `null`.
 /// `"clickThroughRate"` / `"conversionRate"` / `"averageClickPosition"` /
-/// `"addToCartRate"` / `"purchaseRate"` also accept `null`.
+/// `"addToCartRate"` / `"purchaseRate"` / `"noResultsRate"` / `"noClickRate"` /
+/// `"average"` / `"rate"` / `"revenue"` also accept `null`.
 fn is_algolia_crawler_json_decl(s: &str) -> bool {
     let s = s.trim_start();
     let Some(rest) = s.strip_prefix('"') else {
@@ -41468,7 +41471,8 @@ fn algolia_crawler_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool 
         b'n' => {
             // Analytics nullable payloads: top-filters-no-results `values`,
             // patterns timeseries `series`, status `updatedAt`, and click /
-            // revenue rates when clickAnalytics was never sent.
+            // revenue / search rates when clickAnalytics was never sent or the
+            // metric window is empty.
             if !matches!(
                 key,
                 "values"
@@ -41479,6 +41483,11 @@ fn algolia_crawler_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool 
                     | "averageClickPosition"
                     | "addToCartRate"
                     | "purchaseRate"
+                    | "noResultsRate"
+                    | "noClickRate"
+                    | "average"
+                    | "rate"
+                    | "revenue"
             ) {
                 return false;
             }
