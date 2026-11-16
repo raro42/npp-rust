@@ -32,3 +32,13 @@ Created: 2026-11-15T06:21:35Z
 - Commit: `6e2f15dc`
 - Follow-up: Windows Format still stack-overflowed on run `43686169416` after the split. Device auth for `workflow` scope timed out.
 - Fix v2: move classifier/test bodies to `*.body.inc`, copy via `build.rs` into `OUT_DIR`, thin `include!` wrappers so `cargo fmt` never parses the multi-MB sources.
+- Commit: `3fe7efb0` on `main`; dispatched run `43687920251`.
+
+## Tester (2026-11-15)
+- Verified: thin `crates/app/src/func_like.rs` + `crates/app/build.rs` copy of `func_like*.body.inc` into `OUT_DIR`; `include!` wrappers so fmt never parses the large bodies. Commit `3fe7efb0`.
+- `./scripts/ci-local.sh` — **PASS** (fmt, clippy `-D warnings`, workspace tests, release build).
+- Cloud: run `43687920251` success (ubuntu/macos/windows), including Windows Format (prior failure mode).
+- No GitHub issue on this CI watch task (skip `gh-safe` comment).
+- Result: **pass**. Moving to `agents/tasks/done/DONE-ci-…`. Leave open for handoff.
+Handoff: complete
+GitHub: closed
