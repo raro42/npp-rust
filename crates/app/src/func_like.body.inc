@@ -39853,8 +39853,8 @@ fn searchkit_json_string_and_tail_ok(key: &str, after_colon: &str) -> bool {
 /// `"runtime_mappings"` / Algolia Insights `"authenticatedUserToken"` /
 /// `"userHasOptedOut"` / `"useCookie"` / `"anonymousUserToken"` /
 /// `"cookieDuration"` / `"eventSubtype"` / `"objectData"` / `"price"` /
-/// `"quantity"` / `"discount"` / Algolia
-/// Crawler `"startUrls"` / `"sitemaps"` / `"discoveryPatterns"` /
+/// `"quantity"` / `"discount"` / `"region"` / `"host"` / `"partial"` /
+/// Algolia Crawler `"startUrls"` / `"sitemaps"` / `"discoveryPatterns"` /
 /// `"exclusionPatterns"` / `"ignoreCanonicalTo"` / `"schedule"` /
 /// `"actions"` / `"initialIndexSettings"` / `"extraUrls"` / `"maxUrls"` /
 /// `"ignoreNoFollowTo"` / `"ignoreRobotsTxtRules"` / `"ignoreNoIndex"` /
@@ -40048,17 +40048,18 @@ fn algolia_recommend_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool
 /// `false`, `"cookieDuration": 0` / `15552000000`,
 /// `"eventSubtype": "addToCart"` / `"purchase"`, `"objectData": [`,
 /// `"price": 0` / `9.99` / `"9.99"`, `"quantity": 0` / `2`,
-/// `"discount": 0` / `1.99` / `"1.99"`.
+/// `"discount": 0` / `1.99` / `"1.99"`, `"region": "de"` / `"us"`,
+/// `"host": "…"`, `"partial": true` / `false`.
 /// Optional trailing `,` and `//` / `/*` comment. Incomplete quotes /
 /// missing `:` stay out. Generic `"$schema"` / `"name"` / `"id"` / `"q"` /
 /// `"query"` / `"url"` / `"appId"` / `"apiKey"` / `"index"` / `"indexName"` /
 /// `"userToken"` / `"eventType"` / `"eventName"` / `"queryID"` /
 /// `"objectIDs"` / `"positions"` / `"filters"` / `"value"` / `"currency"` /
-/// `"host"` / `"region"` / `"partial"` / Algolia Recommend
-/// `"maxRecommendations"` / `"threshold"` / `"fallbackParameters"` /
-/// `"queryParameters"` / `"frequentlyBoughtTogether"` / `"relatedProducts"` /
-/// `"trendingItems"` / `"lookingSimilar"` / `"trendingFacets"` /
-/// `"facetName"` / `"facetValue"` / `"objectID"` / `"objectIDs"` / `"model"` /
+/// Algolia Recommend `"maxRecommendations"` / `"threshold"` /
+/// `"fallbackParameters"` / `"queryParameters"` /
+/// `"frequentlyBoughtTogether"` / `"relatedProducts"` / `"trendingItems"` /
+/// `"lookingSimilar"` / `"trendingFacets"` / `"facetName"` / `"facetValue"` /
+/// `"objectID"` / `"objectIDs"` / `"model"` /
 /// Searchkit `"search_settings"` / `"search_attributes"` / `"result_attributes"` /
 /// `"highlight_attributes"` / `"snippet_attributes"` /
 /// `"facet_attributes"` / `"filter_attributes"` / `"query_rules"` /
@@ -40167,10 +40168,11 @@ fn algolia_recommend_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool
 /// `"usePositionalSemanticRanking"` / `"minHitsForSemantic"` /
 /// `"neuralExpression"` / `"dynamicThreshold"` /
 /// prettier `"printWidth"` / karma `"basePath"` stay out. Enum `"eventSubtype"`
-/// only matches Insights conversion subtypes. Bool keys only match `true` /
-/// `false`. `"price"` / `"discount"` accept a simple decimal (no exponent) or
-/// a non-empty quoted string. `"quantity"` / `"cookieDuration"` accept uint.
-/// Numeric keys reject leading zeros beyond `0`. Other string keys require a
+/// only matches Insights conversion subtypes. Enum `"region"` only matches
+/// `"de"` / `"us"`. Bool keys only match `true` / `false`. `"price"` /
+/// `"discount"` accept a simple decimal (no exponent) or a non-empty quoted
+/// string. `"quantity"` / `"cookieDuration"` accept uint. Numeric keys reject
+/// leading zeros beyond `0`. `"host"` / `"authenticatedUserToken"` require a
 /// non-empty quoted string.
 fn is_algolia_insights_json_decl(s: &str) -> bool {
     let s = s.trim_start();
@@ -40205,6 +40207,9 @@ fn algolia_insights_json_key_ok(key: &str) -> bool {
             | "price"
             | "quantity"
             | "discount"
+            | "region"
+            | "host"
+            | "partial"
     )
 }
 
@@ -40221,10 +40226,15 @@ fn algolia_insights_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool
             package_json_tail_ok(&after_colon[1..])
         }
         b'"' => {
-            if matches!(key, "authenticatedUserToken" | "price" | "discount") {
+            if matches!(
+                key,
+                "authenticatedUserToken" | "price" | "discount" | "host"
+            ) {
                 algolia_insights_json_string_and_tail_ok(after_colon)
             } else if key == "eventSubtype" {
                 algolia_insights_json_event_subtype_and_tail_ok(after_colon)
+            } else if key == "region" {
+                algolia_insights_json_region_and_tail_ok(after_colon)
             } else {
                 false
             }
@@ -40264,8 +40274,23 @@ fn algolia_insights_json_event_subtype_and_tail_ok(after_colon: &str) -> bool {
     package_json_tail_ok(&rest[end + 1..])
 }
 
+fn algolia_insights_json_region_and_tail_ok(after_colon: &str) -> bool {
+    let rest = &after_colon[1..];
+    let Some(end) = rest.find('"') else {
+        return false;
+    };
+    let value = &rest[..end];
+    if !matches!(value, "de" | "us") {
+        return false;
+    }
+    package_json_tail_ok(&rest[end + 1..])
+}
+
 fn algolia_insights_json_bool_and_tail_ok(key: &str, after_colon: &str) -> bool {
-    if !matches!(key, "userHasOptedOut" | "useCookie" | "anonymousUserToken") {
+    if !matches!(
+        key,
+        "userHasOptedOut" | "useCookie" | "anonymousUserToken" | "partial"
+    ) {
         return false;
     }
     let rest = if let Some(r) = after_colon.strip_prefix("true") {
@@ -40579,8 +40604,9 @@ fn algolia_insights_json_decimal_and_tail_ok(after_colon: &str) -> bool {
 /// Algolia Insights `"authenticatedUserToken"` /
 /// `"userHasOptedOut"` / `"useCookie"` / `"anonymousUserToken"` /
 /// `"cookieDuration"` / `"eventSubtype"` / `"objectData"` / `"price"` /
-/// `"quantity"` / `"discount"` / Algolia Recommend
-/// `"maxRecommendations"` / `"threshold"` / `"fallbackParameters"` /
+/// `"quantity"` / `"discount"` / `"region"` / `"host"` / `"partial"` /
+/// Algolia Recommend `"maxRecommendations"` / `"threshold"` /
+/// `"fallbackParameters"` /
 /// `"queryParameters"` / `"frequentlyBoughtTogether"` / `"relatedProducts"` /
 /// `"trendingItems"` / `"lookingSimilar"` / `"trendingFacets"` /
 /// `"facetName"` / `"facetValue"` / `"objectID"` / `"objectIDs"` / `"model"` /

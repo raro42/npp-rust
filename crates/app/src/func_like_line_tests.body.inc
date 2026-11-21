@@ -47696,6 +47696,10 @@ fn algolia_insights_json_keys_smoke() {
     assert!(is_algolia_insights_json_decl(r#""quantity": 2"#));
     assert!(is_algolia_insights_json_decl(r#""discount": 1.99"#));
     assert!(is_algolia_insights_json_decl(r#""discount": "1.99""#));
+    assert!(is_algolia_insights_json_decl(r#""region": "de""#));
+    assert!(is_algolia_insights_json_decl(r#""region": "us""#));
+    assert!(is_algolia_insights_json_decl(r#""host": "insights.example""#));
+    assert!(is_algolia_insights_json_decl(r#""partial": true"#));
     assert!(!is_algolia_insights_json_decl(
         r#""maxRecommendations": 10"#
     ));
@@ -47705,9 +47709,15 @@ fn algolia_insights_json_keys_smoke() {
     assert!(!is_algolia_recommend_json_decl(r#""price": 9.99"#));
     assert!(!is_algolia_recommend_json_decl(r#""quantity": 2"#));
     assert!(!is_algolia_recommend_json_decl(r#""discount": 1.99"#));
+    assert!(!is_algolia_recommend_json_decl(r#""region": "de""#));
+    assert!(!is_algolia_recommend_json_decl(r#""host": "proxy""#));
+    assert!(!is_algolia_recommend_json_decl(r#""partial": true"#));
     assert!(!is_algolia_crawler_json_decl(r#""price": 9.99"#));
     assert!(!is_algolia_crawler_json_decl(r#""quantity": 2"#));
     assert!(!is_algolia_crawler_json_decl(r#""discount": 1.99"#));
+    assert!(!is_algolia_crawler_json_decl(r#""region": "de""#));
+    assert!(!is_algolia_crawler_json_decl(r#""host": "proxy""#));
+    assert!(!is_algolia_crawler_json_decl(r#""partial": true"#));
     assert!(!is_algolia_insights_json_decl(r#""search_settings": {"#));
     assert!(is_searchkit_json_decl(r#""search_settings": {"#));
     assert!(!is_algolia_insights_json_decl(
@@ -48028,6 +48038,36 @@ fn algolia_insights_json_keys_count() {
     assert!(!is_algolia_insights_json_decl(r#""discount": true"#));
     assert!(!is_algolia_insights_json_decl(r#""discount": ["#));
     assert!(!is_algolia_insights_json_decl(r#""discounts": 1.99"#));
+    assert!(is_algolia_insights_json_decl(r#""region": "de""#));
+    assert!(is_algolia_insights_json_decl(r#""region": "us""#));
+    assert!(is_algolia_insights_json_decl(r#""region": "de","#));
+    assert!(is_algolia_insights_json_decl(r#""region": "us" // c"#));
+    assert!(!is_algolia_insights_json_decl(r#""region": "eu""#));
+    assert!(!is_algolia_insights_json_decl(r#""region": "DE""#));
+    assert!(!is_algolia_insights_json_decl(r#""region": "US""#));
+    assert!(!is_algolia_insights_json_decl(r#""region": """#));
+    assert!(!is_algolia_insights_json_decl(r#""region": true"#));
+    assert!(!is_algolia_insights_json_decl(r#""region": ["#));
+    assert!(!is_algolia_insights_json_decl(r#""regions": "de""#));
+    assert!(is_algolia_insights_json_decl(r#""host": "proxy""#));
+    assert!(is_algolia_insights_json_decl(
+        r#""host": "insights.example.com""#
+    ));
+    assert!(is_algolia_insights_json_decl(r#""host": "proxy","#));
+    assert!(is_algolia_insights_json_decl(r#""host": "proxy" // c"#));
+    assert!(!is_algolia_insights_json_decl(r#""host": """#));
+    assert!(!is_algolia_insights_json_decl(r#""host": true"#));
+    assert!(!is_algolia_insights_json_decl(r#""host": ["#));
+    assert!(!is_algolia_insights_json_decl(r#""host": {"#));
+    assert!(!is_algolia_insights_json_decl(r#""hosts": "proxy""#));
+    assert!(is_algolia_insights_json_decl(r#""partial": true"#));
+    assert!(is_algolia_insights_json_decl(r#""partial": false"#));
+    assert!(is_algolia_insights_json_decl(r#""partial": true,"#));
+    assert!(is_algolia_insights_json_decl(r#""partial": false // c"#));
+    assert!(!is_algolia_insights_json_decl(r#""partial": "true""#));
+    assert!(!is_algolia_insights_json_decl(r#""partial": 1"#));
+    assert!(!is_algolia_insights_json_decl(r#""partial": ["#));
+    assert!(!is_algolia_insights_json_decl(r#""partials": true"#));
     assert!(!is_algolia_insights_json_decl(
         r#""authenticatedUserToken""#
     ));
@@ -48036,6 +48076,9 @@ fn algolia_insights_json_keys_count() {
     assert!(!is_algolia_insights_json_decl(r#""price""#));
     assert!(!is_algolia_insights_json_decl(r#""quantity""#));
     assert!(!is_algolia_insights_json_decl(r#""discount""#));
+    assert!(!is_algolia_insights_json_decl(r#""region""#));
+    assert!(!is_algolia_insights_json_decl(r#""host""#));
+    assert!(!is_algolia_insights_json_decl(r#""partial""#));
     assert!(!is_algolia_insights_json_decl(
         r#""$schema": "https://example.com""#
     ));
@@ -48059,9 +48102,6 @@ fn algolia_insights_json_keys_count() {
     assert!(!is_algolia_insights_json_decl(r#""filters": ["#));
     assert!(!is_algolia_insights_json_decl(r#""value": 10"#));
     assert!(!is_algolia_insights_json_decl(r#""currency": "USD""#));
-    assert!(!is_algolia_insights_json_decl(r#""host": "proxy""#));
-    assert!(!is_algolia_insights_json_decl(r#""region": "de""#));
-    assert!(!is_algolia_insights_json_decl(r#""partial": true"#));
     assert!(!is_algolia_insights_json_decl(
         r#""maxRecommendations": 10"#
     ));
@@ -48071,9 +48111,15 @@ fn algolia_insights_json_keys_count() {
     assert!(!is_algolia_recommend_json_decl(r#""price": 9.99"#));
     assert!(!is_algolia_recommend_json_decl(r#""quantity": 2"#));
     assert!(!is_algolia_recommend_json_decl(r#""discount": 1.99"#));
+    assert!(!is_algolia_recommend_json_decl(r#""region": "de""#));
+    assert!(!is_algolia_recommend_json_decl(r#""host": "proxy""#));
+    assert!(!is_algolia_recommend_json_decl(r#""partial": true"#));
     assert!(!is_algolia_crawler_json_decl(r#""price": 9.99"#));
     assert!(!is_algolia_crawler_json_decl(r#""quantity": 2"#));
     assert!(!is_algolia_crawler_json_decl(r#""discount": 1.99"#));
+    assert!(!is_algolia_crawler_json_decl(r#""region": "de""#));
+    assert!(!is_algolia_crawler_json_decl(r#""host": "proxy""#));
+    assert!(!is_algolia_crawler_json_decl(r#""partial": true"#));
     assert!(!is_algolia_insights_json_decl(r#""search_settings": {"#));
     assert!(is_searchkit_json_decl(r#""search_settings": {"#));
     assert!(!is_algolia_insights_json_decl(
@@ -48288,6 +48334,10 @@ fn algolia_insights_json_keys_count() {
     assert!(line_is_func_like(r#""quantity": 2"#));
     assert!(line_is_func_like(r#""discount": 1.99"#));
     assert!(line_is_func_like(r#""discount": "1.99""#));
+    assert!(line_is_func_like(r#""region": "de""#));
+    assert!(line_is_func_like(r#""region": "us""#));
+    assert!(line_is_func_like(r#""host": "insights.example""#));
+    assert!(line_is_func_like(r#""partial": true"#));
     assert!(line_is_func_like(r#""ignoreRobotsTxtRules": true"#));
     assert!(line_is_func_like(r#""ignoreNoIndex": true"#));
     assert!(line_is_func_like(r#""saveBackup": true"#));

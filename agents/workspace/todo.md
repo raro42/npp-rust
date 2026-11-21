@@ -1,3 +1,5 @@
+009 keep: Function List Algolia Insights region/host/partial (v0.3.919)
+
 009 keep: Function List Algolia Recommend objectID/objectIDs/facetValue (v0.3.917)
 
 009 keep: Function List Algolia Recommend threshold/queryParameters/facetName (v0.3.916)

@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.919] — 2026-11-21
+
+View:
+
+- **Function List** lists Algolia Insights `aa('init')` JSON keys: `"region": "de"` / `"us"`, `"host": "…"`, `"partial": true` / `false`. Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing `:` stay out. Empty strings / plural/singular misspellings / `"region": "eu"` / `"region": "DE"` / `"region": "US"` / `"region": ""` / `"region": true` / `"regions": "de"` / `"host": ""` / `"host": true` / `"host": [` / `"hosts": "proxy"` / `"partial": "true"` / `"partial": 1` / `"partials": true` / generic `"appId"` / `"apiKey"` / `"userToken"` / `"name"` / `"id"` / `"q"` / `"query"` / `"url"` / `"value"` / `"currency"` stay out. Existing Insights `authenticatedUserToken` / `userHasOptedOut` / `useCookie` / `anonymousUserToken` / `cookieDuration` / `eventSubtype` / `objectData` / `price` / `quantity` / `discount` unchanged. Algolia Recommend / Crawler / Searchkit / neighbouring search JSON families stay out of the Insights matcher for these keys (WebdriverIO may still match free-form `"region"`; Compodoc may still match `"host"`). Enum `"region"` only matches `"de"` / `"us"`. `"host"` accepts a non-empty quoted string. `"partial"` accepts bool.
+
 ## [0.3.918] — 2026-11-16
 
 View:
