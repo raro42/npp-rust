@@ -40055,7 +40055,8 @@ fn algolia_recommend_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool
 /// `"eventType": "click"` / `"conversion"` / `"view"`, `"eventName": "…"`,
 /// `"queryID": "…"`, `"objectIDs": [`, `"positions": [`, `"filters": [`,
 /// `"value": 0` / `5` / `5.0` / `"5.0"`, `"currency": "…"`,
-/// `"timestamp": 0` / `1687193127000`, `"index": "…"`, `"events": [`.
+/// `"timestamp": 0` / `1687193127000`, `"index": "…"`, `"events": [`,
+/// `"agentID": "…"`, `"eventType": "instantsearch"`.
 /// Optional trailing `,` and `//` / `/*` comment. Incomplete quotes /
 /// missing `:` stay out. Generic `"$schema"` / `"name"` / `"id"` / `"q"` /
 /// `"query"` / `"url"` / `"appId"` / `"apiKey"` / `"indexName"` /
@@ -40173,14 +40174,14 @@ fn algolia_recommend_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool
 /// `"neuralExpression"` / `"dynamicThreshold"` /
 /// prettier `"printWidth"` / karma `"basePath"` stay out. Enum `"eventSubtype"`
 /// only matches Insights conversion subtypes. Enum `"eventType"` only matches
-/// `"click"` / `"conversion"` / `"view"`. Enum `"region"` only matches
-/// `"de"` / `"us"`. Bool keys only match `true` / `false`. `"price"` /
-/// `"discount"` / `"value"` accept a simple decimal (no exponent) or a
-/// non-empty quoted string. `"quantity"` / `"cookieDuration"` / `"timestamp"`
-/// accept uint. Numeric keys reject leading zeros beyond `0`. `"host"` /
-/// `"authenticatedUserToken"` / `"userToken"` / `"eventName"` / `"queryID"` /
-/// `"currency"` require a non-empty quoted string. `"objectIDs"` /
-/// `"positions"` / `"filters"` accept `[`.
+/// `"click"` / `"conversion"` / `"view"` / `"instantsearch"`. Enum `"region"`
+/// only matches `"de"` / `"us"`. Bool keys only match `true` / `false`.
+/// `"price"` / `"discount"` / `"value"` accept a simple decimal (no exponent)
+/// or a non-empty quoted string. `"quantity"` / `"cookieDuration"` /
+/// `"timestamp"` accept uint. Numeric keys reject leading zeros beyond `0`.
+/// `"host"` / `"authenticatedUserToken"` / `"userToken"` / `"eventName"` /
+/// `"queryID"` / `"currency"` / `"agentID"` require a non-empty quoted string.
+/// `"objectIDs"` / `"positions"` / `"filters"` accept `[`.
 fn is_algolia_insights_json_decl(s: &str) -> bool {
     let s = s.trim_start();
     let Some(rest) = s.strip_prefix('"') else {
@@ -40229,6 +40230,7 @@ fn algolia_insights_json_key_ok(key: &str) -> bool {
             | "timestamp"
             | "index"
             | "events"
+            | "agentID"
     )
 }
 
@@ -40260,6 +40262,7 @@ fn algolia_insights_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool
                     | "value"
                     | "currency"
                     | "index"
+                    | "agentID"
             ) {
                 algolia_insights_json_string_and_tail_ok(after_colon)
             } else if key == "eventSubtype" {
@@ -40313,7 +40316,7 @@ fn algolia_insights_json_event_type_and_tail_ok(after_colon: &str) -> bool {
         return false;
     };
     let value = &rest[..end];
-    if !matches!(value, "click" | "conversion" | "view") {
+    if !matches!(value, "click" | "conversion" | "view" | "instantsearch") {
         return false;
     }
     package_json_tail_ok(&rest[end + 1..])

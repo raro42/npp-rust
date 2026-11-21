@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.923] — 2026-11-22
+
+View:
+
+- **Function List** lists Algolia Insights agentic / Instantsearch event JSON keys: `"agentID": "…"`, `"eventType": "instantsearch"`. Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing `:` stay out. Empty strings / plural/singular misspellings / `"agentID": ""` / `"agentID": true` / `"agentID": [` / `"agentIDs": "…"` / `"agentId": "…"` / `"eventType": "addToCart"` / `"eventType": "purchase"` / `"eventTypes": "instantsearch"` / generic `"appId"` / `"apiKey"` / `"indexName"` / `"name"` / `"id"` / `"q"` / `"query"` / `"url"` / `"message"` / `"status"` stay out. Existing Insights `authenticatedUserToken` / `userHasOptedOut` / `useCookie` / `anonymousUserToken` / `cookieDuration` / `eventSubtype` / `objectData` / `price` / `quantity` / `discount` / `region` / `host` / `partial` / `userToken` / `eventType` (`click` / `conversion` / `view`) / `eventName` / `queryID` / `objectIDs` / `positions` / `filters` / `value` / `currency` / `timestamp` / `index` / `events` unchanged. Algolia Recommend / Crawler stay out of the Insights matcher for these keys. Enum `"eventType"` now also matches `"instantsearch"`. `"agentID"` requires a non-empty quoted string.
+
 ## [0.3.922] — 2026-11-22
 
 View:

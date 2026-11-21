@@ -47716,6 +47716,12 @@ fn algolia_insights_json_keys_smoke() {
     assert!(is_algolia_insights_json_decl(r#""timestamp": 1687193127000"#));
     assert!(is_algolia_insights_json_decl(r#""index": "products""#));
     assert!(is_algolia_insights_json_decl(r#""events": ["#));
+    assert!(is_algolia_insights_json_decl(
+        r#""agentID": "agent-session-123""#
+    ));
+    assert!(is_algolia_insights_json_decl(
+        r#""eventType": "instantsearch""#
+    ));
     assert!(!is_algolia_insights_json_decl(
         r#""maxRecommendations": 10"#
     ));
@@ -47743,6 +47749,12 @@ fn algolia_insights_json_keys_smoke() {
     ));
     assert!(!is_algolia_recommend_json_decl(r#""index": "products""#));
     assert!(!is_algolia_recommend_json_decl(r#""events": ["#));
+    assert!(!is_algolia_recommend_json_decl(
+        r#""agentID": "agent-session-123""#
+    ));
+    assert!(!is_algolia_recommend_json_decl(
+        r#""eventType": "instantsearch""#
+    ));
     assert!(!is_algolia_crawler_json_decl(r#""price": 9.99"#));
     assert!(!is_algolia_crawler_json_decl(r#""quantity": 2"#));
     assert!(!is_algolia_crawler_json_decl(r#""discount": 1.99"#));
@@ -47754,6 +47766,12 @@ fn algolia_insights_json_keys_smoke() {
     ));
     assert!(!is_algolia_crawler_json_decl(r#""index": "products""#));
     assert!(!is_algolia_crawler_json_decl(r#""events": ["#));
+    assert!(!is_algolia_crawler_json_decl(
+        r#""agentID": "agent-session-123""#
+    ));
+    assert!(!is_algolia_crawler_json_decl(
+        r#""eventType": "instantsearch""#
+    ));
     assert!(!is_algolia_insights_json_decl(r#""search_settings": {"#));
     assert!(is_searchkit_json_decl(r#""search_settings": {"#));
     assert!(!is_algolia_insights_json_decl(
@@ -48116,6 +48134,15 @@ fn algolia_insights_json_keys_count() {
     assert!(is_algolia_insights_json_decl(r#""eventType": "view""#));
     assert!(is_algolia_insights_json_decl(r#""eventType": "click","#));
     assert!(is_algolia_insights_json_decl(r#""eventType": "view" // c"#));
+    assert!(is_algolia_insights_json_decl(
+        r#""eventType": "instantsearch""#
+    ));
+    assert!(is_algolia_insights_json_decl(
+        r#""eventType": "instantsearch","#
+    ));
+    assert!(is_algolia_insights_json_decl(
+        r#""eventType": "instantsearch" // c"#
+    ));
     assert!(!is_algolia_insights_json_decl(r#""eventType": "addToCart""#));
     assert!(!is_algolia_insights_json_decl(r#""eventType": "purchase""#));
     assert!(!is_algolia_insights_json_decl(r#""eventType": """#));
@@ -48217,6 +48244,24 @@ fn algolia_insights_json_keys_count() {
     assert!(!is_algolia_insights_json_decl(r#""events": true"#));
     assert!(!is_algolia_insights_json_decl(r#""events": "click""#));
     assert!(!is_algolia_insights_json_decl(r#""event": ["#));
+    assert!(is_algolia_insights_json_decl(
+        r#""agentID": "agent-session-123""#
+    ));
+    assert!(is_algolia_insights_json_decl(r#""agentID": "agent-1""#));
+    assert!(is_algolia_insights_json_decl(
+        r#""agentID": "agent-session-123","#
+    ));
+    assert!(is_algolia_insights_json_decl(
+        r#""agentID": "agent-session-123" // c"#
+    ));
+    assert!(!is_algolia_insights_json_decl(r#""agentID": """#));
+    assert!(!is_algolia_insights_json_decl(r#""agentID": true"#));
+    assert!(!is_algolia_insights_json_decl(r#""agentID": ["#));
+    assert!(!is_algolia_insights_json_decl(r#""agentID": {"#));
+    assert!(!is_algolia_insights_json_decl(
+        r#""agentIDs": "agent-session-123""#
+    ));
+    assert!(!is_algolia_insights_json_decl(r#""agentId": "agent-1""#));
     assert!(!is_algolia_insights_json_decl(
         r#""authenticatedUserToken""#
     ));
@@ -48240,6 +48285,7 @@ fn algolia_insights_json_keys_count() {
     assert!(!is_algolia_insights_json_decl(r#""timestamp""#));
     assert!(!is_algolia_insights_json_decl(r#""index""#));
     assert!(!is_algolia_insights_json_decl(r#""events""#));
+    assert!(!is_algolia_insights_json_decl(r#""agentID""#));
     assert!(!is_algolia_insights_json_decl(
         r#""$schema": "https://example.com""#
     ));
@@ -48255,6 +48301,12 @@ fn algolia_insights_json_keys_count() {
     assert!(is_algolia_insights_json_decl(r#""currency": "USD""#));
     assert!(is_algolia_insights_json_decl(r#""index": "products""#));
     assert!(is_algolia_insights_json_decl(r#""events": ["#));
+    assert!(is_algolia_insights_json_decl(
+        r#""agentID": "agent-session-123""#
+    ));
+    assert!(is_algolia_insights_json_decl(
+        r#""eventType": "instantsearch""#
+    ));
     assert!(!is_algolia_insights_json_decl(
         r#""maxRecommendations": 10"#
     ));
@@ -48282,6 +48334,12 @@ fn algolia_insights_json_keys_count() {
     ));
     assert!(!is_algolia_recommend_json_decl(r#""index": "products""#));
     assert!(!is_algolia_recommend_json_decl(r#""events": ["#));
+    assert!(!is_algolia_recommend_json_decl(
+        r#""agentID": "agent-session-123""#
+    ));
+    assert!(!is_algolia_recommend_json_decl(
+        r#""eventType": "instantsearch""#
+    ));
     assert!(!is_algolia_crawler_json_decl(r#""price": 9.99"#));
     assert!(!is_algolia_crawler_json_decl(r#""quantity": 2"#));
     assert!(!is_algolia_crawler_json_decl(r#""discount": 1.99"#));
@@ -48293,6 +48351,12 @@ fn algolia_insights_json_keys_count() {
     ));
     assert!(!is_algolia_crawler_json_decl(r#""index": "products""#));
     assert!(!is_algolia_crawler_json_decl(r#""events": ["#));
+    assert!(!is_algolia_crawler_json_decl(
+        r#""agentID": "agent-session-123""#
+    ));
+    assert!(!is_algolia_crawler_json_decl(
+        r#""eventType": "instantsearch""#
+    ));
     assert!(!is_algolia_insights_json_decl(r#""search_settings": {"#));
     assert!(is_searchkit_json_decl(r#""search_settings": {"#));
     assert!(!is_algolia_insights_json_decl(
@@ -48517,6 +48581,8 @@ fn algolia_insights_json_keys_count() {
     assert!(line_is_func_like(r#""timestamp": 1687193127000"#));
     assert!(line_is_func_like(r#""index": "products""#));
     assert!(line_is_func_like(r#""events": ["#));
+    assert!(line_is_func_like(r#""agentID": "agent-session-123""#));
+    assert!(line_is_func_like(r#""eventType": "instantsearch""#));
     assert!(line_is_func_like(r#""ignoreRobotsTxtRules": true"#));
     assert!(line_is_func_like(r#""ignoreNoIndex": true"#));
     assert!(line_is_func_like(r#""saveBackup": true"#));
