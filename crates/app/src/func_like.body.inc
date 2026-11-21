@@ -40053,11 +40053,12 @@ fn algolia_recommend_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool
 /// `"discount": 0` / `1.99` / `"1.99"`, `"region": "de"` / `"us"`,
 /// `"host": "…"`, `"partial": true` / `false`, `"userToken": "…"`,
 /// `"eventType": "click"` / `"conversion"` / `"view"`, `"eventName": "…"`,
-/// `"queryID": "…"`, `"objectIDs": [`, `"positions": [`, `"filters": [`.
+/// `"queryID": "…"`, `"objectIDs": [`, `"positions": [`, `"filters": [`,
+/// `"value": 0` / `5` / `5.0` / `"5.0"`, `"currency": "…"`,
+/// `"timestamp": 0` / `1687193127000`.
 /// Optional trailing `,` and `//` / `/*` comment. Incomplete quotes /
 /// missing `:` stay out. Generic `"$schema"` / `"name"` / `"id"` / `"q"` /
 /// `"query"` / `"url"` / `"appId"` / `"apiKey"` / `"index"` / `"indexName"` /
-/// `"value"` / `"currency"` /
 /// Algolia Recommend `"maxRecommendations"` / `"threshold"` /
 /// `"fallbackParameters"` / `"queryParameters"` /
 /// `"frequentlyBoughtTogether"` / `"relatedProducts"` / `"trendingItems"` /
@@ -40174,11 +40175,12 @@ fn algolia_recommend_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool
 /// only matches Insights conversion subtypes. Enum `"eventType"` only matches
 /// `"click"` / `"conversion"` / `"view"`. Enum `"region"` only matches
 /// `"de"` / `"us"`. Bool keys only match `true` / `false`. `"price"` /
-/// `"discount"` accept a simple decimal (no exponent) or a non-empty quoted
-/// string. `"quantity"` / `"cookieDuration"` accept uint. Numeric keys reject
-/// leading zeros beyond `0`. `"host"` / `"authenticatedUserToken"` /
-/// `"userToken"` / `"eventName"` / `"queryID"` require a non-empty quoted
-/// string. `"objectIDs"` / `"positions"` / `"filters"` accept `[`.
+/// `"discount"` / `"value"` accept a simple decimal (no exponent) or a
+/// non-empty quoted string. `"quantity"` / `"cookieDuration"` / `"timestamp"`
+/// accept uint. Numeric keys reject leading zeros beyond `0`. `"host"` /
+/// `"authenticatedUserToken"` / `"userToken"` / `"eventName"` / `"queryID"` /
+/// `"currency"` require a non-empty quoted string. `"objectIDs"` /
+/// `"positions"` / `"filters"` accept `[`.
 fn is_algolia_insights_json_decl(s: &str) -> bool {
     let s = s.trim_start();
     let Some(rest) = s.strip_prefix('"') else {
@@ -40222,6 +40224,9 @@ fn algolia_insights_json_key_ok(key: &str) -> bool {
             | "objectIDs"
             | "positions"
             | "filters"
+            | "value"
+            | "currency"
+            | "timestamp"
     )
 }
 
@@ -40247,6 +40252,8 @@ fn algolia_insights_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool
                     | "userToken"
                     | "eventName"
                     | "queryID"
+                    | "value"
+                    | "currency"
             ) {
                 algolia_insights_json_string_and_tail_ok(after_colon)
             } else if key == "eventSubtype" {
@@ -40261,7 +40268,7 @@ fn algolia_insights_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool
         }
         b't' | b'f' => algolia_insights_json_bool_and_tail_ok(key, after_colon),
         b'0'..=b'9' => {
-            if matches!(key, "price" | "discount") {
+            if matches!(key, "price" | "discount" | "value") {
                 algolia_insights_json_decimal_and_tail_ok(after_colon)
             } else {
                 algolia_insights_json_uint_and_tail_ok(key, after_colon)
@@ -40336,7 +40343,7 @@ fn algolia_insights_json_bool_and_tail_ok(key: &str, after_colon: &str) -> bool 
 }
 
 fn algolia_insights_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool {
-    if !matches!(key, "cookieDuration" | "quantity") {
+    if !matches!(key, "cookieDuration" | "quantity" | "timestamp") {
         return false;
     }
     let bytes = after_colon.as_bytes();

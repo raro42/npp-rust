@@ -47709,6 +47709,11 @@ fn algolia_insights_json_keys_smoke() {
     assert!(is_algolia_insights_json_decl(r#""objectIDs": ["#));
     assert!(is_algolia_insights_json_decl(r#""positions": ["#));
     assert!(is_algolia_insights_json_decl(r#""filters": ["#));
+    assert!(is_algolia_insights_json_decl(r#""value": 5"#));
+    assert!(is_algolia_insights_json_decl(r#""value": 5.0"#));
+    assert!(is_algolia_insights_json_decl(r#""value": "5.0""#));
+    assert!(is_algolia_insights_json_decl(r#""currency": "USD""#));
+    assert!(is_algolia_insights_json_decl(r#""timestamp": 1687193127000"#));
     assert!(!is_algolia_insights_json_decl(
         r#""maxRecommendations": 10"#
     ));
@@ -47729,12 +47734,20 @@ fn algolia_insights_json_keys_smoke() {
     assert!(!is_algolia_recommend_json_decl(r#""queryID": "abc""#));
     assert!(!is_algolia_recommend_json_decl(r#""positions": ["#));
     assert!(!is_algolia_recommend_json_decl(r#""filters": ["#));
+    assert!(!is_algolia_recommend_json_decl(r#""value": 5"#));
+    assert!(!is_algolia_recommend_json_decl(r#""currency": "USD""#));
+    assert!(!is_algolia_recommend_json_decl(
+        r#""timestamp": 1687193127000"#
+    ));
     assert!(!is_algolia_crawler_json_decl(r#""price": 9.99"#));
     assert!(!is_algolia_crawler_json_decl(r#""quantity": 2"#));
     assert!(!is_algolia_crawler_json_decl(r#""discount": 1.99"#));
     assert!(!is_algolia_crawler_json_decl(r#""region": "de""#));
     assert!(!is_algolia_crawler_json_decl(r#""host": "proxy""#));
     assert!(!is_algolia_crawler_json_decl(r#""partial": true"#));
+    assert!(!is_algolia_crawler_json_decl(
+        r#""timestamp": 1687193127000"#
+    ));
     assert!(!is_algolia_insights_json_decl(r#""search_settings": {"#));
     assert!(is_searchkit_json_decl(r#""search_settings": {"#));
     assert!(!is_algolia_insights_json_decl(
@@ -47874,8 +47887,7 @@ fn algolia_insights_json_keys_smoke() {
         r#""ignorePaginationAttributes": true"#
     ));
     assert!(!is_algolia_insights_json_decl(r#""linkExtractor": {"#));
-    assert!(is_algolia_crawler_json_decl(r#""linkExtractor": {"#));
-    assert!(!is_algolia_insights_json_decl(r#""login": {"#));
+    assert!(is_algolia_crawler_json_decl(r#""linkExtractor": {"#));    assert!(!is_algolia_insights_json_decl(r#""login": {"#));
     assert!(is_algolia_crawler_json_decl(r#""login": {"#));
     assert!(!is_algolia_insights_json_decl(r#""requestOptions": {"#));
     assert!(is_algolia_crawler_json_decl(r#""requestOptions": {"#));
@@ -48145,6 +48157,43 @@ fn algolia_insights_json_keys_count() {
     assert!(!is_algolia_insights_json_decl(r#""filters": true"#));
     assert!(!is_algolia_insights_json_decl(r#""filters": "brand:Apple""#));
     assert!(!is_algolia_insights_json_decl(r#""filter": ["#));
+    assert!(is_algolia_insights_json_decl(r#""value": 0"#));
+    assert!(is_algolia_insights_json_decl(r#""value": 5"#));
+    assert!(is_algolia_insights_json_decl(r#""value": 5.0"#));
+    assert!(is_algolia_insights_json_decl(r#""value": 5,"#));
+    assert!(is_algolia_insights_json_decl(r#""value": 5 // c"#));
+    assert!(is_algolia_insights_json_decl(r#""value": "5.0""#));
+    assert!(is_algolia_insights_json_decl(r#""value": "5.0","#));
+    assert!(is_algolia_insights_json_decl(r#""value": "5.0" // c"#));
+    assert!(!is_algolia_insights_json_decl(r#""value": 05"#));
+    assert!(!is_algolia_insights_json_decl(r#""value": 5."#));
+    assert!(!is_algolia_insights_json_decl(r#""value": .5"#));
+    assert!(!is_algolia_insights_json_decl(r#""value": """#));
+    assert!(!is_algolia_insights_json_decl(r#""value": true"#));
+    assert!(!is_algolia_insights_json_decl(r#""value": ["#));
+    assert!(!is_algolia_insights_json_decl(r#""value": {"#));
+    assert!(!is_algolia_insights_json_decl(r#""values": 5"#));
+    assert!(is_algolia_insights_json_decl(r#""currency": "USD""#));
+    assert!(is_algolia_insights_json_decl(r#""currency": "EUR""#));
+    assert!(is_algolia_insights_json_decl(r#""currency": "USD","#));
+    assert!(is_algolia_insights_json_decl(r#""currency": "USD" // c"#));
+    assert!(!is_algolia_insights_json_decl(r#""currency": """#));
+    assert!(!is_algolia_insights_json_decl(r#""currency": true"#));
+    assert!(!is_algolia_insights_json_decl(r#""currency": ["#));
+    assert!(!is_algolia_insights_json_decl(r#""currency": {"#));
+    assert!(!is_algolia_insights_json_decl(r#""currencies": "USD""#));
+    assert!(is_algolia_insights_json_decl(r#""timestamp": 0"#));
+    assert!(is_algolia_insights_json_decl(r#""timestamp": 1687193127000"#));
+    assert!(is_algolia_insights_json_decl(r#""timestamp": 1687193127000,"#));
+    assert!(is_algolia_insights_json_decl(
+        r#""timestamp": 1687193127000 // c"#
+    ));
+    assert!(!is_algolia_insights_json_decl(r#""timestamp": 01"#));
+    assert!(!is_algolia_insights_json_decl(r#""timestamp": 1.5"#));
+    assert!(!is_algolia_insights_json_decl(r#""timestamp": "1""#));
+    assert!(!is_algolia_insights_json_decl(r#""timestamp": true"#));
+    assert!(!is_algolia_insights_json_decl(r#""timestamp": ["#));
+    assert!(!is_algolia_insights_json_decl(r#""timestamps": 1"#));
     assert!(!is_algolia_insights_json_decl(
         r#""authenticatedUserToken""#
     ));
@@ -48163,6 +48212,9 @@ fn algolia_insights_json_keys_count() {
     assert!(!is_algolia_insights_json_decl(r#""objectIDs""#));
     assert!(!is_algolia_insights_json_decl(r#""positions""#));
     assert!(!is_algolia_insights_json_decl(r#""filters""#));
+    assert!(!is_algolia_insights_json_decl(r#""value""#));
+    assert!(!is_algolia_insights_json_decl(r#""currency""#));
+    assert!(!is_algolia_insights_json_decl(r#""timestamp""#));
     assert!(!is_algolia_insights_json_decl(
         r#""$schema": "https://example.com""#
     ));
@@ -48175,8 +48227,8 @@ fn algolia_insights_json_keys_count() {
     assert!(!is_algolia_insights_json_decl(r#""apiKey": "key""#));
     assert!(!is_algolia_insights_json_decl(r#""index": "products""#));
     assert!(!is_algolia_insights_json_decl(r#""indexName": "products""#));
-    assert!(!is_algolia_insights_json_decl(r#""value": 10"#));
-    assert!(!is_algolia_insights_json_decl(r#""currency": "USD""#));
+    assert!(is_algolia_insights_json_decl(r#""value": 10"#));
+    assert!(is_algolia_insights_json_decl(r#""currency": "USD""#));
     assert!(!is_algolia_insights_json_decl(
         r#""maxRecommendations": 10"#
     ));
@@ -48197,12 +48249,20 @@ fn algolia_insights_json_keys_count() {
     assert!(!is_algolia_recommend_json_decl(r#""queryID": "abc""#));
     assert!(!is_algolia_recommend_json_decl(r#""positions": ["#));
     assert!(!is_algolia_recommend_json_decl(r#""filters": ["#));
+    assert!(!is_algolia_recommend_json_decl(r#""value": 5"#));
+    assert!(!is_algolia_recommend_json_decl(r#""currency": "USD""#));
+    assert!(!is_algolia_recommend_json_decl(
+        r#""timestamp": 1687193127000"#
+    ));
     assert!(!is_algolia_crawler_json_decl(r#""price": 9.99"#));
     assert!(!is_algolia_crawler_json_decl(r#""quantity": 2"#));
     assert!(!is_algolia_crawler_json_decl(r#""discount": 1.99"#));
     assert!(!is_algolia_crawler_json_decl(r#""region": "de""#));
     assert!(!is_algolia_crawler_json_decl(r#""host": "proxy""#));
     assert!(!is_algolia_crawler_json_decl(r#""partial": true"#));
+    assert!(!is_algolia_crawler_json_decl(
+        r#""timestamp": 1687193127000"#
+    ));
     assert!(!is_algolia_insights_json_decl(r#""search_settings": {"#));
     assert!(is_searchkit_json_decl(r#""search_settings": {"#));
     assert!(!is_algolia_insights_json_decl(
@@ -48421,6 +48481,10 @@ fn algolia_insights_json_keys_count() {
     assert!(line_is_func_like(r#""region": "us""#));
     assert!(line_is_func_like(r#""host": "insights.example""#));
     assert!(line_is_func_like(r#""partial": true"#));
+    assert!(line_is_func_like(r#""value": 5"#));
+    assert!(line_is_func_like(r#""value": "5.0""#));
+    assert!(line_is_func_like(r#""currency": "USD""#));
+    assert!(line_is_func_like(r#""timestamp": 1687193127000"#));
     assert!(line_is_func_like(r#""ignoreRobotsTxtRules": true"#));
     assert!(line_is_func_like(r#""ignoreNoIndex": true"#));
     assert!(line_is_func_like(r#""saveBackup": true"#));
@@ -53652,7 +53716,7 @@ fn algolia_crawler_json_keys_count() {
     assert!(!is_algolia_crawler_json_decl(r#""currency": true"#));
     assert!(!is_algolia_crawler_json_decl(r#""currency": ["#));
     assert!(!is_algolia_crawler_json_decl(r#""currencies": "USD""#));
-    assert!(!is_algolia_insights_json_decl(r#""currency": "USD""#));
+    assert!(is_algolia_insights_json_decl(r#""currency": "USD""#));
     assert!(!is_algolia_recommend_json_decl(r#""currency": "USD""#));
     assert!(is_algolia_crawler_json_decl(r#""revenue": 0"#));
     assert!(is_algolia_crawler_json_decl(r#""revenue": 999.98"#));
@@ -53787,7 +53851,7 @@ fn algolia_crawler_json_keys_count() {
     assert!(!is_algolia_crawler_json_decl(r#""value": 1."#));
     assert!(!is_algolia_crawler_json_decl(r#""value": .5"#));
     assert!(!is_algolia_crawler_json_decl(r#""values": "apple""#));
-    assert!(!is_algolia_insights_json_decl(r#""value": "apple""#));
+    assert!(is_algolia_insights_json_decl(r#""value": "apple""#));
     assert!(!is_algolia_recommend_json_decl(r#""value": "apple""#));
     assert!(is_algolia_crawler_json_decl(r#""operator": ":""#));
     assert!(is_algolia_crawler_json_decl(r#""operator": "<""#));

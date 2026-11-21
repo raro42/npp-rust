@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.921] — 2026-11-21
+
+View:
+
+- **Function List** lists Algolia Insights conversion / event JSON keys: `"value": 0` / `5` / `5.0` / `"5.0"`, `"currency": "…"`, `"timestamp": 0` / `1687193127000`. Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing `:` stay out. Empty strings / plural/singular misspellings / `"value": 05` / `"value": 5."` / `"value": .5` / `"value": ""` / `"value": true` / `"value": [` / `"values": 5` / `"currency": ""` / `"currency": true` / `"currency": [` / `"currencies": "USD"` / `"timestamp": 01` / `"timestamp": 1.5` / `"timestamp": "1"` / `"timestamp": true` / `"timestamps": 1` / generic `"appId"` / `"apiKey"` / `"index"` / `"indexName"` / `"name"` / `"id"` / `"q"` / `"query"` / `"url"` stay out. Existing Insights `authenticatedUserToken` / `userHasOptedOut` / `useCookie` / `anonymousUserToken` / `cookieDuration` / `eventSubtype` / `objectData` / `price` / `quantity` / `discount` / `region` / `host` / `partial` / `userToken` / `eventType` / `eventName` / `queryID` / `objectIDs` / `positions` / `filters` unchanged. Algolia Recommend stays out of the Insights matcher for these keys. Crawler may still match `"value"` / `"currency"` (Crawler stays out of `"timestamp"`). `"value"` accepts a simple decimal (no exponent) or a non-empty quoted string. `"currency"` requires a non-empty quoted string. `"timestamp"` accepts uint. Numeric keys reject leading zeros beyond `0`.
+
 ## [0.3.920] — 2026-11-21
 
 View:
