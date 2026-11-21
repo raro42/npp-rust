@@ -1502,3 +1502,5 @@
 009 keep: Function List Algolia Analytics addToCartCount/purchaseCount/addToCartRate/purchaseRate/dates (v0.3.900)
 
 009 keep: Function List Algolia Insights price/quantity/discount (v0.3.918)
+
+009 keep: Function List Algolia Insights userToken/eventType/eventName/queryID/objectIDs/positions/filters (v0.3.920)

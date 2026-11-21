@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.920] — 2026-11-21
+
+View:
+
+- **Function List** lists Algolia Insights event JSON keys: `"userToken": "…"`, `"eventType": "click"` / `"conversion"` / `"view"`, `"eventName": "…"`, `"queryID": "…"`, `"objectIDs": [`, `"positions": [`, `"filters": [`. Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing `:` stay out. Empty strings / plural/singular misspellings / `"userToken": ""` / `"userToken": true` / `"userToken": [` / `"userTokens": "anon"` / `"eventType": "addToCart"` / `"eventType": "purchase"` / `"eventType": ""` / `"eventType": true` / `"eventTypes": "click"` / `"eventName": ""` / `"eventName": true` / `"eventName": [` / `"eventNames": "…"` / `"queryID": ""` / `"queryID": true` / `"queryID": [` / `"queryIDs": "abc"` / `"objectIDs": {"` / `"objectIDs": true` / `"objectIDs": "123"` / `"objectID": [` / `"positions": {"` / `"positions": true` / `"positions": "1"` / `"position": [` / `"filters": {"` / `"filters": true` / `"filters": "brand:Apple"` / `"filter": [` / generic `"appId"` / `"apiKey"` / `"index"` / `"indexName"` / `"name"` / `"id"` / `"q"` / `"query"` / `"url"` / `"value"` / `"currency"` stay out. Existing Insights `authenticatedUserToken` / `userHasOptedOut` / `useCookie` / `anonymousUserToken` / `cookieDuration` / `eventSubtype` / `objectData` / `price` / `quantity` / `discount` / `region` / `host` / `partial` unchanged. Algolia Recommend stays out of the Insights matcher for these keys except `"objectIDs"` (Recommend still matches `"objectIDs": [`). Crawler / Personalization / Analytics may still match `"userToken"` / `"eventType"` / `"eventName"` / `"queryID"` / `"positions"` / `"filters"`. Enum `"eventType"` only matches `"click"` / `"conversion"` / `"view"`. String keys require a non-empty quoted string. Array keys accept `[`.
+
 ## [0.3.919] — 2026-11-21
 
 View:

@@ -39854,6 +39854,8 @@ fn searchkit_json_string_and_tail_ok(key: &str, after_colon: &str) -> bool {
 /// `"userHasOptedOut"` / `"useCookie"` / `"anonymousUserToken"` /
 /// `"cookieDuration"` / `"eventSubtype"` / `"objectData"` / `"price"` /
 /// `"quantity"` / `"discount"` / `"region"` / `"host"` / `"partial"` /
+/// `"userToken"` / `"eventType"` / `"eventName"` / `"queryID"` /
+/// `"objectIDs"` / `"positions"` / `"filters"` /
 /// Algolia Crawler `"startUrls"` / `"sitemaps"` / `"discoveryPatterns"` /
 /// `"exclusionPatterns"` / `"ignoreCanonicalTo"` / `"schedule"` /
 /// `"actions"` / `"initialIndexSettings"` / `"extraUrls"` / `"maxUrls"` /
@@ -40049,12 +40051,13 @@ fn algolia_recommend_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool
 /// `"eventSubtype": "addToCart"` / `"purchase"`, `"objectData": [`,
 /// `"price": 0` / `9.99` / `"9.99"`, `"quantity": 0` / `2`,
 /// `"discount": 0` / `1.99` / `"1.99"`, `"region": "de"` / `"us"`,
-/// `"host": "…"`, `"partial": true` / `false`.
+/// `"host": "…"`, `"partial": true` / `false`, `"userToken": "…"`,
+/// `"eventType": "click"` / `"conversion"` / `"view"`, `"eventName": "…"`,
+/// `"queryID": "…"`, `"objectIDs": [`, `"positions": [`, `"filters": [`.
 /// Optional trailing `,` and `//` / `/*` comment. Incomplete quotes /
 /// missing `:` stay out. Generic `"$schema"` / `"name"` / `"id"` / `"q"` /
 /// `"query"` / `"url"` / `"appId"` / `"apiKey"` / `"index"` / `"indexName"` /
-/// `"userToken"` / `"eventType"` / `"eventName"` / `"queryID"` /
-/// `"objectIDs"` / `"positions"` / `"filters"` / `"value"` / `"currency"` /
+/// `"value"` / `"currency"` /
 /// Algolia Recommend `"maxRecommendations"` / `"threshold"` /
 /// `"fallbackParameters"` / `"queryParameters"` /
 /// `"frequentlyBoughtTogether"` / `"relatedProducts"` / `"trendingItems"` /
@@ -40168,12 +40171,14 @@ fn algolia_recommend_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool
 /// `"usePositionalSemanticRanking"` / `"minHitsForSemantic"` /
 /// `"neuralExpression"` / `"dynamicThreshold"` /
 /// prettier `"printWidth"` / karma `"basePath"` stay out. Enum `"eventSubtype"`
-/// only matches Insights conversion subtypes. Enum `"region"` only matches
+/// only matches Insights conversion subtypes. Enum `"eventType"` only matches
+/// `"click"` / `"conversion"` / `"view"`. Enum `"region"` only matches
 /// `"de"` / `"us"`. Bool keys only match `true` / `false`. `"price"` /
 /// `"discount"` accept a simple decimal (no exponent) or a non-empty quoted
 /// string. `"quantity"` / `"cookieDuration"` accept uint. Numeric keys reject
-/// leading zeros beyond `0`. `"host"` / `"authenticatedUserToken"` require a
-/// non-empty quoted string.
+/// leading zeros beyond `0`. `"host"` / `"authenticatedUserToken"` /
+/// `"userToken"` / `"eventName"` / `"queryID"` require a non-empty quoted
+/// string. `"objectIDs"` / `"positions"` / `"filters"` accept `[`.
 fn is_algolia_insights_json_decl(s: &str) -> bool {
     let s = s.trim_start();
     let Some(rest) = s.strip_prefix('"') else {
@@ -40210,6 +40215,13 @@ fn algolia_insights_json_key_ok(key: &str) -> bool {
             | "region"
             | "host"
             | "partial"
+            | "userToken"
+            | "eventType"
+            | "eventName"
+            | "queryID"
+            | "objectIDs"
+            | "positions"
+            | "filters"
     )
 }
 
@@ -40220,7 +40232,7 @@ fn algolia_insights_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool
     };
     match first {
         b'[' => {
-            if key != "objectData" {
+            if !matches!(key, "objectData" | "objectIDs" | "positions" | "filters") {
                 return false;
             }
             package_json_tail_ok(&after_colon[1..])
@@ -40228,11 +40240,19 @@ fn algolia_insights_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool
         b'"' => {
             if matches!(
                 key,
-                "authenticatedUserToken" | "price" | "discount" | "host"
+                "authenticatedUserToken"
+                    | "price"
+                    | "discount"
+                    | "host"
+                    | "userToken"
+                    | "eventName"
+                    | "queryID"
             ) {
                 algolia_insights_json_string_and_tail_ok(after_colon)
             } else if key == "eventSubtype" {
                 algolia_insights_json_event_subtype_and_tail_ok(after_colon)
+            } else if key == "eventType" {
+                algolia_insights_json_event_type_and_tail_ok(after_colon)
             } else if key == "region" {
                 algolia_insights_json_region_and_tail_ok(after_colon)
             } else {
@@ -40269,6 +40289,18 @@ fn algolia_insights_json_event_subtype_and_tail_ok(after_colon: &str) -> bool {
     };
     let value = &rest[..end];
     if !matches!(value, "addToCart" | "purchase") {
+        return false;
+    }
+    package_json_tail_ok(&rest[end + 1..])
+}
+
+fn algolia_insights_json_event_type_and_tail_ok(after_colon: &str) -> bool {
+    let rest = &after_colon[1..];
+    let Some(end) = rest.find('"') else {
+        return false;
+    };
+    let value = &rest[..end];
+    if !matches!(value, "click" | "conversion" | "view") {
         return false;
     }
     package_json_tail_ok(&rest[end + 1..])
