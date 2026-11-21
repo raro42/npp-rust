@@ -1,3 +1,5 @@
+009 keep: Function List Algolia Insights index/events (v0.3.922)
+009 keep: Function List Algolia Insights value/currency/timestamp (v0.3.921)
 009 keep: Function List Algolia Insights region/host/partial (v0.3.919)
 
 009 keep: Function List Algolia Recommend objectID/objectIDs/facetValue (v0.3.917)

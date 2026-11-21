@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.922] — 2026-11-22
+
+View:
+
+- **Function List** lists Algolia Insights event / batch JSON keys: `"index": "…"`, `"events": [`. Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing `:` stay out. Empty strings / plural/singular misspellings / `"index": ""` / `"index": true` / `"index": [` / `"indexes": "products"` / `"events": {"` / `"events": true` / `"events": "click"` / `"event": [` / generic `"appId"` / `"apiKey"` / `"indexName"` / `"name"` / `"id"` / `"q"` / `"query"` / `"url"` stay out. Existing Insights `authenticatedUserToken` / `userHasOptedOut` / `useCookie` / `anonymousUserToken` / `cookieDuration` / `eventSubtype` / `objectData` / `price` / `quantity` / `discount` / `region` / `host` / `partial` / `userToken` / `eventType` / `eventName` / `queryID` / `objectIDs` / `positions` / `filters` / `value` / `currency` / `timestamp` unchanged. Algolia Recommend / Crawler stay out of the Insights matcher for these keys (Loop54 may still match `"events"`; Angular / ESDoc / package.json may still match `"index"`). `"index"` accepts a non-empty quoted string. `"events"` accepts `[`.
+
 ## [0.3.921] — 2026-11-21
 
 View:

@@ -40055,10 +40055,10 @@ fn algolia_recommend_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool
 /// `"eventType": "click"` / `"conversion"` / `"view"`, `"eventName": "…"`,
 /// `"queryID": "…"`, `"objectIDs": [`, `"positions": [`, `"filters": [`,
 /// `"value": 0` / `5` / `5.0` / `"5.0"`, `"currency": "…"`,
-/// `"timestamp": 0` / `1687193127000`.
+/// `"timestamp": 0` / `1687193127000`, `"index": "…"`, `"events": [`.
 /// Optional trailing `,` and `//` / `/*` comment. Incomplete quotes /
 /// missing `:` stay out. Generic `"$schema"` / `"name"` / `"id"` / `"q"` /
-/// `"query"` / `"url"` / `"appId"` / `"apiKey"` / `"index"` / `"indexName"` /
+/// `"query"` / `"url"` / `"appId"` / `"apiKey"` / `"indexName"` /
 /// Algolia Recommend `"maxRecommendations"` / `"threshold"` /
 /// `"fallbackParameters"` / `"queryParameters"` /
 /// `"frequentlyBoughtTogether"` / `"relatedProducts"` / `"trendingItems"` /
@@ -40227,6 +40227,8 @@ fn algolia_insights_json_key_ok(key: &str) -> bool {
             | "value"
             | "currency"
             | "timestamp"
+            | "index"
+            | "events"
     )
 }
 
@@ -40237,7 +40239,10 @@ fn algolia_insights_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool
     };
     match first {
         b'[' => {
-            if !matches!(key, "objectData" | "objectIDs" | "positions" | "filters") {
+            if !matches!(
+                key,
+                "objectData" | "objectIDs" | "positions" | "filters" | "events"
+            ) {
                 return false;
             }
             package_json_tail_ok(&after_colon[1..])
@@ -40254,6 +40259,7 @@ fn algolia_insights_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool
                     | "queryID"
                     | "value"
                     | "currency"
+                    | "index"
             ) {
                 algolia_insights_json_string_and_tail_ok(after_colon)
             } else if key == "eventSubtype" {
