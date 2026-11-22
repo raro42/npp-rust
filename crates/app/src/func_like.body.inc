@@ -38837,7 +38837,12 @@ fn stork_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool {
 /// `"placeholderTextAskAi": "…"`, `"placeholderTextAskAiStreaming": "…"`,
 /// `"enterKeyHintAskAi": "…"`, `"backToKeywordSearchButtonText": "…"`,
 /// `"backToKeywordSearchButtonAriaLabel": "…"`,
-/// `"newConversationPlaceholder": "…"`, `"conversationHistoryTitle": "…"`.
+/// `"newConversationPlaceholder": "…"`, `"conversationHistoryTitle": "…"`,
+/// `"startNewConversationText": "…"`, `"viewConversationHistoryText": "…"`,
+/// `"threadDepthErrorPlaceholder": "…"`, `"titleText": "…"`,
+/// `"helpText": "…"`, `"suggestedQueryText": "…"`,
+/// `"reportMissingResultsText": "…"`, `"reportMissingResultsLinkText": "…"`,
+/// `"askAiPlaceholder": "…"`, `"noResultsAskAiPlaceholder": "…"`.
 /// Optional trailing `,` and `//` / `/*` comment. Incomplete quotes /
 /// missing `:` stay out. Generic `"$schema"` / `"name"` / `"id"` /
 /// `"q"` / `"query"` / `"url"` / `"appId"` / `"apiKey"` / `"indexName"` /
@@ -39001,6 +39006,16 @@ fn docsearch_json_key_ok(key: &str) -> bool {
             | "backToKeywordSearchButtonAriaLabel"
             | "newConversationPlaceholder"
             | "conversationHistoryTitle"
+            | "startNewConversationText"
+            | "viewConversationHistoryText"
+            | "threadDepthErrorPlaceholder"
+            | "titleText"
+            | "helpText"
+            | "suggestedQueryText"
+            | "reportMissingResultsText"
+            | "reportMissingResultsLinkText"
+            | "askAiPlaceholder"
+            | "noResultsAskAiPlaceholder"
     )
 }
 
@@ -39074,7 +39089,11 @@ fn docsearch_json_string_and_tail_ok(key: &str, after_colon: &str) -> bool {
         | "placeholderTextAskAi" | "placeholderTextAskAiStreaming"
         | "enterKeyHintAskAi" | "backToKeywordSearchButtonText"
         | "backToKeywordSearchButtonAriaLabel" | "newConversationPlaceholder"
-        | "conversationHistoryTitle" => {}
+        | "conversationHistoryTitle" | "startNewConversationText"
+        | "viewConversationHistoryText" | "threadDepthErrorPlaceholder"
+        | "titleText" | "helpText" | "suggestedQueryText"
+        | "reportMissingResultsText" | "reportMissingResultsLinkText"
+        | "askAiPlaceholder" | "noResultsAskAiPlaceholder" => {}
         "variant" => {
             if !matches!(value, "floating" | "inline") {
                 return false;

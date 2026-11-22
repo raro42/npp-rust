@@ -45684,6 +45684,62 @@ fn stork_json_keys_count() {
     assert!(is_docsearch_json_decl(
         r#""conversationHistoryTitle": "My conversation history""#
     ));
+    assert!(!is_stork_json_decl(
+        r#""startNewConversationText": "Start a new conversation""#
+    ));
+    assert!(is_docsearch_json_decl(
+        r#""startNewConversationText": "Start a new conversation""#
+    ));
+    assert!(!is_stork_json_decl(
+        r#""viewConversationHistoryText": "Conversation history""#
+    ));
+    assert!(is_docsearch_json_decl(
+        r#""viewConversationHistoryText": "Conversation history""#
+    ));
+    assert!(!is_stork_json_decl(
+        r#""threadDepthErrorPlaceholder": "Conversation limit reached""#
+    ));
+    assert!(is_docsearch_json_decl(
+        r#""threadDepthErrorPlaceholder": "Conversation limit reached""#
+    ));
+    assert!(!is_stork_json_decl(
+        r#""titleText": "Unable to fetch results""#
+    ));
+    assert!(is_docsearch_json_decl(
+        r#""titleText": "Unable to fetch results""#
+    ));
+    assert!(!is_stork_json_decl(
+        r#""helpText": "You might want to check your network connection.""#
+    ));
+    assert!(is_docsearch_json_decl(
+        r#""helpText": "You might want to check your network connection.""#
+    ));
+    assert!(!is_stork_json_decl(
+        r#""suggestedQueryText": "Try searching for""#
+    ));
+    assert!(is_docsearch_json_decl(
+        r#""suggestedQueryText": "Try searching for""#
+    ));
+    assert!(!is_stork_json_decl(
+        r#""reportMissingResultsText": "Believe this query should return results?""#
+    ));
+    assert!(is_docsearch_json_decl(
+        r#""reportMissingResultsText": "Believe this query should return results?""#
+    ));
+    assert!(!is_stork_json_decl(
+        r#""reportMissingResultsLinkText": "Let us know.""#
+    ));
+    assert!(is_docsearch_json_decl(
+        r#""reportMissingResultsLinkText": "Let us know.""#
+    ));
+    assert!(!is_stork_json_decl(r#""askAiPlaceholder": "Ask AI: ""#));
+    assert!(is_docsearch_json_decl(r#""askAiPlaceholder": "Ask AI: ""#));
+    assert!(!is_stork_json_decl(
+        r#""noResultsAskAiPlaceholder": "Didn't find it in the docs? Ask AI to help: ""#
+    ));
+    assert!(is_docsearch_json_decl(
+        r#""noResultsAskAiPlaceholder": "Didn't find it in the docs? Ask AI to help: ""#
+    ));
     assert!(!is_stork_json_decl(r#""stalledSearchDelay": 200"#));
     assert!(is_instantsearch_json_decl(r#""stalledSearchDelay": 200"#));
     assert!(!is_stork_json_decl(r#""initialUiState": {"#));
@@ -45823,6 +45879,34 @@ fn docsearch_json_keys_smoke() {
     ));
     assert!(is_docsearch_json_decl(
         r#""conversationHistoryTitle": "My conversation history""#
+    ));
+    assert!(is_docsearch_json_decl(
+        r#""startNewConversationText": "Start a new conversation""#
+    ));
+    assert!(is_docsearch_json_decl(
+        r#""viewConversationHistoryText": "Conversation history""#
+    ));
+    assert!(is_docsearch_json_decl(
+        r#""threadDepthErrorPlaceholder": "Conversation limit reached""#
+    ));
+    assert!(is_docsearch_json_decl(
+        r#""titleText": "Unable to fetch results""#
+    ));
+    assert!(is_docsearch_json_decl(
+        r#""helpText": "You might want to check your network connection.""#
+    ));
+    assert!(is_docsearch_json_decl(
+        r#""suggestedQueryText": "Try searching for""#
+    ));
+    assert!(is_docsearch_json_decl(
+        r#""reportMissingResultsText": "Believe this query should return results?""#
+    ));
+    assert!(is_docsearch_json_decl(
+        r#""reportMissingResultsLinkText": "Let us know.""#
+    ));
+    assert!(is_docsearch_json_decl(r#""askAiPlaceholder": "Ask AI: ""#));
+    assert!(is_docsearch_json_decl(
+        r#""noResultsAskAiPlaceholder": "Didn't find it in the docs? Ask AI to help: ""#
     ));
     assert!(!is_docsearch_json_decl(
         r#""exclude_html_selector": ".sidebar""#
@@ -46945,6 +47029,218 @@ fn docsearch_json_keys_count() {
     assert!(!is_docsearch_json_decl(
         r#""ConversationHistoryTitle": "My conversation history""#
     ));
+    assert!(is_docsearch_json_decl(
+        r#""startNewConversationText": "Start a new conversation""#
+    ));
+    assert!(is_docsearch_json_decl(
+        r#""startNewConversationText": "Start a new conversation","#
+    ));
+    assert!(is_docsearch_json_decl(
+        r#""startNewConversationText": "Start a new conversation" // c"#
+    ));
+    assert!(!is_docsearch_json_decl(r#""startNewConversationText": """#));
+    assert!(!is_docsearch_json_decl(
+        r#""startNewConversationText": true"#
+    ));
+    assert!(!is_docsearch_json_decl(r#""startNewConversationText": {"#));
+    assert!(!is_docsearch_json_decl(r#""startNewConversationText": ["#));
+    assert!(!is_docsearch_json_decl(
+        r#""startNewConversationTexts": "Start a new conversation""#
+    ));
+    assert!(!is_docsearch_json_decl(
+        r#""StartNewConversationText": "Start a new conversation""#
+    ));
+    assert!(is_docsearch_json_decl(
+        r#""viewConversationHistoryText": "Conversation history""#
+    ));
+    assert!(is_docsearch_json_decl(
+        r#""viewConversationHistoryText": "Conversation history","#
+    ));
+    assert!(is_docsearch_json_decl(
+        r#""viewConversationHistoryText": "Conversation history" // c"#
+    ));
+    assert!(!is_docsearch_json_decl(
+        r#""viewConversationHistoryText": """#
+    ));
+    assert!(!is_docsearch_json_decl(
+        r#""viewConversationHistoryText": true"#
+    ));
+    assert!(!is_docsearch_json_decl(
+        r#""viewConversationHistoryText": {"#
+    ));
+    assert!(!is_docsearch_json_decl(
+        r#""viewConversationHistoryText": ["#
+    ));
+    assert!(!is_docsearch_json_decl(
+        r#""viewConversationHistoryTexts": "Conversation history""#
+    ));
+    assert!(!is_docsearch_json_decl(
+        r#""ViewConversationHistoryText": "Conversation history""#
+    ));
+    assert!(is_docsearch_json_decl(
+        r#""threadDepthErrorPlaceholder": "Conversation limit reached""#
+    ));
+    assert!(is_docsearch_json_decl(
+        r#""threadDepthErrorPlaceholder": "Conversation limit reached","#
+    ));
+    assert!(is_docsearch_json_decl(
+        r#""threadDepthErrorPlaceholder": "Conversation limit reached" // c"#
+    ));
+    assert!(!is_docsearch_json_decl(
+        r#""threadDepthErrorPlaceholder": """#
+    ));
+    assert!(!is_docsearch_json_decl(
+        r#""threadDepthErrorPlaceholder": true"#
+    ));
+    assert!(!is_docsearch_json_decl(
+        r#""threadDepthErrorPlaceholder": {"#
+    ));
+    assert!(!is_docsearch_json_decl(
+        r#""threadDepthErrorPlaceholder": ["#
+    ));
+    assert!(!is_docsearch_json_decl(
+        r#""threadDepthErrorPlaceholders": "Conversation limit reached""#
+    ));
+    assert!(!is_docsearch_json_decl(
+        r#""ThreadDepthErrorPlaceholder": "Conversation limit reached""#
+    ));
+    assert!(is_docsearch_json_decl(
+        r#""titleText": "Unable to fetch results""#
+    ));
+    assert!(is_docsearch_json_decl(
+        r#""titleText": "Unable to fetch results","#
+    ));
+    assert!(is_docsearch_json_decl(
+        r#""titleText": "Unable to fetch results" // c"#
+    ));
+    assert!(!is_docsearch_json_decl(r#""titleText": """#));
+    assert!(!is_docsearch_json_decl(r#""titleText": true"#));
+    assert!(!is_docsearch_json_decl(r#""titleText": {"#));
+    assert!(!is_docsearch_json_decl(r#""titleText": ["#));
+    assert!(!is_docsearch_json_decl(
+        r#""titleTexts": "Unable to fetch results""#
+    ));
+    assert!(!is_docsearch_json_decl(
+        r#""TitleText": "Unable to fetch results""#
+    ));
+    assert!(is_docsearch_json_decl(
+        r#""helpText": "You might want to check your network connection.""#
+    ));
+    assert!(is_docsearch_json_decl(
+        r#""helpText": "You might want to check your network connection.","#
+    ));
+    assert!(is_docsearch_json_decl(
+        r#""helpText": "You might want to check your network connection." // c"#
+    ));
+    assert!(!is_docsearch_json_decl(r#""helpText": """#));
+    assert!(!is_docsearch_json_decl(r#""helpText": true"#));
+    assert!(!is_docsearch_json_decl(r#""helpText": {"#));
+    assert!(!is_docsearch_json_decl(r#""helpText": ["#));
+    assert!(!is_docsearch_json_decl(
+        r#""helpTexts": "You might want to check your network connection.""#
+    ));
+    assert!(!is_docsearch_json_decl(
+        r#""HelpText": "You might want to check your network connection.""#
+    ));
+    assert!(is_docsearch_json_decl(
+        r#""suggestedQueryText": "Try searching for""#
+    ));
+    assert!(is_docsearch_json_decl(
+        r#""suggestedQueryText": "Try searching for","#
+    ));
+    assert!(is_docsearch_json_decl(
+        r#""suggestedQueryText": "Try searching for" // c"#
+    ));
+    assert!(!is_docsearch_json_decl(r#""suggestedQueryText": """#));
+    assert!(!is_docsearch_json_decl(r#""suggestedQueryText": true"#));
+    assert!(!is_docsearch_json_decl(r#""suggestedQueryText": {"#));
+    assert!(!is_docsearch_json_decl(r#""suggestedQueryText": ["#));
+    assert!(!is_docsearch_json_decl(
+        r#""suggestedQueryTexts": "Try searching for""#
+    ));
+    assert!(!is_docsearch_json_decl(
+        r#""SuggestedQueryText": "Try searching for""#
+    ));
+    assert!(is_docsearch_json_decl(
+        r#""reportMissingResultsText": "Believe this query should return results?""#
+    ));
+    assert!(is_docsearch_json_decl(
+        r#""reportMissingResultsText": "Believe this query should return results?","#
+    ));
+    assert!(is_docsearch_json_decl(
+        r#""reportMissingResultsText": "Believe this query should return results?" // c"#
+    ));
+    assert!(!is_docsearch_json_decl(r#""reportMissingResultsText": """#));
+    assert!(!is_docsearch_json_decl(
+        r#""reportMissingResultsText": true"#
+    ));
+    assert!(!is_docsearch_json_decl(r#""reportMissingResultsText": {"#));
+    assert!(!is_docsearch_json_decl(r#""reportMissingResultsText": ["#));
+    assert!(!is_docsearch_json_decl(
+        r#""reportMissingResultsTexts": "Believe this query should return results?""#
+    ));
+    assert!(!is_docsearch_json_decl(
+        r#""ReportMissingResultsText": "Believe this query should return results?""#
+    ));
+    assert!(is_docsearch_json_decl(
+        r#""reportMissingResultsLinkText": "Let us know.""#
+    ));
+    assert!(is_docsearch_json_decl(
+        r#""reportMissingResultsLinkText": "Let us know.","#
+    ));
+    assert!(is_docsearch_json_decl(
+        r#""reportMissingResultsLinkText": "Let us know." // c"#
+    ));
+    assert!(!is_docsearch_json_decl(
+        r#""reportMissingResultsLinkText": """#
+    ));
+    assert!(!is_docsearch_json_decl(
+        r#""reportMissingResultsLinkText": true"#
+    ));
+    assert!(!is_docsearch_json_decl(
+        r#""reportMissingResultsLinkText": {"#
+    ));
+    assert!(!is_docsearch_json_decl(
+        r#""reportMissingResultsLinkText": ["#
+    ));
+    assert!(!is_docsearch_json_decl(
+        r#""reportMissingResultsLinkTexts": "Let us know.""#
+    ));
+    assert!(!is_docsearch_json_decl(
+        r#""ReportMissingResultsLinkText": "Let us know.""#
+    ));
+    assert!(is_docsearch_json_decl(r#""askAiPlaceholder": "Ask AI: ""#));
+    assert!(is_docsearch_json_decl(r#""askAiPlaceholder": "Ask AI: ","#));
+    assert!(is_docsearch_json_decl(
+        r#""askAiPlaceholder": "Ask AI: " // c"#
+    ));
+    assert!(!is_docsearch_json_decl(r#""askAiPlaceholder": """#));
+    assert!(!is_docsearch_json_decl(r#""askAiPlaceholder": true"#));
+    assert!(!is_docsearch_json_decl(r#""askAiPlaceholder": {"#));
+    assert!(!is_docsearch_json_decl(r#""askAiPlaceholder": ["#));
+    assert!(!is_docsearch_json_decl(r#""askAiPlaceholders": "Ask AI: ""#));
+    assert!(!is_docsearch_json_decl(r#""AskAiPlaceholder": "Ask AI: ""#));
+    assert!(is_docsearch_json_decl(
+        r#""noResultsAskAiPlaceholder": "Didn't find it in the docs? Ask AI to help: ""#
+    ));
+    assert!(is_docsearch_json_decl(
+        r#""noResultsAskAiPlaceholder": "Didn't find it in the docs? Ask AI to help: ","#
+    ));
+    assert!(is_docsearch_json_decl(
+        r#""noResultsAskAiPlaceholder": "Didn't find it in the docs? Ask AI to help: " // c"#
+    ));
+    assert!(!is_docsearch_json_decl(r#""noResultsAskAiPlaceholder": """#));
+    assert!(!is_docsearch_json_decl(
+        r#""noResultsAskAiPlaceholder": true"#
+    ));
+    assert!(!is_docsearch_json_decl(r#""noResultsAskAiPlaceholder": {"#));
+    assert!(!is_docsearch_json_decl(r#""noResultsAskAiPlaceholder": ["#));
+    assert!(!is_docsearch_json_decl(
+        r#""noResultsAskAiPlaceholders": "Didn't find it in the docs? Ask AI to help: ""#
+    ));
+    assert!(!is_docsearch_json_decl(
+        r#""NoResultsAskAiPlaceholder": "Didn't find it in the docs? Ask AI to help: ""#
+    ));
     assert!(!is_docsearch_json_decl(r#""maxResultsPerGroup""#));
     assert!(!is_docsearch_json_decl(r#""insights""#));
     assert!(!is_docsearch_json_decl(r#""indices""#));
@@ -47023,6 +47319,16 @@ fn docsearch_json_keys_count() {
     ));
     assert!(!is_docsearch_json_decl(r#""newConversationPlaceholder""#));
     assert!(!is_docsearch_json_decl(r#""conversationHistoryTitle""#));
+    assert!(!is_docsearch_json_decl(r#""startNewConversationText""#));
+    assert!(!is_docsearch_json_decl(r#""viewConversationHistoryText""#));
+    assert!(!is_docsearch_json_decl(r#""threadDepthErrorPlaceholder""#));
+    assert!(!is_docsearch_json_decl(r#""titleText""#));
+    assert!(!is_docsearch_json_decl(r#""helpText""#));
+    assert!(!is_docsearch_json_decl(r#""suggestedQueryText""#));
+    assert!(!is_docsearch_json_decl(r#""reportMissingResultsText""#));
+    assert!(!is_docsearch_json_decl(r#""reportMissingResultsLinkText""#));
+    assert!(!is_docsearch_json_decl(r#""askAiPlaceholder""#));
+    assert!(!is_docsearch_json_decl(r#""noResultsAskAiPlaceholder""#));
     assert!(!is_docsearch_json_decl(
         r#""$schema": "https://example.com""#
     ));
@@ -47184,6 +47490,34 @@ fn docsearch_json_keys_count() {
     ));
     assert!(line_is_func_like(
         r#""conversationHistoryTitle": "My conversation history""#
+    ));
+    assert!(line_is_func_like(
+        r#""startNewConversationText": "Start a new conversation""#
+    ));
+    assert!(line_is_func_like(
+        r#""viewConversationHistoryText": "Conversation history""#
+    ));
+    assert!(line_is_func_like(
+        r#""threadDepthErrorPlaceholder": "Conversation limit reached""#
+    ));
+    assert!(line_is_func_like(
+        r#""titleText": "Unable to fetch results""#
+    ));
+    assert!(line_is_func_like(
+        r#""helpText": "You might want to check your network connection.""#
+    ));
+    assert!(line_is_func_like(
+        r#""suggestedQueryText": "Try searching for""#
+    ));
+    assert!(line_is_func_like(
+        r#""reportMissingResultsText": "Believe this query should return results?""#
+    ));
+    assert!(line_is_func_like(
+        r#""reportMissingResultsLinkText": "Let us know.""#
+    ));
+    assert!(line_is_func_like(r#""askAiPlaceholder": "Ask AI: ""#));
+    assert!(line_is_func_like(
+        r#""noResultsAskAiPlaceholder": "Didn't find it in the docs? Ask AI to help: ""#
     ));
     assert!(!is_docsearch_json_decl(r#""stalledSearchDelay": 200"#));
     assert!(is_instantsearch_json_decl(r#""stalledSearchDelay": 200"#));
