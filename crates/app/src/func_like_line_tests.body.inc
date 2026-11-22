@@ -45592,6 +45592,42 @@ fn stork_json_keys_count() {
     assert!(is_docsearch_json_decl(r#""searchInputLabel": "Search""#));
     assert!(!is_stork_json_decl(r#""noResultsText": "No results""#));
     assert!(is_docsearch_json_decl(r#""noResultsText": "No results""#));
+    assert!(!is_stork_json_decl(r#""resetButtonTitle": "Clear the query""#));
+    assert!(is_docsearch_json_decl(r#""resetButtonTitle": "Clear the query""#));
+    assert!(!is_stork_json_decl(
+        r#""resetButtonAriaLabel": "Clear the query""#
+    ));
+    assert!(is_docsearch_json_decl(
+        r#""resetButtonAriaLabel": "Clear the query""#
+    ));
+    assert!(!is_stork_json_decl(r#""cancelButtonText": "Cancel""#));
+    assert!(is_docsearch_json_decl(r#""cancelButtonText": "Cancel""#));
+    assert!(!is_stork_json_decl(r#""cancelButtonAriaLabel": "Cancel""#));
+    assert!(is_docsearch_json_decl(r#""cancelButtonAriaLabel": "Cancel""#));
+    assert!(!is_stork_json_decl(r#""searchByText": "Search by""#));
+    assert!(is_docsearch_json_decl(r#""searchByText": "Search by""#));
+    assert!(!is_stork_json_decl(r#""recentSearchesTitle": "Recent""#));
+    assert!(is_docsearch_json_decl(r#""recentSearchesTitle": "Recent""#));
+    assert!(!is_stork_json_decl(
+        r#""noRecentSearchesText": "No recent searches""#
+    ));
+    assert!(is_docsearch_json_decl(
+        r#""noRecentSearchesText": "No recent searches""#
+    ));
+    assert!(!is_stork_json_decl(
+        r#""saveRecentSearchButtonTitle": "Save this search""#
+    ));
+    assert!(is_docsearch_json_decl(
+        r#""saveRecentSearchButtonTitle": "Save this search""#
+    ));
+    assert!(!is_stork_json_decl(
+        r#""removeRecentSearchButtonTitle": "Remove this search from history""#
+    ));
+    assert!(is_docsearch_json_decl(
+        r#""removeRecentSearchButtonTitle": "Remove this search from history""#
+    ));
+    assert!(!is_stork_json_decl(r#""favoriteSearchesTitle": "Favorite""#));
+    assert!(is_docsearch_json_decl(r#""favoriteSearchesTitle": "Favorite""#));
     assert!(!is_stork_json_decl(r#""stalledSearchDelay": 200"#));
     assert!(is_instantsearch_json_decl(r#""stalledSearchDelay": 200"#));
     assert!(!is_stork_json_decl(r#""initialUiState": {"#));
@@ -45686,6 +45722,24 @@ fn docsearch_json_keys_smoke() {
     assert!(is_docsearch_json_decl(r#""closeButtonAriaLabel": "Close search""#));
     assert!(is_docsearch_json_decl(r#""searchInputLabel": "Search""#));
     assert!(is_docsearch_json_decl(r#""noResultsText": "No results""#));
+    assert!(is_docsearch_json_decl(r#""resetButtonTitle": "Clear the query""#));
+    assert!(is_docsearch_json_decl(
+        r#""resetButtonAriaLabel": "Clear the query""#
+    ));
+    assert!(is_docsearch_json_decl(r#""cancelButtonText": "Cancel""#));
+    assert!(is_docsearch_json_decl(r#""cancelButtonAriaLabel": "Cancel""#));
+    assert!(is_docsearch_json_decl(r#""searchByText": "Search by""#));
+    assert!(is_docsearch_json_decl(r#""recentSearchesTitle": "Recent""#));
+    assert!(is_docsearch_json_decl(
+        r#""noRecentSearchesText": "No recent searches""#
+    ));
+    assert!(is_docsearch_json_decl(
+        r#""saveRecentSearchButtonTitle": "Save this search""#
+    ));
+    assert!(is_docsearch_json_decl(
+        r#""removeRecentSearchButtonTitle": "Remove this search from history""#
+    ));
+    assert!(is_docsearch_json_decl(r#""favoriteSearchesTitle": "Favorite""#));
     assert!(!is_docsearch_json_decl(
         r#""exclude_html_selector": ".sidebar""#
     ));
@@ -46425,6 +46479,166 @@ fn docsearch_json_keys_count() {
     assert!(!is_docsearch_json_decl(r#""noResultsText": ["#));
     assert!(!is_docsearch_json_decl(r#""noResultsTexts": "No results""#));
     assert!(!is_docsearch_json_decl(r#""NoResultsText": "No results""#));
+    assert!(is_docsearch_json_decl(
+        r#""resetButtonTitle": "Clear the query""#
+    ));
+    assert!(is_docsearch_json_decl(
+        r#""resetButtonTitle": "Clear the query","#
+    ));
+    assert!(is_docsearch_json_decl(
+        r#""resetButtonTitle": "Clear the query" // c"#
+    ));
+    assert!(!is_docsearch_json_decl(r#""resetButtonTitle": """#));
+    assert!(!is_docsearch_json_decl(r#""resetButtonTitle": true"#));
+    assert!(!is_docsearch_json_decl(r#""resetButtonTitle": {"#));
+    assert!(!is_docsearch_json_decl(r#""resetButtonTitle": ["#));
+    assert!(!is_docsearch_json_decl(
+        r#""resetButtonTitles": "Clear the query""#
+    ));
+    assert!(!is_docsearch_json_decl(
+        r#""ResetButtonTitle": "Clear the query""#
+    ));
+    assert!(is_docsearch_json_decl(
+        r#""resetButtonAriaLabel": "Clear the query""#
+    ));
+    assert!(is_docsearch_json_decl(
+        r#""resetButtonAriaLabel": "Clear the query","#
+    ));
+    assert!(is_docsearch_json_decl(
+        r#""resetButtonAriaLabel": "Clear the query" // c"#
+    ));
+    assert!(!is_docsearch_json_decl(r#""resetButtonAriaLabel": """#));
+    assert!(!is_docsearch_json_decl(r#""resetButtonAriaLabel": true"#));
+    assert!(!is_docsearch_json_decl(r#""resetButtonAriaLabel": {"#));
+    assert!(!is_docsearch_json_decl(r#""resetButtonAriaLabel": ["#));
+    assert!(!is_docsearch_json_decl(
+        r#""resetButtonAriaLabels": "Clear the query""#
+    ));
+    assert!(!is_docsearch_json_decl(
+        r#""ResetButtonAriaLabel": "Clear the query""#
+    ));
+    assert!(is_docsearch_json_decl(r#""cancelButtonText": "Cancel""#));
+    assert!(is_docsearch_json_decl(r#""cancelButtonText": "Cancel","#));
+    assert!(is_docsearch_json_decl(r#""cancelButtonText": "Cancel" // c"#));
+    assert!(!is_docsearch_json_decl(r#""cancelButtonText": """#));
+    assert!(!is_docsearch_json_decl(r#""cancelButtonText": true"#));
+    assert!(!is_docsearch_json_decl(r#""cancelButtonText": {"#));
+    assert!(!is_docsearch_json_decl(r#""cancelButtonText": ["#));
+    assert!(!is_docsearch_json_decl(r#""cancelButtonTexts": "Cancel""#));
+    assert!(!is_docsearch_json_decl(r#""CancelButtonText": "Cancel""#));
+    assert!(is_docsearch_json_decl(r#""cancelButtonAriaLabel": "Cancel""#));
+    assert!(is_docsearch_json_decl(r#""cancelButtonAriaLabel": "Cancel","#));
+    assert!(is_docsearch_json_decl(
+        r#""cancelButtonAriaLabel": "Cancel" // c"#
+    ));
+    assert!(!is_docsearch_json_decl(r#""cancelButtonAriaLabel": """#));
+    assert!(!is_docsearch_json_decl(r#""cancelButtonAriaLabel": true"#));
+    assert!(!is_docsearch_json_decl(r#""cancelButtonAriaLabel": {"#));
+    assert!(!is_docsearch_json_decl(r#""cancelButtonAriaLabel": ["#));
+    assert!(!is_docsearch_json_decl(r#""cancelButtonAriaLabels": "Cancel""#));
+    assert!(!is_docsearch_json_decl(r#""CancelButtonAriaLabel": "Cancel""#));
+    assert!(is_docsearch_json_decl(r#""searchByText": "Search by""#));
+    assert!(is_docsearch_json_decl(r#""searchByText": "Search by","#));
+    assert!(is_docsearch_json_decl(r#""searchByText": "Search by" // c"#));
+    assert!(!is_docsearch_json_decl(r#""searchByText": """#));
+    assert!(!is_docsearch_json_decl(r#""searchByText": true"#));
+    assert!(!is_docsearch_json_decl(r#""searchByText": {"#));
+    assert!(!is_docsearch_json_decl(r#""searchByText": ["#));
+    assert!(!is_docsearch_json_decl(r#""searchByTexts": "Search by""#));
+    assert!(!is_docsearch_json_decl(r#""SearchByText": "Search by""#));
+    assert!(is_docsearch_json_decl(r#""recentSearchesTitle": "Recent""#));
+    assert!(is_docsearch_json_decl(r#""recentSearchesTitle": "Recent","#));
+    assert!(is_docsearch_json_decl(
+        r#""recentSearchesTitle": "Recent" // c"#
+    ));
+    assert!(!is_docsearch_json_decl(r#""recentSearchesTitle": """#));
+    assert!(!is_docsearch_json_decl(r#""recentSearchesTitle": true"#));
+    assert!(!is_docsearch_json_decl(r#""recentSearchesTitle": {"#));
+    assert!(!is_docsearch_json_decl(r#""recentSearchesTitle": ["#));
+    assert!(!is_docsearch_json_decl(r#""recentSearchesTitles": "Recent""#));
+    assert!(!is_docsearch_json_decl(r#""RecentSearchesTitle": "Recent""#));
+    assert!(is_docsearch_json_decl(
+        r#""noRecentSearchesText": "No recent searches""#
+    ));
+    assert!(is_docsearch_json_decl(
+        r#""noRecentSearchesText": "No recent searches","#
+    ));
+    assert!(is_docsearch_json_decl(
+        r#""noRecentSearchesText": "No recent searches" // c"#
+    ));
+    assert!(!is_docsearch_json_decl(r#""noRecentSearchesText": """#));
+    assert!(!is_docsearch_json_decl(r#""noRecentSearchesText": true"#));
+    assert!(!is_docsearch_json_decl(r#""noRecentSearchesText": {"#));
+    assert!(!is_docsearch_json_decl(r#""noRecentSearchesText": ["#));
+    assert!(!is_docsearch_json_decl(
+        r#""noRecentSearchesTexts": "No recent searches""#
+    ));
+    assert!(!is_docsearch_json_decl(
+        r#""NoRecentSearchesText": "No recent searches""#
+    ));
+    assert!(is_docsearch_json_decl(
+        r#""saveRecentSearchButtonTitle": "Save this search""#
+    ));
+    assert!(is_docsearch_json_decl(
+        r#""saveRecentSearchButtonTitle": "Save this search","#
+    ));
+    assert!(is_docsearch_json_decl(
+        r#""saveRecentSearchButtonTitle": "Save this search" // c"#
+    ));
+    assert!(!is_docsearch_json_decl(r#""saveRecentSearchButtonTitle": """#));
+    assert!(!is_docsearch_json_decl(r#""saveRecentSearchButtonTitle": true"#));
+    assert!(!is_docsearch_json_decl(r#""saveRecentSearchButtonTitle": {"#));
+    assert!(!is_docsearch_json_decl(r#""saveRecentSearchButtonTitle": ["#));
+    assert!(!is_docsearch_json_decl(
+        r#""saveRecentSearchButtonTitles": "Save this search""#
+    ));
+    assert!(!is_docsearch_json_decl(
+        r#""SaveRecentSearchButtonTitle": "Save this search""#
+    ));
+    assert!(is_docsearch_json_decl(
+        r#""removeRecentSearchButtonTitle": "Remove this search from history""#
+    ));
+    assert!(is_docsearch_json_decl(
+        r#""removeRecentSearchButtonTitle": "Remove this search from history","#
+    ));
+    assert!(is_docsearch_json_decl(
+        r#""removeRecentSearchButtonTitle": "Remove this search from history" // c"#
+    ));
+    assert!(!is_docsearch_json_decl(
+        r#""removeRecentSearchButtonTitle": """#
+    ));
+    assert!(!is_docsearch_json_decl(
+        r#""removeRecentSearchButtonTitle": true"#
+    ));
+    assert!(!is_docsearch_json_decl(
+        r#""removeRecentSearchButtonTitle": {"#
+    ));
+    assert!(!is_docsearch_json_decl(
+        r#""removeRecentSearchButtonTitle": ["#
+    ));
+    assert!(!is_docsearch_json_decl(
+        r#""removeRecentSearchButtonTitles": "Remove this search from history""#
+    ));
+    assert!(!is_docsearch_json_decl(
+        r#""RemoveRecentSearchButtonTitle": "Remove this search from history""#
+    ));
+    assert!(is_docsearch_json_decl(r#""favoriteSearchesTitle": "Favorite""#));
+    assert!(is_docsearch_json_decl(
+        r#""favoriteSearchesTitle": "Favorite","#
+    ));
+    assert!(is_docsearch_json_decl(
+        r#""favoriteSearchesTitle": "Favorite" // c"#
+    ));
+    assert!(!is_docsearch_json_decl(r#""favoriteSearchesTitle": """#));
+    assert!(!is_docsearch_json_decl(r#""favoriteSearchesTitle": true"#));
+    assert!(!is_docsearch_json_decl(r#""favoriteSearchesTitle": {"#));
+    assert!(!is_docsearch_json_decl(r#""favoriteSearchesTitle": ["#));
+    assert!(!is_docsearch_json_decl(
+        r#""favoriteSearchesTitles": "Favorite""#
+    ));
+    assert!(!is_docsearch_json_decl(
+        r#""FavoriteSearchesTitle": "Favorite""#
+    ));
     assert!(!is_docsearch_json_decl(r#""maxResultsPerGroup""#));
     assert!(!is_docsearch_json_decl(r#""insights""#));
     assert!(!is_docsearch_json_decl(r#""indices""#));
@@ -46479,6 +46693,16 @@ fn docsearch_json_keys_count() {
     assert!(!is_docsearch_json_decl(r#""closeButtonAriaLabel""#));
     assert!(!is_docsearch_json_decl(r#""searchInputLabel""#));
     assert!(!is_docsearch_json_decl(r#""noResultsText""#));
+    assert!(!is_docsearch_json_decl(r#""resetButtonTitle""#));
+    assert!(!is_docsearch_json_decl(r#""resetButtonAriaLabel""#));
+    assert!(!is_docsearch_json_decl(r#""cancelButtonText""#));
+    assert!(!is_docsearch_json_decl(r#""cancelButtonAriaLabel""#));
+    assert!(!is_docsearch_json_decl(r#""searchByText""#));
+    assert!(!is_docsearch_json_decl(r#""recentSearchesTitle""#));
+    assert!(!is_docsearch_json_decl(r#""noRecentSearchesText""#));
+    assert!(!is_docsearch_json_decl(r#""saveRecentSearchButtonTitle""#));
+    assert!(!is_docsearch_json_decl(r#""removeRecentSearchButtonTitle""#));
+    assert!(!is_docsearch_json_decl(r#""favoriteSearchesTitle""#));
     assert!(!is_docsearch_json_decl(
         r#""$schema": "https://example.com""#
     ));
@@ -46595,6 +46819,24 @@ fn docsearch_json_keys_count() {
     assert!(line_is_func_like(r#""closeButtonAriaLabel": "Close search""#));
     assert!(line_is_func_like(r#""searchInputLabel": "Search""#));
     assert!(line_is_func_like(r#""noResultsText": "No results""#));
+    assert!(line_is_func_like(r#""resetButtonTitle": "Clear the query""#));
+    assert!(line_is_func_like(
+        r#""resetButtonAriaLabel": "Clear the query""#
+    ));
+    assert!(line_is_func_like(r#""cancelButtonText": "Cancel""#));
+    assert!(line_is_func_like(r#""cancelButtonAriaLabel": "Cancel""#));
+    assert!(line_is_func_like(r#""searchByText": "Search by""#));
+    assert!(line_is_func_like(r#""recentSearchesTitle": "Recent""#));
+    assert!(line_is_func_like(
+        r#""noRecentSearchesText": "No recent searches""#
+    ));
+    assert!(line_is_func_like(
+        r#""saveRecentSearchButtonTitle": "Save this search""#
+    ));
+    assert!(line_is_func_like(
+        r#""removeRecentSearchButtonTitle": "Remove this search from history""#
+    ));
+    assert!(line_is_func_like(r#""favoriteSearchesTitle": "Favorite""#));
     assert!(!is_docsearch_json_decl(r#""stalledSearchDelay": 200"#));
     assert!(is_instantsearch_json_decl(r#""stalledSearchDelay": 200"#));
     assert!(!is_docsearch_json_decl(r#""initialUiState": {"#));

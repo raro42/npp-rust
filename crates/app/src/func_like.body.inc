@@ -38824,7 +38824,13 @@ fn stork_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool {
 /// `"navigateDownKeyAriaLabel": "…"`, `"closeKeyAriaLabel": "…"`,
 /// `"clearButtonTitle": "…"`, `"clearButtonAriaLabel": "…"`,
 /// `"closeButtonText": "…"`, `"closeButtonAriaLabel": "…"`,
-/// `"searchInputLabel": "…"`, `"noResultsText": "…"`.
+/// `"searchInputLabel": "…"`, `"noResultsText": "…"`,
+/// `"resetButtonTitle": "…"`, `"resetButtonAriaLabel": "…"`,
+/// `"cancelButtonText": "…"`, `"cancelButtonAriaLabel": "…"`,
+/// `"searchByText": "…"`, `"recentSearchesTitle": "…"`,
+/// `"noRecentSearchesText": "…"`, `"saveRecentSearchButtonTitle": "…"`,
+/// `"removeRecentSearchButtonTitle": "…"`,
+/// `"favoriteSearchesTitle": "…"`.
 /// Optional trailing `,` and `//` / `/*` comment. Incomplete quotes /
 /// missing `:` stay out. Generic `"$schema"` / `"name"` / `"id"` /
 /// `"q"` / `"query"` / `"url"` / `"appId"` / `"apiKey"` / `"indexName"` /
@@ -38968,6 +38974,16 @@ fn docsearch_json_key_ok(key: &str) -> bool {
             | "closeButtonAriaLabel"
             | "searchInputLabel"
             | "noResultsText"
+            | "resetButtonTitle"
+            | "resetButtonAriaLabel"
+            | "cancelButtonText"
+            | "cancelButtonAriaLabel"
+            | "searchByText"
+            | "recentSearchesTitle"
+            | "noRecentSearchesText"
+            | "saveRecentSearchButtonTitle"
+            | "removeRecentSearchButtonTitle"
+            | "favoriteSearchesTitle"
     )
 }
 
@@ -39032,7 +39048,11 @@ fn docsearch_json_string_and_tail_ok(key: &str, after_colon: &str) -> bool {
         | "selectKeyAriaLabel" | "navigateUpKeyAriaLabel"
         | "navigateDownKeyAriaLabel" | "closeKeyAriaLabel" | "clearButtonTitle"
         | "clearButtonAriaLabel" | "closeButtonText" | "closeButtonAriaLabel"
-        | "searchInputLabel" | "noResultsText" => {}
+        | "searchInputLabel" | "noResultsText" | "resetButtonTitle"
+        | "resetButtonAriaLabel" | "cancelButtonText" | "cancelButtonAriaLabel"
+        | "searchByText" | "recentSearchesTitle" | "noRecentSearchesText"
+        | "saveRecentSearchButtonTitle" | "removeRecentSearchButtonTitle"
+        | "favoriteSearchesTitle" => {}
         "variant" => {
             if !matches!(value, "floating" | "inline") {
                 return false;
