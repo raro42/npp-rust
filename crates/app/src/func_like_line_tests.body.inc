@@ -44516,6 +44516,18 @@ fn flexsearch_json_keys_smoke() {
     assert!(is_pagefind_json_decl(r#""totalFilters": {"#));
     assert!(!is_flexsearch_json_decl(r#""showSubResults": true"#));
     assert!(is_pagefind_json_decl(r#""showSubResults": true"#));
+    assert!(!is_flexsearch_json_decl(r#""showImages": true"#));
+    assert!(is_pagefind_json_decl(r#""showImages": true"#));
+    assert!(!is_flexsearch_json_decl(r#""showEmptyFilters": false"#));
+    assert!(is_pagefind_json_decl(r#""showEmptyFilters": false"#));
+    assert!(!is_flexsearch_json_decl(r#""resetStyles": false"#));
+    assert!(is_pagefind_json_decl(r#""resetStyles": false"#));
+    assert!(!is_flexsearch_json_decl(r#""focusOnSlash": true"#));
+    assert!(is_pagefind_json_decl(r#""focusOnSlash": true"#));
+    assert!(!is_flexsearch_json_decl(r#""openFilters": ["#));
+    assert!(is_pagefind_json_decl(r#""openFilters": ["#));
+    assert!(!is_flexsearch_json_decl(r#""pageSize": 5"#));
+    assert!(is_pagefind_json_decl(r#""pageSize": 5"#));
 }
 
 #[test]
@@ -44776,6 +44788,18 @@ fn lunr_json_keys_smoke() {
     assert!(is_pagefind_json_decl(r#""totalFilters": {"#));
     assert!(!is_lunr_json_decl(r#""showSubResults": true"#));
     assert!(is_pagefind_json_decl(r#""showSubResults": true"#));
+    assert!(!is_lunr_json_decl(r#""showImages": true"#));
+    assert!(is_pagefind_json_decl(r#""showImages": true"#));
+    assert!(!is_lunr_json_decl(r#""showEmptyFilters": false"#));
+    assert!(is_pagefind_json_decl(r#""showEmptyFilters": false"#));
+    assert!(!is_lunr_json_decl(r#""resetStyles": false"#));
+    assert!(is_pagefind_json_decl(r#""resetStyles": false"#));
+    assert!(!is_lunr_json_decl(r#""focusOnSlash": true"#));
+    assert!(is_pagefind_json_decl(r#""focusOnSlash": true"#));
+    assert!(!is_lunr_json_decl(r#""openFilters": ["#));
+    assert!(is_pagefind_json_decl(r#""openFilters": ["#));
+    assert!(!is_lunr_json_decl(r#""pageSize": 5"#));
+    assert!(is_pagefind_json_decl(r#""pageSize": 5"#));
 }
 
 #[test]
@@ -44894,6 +44918,18 @@ fn lunr_json_keys_count() {
     assert!(is_pagefind_json_decl(r#""totalFilters": {"#));
     assert!(!is_lunr_json_decl(r#""showSubResults": true"#));
     assert!(is_pagefind_json_decl(r#""showSubResults": true"#));
+    assert!(!is_lunr_json_decl(r#""showImages": true"#));
+    assert!(is_pagefind_json_decl(r#""showImages": true"#));
+    assert!(!is_lunr_json_decl(r#""showEmptyFilters": false"#));
+    assert!(is_pagefind_json_decl(r#""showEmptyFilters": false"#));
+    assert!(!is_lunr_json_decl(r#""resetStyles": false"#));
+    assert!(is_pagefind_json_decl(r#""resetStyles": false"#));
+    assert!(!is_lunr_json_decl(r#""focusOnSlash": true"#));
+    assert!(is_pagefind_json_decl(r#""focusOnSlash": true"#));
+    assert!(!is_lunr_json_decl(r#""openFilters": ["#));
+    assert!(is_pagefind_json_decl(r#""openFilters": ["#));
+    assert!(!is_lunr_json_decl(r#""pageSize": 5"#));
+    assert!(is_pagefind_json_decl(r#""pageSize": 5"#));
 }
 
 #[test]
@@ -44946,6 +44982,18 @@ fn orama_json_keys_smoke() {
     assert!(is_pagefind_json_decl(r#""totalFilters": {"#));
     assert!(!is_orama_json_decl(r#""showSubResults": true"#));
     assert!(is_pagefind_json_decl(r#""showSubResults": true"#));
+    assert!(!is_orama_json_decl(r#""showImages": true"#));
+    assert!(is_pagefind_json_decl(r#""showImages": true"#));
+    assert!(!is_orama_json_decl(r#""showEmptyFilters": false"#));
+    assert!(is_pagefind_json_decl(r#""showEmptyFilters": false"#));
+    assert!(!is_orama_json_decl(r#""resetStyles": false"#));
+    assert!(is_pagefind_json_decl(r#""resetStyles": false"#));
+    assert!(!is_orama_json_decl(r#""focusOnSlash": true"#));
+    assert!(is_pagefind_json_decl(r#""focusOnSlash": true"#));
+    assert!(!is_orama_json_decl(r#""openFilters": ["#));
+    assert!(is_pagefind_json_decl(r#""openFilters": ["#));
+    assert!(!is_orama_json_decl(r#""pageSize": 5"#));
+    assert!(is_pagefind_json_decl(r#""pageSize": 5"#));
 }
 
 #[test]
@@ -45051,6 +45099,18 @@ fn orama_json_keys_count() {
     assert!(is_pagefind_json_decl(r#""totalFilters": {"#));
     assert!(!is_orama_json_decl(r#""showSubResults": true"#));
     assert!(is_pagefind_json_decl(r#""showSubResults": true"#));
+    assert!(!is_orama_json_decl(r#""showImages": true"#));
+    assert!(is_pagefind_json_decl(r#""showImages": true"#));
+    assert!(!is_orama_json_decl(r#""showEmptyFilters": false"#));
+    assert!(is_pagefind_json_decl(r#""showEmptyFilters": false"#));
+    assert!(!is_orama_json_decl(r#""resetStyles": false"#));
+    assert!(is_pagefind_json_decl(r#""resetStyles": false"#));
+    assert!(!is_orama_json_decl(r#""focusOnSlash": true"#));
+    assert!(is_pagefind_json_decl(r#""focusOnSlash": true"#));
+    assert!(!is_orama_json_decl(r#""openFilters": ["#));
+    assert!(is_pagefind_json_decl(r#""openFilters": ["#));
+    assert!(!is_orama_json_decl(r#""pageSize": 5"#));
+    assert!(is_pagefind_json_decl(r#""pageSize": 5"#));
 }
 
 #[test]
@@ -45063,6 +45123,12 @@ fn pagefind_json_keys_smoke() {
     assert!(is_pagefind_json_decl(r#""sub_results": ["#));
     assert!(is_pagefind_json_decl(r#""totalFilters": {"#));
     assert!(is_pagefind_json_decl(r#""showSubResults": true"#));
+    assert!(is_pagefind_json_decl(r#""showImages": true"#));
+    assert!(is_pagefind_json_decl(r#""showEmptyFilters": false"#));
+    assert!(is_pagefind_json_decl(r#""resetStyles": false"#));
+    assert!(is_pagefind_json_decl(r#""focusOnSlash": true"#));
+    assert!(is_pagefind_json_decl(r#""openFilters": ["#));
+    assert!(is_pagefind_json_decl(r#""pageSize": 5"#));
     assert!(!is_pagefind_json_decl(r#""searchableProperties": ["#));
     assert!(is_orama_json_decl(r#""searchableProperties": ["#));
     assert!(!is_pagefind_json_decl(r#""fieldVectors": {"#));
@@ -45166,9 +45232,69 @@ fn pagefind_json_keys_count() {
     assert!(!is_pagefind_json_decl(r#""showSubResults": 1"#));
     assert!(!is_pagefind_json_decl(r#""showSubResults": "true""#));
     assert!(!is_pagefind_json_decl(r#""showSubResults": ["#));
+    assert!(is_pagefind_json_decl(r#""showImages": true"#));
+    assert!(is_pagefind_json_decl(r#""showImages": false"#));
+    assert!(is_pagefind_json_decl(r#""showImages": true,"#));
+    assert!(is_pagefind_json_decl(r#""showImages": false // c"#));
+    assert!(!is_pagefind_json_decl(r#""showImages": 1"#));
+    assert!(!is_pagefind_json_decl(r#""showImages": "true""#));
+    assert!(!is_pagefind_json_decl(r#""showImages": ["#));
+    assert!(!is_pagefind_json_decl(r#""showImagess": true"#));
+    assert!(!is_pagefind_json_decl(r#""ShowImages": true"#));
+    assert!(is_pagefind_json_decl(r#""showEmptyFilters": true"#));
+    assert!(is_pagefind_json_decl(r#""showEmptyFilters": false"#));
+    assert!(is_pagefind_json_decl(r#""showEmptyFilters": true,"#));
+    assert!(is_pagefind_json_decl(r#""showEmptyFilters": false // c"#));
+    assert!(!is_pagefind_json_decl(r#""showEmptyFilters": 1"#));
+    assert!(!is_pagefind_json_decl(r#""showEmptyFilters": "true""#));
+    assert!(!is_pagefind_json_decl(r#""showEmptyFilters": ["#));
+    assert!(!is_pagefind_json_decl(r#""showEmptyFilterss": true"#));
+    assert!(!is_pagefind_json_decl(r#""ShowEmptyFilters": true"#));
+    assert!(is_pagefind_json_decl(r#""resetStyles": true"#));
+    assert!(is_pagefind_json_decl(r#""resetStyles": false"#));
+    assert!(is_pagefind_json_decl(r#""resetStyles": true,"#));
+    assert!(is_pagefind_json_decl(r#""resetStyles": false // c"#));
+    assert!(!is_pagefind_json_decl(r#""resetStyles": 1"#));
+    assert!(!is_pagefind_json_decl(r#""resetStyles": "true""#));
+    assert!(!is_pagefind_json_decl(r#""resetStyles": ["#));
+    assert!(!is_pagefind_json_decl(r#""resetStyless": true"#));
+    assert!(!is_pagefind_json_decl(r#""ResetStyles": true"#));
+    assert!(is_pagefind_json_decl(r#""focusOnSlash": true"#));
+    assert!(is_pagefind_json_decl(r#""focusOnSlash": false"#));
+    assert!(is_pagefind_json_decl(r#""focusOnSlash": true,"#));
+    assert!(is_pagefind_json_decl(r#""focusOnSlash": false // c"#));
+    assert!(!is_pagefind_json_decl(r#""focusOnSlash": 1"#));
+    assert!(!is_pagefind_json_decl(r#""focusOnSlash": "true""#));
+    assert!(!is_pagefind_json_decl(r#""focusOnSlash": ["#));
+    assert!(!is_pagefind_json_decl(r#""focusOnSlashs": true"#));
+    assert!(!is_pagefind_json_decl(r#""FocusOnSlash": true"#));
+    assert!(is_pagefind_json_decl(r#""openFilters": ["#));
+    assert!(is_pagefind_json_decl(r#""openFilters": [,"#));
+    assert!(is_pagefind_json_decl(r#""openFilters": [ // c"#));
+    assert!(!is_pagefind_json_decl(r#""openFilters": {"#));
+    assert!(!is_pagefind_json_decl(r#""openFilters": true"#));
+    assert!(!is_pagefind_json_decl(r#""openFilters": 1"#));
+    assert!(!is_pagefind_json_decl(r#""openFilterss": ["#));
+    assert!(!is_pagefind_json_decl(r#""OpenFilters": ["#));
+    assert!(is_pagefind_json_decl(r#""pageSize": 0"#));
+    assert!(is_pagefind_json_decl(r#""pageSize": 5"#));
+    assert!(is_pagefind_json_decl(r#""pageSize": 5,"#));
+    assert!(is_pagefind_json_decl(r#""pageSize": 5 // c"#));
+    assert!(!is_pagefind_json_decl(r#""pageSize": 00"#));
+    assert!(!is_pagefind_json_decl(r#""pageSize": 1.5"#));
+    assert!(!is_pagefind_json_decl(r#""pageSize": true"#));
+    assert!(!is_pagefind_json_decl(r#""pageSize": ["#));
+    assert!(!is_pagefind_json_decl(r#""pageSizes": 5"#));
+    assert!(!is_pagefind_json_decl(r#""PageSize": 5"#));
     assert!(!is_pagefind_json_decl(r#""unfilteredResultCount""#));
     assert!(!is_pagefind_json_decl(r#""weighted_locations""#));
     assert!(!is_pagefind_json_decl(r#""showSubResults""#));
+    assert!(!is_pagefind_json_decl(r#""showImages""#));
+    assert!(!is_pagefind_json_decl(r#""showEmptyFilters""#));
+    assert!(!is_pagefind_json_decl(r#""resetStyles""#));
+    assert!(!is_pagefind_json_decl(r#""focusOnSlash""#));
+    assert!(!is_pagefind_json_decl(r#""openFilters""#));
+    assert!(!is_pagefind_json_decl(r#""pageSize""#));
     assert!(!is_pagefind_json_decl(
         r#""$schema": "https://example.com""#
     ));
@@ -45224,6 +45350,12 @@ fn pagefind_json_keys_count() {
     assert!(line_is_func_like(r#""sub_results": ["#));
     assert!(line_is_func_like(r#""totalFilters": {"#));
     assert!(line_is_func_like(r#""showSubResults": true"#));
+    assert!(line_is_func_like(r#""showImages": true"#));
+    assert!(line_is_func_like(r#""showEmptyFilters": false"#));
+    assert!(line_is_func_like(r#""resetStyles": false"#));
+    assert!(line_is_func_like(r#""focusOnSlash": true"#));
+    assert!(line_is_func_like(r#""openFilters": ["#));
+    assert!(line_is_func_like(r#""pageSize": 5"#));
     assert!(!is_pagefind_json_decl(
         r#""exclude_html_selector": ".sidebar""#
     ));

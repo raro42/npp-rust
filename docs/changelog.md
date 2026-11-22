@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.945] — 2026-11-22
+
+View:
+
+- **Function List** lists Pagefind UI JSON keys: `"showImages": true` / `false`, `"showEmptyFilters": true` / `false`, `"resetStyles": true` / `false`, `"focusOnSlash": true` / `false`, `"openFilters": [`, `"pageSize": 0` / `5`. Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing `:` stay out. Wrong case / plural misspellings / wrong value shapes stay out. Existing Pagefind index / result keys (`unfilteredResultCount`, `showSubResults`, …) unchanged. `"excerptLength"` / `"bundlePath"` / `"debounceTimeoutMs"` stay out of Pagefind (Coveo / generic). Neighbouring search JSON families stay out of Pagefind for these keys.
+
 ## [0.3.944] — 2026-11-22
 
 View:

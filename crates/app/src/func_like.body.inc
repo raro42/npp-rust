@@ -38478,7 +38478,10 @@ fn orama_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool {
 /// `"unfilteredResultCount": 0` / `42`, `"weighted_locations": [`,
 /// `"indexWeight": 0` / `2`, `"mergeFilter": {`,
 /// `"highlightParam": "…"`, `"sub_results": [`, `"totalFilters": {`,
-/// `"showSubResults": true` / `false`. Optional trailing `,` and
+/// `"showSubResults": true` / `false`, `"showImages": true` / `false`,
+/// `"showEmptyFilters": true` / `false`, `"resetStyles": true` / `false`,
+/// `"focusOnSlash": true` / `false`, `"openFilters": [`,
+/// `"pageSize": 0` / `5`. Optional trailing `,` and
 /// `//` / `/*` comment. Incomplete quotes / missing `:` stay out.
 /// Generic `"$schema"` / `"name"` / `"id"` / `"q"` / `"query"` /
 /// `"url"` / `"content"` / `"excerpt"` / `"filters"` / `"meta"` /
@@ -38555,6 +38558,12 @@ fn pagefind_json_key_ok(key: &str) -> bool {
             | "sub_results"
             | "totalFilters"
             | "showSubResults"
+            | "showImages"
+            | "showEmptyFilters"
+            | "resetStyles"
+            | "focusOnSlash"
+            | "openFilters"
+            | "pageSize"
     )
 }
 
@@ -38571,7 +38580,7 @@ fn pagefind_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool {
             package_json_tail_ok(&after_colon[1..])
         }
         b'[' => {
-            if !matches!(key, "weighted_locations" | "sub_results") {
+            if !matches!(key, "weighted_locations" | "sub_results" | "openFilters") {
                 return false;
             }
             package_json_tail_ok(&after_colon[1..])
@@ -38601,7 +38610,14 @@ fn pagefind_json_nonempty_string_and_tail_ok(after_colon: &str) -> bool {
 }
 
 fn pagefind_json_bool_and_tail_ok(key: &str, after_colon: &str) -> bool {
-    if key != "showSubResults" {
+    if !matches!(
+        key,
+        "showSubResults"
+            | "showImages"
+            | "showEmptyFilters"
+            | "resetStyles"
+            | "focusOnSlash"
+    ) {
         return false;
     }
     let rest = if let Some(rest) = after_colon.strip_prefix("true") {
@@ -38615,7 +38631,7 @@ fn pagefind_json_bool_and_tail_ok(key: &str, after_colon: &str) -> bool {
 }
 
 fn pagefind_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool {
-    if !matches!(key, "unfilteredResultCount" | "indexWeight") {
+    if !matches!(key, "unfilteredResultCount" | "indexWeight" | "pageSize") {
         return false;
     }
     let bytes = after_colon.as_bytes();
