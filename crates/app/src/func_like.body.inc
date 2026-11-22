@@ -38485,7 +38485,9 @@ fn orama_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool {
 /// `"debounceTimeoutMs": 0` / `300`, `"autofocus": true` / `false`,
 /// `"translations": {`, `"sort": {`, `"mergeIndex": [`,
 /// `"processTerm": {`, `"processResult": {`,
-/// `"excerptEllipsis": "…"`. Optional
+/// `"excerptEllipsis": "…"`, `"ranking": {`,
+/// `"exactDiacritics": true` / `false`, `"metaCacheTag": "…"`,
+/// `"noWorker": true` / `false`. Optional
 /// trailing `,` and `//` / `/*` comment. Incomplete quotes / missing
 /// `:` stay out. Generic `"$schema"` / `"name"` / `"id"` / `"q"` /
 /// `"query"` / `"url"` / `"content"` / `"excerpt"` / `"filters"` /
@@ -38530,10 +38532,11 @@ fn orama_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool {
 /// `"excerpt_buffer"` / `"save_nearest_node_json"` /
 /// `"exclude_html_selector_override"` / `"frontmatter_handling_override"` /
 /// prettier `"printWidth"` / karma `"basePath"` stay out. String
-/// `"highlightParam"` / `"bundlePath"` / `"excerptEllipsis"` require a
-/// non-empty quoted string. Callback `"processTerm"` / `"processResult"`
-/// require `{`. Bool keys only match `true` / `false`. Numeric keys
-/// reject leading zeros beyond `0`.
+/// `"highlightParam"` / `"bundlePath"` / `"excerptEllipsis"` /
+/// `"metaCacheTag"` require a non-empty quoted string. Callback
+/// `"processTerm"` / `"processResult"` require `{`. Object `"ranking"`
+/// requires `{` (Vespa may also match). Bool keys only match `true` /
+/// `false`. Numeric keys reject leading zeros beyond `0`.
 fn is_pagefind_json_decl(s: &str) -> bool {
     let s = s.trim_start();
     let Some(rest) = s.strip_prefix('"') else {
@@ -38580,6 +38583,10 @@ fn pagefind_json_key_ok(key: &str) -> bool {
             | "processTerm"
             | "processResult"
             | "excerptEllipsis"
+            | "ranking"
+            | "exactDiacritics"
+            | "metaCacheTag"
+            | "noWorker"
     )
 }
 
@@ -38598,6 +38605,7 @@ fn pagefind_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool {
                     | "sort"
                     | "processTerm"
                     | "processResult"
+                    | "ranking"
             ) {
                 return false;
             }
@@ -38613,7 +38621,10 @@ fn pagefind_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool {
             package_json_tail_ok(&after_colon[1..])
         }
         b'"' => {
-            if !matches!(key, "highlightParam" | "bundlePath" | "excerptEllipsis") {
+            if !matches!(
+                key,
+                "highlightParam" | "bundlePath" | "excerptEllipsis" | "metaCacheTag"
+            ) {
                 return false;
             }
             pagefind_json_nonempty_string_and_tail_ok(after_colon)
@@ -38645,6 +38656,8 @@ fn pagefind_json_bool_and_tail_ok(key: &str, after_colon: &str) -> bool {
             | "resetStyles"
             | "focusOnSlash"
             | "autofocus"
+            | "exactDiacritics"
+            | "noWorker"
     ) {
         return false;
     }

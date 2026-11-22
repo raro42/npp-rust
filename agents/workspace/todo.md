@@ -1,3 +1,5 @@
+009 keep: Function List Pagefind ranking/exactDiacritics/metaCacheTag/noWorker (v0.3.949)
+
 009 keep: Function List Pagefind UI processTerm/processResult/excerptEllipsis (v0.3.948)
 
 009 keep: Function List Pagefind UI autofocus/translations/sort/mergeIndex (v0.3.947)

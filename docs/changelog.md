@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.949] — 2026-11-23
+
+View:
+
+- **Function List** lists Pagefind search / Component UI JSON keys: `"ranking": {`, `"exactDiacritics": true` / `false`, `"metaCacheTag": "…"`, `"noWorker": true` / `false`. Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing `:` stay out. Empty `"metaCacheTag"` / wrong case / plural misspellings / wrong value shapes stay out. Existing Pagefind UI / index / result keys (`processTerm`, `processResult`, `excerptEllipsis`, `bundlePath`, …) unchanged. `"element"` / `"excerptLength"` stay out of Pagefind (generic / Coveo). Neighbouring search JSON families stay out of Pagefind for these keys (Vespa may also match `"ranking": {`). Object `"ranking"` requires `{`. String `"metaCacheTag"` requires a non-empty quoted string. Bool `"exactDiacritics"` / `"noWorker"` only match `true` / `false`.
+
 ## [0.3.948] — 2026-11-23
 
 View:

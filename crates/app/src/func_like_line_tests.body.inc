@@ -45158,6 +45158,10 @@ fn pagefind_json_keys_smoke() {
     assert!(is_pagefind_json_decl(r#""processTerm": {"#));
     assert!(is_pagefind_json_decl(r#""processResult": {"#));
     assert!(is_pagefind_json_decl(r#""excerptEllipsis": "…""#));
+    assert!(is_pagefind_json_decl(r#""ranking": {"#));
+    assert!(is_pagefind_json_decl(r#""exactDiacritics": true"#));
+    assert!(is_pagefind_json_decl(r#""metaCacheTag": "v1""#));
+    assert!(is_pagefind_json_decl(r#""noWorker": false"#));
     assert!(!is_pagefind_json_decl(r##""element": "#search""##));
     assert!(!is_pagefind_json_decl(r#""searchableProperties": ["#));
     assert!(is_orama_json_decl(r#""searchableProperties": ["#));
@@ -45402,6 +45406,46 @@ fn pagefind_json_keys_count() {
     assert!(!is_pagefind_json_decl(r#""excerptEllipsis": {"#));
     assert!(!is_pagefind_json_decl(r#""excerptEllipsiss": "…""#));
     assert!(!is_pagefind_json_decl(r#""ExcerptEllipsis": "…""#));
+    assert!(is_pagefind_json_decl(r#""ranking": {"#));
+    assert!(is_pagefind_json_decl(r#""ranking": {,"#));
+    assert!(is_pagefind_json_decl(r#""ranking": { // c"#));
+    assert!(!is_pagefind_json_decl(r#""ranking": ["#));
+    assert!(!is_pagefind_json_decl(r#""ranking": true"#));
+    assert!(!is_pagefind_json_decl(r#""ranking": 1"#));
+    assert!(!is_pagefind_json_decl(r#""ranking": "relevance""#));
+    assert!(!is_pagefind_json_decl(r#""rankings": {"#));
+    assert!(!is_pagefind_json_decl(r#""Ranking": {"#));
+    assert!(is_pagefind_json_decl(r#""exactDiacritics": true"#));
+    assert!(is_pagefind_json_decl(r#""exactDiacritics": false"#));
+    assert!(is_pagefind_json_decl(r#""exactDiacritics": true,"#));
+    assert!(is_pagefind_json_decl(r#""exactDiacritics": false // c"#));
+    assert!(!is_pagefind_json_decl(r#""exactDiacritics": 1"#));
+    assert!(!is_pagefind_json_decl(r#""exactDiacritics": "true""#));
+    assert!(!is_pagefind_json_decl(r#""exactDiacritics": ["#));
+    assert!(!is_pagefind_json_decl(r#""exactDiacritics": {"#));
+    assert!(!is_pagefind_json_decl(r#""exactDiacriticss": true"#));
+    assert!(!is_pagefind_json_decl(r#""ExactDiacritics": true"#));
+    assert!(is_pagefind_json_decl(r#""metaCacheTag": "v1""#));
+    assert!(is_pagefind_json_decl(r#""metaCacheTag": "build-42""#));
+    assert!(is_pagefind_json_decl(r#""metaCacheTag": "v1","#));
+    assert!(is_pagefind_json_decl(r#""metaCacheTag": "v1" // c"#));
+    assert!(!is_pagefind_json_decl(r#""metaCacheTag": """#));
+    assert!(!is_pagefind_json_decl(r#""metaCacheTag": true"#));
+    assert!(!is_pagefind_json_decl(r#""metaCacheTag": 1"#));
+    assert!(!is_pagefind_json_decl(r#""metaCacheTag": ["#));
+    assert!(!is_pagefind_json_decl(r#""metaCacheTag": {"#));
+    assert!(!is_pagefind_json_decl(r#""metaCacheTags": "v1""#));
+    assert!(!is_pagefind_json_decl(r#""MetaCacheTag": "v1""#));
+    assert!(is_pagefind_json_decl(r#""noWorker": true"#));
+    assert!(is_pagefind_json_decl(r#""noWorker": false"#));
+    assert!(is_pagefind_json_decl(r#""noWorker": true,"#));
+    assert!(is_pagefind_json_decl(r#""noWorker": false // c"#));
+    assert!(!is_pagefind_json_decl(r#""noWorker": 1"#));
+    assert!(!is_pagefind_json_decl(r#""noWorker": "true""#));
+    assert!(!is_pagefind_json_decl(r#""noWorker": ["#));
+    assert!(!is_pagefind_json_decl(r#""noWorker": {"#));
+    assert!(!is_pagefind_json_decl(r#""noWorkers": true"#));
+    assert!(!is_pagefind_json_decl(r#""NoWorker": true"#));
     assert!(!is_pagefind_json_decl(r#""unfilteredResultCount""#));
     assert!(!is_pagefind_json_decl(r#""weighted_locations""#));
     assert!(!is_pagefind_json_decl(r#""showSubResults""#));
@@ -45420,6 +45464,10 @@ fn pagefind_json_keys_count() {
     assert!(!is_pagefind_json_decl(r#""processTerm""#));
     assert!(!is_pagefind_json_decl(r#""processResult""#));
     assert!(!is_pagefind_json_decl(r#""excerptEllipsis""#));
+    assert!(!is_pagefind_json_decl(r#""ranking""#));
+    assert!(!is_pagefind_json_decl(r#""exactDiacritics""#));
+    assert!(!is_pagefind_json_decl(r#""metaCacheTag""#));
+    assert!(!is_pagefind_json_decl(r#""noWorker""#));
     assert!(!is_pagefind_json_decl(
         r#""$schema": "https://example.com""#
     ));
@@ -45488,6 +45536,10 @@ fn pagefind_json_keys_count() {
     assert!(line_is_func_like(r#""processTerm": {"#));
     assert!(line_is_func_like(r#""processResult": {"#));
     assert!(line_is_func_like(r#""excerptEllipsis": "…""#));
+    assert!(line_is_func_like(r#""ranking": {"#));
+    assert!(line_is_func_like(r#""exactDiacritics": true"#));
+    assert!(line_is_func_like(r#""metaCacheTag": "v1""#));
+    assert!(line_is_func_like(r#""noWorker": false"#));
     assert!(!is_pagefind_json_decl(r##""element": "#search""##));
     assert!(!is_pagefind_json_decl(
         r#""exclude_html_selector": ".sidebar""#
