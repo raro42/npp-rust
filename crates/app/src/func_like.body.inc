@@ -38482,13 +38482,15 @@ fn orama_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool {
 /// `"showEmptyFilters": true` / `false`, `"resetStyles": true` / `false`,
 /// `"focusOnSlash": true` / `false`, `"openFilters": [`,
 /// `"pageSize": 0` / `5`, `"bundlePath": "…"`,
-/// `"debounceTimeoutMs": 0` / `300`. Optional trailing `,` and
-/// `//` / `/*` comment. Incomplete quotes / missing `:` stay out.
-/// Generic `"$schema"` / `"name"` / `"id"` / `"q"` / `"query"` /
-/// `"url"` / `"content"` / `"excerpt"` / `"filters"` / `"meta"` /
-/// `"anchors"` / `"locations"` / `"results"` / `"timings"` /
+/// `"debounceTimeoutMs": 0` / `300`, `"autofocus": true` / `false`,
+/// `"translations": {`, `"sort": {`, `"mergeIndex": [`. Optional
+/// trailing `,` and `//` / `/*` comment. Incomplete quotes / missing
+/// `:` stay out. Generic `"$schema"` / `"name"` / `"id"` / `"q"` /
+/// `"query"` / `"url"` / `"content"` / `"excerpt"` / `"filters"` /
+/// `"meta"` / `"anchors"` / `"locations"` / `"results"` / `"timings"` /
 /// `"word_count"` / `"basePath"` / `"baseUrl"` / `"language"` /
-/// `"excerptLength"` / `"raw_content"` / `"raw_url"` / Orama
+/// `"excerptLength"` / `"raw_content"` / `"raw_url"` / `"element"` /
+/// Orama
 /// `"searchableProperties"` /
 /// `"searchablePropertiesWithTypes"` / `"tokenOccurrences"` /
 /// `"avgFieldLength"` / `"vectorIndexes"` / `"hybridWeights"` /
@@ -38568,6 +38570,10 @@ fn pagefind_json_key_ok(key: &str) -> bool {
             | "pageSize"
             | "bundlePath"
             | "debounceTimeoutMs"
+            | "autofocus"
+            | "translations"
+            | "sort"
+            | "mergeIndex"
     )
 }
 
@@ -38578,13 +38584,19 @@ fn pagefind_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool {
     };
     match first {
         b'{' => {
-            if !matches!(key, "mergeFilter" | "totalFilters") {
+            if !matches!(
+                key,
+                "mergeFilter" | "totalFilters" | "translations" | "sort"
+            ) {
                 return false;
             }
             package_json_tail_ok(&after_colon[1..])
         }
         b'[' => {
-            if !matches!(key, "weighted_locations" | "sub_results" | "openFilters") {
+            if !matches!(
+                key,
+                "weighted_locations" | "sub_results" | "openFilters" | "mergeIndex"
+            ) {
                 return false;
             }
             package_json_tail_ok(&after_colon[1..])
@@ -38621,6 +38633,7 @@ fn pagefind_json_bool_and_tail_ok(key: &str, after_colon: &str) -> bool {
             | "showEmptyFilters"
             | "resetStyles"
             | "focusOnSlash"
+            | "autofocus"
     ) {
         return false;
     }

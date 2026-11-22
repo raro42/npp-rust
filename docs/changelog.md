@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.947] — 2026-11-23
+
+View:
+
+- **Function List** lists Pagefind UI JSON keys: `"autofocus": true` / `false`, `"translations": {`, `"sort": {`, `"mergeIndex": [`. Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing `:` stay out. Wrong case / plural misspellings / wrong value shapes stay out. `"element"` / `"excerptLength"` stay out of Pagefind (generic / Coveo). Existing Pagefind UI / index / result keys (`bundlePath`, `debounceTimeoutMs`, `showImages`, …) unchanged. Neighbouring search JSON families stay out of Pagefind for these keys (DocSearch may also match `"translations": {`). Bool `"autofocus"` only matches `true` / `false`. Object `"translations"` / `"sort"` require `{`. Array `"mergeIndex"` requires `[`.
+
 ## [0.3.946] — 2026-11-22
 
 View:

@@ -1,3 +1,5 @@
+009 keep: Function List Pagefind UI autofocus/translations/sort/mergeIndex (v0.3.947)
+
 009 keep: Function List Pagefind UI bundlePath/debounceTimeoutMs (v0.3.946)
 
 009 keep: Function List Pagefind UI showImages/showEmptyFilters/resetStyles/focusOnSlash/openFilters/pageSize (v0.3.945)

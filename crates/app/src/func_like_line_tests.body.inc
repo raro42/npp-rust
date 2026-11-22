@@ -45151,6 +45151,11 @@ fn pagefind_json_keys_smoke() {
     assert!(is_pagefind_json_decl(r#""pageSize": 5"#));
     assert!(is_pagefind_json_decl(r#""bundlePath": "/pagefind/""#));
     assert!(is_pagefind_json_decl(r#""debounceTimeoutMs": 300"#));
+    assert!(is_pagefind_json_decl(r#""autofocus": true"#));
+    assert!(is_pagefind_json_decl(r#""translations": {"#));
+    assert!(is_pagefind_json_decl(r#""sort": {"#));
+    assert!(is_pagefind_json_decl(r#""mergeIndex": ["#));
+    assert!(!is_pagefind_json_decl(r##""element": "#search""##));
     assert!(!is_pagefind_json_decl(r#""searchableProperties": ["#));
     assert!(is_orama_json_decl(r#""searchableProperties": ["#));
     assert!(!is_pagefind_json_decl(r#""fieldVectors": {"#));
@@ -45328,6 +45333,43 @@ fn pagefind_json_keys_count() {
     assert!(!is_pagefind_json_decl(r#""debounceTimeoutMs": ["#));
     assert!(!is_pagefind_json_decl(r#""debounceTimeoutMss": 300"#));
     assert!(!is_pagefind_json_decl(r#""DebounceTimeoutMs": 300"#));
+    assert!(is_pagefind_json_decl(r#""autofocus": true"#));
+    assert!(is_pagefind_json_decl(r#""autofocus": false"#));
+    assert!(is_pagefind_json_decl(r#""autofocus": true,"#));
+    assert!(is_pagefind_json_decl(r#""autofocus": false // c"#));
+    assert!(!is_pagefind_json_decl(r#""autofocus": 1"#));
+    assert!(!is_pagefind_json_decl(r#""autofocus": "true""#));
+    assert!(!is_pagefind_json_decl(r#""autofocus": ["#));
+    assert!(!is_pagefind_json_decl(r#""autofocus": {"#));
+    assert!(!is_pagefind_json_decl(r#""autofocuss": true"#));
+    assert!(!is_pagefind_json_decl(r#""Autofocus": true"#));
+    assert!(is_pagefind_json_decl(r#""translations": {"#));
+    assert!(is_pagefind_json_decl(r#""translations": {,"#));
+    assert!(is_pagefind_json_decl(r#""translations": { // c"#));
+    assert!(!is_pagefind_json_decl(r#""translations": ["#));
+    assert!(!is_pagefind_json_decl(r#""translations": true"#));
+    assert!(!is_pagefind_json_decl(r#""translations": 1"#));
+    assert!(!is_pagefind_json_decl(r#""translations": "en""#));
+    assert!(!is_pagefind_json_decl(r#""translationss": {"#));
+    assert!(!is_pagefind_json_decl(r#""Translations": {"#));
+    assert!(is_pagefind_json_decl(r#""sort": {"#));
+    assert!(is_pagefind_json_decl(r#""sort": {,"#));
+    assert!(is_pagefind_json_decl(r#""sort": { // c"#));
+    assert!(!is_pagefind_json_decl(r#""sort": ["#));
+    assert!(!is_pagefind_json_decl(r#""sort": true"#));
+    assert!(!is_pagefind_json_decl(r#""sort": 1"#));
+    assert!(!is_pagefind_json_decl(r#""sort": "desc""#));
+    assert!(!is_pagefind_json_decl(r#""sorts": {"#));
+    assert!(!is_pagefind_json_decl(r#""Sort": {"#));
+    assert!(is_pagefind_json_decl(r#""mergeIndex": ["#));
+    assert!(is_pagefind_json_decl(r#""mergeIndex": [,"#));
+    assert!(is_pagefind_json_decl(r#""mergeIndex": [ // c"#));
+    assert!(!is_pagefind_json_decl(r#""mergeIndex": {"#));
+    assert!(!is_pagefind_json_decl(r#""mergeIndex": true"#));
+    assert!(!is_pagefind_json_decl(r#""mergeIndex": 1"#));
+    assert!(!is_pagefind_json_decl(r#""mergeIndex": "/pagefind/""#));
+    assert!(!is_pagefind_json_decl(r#""mergeIndexs": ["#));
+    assert!(!is_pagefind_json_decl(r#""MergeIndex": ["#));
     assert!(!is_pagefind_json_decl(r#""unfilteredResultCount""#));
     assert!(!is_pagefind_json_decl(r#""weighted_locations""#));
     assert!(!is_pagefind_json_decl(r#""showSubResults""#));
@@ -45339,6 +45381,10 @@ fn pagefind_json_keys_count() {
     assert!(!is_pagefind_json_decl(r#""pageSize""#));
     assert!(!is_pagefind_json_decl(r#""bundlePath""#));
     assert!(!is_pagefind_json_decl(r#""debounceTimeoutMs""#));
+    assert!(!is_pagefind_json_decl(r#""autofocus""#));
+    assert!(!is_pagefind_json_decl(r#""translations""#));
+    assert!(!is_pagefind_json_decl(r#""sort""#));
+    assert!(!is_pagefind_json_decl(r#""mergeIndex""#));
     assert!(!is_pagefind_json_decl(
         r#""$schema": "https://example.com""#
     ));
@@ -45400,6 +45446,11 @@ fn pagefind_json_keys_count() {
     assert!(line_is_func_like(r#""pageSize": 5"#));
     assert!(line_is_func_like(r#""bundlePath": "/pagefind/""#));
     assert!(line_is_func_like(r#""debounceTimeoutMs": 300"#));
+    assert!(line_is_func_like(r#""autofocus": true"#));
+    assert!(line_is_func_like(r#""translations": {"#));
+    assert!(line_is_func_like(r#""sort": {"#));
+    assert!(line_is_func_like(r#""mergeIndex": ["#));
+    assert!(!is_pagefind_json_decl(r##""element": "#search""##));
     assert!(!is_pagefind_json_decl(
         r#""exclude_html_selector": ".sidebar""#
     ));
