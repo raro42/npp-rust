@@ -45490,6 +45490,14 @@ fn stork_json_keys_count() {
     assert!(is_docsearch_json_decl(r#""assistantId": "asst_1""#));
     assert!(!is_stork_json_decl(r#""suggestedQuestions": true"#));
     assert!(is_docsearch_json_decl(r#""suggestedQuestions": true"#));
+    assert!(!is_stork_json_decl(r#""searchParameters": {"#));
+    assert!(is_docsearch_json_decl(r#""searchParameters": {"#));
+    assert!(!is_stork_json_decl(r#""agentStudio": true"#));
+    assert!(is_docsearch_json_decl(r#""agentStudio": true"#));
+    assert!(!is_stork_json_decl(r#""memory": {"#));
+    assert!(is_docsearch_json_decl(r#""memory": {"#));
+    assert!(!is_stork_json_decl(r#""promptSuggestions": {"#));
+    assert!(is_docsearch_json_decl(r#""promptSuggestions": {"#));
     assert!(!is_stork_json_decl(r#""stalledSearchDelay": 200"#));
     assert!(is_instantsearch_json_decl(r#""stalledSearchDelay": 200"#));
     assert!(!is_stork_json_decl(r#""initialUiState": {"#));
@@ -45531,6 +45539,10 @@ fn docsearch_json_keys_smoke() {
     assert!(is_docsearch_json_decl(r#""agentId": "agent-1""#));
     assert!(is_docsearch_json_decl(r#""assistantId": "asst_1""#));
     assert!(is_docsearch_json_decl(r#""suggestedQuestions": true"#));
+    assert!(is_docsearch_json_decl(r#""searchParameters": {"#));
+    assert!(is_docsearch_json_decl(r#""agentStudio": true"#));
+    assert!(is_docsearch_json_decl(r#""memory": {"#));
+    assert!(is_docsearch_json_decl(r#""promptSuggestions": {"#));
     assert!(!is_docsearch_json_decl(
         r#""exclude_html_selector": ".sidebar""#
     ));
@@ -45702,6 +45714,40 @@ fn docsearch_json_keys_count() {
     assert!(!is_docsearch_json_decl(r#""suggestedQuestions": "true""#));
     assert!(!is_docsearch_json_decl(r#""suggestedQuestions": {"#));
     assert!(!is_docsearch_json_decl(r#""suggestedQuestion": true"#));
+    assert!(is_docsearch_json_decl(r#""searchParameters": {"#));
+    assert!(is_docsearch_json_decl(r#""searchParameters": {,"#));
+    assert!(is_docsearch_json_decl(r#""searchParameters": { // c"#));
+    assert!(!is_docsearch_json_decl(r#""searchParameters": true"#));
+    assert!(!is_docsearch_json_decl(r#""searchParameters": false"#));
+    assert!(!is_docsearch_json_decl(r#""searchParameters": ["#));
+    assert!(!is_docsearch_json_decl(r#""searchParameters": "x""#));
+    assert!(!is_docsearch_json_decl(r#""searchParameter": {"#));
+    assert!(!is_docsearch_json_decl(r#""searchParameterss": {"#));
+    assert!(is_docsearch_json_decl(r#""agentStudio": true"#));
+    assert!(is_docsearch_json_decl(r#""agentStudio": false"#));
+    assert!(is_docsearch_json_decl(r#""agentStudio": true,"#));
+    assert!(is_docsearch_json_decl(r#""agentStudio": false // c"#));
+    assert!(!is_docsearch_json_decl(r#""agentStudio": 1"#));
+    assert!(!is_docsearch_json_decl(r#""agentStudio": "true""#));
+    assert!(!is_docsearch_json_decl(r#""agentStudio": {"#));
+    assert!(!is_docsearch_json_decl(r#""agentStudios": true"#));
+    assert!(!is_docsearch_json_decl(r#""AgentStudio": true"#));
+    assert!(is_docsearch_json_decl(r#""memory": {"#));
+    assert!(is_docsearch_json_decl(r#""memory": {,"#));
+    assert!(is_docsearch_json_decl(r#""memory": { // c"#));
+    assert!(!is_docsearch_json_decl(r#""memory": true"#));
+    assert!(!is_docsearch_json_decl(r#""memory": false"#));
+    assert!(!is_docsearch_json_decl(r#""memory": ["#));
+    assert!(!is_docsearch_json_decl(r#""memory": "x""#));
+    assert!(!is_docsearch_json_decl(r#""memories": {"#));
+    assert!(is_docsearch_json_decl(r#""promptSuggestions": {"#));
+    assert!(is_docsearch_json_decl(r#""promptSuggestions": {,"#));
+    assert!(is_docsearch_json_decl(r#""promptSuggestions": { // c"#));
+    assert!(!is_docsearch_json_decl(r#""promptSuggestions": true"#));
+    assert!(!is_docsearch_json_decl(r#""promptSuggestions": false"#));
+    assert!(!is_docsearch_json_decl(r#""promptSuggestions": ["#));
+    assert!(!is_docsearch_json_decl(r#""promptSuggestions": "x""#));
+    assert!(!is_docsearch_json_decl(r#""promptSuggestion": {"#));
     assert!(!is_docsearch_json_decl(r#""maxResultsPerGroup""#));
     assert!(!is_docsearch_json_decl(r#""insights""#));
     assert!(!is_docsearch_json_decl(r#""indices""#));
@@ -45709,6 +45755,10 @@ fn docsearch_json_keys_count() {
     assert!(!is_docsearch_json_decl(r#""agentId""#));
     assert!(!is_docsearch_json_decl(r#""assistantId""#));
     assert!(!is_docsearch_json_decl(r#""suggestedQuestions""#));
+    assert!(!is_docsearch_json_decl(r#""searchParameters""#));
+    assert!(!is_docsearch_json_decl(r#""agentStudio""#));
+    assert!(!is_docsearch_json_decl(r#""memory""#));
+    assert!(!is_docsearch_json_decl(r#""promptSuggestions""#));
     assert!(!is_docsearch_json_decl(
         r#""$schema": "https://example.com""#
     ));
@@ -45725,11 +45775,8 @@ fn docsearch_json_keys_count() {
     assert!(!is_docsearch_json_decl(r#""theme": {"#));
     assert!(!is_docsearch_json_decl(r#""translations": {"#));
     assert!(!is_docsearch_json_decl(r#""facets": ["#));
-    assert!(!is_docsearch_json_decl(r#""searchParameters": {"#));
     assert!(!is_docsearch_json_decl(r#""keyboardShortcuts": {"#));
-    assert!(!is_docsearch_json_decl(r#""agentStudio": true"#));
-    assert!(!is_docsearch_json_decl(r#""memory": {"#));
-    assert!(!is_docsearch_json_decl(r#""promptSuggestions": {"#));
+    assert!(!is_docsearch_json_decl(r#""tools": {"#));
     assert!(!is_docsearch_json_decl(
         r#""exclude_html_selector": ".sidebar""#
     ));
@@ -45783,6 +45830,10 @@ fn docsearch_json_keys_count() {
     assert!(line_is_func_like(r#""agentId": "agent-1""#));
     assert!(line_is_func_like(r#""assistantId": "asst_1""#));
     assert!(line_is_func_like(r#""suggestedQuestions": true"#));
+    assert!(line_is_func_like(r#""searchParameters": {"#));
+    assert!(line_is_func_like(r#""agentStudio": true"#));
+    assert!(line_is_func_like(r#""memory": {"#));
+    assert!(line_is_func_like(r#""promptSuggestions": {"#));
     assert!(!is_docsearch_json_decl(r#""stalledSearchDelay": 200"#));
     assert!(is_instantsearch_json_decl(r#""stalledSearchDelay": 200"#));
     assert!(!is_docsearch_json_decl(r#""initialUiState": {"#));
@@ -45900,6 +45951,14 @@ fn instantsearch_json_keys_smoke() {
     assert!(is_docsearch_json_decl(r#""assistantId": "asst_1""#));
     assert!(!is_instantsearch_json_decl(r#""suggestedQuestions": true"#));
     assert!(is_docsearch_json_decl(r#""suggestedQuestions": true"#));
+    assert!(!is_instantsearch_json_decl(r#""searchParameters": {"#));
+    assert!(is_docsearch_json_decl(r#""searchParameters": {"#));
+    assert!(!is_instantsearch_json_decl(r#""agentStudio": true"#));
+    assert!(is_docsearch_json_decl(r#""agentStudio": true"#));
+    assert!(!is_instantsearch_json_decl(r#""memory": {"#));
+    assert!(is_docsearch_json_decl(r#""memory": {"#));
+    assert!(!is_instantsearch_json_decl(r#""promptSuggestions": {"#));
+    assert!(is_docsearch_json_decl(r#""promptSuggestions": {"#));
     assert!(!is_instantsearch_json_decl(
         r#""exclude_html_selector": ".sidebar""#
     ));

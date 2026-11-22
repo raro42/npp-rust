@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.927] — 2026-11-22
+
+View:
+
+- **Function List** lists DocSearch Ask AI / Agent Studio JSON keys: `"searchParameters": {`, `"agentStudio": true` / `false`, `"memory": {`, `"promptSuggestions": {`. Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing `:` stay out. Empty strings / plural/singular misspellings / `"searchParameters": true` / `"searchParameters": false` / `"searchParameters": [` / `"searchParameters": "x"` / `"searchParameter": {` / `"searchParameterss": {` / `"agentStudio": 1` / `"agentStudio": "true"` / `"agentStudio": {` / `"agentStudios": true` / `"AgentStudio": true` / `"memory": true` / `"memory": false` / `"memory": [` / `"memory": "x"` / `"memories": {` / `"promptSuggestions": true` / `"promptSuggestions": false` / `"promptSuggestions": [` / `"promptSuggestions": "x"` / `"promptSuggestion": {` / `"keyboardShortcuts": {` / `"tools": {` / generic `"appId"` / `"apiKey"` / `"indexName"` / `"placeholder"` / `"container"` / `"name"` / `"id"` / `"q"` / `"query"` / `"url"` stay out. Existing DocSearch `maxResultsPerGroup` / `disableUserPersonalization` / `recentSearchesLimit` / `recentSearchesWithFavoritesLimit` / `resultBadgeKey` / `insights` / `initialQuery` / `indices` / `askAi` / `agentId` / `assistantId` / `suggestedQuestions` unchanged. InstantSearch / Autocomplete / Typesense InstantSearch Adapter / neighbouring search JSON families stay out of DocSearch for these keys. `"searchParameters"` / `"memory"` / `"promptSuggestions"` accept `{` only. `"agentStudio"` accepts bool only.
+
 ## [0.3.926] — 2026-11-22
 
 View:
