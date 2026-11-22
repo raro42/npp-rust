@@ -38865,7 +38865,10 @@ fn stork_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool {
 /// `"newConversationDescription": "…"`,
 /// `"recentConversationTimestampFallback": "…"`,
 /// `"askAiResultsTitle": "…"`, `"resultsSectionTitle": "…"`,
-/// `"resultBadgeLabelText": "…"`.
+/// `"resultBadgeLabelText": "…"`, `"defaultValueLabel": "…"`,
+/// `"facetMenuTriggerAriaLabel": "…"`, `"clearAllLabel": "…"`,
+/// `"facetsAriaLabel": "…"`, `"selectedFacetsAriaLabel": "…"`,
+/// `"clearFacetAriaLabel": "…"`.
 /// Optional trailing `,` and `//` / `/*` comment. Incomplete quotes /
 /// missing `:` stay out. Generic `"$schema"` / `"name"` / `"id"` /
 /// `"q"` / `"query"` / `"url"` / `"appId"` / `"apiKey"` / `"indexName"` /
@@ -39080,6 +39083,12 @@ fn docsearch_json_key_ok(key: &str) -> bool {
             | "askAiResultsTitle"
             | "resultsSectionTitle"
             | "resultBadgeLabelText"
+            | "defaultValueLabel"
+            | "facetMenuTriggerAriaLabel"
+            | "clearAllLabel"
+            | "facetsAriaLabel"
+            | "selectedFacetsAriaLabel"
+            | "clearFacetAriaLabel"
     )
 }
 
@@ -39175,7 +39184,10 @@ fn docsearch_json_string_and_tail_ok(key: &str, after_colon: &str) -> bool {
         | "toolCallResultText" | "newConversationTitle"
         | "newConversationDescription"
         | "recentConversationTimestampFallback" | "askAiResultsTitle"
-        | "resultsSectionTitle" | "resultBadgeLabelText" => {}
+        | "resultsSectionTitle" | "resultBadgeLabelText"
+        | "defaultValueLabel" | "facetMenuTriggerAriaLabel"
+        | "clearAllLabel" | "facetsAriaLabel" | "selectedFacetsAriaLabel"
+        | "clearFacetAriaLabel" => {}
         "variant" => {
             if !matches!(value, "floating" | "inline") {
                 return false;

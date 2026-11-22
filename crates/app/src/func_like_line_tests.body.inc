@@ -45896,6 +45896,22 @@ fn stork_json_keys_count() {
     assert!(is_docsearch_json_decl(r#""resultsSectionTitle": "Results""#));
     assert!(!is_stork_json_decl(r#""resultBadgeLabelText": "Category""#));
     assert!(is_docsearch_json_decl(r#""resultBadgeLabelText": "Category""#));
+    assert!(!is_stork_json_decl(r#""defaultValueLabel": "All""#));
+    assert!(is_docsearch_json_decl(r#""defaultValueLabel": "All""#));
+    assert!(!is_stork_json_decl(r#""facetMenuTriggerAriaLabel": "selected""#));
+    assert!(is_docsearch_json_decl(r#""facetMenuTriggerAriaLabel": "selected""#));
+    assert!(!is_stork_json_decl(r#""clearAllLabel": "Clear all""#));
+    assert!(is_docsearch_json_decl(r#""clearAllLabel": "Clear all""#));
+    assert!(!is_stork_json_decl(r#""facetsAriaLabel": "Search filters""#));
+    assert!(is_docsearch_json_decl(r#""facetsAriaLabel": "Search filters""#));
+    assert!(!is_stork_json_decl(
+        r#""selectedFacetsAriaLabel": "Selected search filters""#
+    ));
+    assert!(is_docsearch_json_decl(
+        r#""selectedFacetsAriaLabel": "Selected search filters""#
+    ));
+    assert!(!is_stork_json_decl(r#""clearFacetAriaLabel": "Clear filter:""#));
+    assert!(is_docsearch_json_decl(r#""clearFacetAriaLabel": "Clear filter:""#));
     assert!(!is_stork_json_decl(r#""stalledSearchDelay": 200"#));
     assert!(is_instantsearch_json_decl(r#""stalledSearchDelay": 200"#));
     assert!(!is_stork_json_decl(r#""initialUiState": {"#));
@@ -46139,6 +46155,14 @@ fn docsearch_json_keys_smoke() {
     assert!(is_docsearch_json_decl(r#""askAiResultsTitle": "Ask AI""#));
     assert!(is_docsearch_json_decl(r#""resultsSectionTitle": "Results""#));
     assert!(is_docsearch_json_decl(r#""resultBadgeLabelText": "Category""#));
+    assert!(is_docsearch_json_decl(r#""defaultValueLabel": "All""#));
+    assert!(is_docsearch_json_decl(r#""facetMenuTriggerAriaLabel": "selected""#));
+    assert!(is_docsearch_json_decl(r#""clearAllLabel": "Clear all""#));
+    assert!(is_docsearch_json_decl(r#""facetsAriaLabel": "Search filters""#));
+    assert!(is_docsearch_json_decl(
+        r#""selectedFacetsAriaLabel": "Selected search filters""#
+    ));
+    assert!(is_docsearch_json_decl(r#""clearFacetAriaLabel": "Clear filter:""#));
     assert!(!is_docsearch_json_decl(
         r#""exclude_html_selector": ".sidebar""#
     ));
@@ -48057,6 +48081,70 @@ fn docsearch_json_keys_count() {
     assert!(!is_docsearch_json_decl(r#""resultBadgeLabelText": ["#));
     assert!(!is_docsearch_json_decl(r#""resultBadgeLabelTexts": "Category""#));
     assert!(!is_docsearch_json_decl(r#""ResultBadgeLabelText": "Category""#));
+    assert!(is_docsearch_json_decl(r#""defaultValueLabel": "All""#));
+    assert!(is_docsearch_json_decl(r#""defaultValueLabel": "All","#));
+    assert!(is_docsearch_json_decl(r#""defaultValueLabel": "All" // c"#));
+    assert!(!is_docsearch_json_decl(r#""defaultValueLabel": """#));
+    assert!(!is_docsearch_json_decl(r#""defaultValueLabel": true"#));
+    assert!(!is_docsearch_json_decl(r#""defaultValueLabel": {"#));
+    assert!(!is_docsearch_json_decl(r#""defaultValueLabel": ["#));
+    assert!(!is_docsearch_json_decl(r#""defaultValueLabels": "All""#));
+    assert!(!is_docsearch_json_decl(r#""DefaultValueLabel": "All""#));
+    assert!(is_docsearch_json_decl(r#""facetMenuTriggerAriaLabel": "selected""#));
+    assert!(is_docsearch_json_decl(r#""facetMenuTriggerAriaLabel": "selected","#));
+    assert!(is_docsearch_json_decl(r#""facetMenuTriggerAriaLabel": "selected" // c"#));
+    assert!(!is_docsearch_json_decl(r#""facetMenuTriggerAriaLabel": """#));
+    assert!(!is_docsearch_json_decl(r#""facetMenuTriggerAriaLabel": true"#));
+    assert!(!is_docsearch_json_decl(r#""facetMenuTriggerAriaLabel": {"#));
+    assert!(!is_docsearch_json_decl(r#""facetMenuTriggerAriaLabel": ["#));
+    assert!(!is_docsearch_json_decl(r#""facetMenuTriggerAriaLabels": "selected""#));
+    assert!(!is_docsearch_json_decl(r#""FacetMenuTriggerAriaLabel": "selected""#));
+    assert!(is_docsearch_json_decl(r#""clearAllLabel": "Clear all""#));
+    assert!(is_docsearch_json_decl(r#""clearAllLabel": "Clear all","#));
+    assert!(is_docsearch_json_decl(r#""clearAllLabel": "Clear all" // c"#));
+    assert!(!is_docsearch_json_decl(r#""clearAllLabel": """#));
+    assert!(!is_docsearch_json_decl(r#""clearAllLabel": true"#));
+    assert!(!is_docsearch_json_decl(r#""clearAllLabel": {"#));
+    assert!(!is_docsearch_json_decl(r#""clearAllLabel": ["#));
+    assert!(!is_docsearch_json_decl(r#""clearAllLabels": "Clear all""#));
+    assert!(!is_docsearch_json_decl(r#""ClearAllLabel": "Clear all""#));
+    assert!(is_docsearch_json_decl(r#""facetsAriaLabel": "Search filters""#));
+    assert!(is_docsearch_json_decl(r#""facetsAriaLabel": "Search filters","#));
+    assert!(is_docsearch_json_decl(r#""facetsAriaLabel": "Search filters" // c"#));
+    assert!(!is_docsearch_json_decl(r#""facetsAriaLabel": """#));
+    assert!(!is_docsearch_json_decl(r#""facetsAriaLabel": true"#));
+    assert!(!is_docsearch_json_decl(r#""facetsAriaLabel": {"#));
+    assert!(!is_docsearch_json_decl(r#""facetsAriaLabel": ["#));
+    assert!(!is_docsearch_json_decl(r#""facetsAriaLabels": "Search filters""#));
+    assert!(!is_docsearch_json_decl(r#""FacetsAriaLabel": "Search filters""#));
+    assert!(is_docsearch_json_decl(
+        r#""selectedFacetsAriaLabel": "Selected search filters""#
+    ));
+    assert!(is_docsearch_json_decl(
+        r#""selectedFacetsAriaLabel": "Selected search filters","#
+    ));
+    assert!(is_docsearch_json_decl(
+        r#""selectedFacetsAriaLabel": "Selected search filters" // c"#
+    ));
+    assert!(!is_docsearch_json_decl(r#""selectedFacetsAriaLabel": """#));
+    assert!(!is_docsearch_json_decl(r#""selectedFacetsAriaLabel": true"#));
+    assert!(!is_docsearch_json_decl(r#""selectedFacetsAriaLabel": {"#));
+    assert!(!is_docsearch_json_decl(r#""selectedFacetsAriaLabel": ["#));
+    assert!(!is_docsearch_json_decl(
+        r#""selectedFacetsAriaLabels": "Selected search filters""#
+    ));
+    assert!(!is_docsearch_json_decl(
+        r#""SelectedFacetsAriaLabel": "Selected search filters""#
+    ));
+    assert!(is_docsearch_json_decl(r#""clearFacetAriaLabel": "Clear filter:""#));
+    assert!(is_docsearch_json_decl(r#""clearFacetAriaLabel": "Clear filter:","#));
+    assert!(is_docsearch_json_decl(r#""clearFacetAriaLabel": "Clear filter:" // c"#));
+    assert!(!is_docsearch_json_decl(r#""clearFacetAriaLabel": """#));
+    assert!(!is_docsearch_json_decl(r#""clearFacetAriaLabel": true"#));
+    assert!(!is_docsearch_json_decl(r#""clearFacetAriaLabel": {"#));
+    assert!(!is_docsearch_json_decl(r#""clearFacetAriaLabel": ["#));
+    assert!(!is_docsearch_json_decl(r#""clearFacetAriaLabels": "Clear filter:""#));
+    assert!(!is_docsearch_json_decl(r#""ClearFacetAriaLabel": "Clear filter:""#));
     assert!(!is_docsearch_json_decl(r#""maxResultsPerGroup""#));
     assert!(!is_docsearch_json_decl(r#""insights""#));
     assert!(!is_docsearch_json_decl(r#""indices""#));
@@ -48186,6 +48274,12 @@ fn docsearch_json_keys_count() {
     assert!(!is_docsearch_json_decl(r#""askAiResultsTitle""#));
     assert!(!is_docsearch_json_decl(r#""resultsSectionTitle""#));
     assert!(!is_docsearch_json_decl(r#""resultBadgeLabelText""#));
+    assert!(!is_docsearch_json_decl(r#""defaultValueLabel""#));
+    assert!(!is_docsearch_json_decl(r#""facetMenuTriggerAriaLabel""#));
+    assert!(!is_docsearch_json_decl(r#""clearAllLabel""#));
+    assert!(!is_docsearch_json_decl(r#""facetsAriaLabel""#));
+    assert!(!is_docsearch_json_decl(r#""selectedFacetsAriaLabel""#));
+    assert!(!is_docsearch_json_decl(r#""clearFacetAriaLabel""#));
     assert!(!is_docsearch_json_decl(
         r#""$schema": "https://example.com""#
     ));
@@ -48451,6 +48545,14 @@ fn docsearch_json_keys_count() {
     assert!(line_is_func_like(r#""askAiResultsTitle": "Ask AI""#));
     assert!(line_is_func_like(r#""resultsSectionTitle": "Results""#));
     assert!(line_is_func_like(r#""resultBadgeLabelText": "Category""#));
+    assert!(line_is_func_like(r#""defaultValueLabel": "All""#));
+    assert!(line_is_func_like(r#""facetMenuTriggerAriaLabel": "selected""#));
+    assert!(line_is_func_like(r#""clearAllLabel": "Clear all""#));
+    assert!(line_is_func_like(r#""facetsAriaLabel": "Search filters""#));
+    assert!(line_is_func_like(
+        r#""selectedFacetsAriaLabel": "Selected search filters""#
+    ));
+    assert!(line_is_func_like(r#""clearFacetAriaLabel": "Clear filter:""#));
     assert!(!is_docsearch_json_decl(r#""stalledSearchDelay": 200"#));
     assert!(is_instantsearch_json_decl(r#""stalledSearchDelay": 200"#));
     assert!(!is_docsearch_json_decl(r#""initialUiState": {"#));

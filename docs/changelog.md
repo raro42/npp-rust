@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.944] — 2026-11-22
+
+View:
+
+- **Function List** lists DocSearch FacetBar JSON keys: `"defaultValueLabel": "…"`, `"facetMenuTriggerAriaLabel": "…"`, `"clearAllLabel": "…"`, `"facetsAriaLabel": "…"`, `"selectedFacetsAriaLabel": "…"`, `"clearFacetAriaLabel": "…"`. Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing `:` stay out. Empty strings / plural/singular misspellings / wrong case / bool / object / array forms stay out. Existing DocSearch Ask AI / Results / footer keys unchanged. InstantSearch / Autocomplete / neighbouring search JSON families stay out of DocSearch for these keys. Translation string keys require a non-empty quoted string.
+
 ## [0.3.943] — 2026-11-22
 
 View:

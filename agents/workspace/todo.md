@@ -1546,3 +1546,7 @@
 009 keep: Function List DocSearch startNewConversationText/viewConversationHistoryText/threadDepthErrorPlaceholder/titleText/helpText/suggestedQueryText/reportMissingResultsText/reportMissingResultsLinkText/askAiPlaceholder/noResultsAskAiPlaceholder (v0.3.939)
 
 009 keep: Function List DocSearch Ask AI tool-call/streaming/error/cancel translation keys (v0.3.942)
+
+009 keep: Function List DocSearch Ask AI searchingText/toolCallResultText/newConversationTitle/newConversationDescription/recentConversationTimestampFallback/askAiResultsTitle/resultsSectionTitle/resultBadgeLabelText (v0.3.943)
+
+009 keep: Function List DocSearch FacetBar defaultValueLabel/facetMenuTriggerAriaLabel/clearAllLabel/facetsAriaLabel/selectedFacetsAriaLabel/clearFacetAriaLabel (v0.3.944)
