@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.933] — 2026-11-22
+
+View:
+
+- **Function List** lists DocSearch JSON keys: `"resultsFooterComponent": {`, `"getMissingResultsUrl": {`, `"footerAction": {`. Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing `:` stay out. Empty strings / plural/singular misspellings / `"resultsFooterComponent": true` / `"resultsFooterComponent": false` / `"resultsFooterComponent": [` / `"resultsFooterComponent": "x"` / `"resultsFooterComponents": {` / `"ResultsFooterComponent": {` / `"getMissingResultsUrl": true` / `"getMissingResultsUrl": false` / `"getMissingResultsUrl": [` / `"getMissingResultsUrl": "x"` / `"getMissingResultsUrls": {` / `"GetMissingResultsUrl": {` / `"footerAction": true` / `"footerAction": false` / `"footerAction": [` / `"footerAction": "x"` / `"footerActions": {` / `"FooterAction": {` / `"facets"` / object `"theme": {` / generic `"appId"` / `"apiKey"` / `"indexName"` / `"placeholder"` / `"container"` / `"name"` / `"id"` / `"q"` / `"query"` / `"url"` stay out. Existing DocSearch `maxResultsPerGroup` / `disableUserPersonalization` / `recentSearchesLimit` / `recentSearchesWithFavoritesLimit` / `resultBadgeKey` / `insights` / `initialQuery` / `indices` / `askAi` / `agentId` / `assistantId` / `suggestedQuestions` / `searchParameters` / `agentStudio` / `memory` / `promptSuggestions` / `keyboardShortcuts` / `expandedWidth` / `tools` / `width` / `variant` / `side` / `pushSelector` / `theme` / `translations` / `classNames` / `navigator` / `portalContainer` / `hitComponent` / `transformItems` / `transformSearchClient` unchanged. InstantSearch / Autocomplete / Typesense InstantSearch Adapter / neighbouring search JSON families stay out of DocSearch for these keys. `"resultsFooterComponent"` / `"getMissingResultsUrl"` / `"footerAction"` accept `{` only.
+
 ## [0.3.932] — 2026-11-22
 
 View:
