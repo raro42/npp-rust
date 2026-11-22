@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.943] — 2026-11-22
+
+View:
+
+- **Function List** lists DocSearch Ask AI ToolCall / New Conversation / Results JSON keys: `"searchingText": "…"`, `"toolCallResultText": "…"`, `"newConversationTitle": "…"`, `"newConversationDescription": "…"`, `"recentConversationTimestampFallback": "…"`, `"askAiResultsTitle": "…"`, `"resultsSectionTitle": "…"`, `"resultBadgeLabelText": "…"`. Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing `:` stay out. Empty strings / plural/singular misspellings / wrong case / bool / object / array forms stay out. Existing DocSearch Ask AI tool-call / feedback / screen keys unchanged. InstantSearch / Autocomplete / neighbouring search JSON families stay out of DocSearch for these keys. Translation string keys require a non-empty quoted string.
+
 ## [0.3.942] — 2026-11-22
 
 View:

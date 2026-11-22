@@ -38860,7 +38860,12 @@ fn stork_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool {
 /// `"startNewConversationButtonText": "…"`,
 /// `"suggestedPromptsTitleText": "…"`,
 /// `"savedMemoryToolResultText": "…"`, `"memoryToolResultText": "…"`,
-/// `"callingToolText": "…"`.
+/// `"callingToolText": "…"`, `"searchingText": "…"`,
+/// `"toolCallResultText": "…"`, `"newConversationTitle": "…"`,
+/// `"newConversationDescription": "…"`,
+/// `"recentConversationTimestampFallback": "…"`,
+/// `"askAiResultsTitle": "…"`, `"resultsSectionTitle": "…"`,
+/// `"resultBadgeLabelText": "…"`.
 /// Optional trailing `,` and `//` / `/*` comment. Incomplete quotes /
 /// missing `:` stay out. Generic `"$schema"` / `"name"` / `"id"` /
 /// `"q"` / `"query"` / `"url"` / `"appId"` / `"apiKey"` / `"indexName"` /
@@ -39067,6 +39072,14 @@ fn docsearch_json_key_ok(key: &str) -> bool {
             | "savedMemoryToolResultText"
             | "memoryToolResultText"
             | "callingToolText"
+            | "searchingText"
+            | "toolCallResultText"
+            | "newConversationTitle"
+            | "newConversationDescription"
+            | "recentConversationTimestampFallback"
+            | "askAiResultsTitle"
+            | "resultsSectionTitle"
+            | "resultBadgeLabelText"
     )
 }
 
@@ -39158,7 +39171,11 @@ fn docsearch_json_string_and_tail_ok(key: &str, after_colon: &str) -> bool {
         | "stoppedStreamingText" | "errorTitleText"
         | "threadDepthExceededMessage" | "startNewConversationButtonText"
         | "suggestedPromptsTitleText" | "savedMemoryToolResultText"
-        | "memoryToolResultText" | "callingToolText" => {}
+        | "memoryToolResultText" | "callingToolText" | "searchingText"
+        | "toolCallResultText" | "newConversationTitle"
+        | "newConversationDescription"
+        | "recentConversationTimestampFallback" | "askAiResultsTitle"
+        | "resultsSectionTitle" | "resultBadgeLabelText" => {}
         "variant" => {
             if !matches!(value, "floating" | "inline") {
                 return false;

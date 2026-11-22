@@ -45872,6 +45872,30 @@ fn stork_json_keys_count() {
     ));
     assert!(!is_stork_json_decl(r#""callingToolText": "Calling tool...""#));
     assert!(is_docsearch_json_decl(r#""callingToolText": "Calling tool...""#));
+    assert!(!is_stork_json_decl(r#""searchingText": "Searching...""#));
+    assert!(is_docsearch_json_decl(r#""searchingText": "Searching...""#));
+    assert!(!is_stork_json_decl(r#""toolCallResultText": "Searched for""#));
+    assert!(is_docsearch_json_decl(r#""toolCallResultText": "Searched for""#));
+    assert!(!is_stork_json_decl(r#""newConversationTitle": "New conversation""#));
+    assert!(is_docsearch_json_decl(r#""newConversationTitle": "New conversation""#));
+    assert!(!is_stork_json_decl(
+        r#""newConversationDescription": "Start a fresh Ask AI chat.""#
+    ));
+    assert!(is_docsearch_json_decl(
+        r#""newConversationDescription": "Start a fresh Ask AI chat.""#
+    ));
+    assert!(!is_stork_json_decl(
+        r#""recentConversationTimestampFallback": "Recently""#
+    ));
+    assert!(is_docsearch_json_decl(
+        r#""recentConversationTimestampFallback": "Recently""#
+    ));
+    assert!(!is_stork_json_decl(r#""askAiResultsTitle": "Ask AI""#));
+    assert!(is_docsearch_json_decl(r#""askAiResultsTitle": "Ask AI""#));
+    assert!(!is_stork_json_decl(r#""resultsSectionTitle": "Results""#));
+    assert!(is_docsearch_json_decl(r#""resultsSectionTitle": "Results""#));
+    assert!(!is_stork_json_decl(r#""resultBadgeLabelText": "Category""#));
+    assert!(is_docsearch_json_decl(r#""resultBadgeLabelText": "Category""#));
     assert!(!is_stork_json_decl(r#""stalledSearchDelay": 200"#));
     assert!(is_instantsearch_json_decl(r#""stalledSearchDelay": 200"#));
     assert!(!is_stork_json_decl(r#""initialUiState": {"#));
@@ -46103,6 +46127,18 @@ fn docsearch_json_keys_smoke() {
     assert!(is_docsearch_json_decl(r#""savedMemoryToolResultText": "Saved to memory""#));
     assert!(is_docsearch_json_decl(r#""memoryToolResultText": "Used memory to enhance results""#));
     assert!(is_docsearch_json_decl(r#""callingToolText": "Calling tool...""#));
+    assert!(is_docsearch_json_decl(r#""searchingText": "Searching...""#));
+    assert!(is_docsearch_json_decl(r#""toolCallResultText": "Searched for""#));
+    assert!(is_docsearch_json_decl(r#""newConversationTitle": "New conversation""#));
+    assert!(is_docsearch_json_decl(
+        r#""newConversationDescription": "Start a fresh Ask AI chat.""#
+    ));
+    assert!(is_docsearch_json_decl(
+        r#""recentConversationTimestampFallback": "Recently""#
+    ));
+    assert!(is_docsearch_json_decl(r#""askAiResultsTitle": "Ask AI""#));
+    assert!(is_docsearch_json_decl(r#""resultsSectionTitle": "Results""#));
+    assert!(is_docsearch_json_decl(r#""resultBadgeLabelText": "Category""#));
     assert!(!is_docsearch_json_decl(
         r#""exclude_html_selector": ".sidebar""#
     ));
@@ -47929,6 +47965,98 @@ fn docsearch_json_keys_count() {
     assert!(!is_docsearch_json_decl(r#""callingToolText": ["#));
     assert!(!is_docsearch_json_decl(r#""callingToolTexts": "Calling tool...""#));
     assert!(!is_docsearch_json_decl(r#""CallingToolText": "Calling tool...""#));
+    assert!(is_docsearch_json_decl(r#""searchingText": "Searching...""#));
+    assert!(is_docsearch_json_decl(r#""searchingText": "Searching...","#));
+    assert!(is_docsearch_json_decl(r#""searchingText": "Searching..." // c"#));
+    assert!(!is_docsearch_json_decl(r#""searchingText": """#));
+    assert!(!is_docsearch_json_decl(r#""searchingText": true"#));
+    assert!(!is_docsearch_json_decl(r#""searchingText": {"#));
+    assert!(!is_docsearch_json_decl(r#""searchingText": ["#));
+    assert!(!is_docsearch_json_decl(r#""searchingTexts": "Searching...""#));
+    assert!(!is_docsearch_json_decl(r#""SearchingText": "Searching...""#));
+    assert!(is_docsearch_json_decl(r#""toolCallResultText": "Searched for""#));
+    assert!(is_docsearch_json_decl(r#""toolCallResultText": "Searched for","#));
+    assert!(is_docsearch_json_decl(r#""toolCallResultText": "Searched for" // c"#));
+    assert!(!is_docsearch_json_decl(r#""toolCallResultText": """#));
+    assert!(!is_docsearch_json_decl(r#""toolCallResultText": true"#));
+    assert!(!is_docsearch_json_decl(r#""toolCallResultText": {"#));
+    assert!(!is_docsearch_json_decl(r#""toolCallResultText": ["#));
+    assert!(!is_docsearch_json_decl(r#""toolCallResultTexts": "Searched for""#));
+    assert!(!is_docsearch_json_decl(r#""ToolCallResultText": "Searched for""#));
+    assert!(is_docsearch_json_decl(r#""newConversationTitle": "New conversation""#));
+    assert!(is_docsearch_json_decl(r#""newConversationTitle": "New conversation","#));
+    assert!(is_docsearch_json_decl(r#""newConversationTitle": "New conversation" // c"#));
+    assert!(!is_docsearch_json_decl(r#""newConversationTitle": """#));
+    assert!(!is_docsearch_json_decl(r#""newConversationTitle": true"#));
+    assert!(!is_docsearch_json_decl(r#""newConversationTitle": {"#));
+    assert!(!is_docsearch_json_decl(r#""newConversationTitle": ["#));
+    assert!(!is_docsearch_json_decl(r#""newConversationTitles": "New conversation""#));
+    assert!(!is_docsearch_json_decl(r#""NewConversationTitle": "New conversation""#));
+    assert!(is_docsearch_json_decl(
+        r#""newConversationDescription": "Start a fresh Ask AI chat.""#
+    ));
+    assert!(is_docsearch_json_decl(
+        r#""newConversationDescription": "Start a fresh Ask AI chat.","#
+    ));
+    assert!(is_docsearch_json_decl(
+        r#""newConversationDescription": "Start a fresh Ask AI chat." // c"#
+    ));
+    assert!(!is_docsearch_json_decl(r#""newConversationDescription": """#));
+    assert!(!is_docsearch_json_decl(r#""newConversationDescription": true"#));
+    assert!(!is_docsearch_json_decl(r#""newConversationDescription": {"#));
+    assert!(!is_docsearch_json_decl(r#""newConversationDescription": ["#));
+    assert!(!is_docsearch_json_decl(
+        r#""newConversationDescriptions": "Start a fresh Ask AI chat.""#
+    ));
+    assert!(!is_docsearch_json_decl(
+        r#""NewConversationDescription": "Start a fresh Ask AI chat.""#
+    ));
+    assert!(is_docsearch_json_decl(
+        r#""recentConversationTimestampFallback": "Recently""#
+    ));
+    assert!(is_docsearch_json_decl(
+        r#""recentConversationTimestampFallback": "Recently","#
+    ));
+    assert!(is_docsearch_json_decl(
+        r#""recentConversationTimestampFallback": "Recently" // c"#
+    ));
+    assert!(!is_docsearch_json_decl(r#""recentConversationTimestampFallback": """#));
+    assert!(!is_docsearch_json_decl(r#""recentConversationTimestampFallback": true"#));
+    assert!(!is_docsearch_json_decl(r#""recentConversationTimestampFallback": {"#));
+    assert!(!is_docsearch_json_decl(r#""recentConversationTimestampFallback": ["#));
+    assert!(!is_docsearch_json_decl(
+        r#""recentConversationTimestampFallbacks": "Recently""#
+    ));
+    assert!(!is_docsearch_json_decl(
+        r#""RecentConversationTimestampFallback": "Recently""#
+    ));
+    assert!(is_docsearch_json_decl(r#""askAiResultsTitle": "Ask AI""#));
+    assert!(is_docsearch_json_decl(r#""askAiResultsTitle": "Ask AI","#));
+    assert!(is_docsearch_json_decl(r#""askAiResultsTitle": "Ask AI" // c"#));
+    assert!(!is_docsearch_json_decl(r#""askAiResultsTitle": """#));
+    assert!(!is_docsearch_json_decl(r#""askAiResultsTitle": true"#));
+    assert!(!is_docsearch_json_decl(r#""askAiResultsTitle": {"#));
+    assert!(!is_docsearch_json_decl(r#""askAiResultsTitle": ["#));
+    assert!(!is_docsearch_json_decl(r#""askAiResultsTitles": "Ask AI""#));
+    assert!(!is_docsearch_json_decl(r#""AskAiResultsTitle": "Ask AI""#));
+    assert!(is_docsearch_json_decl(r#""resultsSectionTitle": "Results""#));
+    assert!(is_docsearch_json_decl(r#""resultsSectionTitle": "Results","#));
+    assert!(is_docsearch_json_decl(r#""resultsSectionTitle": "Results" // c"#));
+    assert!(!is_docsearch_json_decl(r#""resultsSectionTitle": """#));
+    assert!(!is_docsearch_json_decl(r#""resultsSectionTitle": true"#));
+    assert!(!is_docsearch_json_decl(r#""resultsSectionTitle": {"#));
+    assert!(!is_docsearch_json_decl(r#""resultsSectionTitle": ["#));
+    assert!(!is_docsearch_json_decl(r#""resultsSectionTitles": "Results""#));
+    assert!(!is_docsearch_json_decl(r#""ResultsSectionTitle": "Results""#));
+    assert!(is_docsearch_json_decl(r#""resultBadgeLabelText": "Category""#));
+    assert!(is_docsearch_json_decl(r#""resultBadgeLabelText": "Category","#));
+    assert!(is_docsearch_json_decl(r#""resultBadgeLabelText": "Category" // c"#));
+    assert!(!is_docsearch_json_decl(r#""resultBadgeLabelText": """#));
+    assert!(!is_docsearch_json_decl(r#""resultBadgeLabelText": true"#));
+    assert!(!is_docsearch_json_decl(r#""resultBadgeLabelText": {"#));
+    assert!(!is_docsearch_json_decl(r#""resultBadgeLabelText": ["#));
+    assert!(!is_docsearch_json_decl(r#""resultBadgeLabelTexts": "Category""#));
+    assert!(!is_docsearch_json_decl(r#""ResultBadgeLabelText": "Category""#));
     assert!(!is_docsearch_json_decl(r#""maxResultsPerGroup""#));
     assert!(!is_docsearch_json_decl(r#""insights""#));
     assert!(!is_docsearch_json_decl(r#""indices""#));
@@ -48050,6 +48178,14 @@ fn docsearch_json_keys_count() {
     assert!(!is_docsearch_json_decl(r#""savedMemoryToolResultText""#));
     assert!(!is_docsearch_json_decl(r#""memoryToolResultText""#));
     assert!(!is_docsearch_json_decl(r#""callingToolText""#));
+    assert!(!is_docsearch_json_decl(r#""searchingText""#));
+    assert!(!is_docsearch_json_decl(r#""toolCallResultText""#));
+    assert!(!is_docsearch_json_decl(r#""newConversationTitle""#));
+    assert!(!is_docsearch_json_decl(r#""newConversationDescription""#));
+    assert!(!is_docsearch_json_decl(r#""recentConversationTimestampFallback""#));
+    assert!(!is_docsearch_json_decl(r#""askAiResultsTitle""#));
+    assert!(!is_docsearch_json_decl(r#""resultsSectionTitle""#));
+    assert!(!is_docsearch_json_decl(r#""resultBadgeLabelText""#));
     assert!(!is_docsearch_json_decl(
         r#""$schema": "https://example.com""#
     ));
@@ -48303,6 +48439,18 @@ fn docsearch_json_keys_count() {
     assert!(line_is_func_like(r#""savedMemoryToolResultText": "Saved to memory""#));
     assert!(line_is_func_like(r#""memoryToolResultText": "Used memory to enhance results""#));
     assert!(line_is_func_like(r#""callingToolText": "Calling tool...""#));
+    assert!(line_is_func_like(r#""searchingText": "Searching...""#));
+    assert!(line_is_func_like(r#""toolCallResultText": "Searched for""#));
+    assert!(line_is_func_like(r#""newConversationTitle": "New conversation""#));
+    assert!(line_is_func_like(
+        r#""newConversationDescription": "Start a fresh Ask AI chat.""#
+    ));
+    assert!(line_is_func_like(
+        r#""recentConversationTimestampFallback": "Recently""#
+    ));
+    assert!(line_is_func_like(r#""askAiResultsTitle": "Ask AI""#));
+    assert!(line_is_func_like(r#""resultsSectionTitle": "Results""#));
+    assert!(line_is_func_like(r#""resultBadgeLabelText": "Category""#));
     assert!(!is_docsearch_json_decl(r#""stalledSearchDelay": 200"#));
     assert!(is_instantsearch_json_decl(r#""stalledSearchDelay": 200"#));
     assert!(!is_docsearch_json_decl(r#""initialUiState": {"#));
