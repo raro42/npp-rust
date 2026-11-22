@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.931] — 2026-11-22
+
+View:
+
+- **Function List** lists DocSearch / Sidepanel JSON keys: `"translations": {`, `"classNames": {`, `"navigator": {`. Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing `:` stay out. Empty strings / plural/singular misspellings / `"translations": true` / `"translations": false` / `"translations": [` / `"translations": "x"` / `"translation": {` / `"Translations": {` / `"classNames": true` / `"classNames": false` / `"classNames": [` / `"classNames": "x"` / `"className": {` / `"ClassNames": {` / `"navigator": true` / `"navigator": false` / `"navigator": [` / `"navigator": "x"` / `"navigators": {` / `"Navigator": {` / `"portalContainer"` / `"facets"` / `"hitComponent"` / `"transformItems"` / `"transformSearchClient"` / object `"theme": {` / generic `"appId"` / `"apiKey"` / `"indexName"` / `"placeholder"` / `"container"` / `"name"` / `"id"` / `"q"` / `"query"` / `"url"` stay out. Existing DocSearch `maxResultsPerGroup` / `disableUserPersonalization` / `recentSearchesLimit` / `recentSearchesWithFavoritesLimit` / `resultBadgeKey` / `insights` / `initialQuery` / `indices` / `askAi` / `agentId` / `assistantId` / `suggestedQuestions` / `searchParameters` / `agentStudio` / `memory` / `promptSuggestions` / `keyboardShortcuts` / `expandedWidth` / `tools` / `width` / `variant` / `side` / `pushSelector` / `theme` unchanged. InstantSearch / Autocomplete / Typesense InstantSearch Adapter / neighbouring search JSON families stay out of DocSearch for these keys. `"translations"` / `"classNames"` / `"navigator"` accept `{` only.
+
 ## [0.3.930] — 2026-11-22
 
 View:

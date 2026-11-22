@@ -1,3 +1,7 @@
+009 keep: Function List DocSearch/Sidepanel translations/classNames/navigator (v0.3.931)
+
+009 keep: Function List DocSearch/Sidepanel pushSelector/theme (v0.3.930)
+
 009 keep: Function List DocSearch/Sidepanel tools/width/variant/side (v0.3.929)
 
 009 keep: Function List DocSearch/Sidepanel keyboardShortcuts/expandedWidth (v0.3.928)

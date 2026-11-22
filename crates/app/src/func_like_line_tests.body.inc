@@ -45518,6 +45518,12 @@ fn stork_json_keys_count() {
     assert!(is_docsearch_json_decl(r##""pushSelector": "#root""##));
     assert!(!is_stork_json_decl(r#""theme": "light""#));
     assert!(is_docsearch_json_decl(r#""theme": "light""#));
+    assert!(!is_stork_json_decl(r#""translations": {"#));
+    assert!(is_docsearch_json_decl(r#""translations": {"#));
+    assert!(!is_stork_json_decl(r#""classNames": {"#));
+    assert!(is_docsearch_json_decl(r#""classNames": {"#));
+    assert!(!is_stork_json_decl(r#""navigator": {"#));
+    assert!(is_docsearch_json_decl(r#""navigator": {"#));
     assert!(!is_stork_json_decl(r#""stalledSearchDelay": 200"#));
     assert!(is_instantsearch_json_decl(r#""stalledSearchDelay": 200"#));
     assert!(!is_stork_json_decl(r#""initialUiState": {"#));
@@ -45573,6 +45579,9 @@ fn docsearch_json_keys_smoke() {
     assert!(is_docsearch_json_decl(r#""side": "right""#));
     assert!(is_docsearch_json_decl(r##""pushSelector": "#root""##));
     assert!(is_docsearch_json_decl(r#""theme": "light""#));
+    assert!(is_docsearch_json_decl(r#""translations": {"#));
+    assert!(is_docsearch_json_decl(r#""classNames": {"#));
+    assert!(is_docsearch_json_decl(r#""navigator": {"#));
     assert!(!is_docsearch_json_decl(
         r#""exclude_html_selector": ".sidebar""#
     ));
@@ -45871,6 +45880,33 @@ fn docsearch_json_keys_count() {
     assert!(!is_docsearch_json_decl(r#""theme": ["#));
     assert!(!is_docsearch_json_decl(r#""themes": "light""#));
     assert!(!is_docsearch_json_decl(r#""Theme": "light""#));
+    assert!(is_docsearch_json_decl(r#""translations": {"#));
+    assert!(is_docsearch_json_decl(r#""translations": {,"#));
+    assert!(is_docsearch_json_decl(r#""translations": { // c"#));
+    assert!(!is_docsearch_json_decl(r#""translations": true"#));
+    assert!(!is_docsearch_json_decl(r#""translations": false"#));
+    assert!(!is_docsearch_json_decl(r#""translations": ["#));
+    assert!(!is_docsearch_json_decl(r#""translations": "x""#));
+    assert!(!is_docsearch_json_decl(r#""translation": {"#));
+    assert!(!is_docsearch_json_decl(r#""Translations": {"#));
+    assert!(is_docsearch_json_decl(r#""classNames": {"#));
+    assert!(is_docsearch_json_decl(r#""classNames": {,"#));
+    assert!(is_docsearch_json_decl(r#""classNames": { // c"#));
+    assert!(!is_docsearch_json_decl(r#""classNames": true"#));
+    assert!(!is_docsearch_json_decl(r#""classNames": false"#));
+    assert!(!is_docsearch_json_decl(r#""classNames": ["#));
+    assert!(!is_docsearch_json_decl(r#""classNames": "x""#));
+    assert!(!is_docsearch_json_decl(r#""className": {"#));
+    assert!(!is_docsearch_json_decl(r#""ClassNames": {"#));
+    assert!(is_docsearch_json_decl(r#""navigator": {"#));
+    assert!(is_docsearch_json_decl(r#""navigator": {,"#));
+    assert!(is_docsearch_json_decl(r#""navigator": { // c"#));
+    assert!(!is_docsearch_json_decl(r#""navigator": true"#));
+    assert!(!is_docsearch_json_decl(r#""navigator": false"#));
+    assert!(!is_docsearch_json_decl(r#""navigator": ["#));
+    assert!(!is_docsearch_json_decl(r#""navigator": "x""#));
+    assert!(!is_docsearch_json_decl(r#""navigators": {"#));
+    assert!(!is_docsearch_json_decl(r#""Navigator": {"#));
     assert!(!is_docsearch_json_decl(r#""maxResultsPerGroup""#));
     assert!(!is_docsearch_json_decl(r#""insights""#));
     assert!(!is_docsearch_json_decl(r#""indices""#));
@@ -45890,6 +45926,9 @@ fn docsearch_json_keys_count() {
     assert!(!is_docsearch_json_decl(r#""side""#));
     assert!(!is_docsearch_json_decl(r#""pushSelector""#));
     assert!(!is_docsearch_json_decl(r#""theme""#));
+    assert!(!is_docsearch_json_decl(r#""translations""#));
+    assert!(!is_docsearch_json_decl(r#""classNames""#));
+    assert!(!is_docsearch_json_decl(r#""navigator""#));
     assert!(!is_docsearch_json_decl(
         r#""$schema": "https://example.com""#
     ));
@@ -45903,7 +45942,6 @@ fn docsearch_json_keys_count() {
     assert!(!is_docsearch_json_decl(r#""indexName": "docs""#));
     assert!(!is_docsearch_json_decl(r#""placeholder": "Search""#));
     assert!(!is_docsearch_json_decl(r##""container": "#docsearch""##));
-    assert!(!is_docsearch_json_decl(r#""translations": {"#));
     assert!(!is_docsearch_json_decl(r#""facets": ["#));
     assert!(!is_docsearch_json_decl(
         r#""exclude_html_selector": ".sidebar""#
@@ -45972,6 +46010,9 @@ fn docsearch_json_keys_count() {
     assert!(line_is_func_like(r#""side": "right""#));
     assert!(line_is_func_like(r##""pushSelector": "#root""##));
     assert!(line_is_func_like(r#""theme": "light""#));
+    assert!(line_is_func_like(r#""translations": {"#));
+    assert!(line_is_func_like(r#""classNames": {"#));
+    assert!(line_is_func_like(r#""navigator": {"#));
     assert!(!is_docsearch_json_decl(r#""stalledSearchDelay": 200"#));
     assert!(is_instantsearch_json_decl(r#""stalledSearchDelay": 200"#));
     assert!(!is_docsearch_json_decl(r#""initialUiState": {"#));
