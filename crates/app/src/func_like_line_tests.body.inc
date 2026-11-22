@@ -45538,6 +45538,20 @@ fn stork_json_keys_count() {
     assert!(is_docsearch_json_decl(r#""getMissingResultsUrl": {"#));
     assert!(!is_stork_json_decl(r#""footerAction": {"#));
     assert!(is_docsearch_json_decl(r#""footerAction": {"#));
+    assert!(!is_stork_json_decl(r#""initialScrollY": 120"#));
+    assert!(is_docsearch_json_decl(r#""initialScrollY": 120"#));
+    assert!(!is_stork_json_decl(r#""contextualSearch": true"#));
+    assert!(is_docsearch_json_decl(r#""contextualSearch": true"#));
+    assert!(!is_stork_json_decl(
+        r#""externalUrlRegex": "external\\.com""#
+    ));
+    assert!(is_docsearch_json_decl(
+        r#""externalUrlRegex": "external\\.com""#
+    ));
+    assert!(!is_stork_json_decl(r#""searchPagePath": "search""#));
+    assert!(is_docsearch_json_decl(r#""searchPagePath": "search""#));
+    assert!(!is_stork_json_decl(r#""replaceSearchResultPathname": {"#));
+    assert!(is_docsearch_json_decl(r#""replaceSearchResultPathname": {"#));
     assert!(!is_stork_json_decl(r#""stalledSearchDelay": 200"#));
     assert!(is_instantsearch_json_decl(r#""stalledSearchDelay": 200"#));
     assert!(!is_stork_json_decl(r#""initialUiState": {"#));
@@ -45603,6 +45617,15 @@ fn docsearch_json_keys_smoke() {
     assert!(is_docsearch_json_decl(r#""resultsFooterComponent": {"#));
     assert!(is_docsearch_json_decl(r#""getMissingResultsUrl": {"#));
     assert!(is_docsearch_json_decl(r#""footerAction": {"#));
+    assert!(is_docsearch_json_decl(r#""initialScrollY": 120"#));
+    assert!(is_docsearch_json_decl(r#""contextualSearch": true"#));
+    assert!(is_docsearch_json_decl(
+        r#""externalUrlRegex": "external\\.com""#
+    ));
+    assert!(is_docsearch_json_decl(r#""searchPagePath": "search""#));
+    assert!(is_docsearch_json_decl(r#""searchPagePath": true"#));
+    assert!(is_docsearch_json_decl(r#""searchPagePath": false"#));
+    assert!(is_docsearch_json_decl(r#""replaceSearchResultPathname": {"#));
     assert!(!is_docsearch_json_decl(
         r#""exclude_html_selector": ".sidebar""#
     ));
@@ -45994,6 +46017,84 @@ fn docsearch_json_keys_count() {
     assert!(!is_docsearch_json_decl(r#""footerAction": "x""#));
     assert!(!is_docsearch_json_decl(r#""footerActions": {"#));
     assert!(!is_docsearch_json_decl(r#""FooterAction": {"#));
+    assert!(is_docsearch_json_decl(r#""initialScrollY": 0"#));
+    assert!(is_docsearch_json_decl(r#""initialScrollY": 120"#));
+    assert!(is_docsearch_json_decl(r#""initialScrollY": 120,"#));
+    assert!(is_docsearch_json_decl(r#""initialScrollY": 120 // c"#));
+    assert!(!is_docsearch_json_decl(r#""initialScrollY": 0120"#));
+    assert!(!is_docsearch_json_decl(r#""initialScrollY": true"#));
+    assert!(!is_docsearch_json_decl(r#""initialScrollY": false"#));
+    assert!(!is_docsearch_json_decl(r#""initialScrollY": {"#));
+    assert!(!is_docsearch_json_decl(r#""initialScrollY": ["#));
+    assert!(!is_docsearch_json_decl(r#""initialScrollY": """#));
+    assert!(!is_docsearch_json_decl(r#""initialScrollYs": 120"#));
+    assert!(!is_docsearch_json_decl(r#""InitialScrollY": 120"#));
+    assert!(is_docsearch_json_decl(r#""contextualSearch": true"#));
+    assert!(is_docsearch_json_decl(r#""contextualSearch": false"#));
+    assert!(is_docsearch_json_decl(r#""contextualSearch": true,"#));
+    assert!(is_docsearch_json_decl(r#""contextualSearch": true // c"#));
+    assert!(!is_docsearch_json_decl(r#""contextualSearch": 1"#));
+    assert!(!is_docsearch_json_decl(r#""contextualSearch": "true""#));
+    assert!(!is_docsearch_json_decl(r#""contextualSearch": {"#));
+    assert!(!is_docsearch_json_decl(r#""contextualSearch": ["#));
+    assert!(!is_docsearch_json_decl(r#""contextualSearches": true"#));
+    assert!(!is_docsearch_json_decl(r#""ContextualSearch": true"#));
+    assert!(is_docsearch_json_decl(
+        r#""externalUrlRegex": "external\\.com""#
+    ));
+    assert!(is_docsearch_json_decl(
+        r#""externalUrlRegex": "external\\.com","#
+    ));
+    assert!(is_docsearch_json_decl(
+        r#""externalUrlRegex": "external\\.com" // c"#
+    ));
+    assert!(!is_docsearch_json_decl(r#""externalUrlRegex": """#));
+    assert!(!is_docsearch_json_decl(r#""externalUrlRegex": true"#));
+    assert!(!is_docsearch_json_decl(r#""externalUrlRegex": {"#));
+    assert!(!is_docsearch_json_decl(r#""externalUrlRegex": ["#));
+    assert!(!is_docsearch_json_decl(
+        r#""externalUrlRegexes": "external\\.com""#
+    ));
+    assert!(!is_docsearch_json_decl(
+        r#""ExternalUrlRegex": "external\\.com""#
+    ));
+    assert!(is_docsearch_json_decl(r#""searchPagePath": "search""#));
+    assert!(is_docsearch_json_decl(r#""searchPagePath": "search","#));
+    assert!(is_docsearch_json_decl(r#""searchPagePath": "search" // c"#));
+    assert!(is_docsearch_json_decl(r#""searchPagePath": true"#));
+    assert!(is_docsearch_json_decl(r#""searchPagePath": false"#));
+    assert!(is_docsearch_json_decl(r#""searchPagePath": true,"#));
+    assert!(!is_docsearch_json_decl(r#""searchPagePath": """#));
+    assert!(!is_docsearch_json_decl(r#""searchPagePath": 1"#));
+    assert!(!is_docsearch_json_decl(r#""searchPagePath": {"#));
+    assert!(!is_docsearch_json_decl(r#""searchPagePath": ["#));
+    assert!(!is_docsearch_json_decl(r#""searchPagePaths": "search""#));
+    assert!(!is_docsearch_json_decl(r#""SearchPagePath": "search""#));
+    assert!(is_docsearch_json_decl(r#""replaceSearchResultPathname": {"#));
+    assert!(is_docsearch_json_decl(
+        r#""replaceSearchResultPathname": {,"#
+    ));
+    assert!(is_docsearch_json_decl(
+        r#""replaceSearchResultPathname": { // c"#
+    ));
+    assert!(!is_docsearch_json_decl(
+        r#""replaceSearchResultPathname": true"#
+    ));
+    assert!(!is_docsearch_json_decl(
+        r#""replaceSearchResultPathname": false"#
+    ));
+    assert!(!is_docsearch_json_decl(
+        r#""replaceSearchResultPathname": ["#
+    ));
+    assert!(!is_docsearch_json_decl(
+        r#""replaceSearchResultPathname": "x""#
+    ));
+    assert!(!is_docsearch_json_decl(
+        r#""replaceSearchResultPathnames": {"#
+    ));
+    assert!(!is_docsearch_json_decl(
+        r#""ReplaceSearchResultPathname": {"#
+    ));
     assert!(!is_docsearch_json_decl(r#""maxResultsPerGroup""#));
     assert!(!is_docsearch_json_decl(r#""insights""#));
     assert!(!is_docsearch_json_decl(r#""indices""#));
@@ -46023,6 +46124,11 @@ fn docsearch_json_keys_count() {
     assert!(!is_docsearch_json_decl(r#""resultsFooterComponent""#));
     assert!(!is_docsearch_json_decl(r#""getMissingResultsUrl""#));
     assert!(!is_docsearch_json_decl(r#""footerAction""#));
+    assert!(!is_docsearch_json_decl(r#""initialScrollY""#));
+    assert!(!is_docsearch_json_decl(r#""contextualSearch""#));
+    assert!(!is_docsearch_json_decl(r#""externalUrlRegex""#));
+    assert!(!is_docsearch_json_decl(r#""searchPagePath""#));
+    assert!(!is_docsearch_json_decl(r#""replaceSearchResultPathname""#));
     assert!(!is_docsearch_json_decl(
         r#""$schema": "https://example.com""#
     ));
@@ -46114,6 +46220,12 @@ fn docsearch_json_keys_count() {
     assert!(line_is_func_like(r#""resultsFooterComponent": {"#));
     assert!(line_is_func_like(r#""getMissingResultsUrl": {"#));
     assert!(line_is_func_like(r#""footerAction": {"#));
+    assert!(line_is_func_like(r#""initialScrollY": 120"#));
+    assert!(line_is_func_like(r#""contextualSearch": true"#));
+    assert!(line_is_func_like(r#""externalUrlRegex": "external\\.com""#));
+    assert!(line_is_func_like(r#""searchPagePath": "search""#));
+    assert!(line_is_func_like(r#""searchPagePath": false"#));
+    assert!(line_is_func_like(r#""replaceSearchResultPathname": {"#));
     assert!(!is_docsearch_json_decl(r#""stalledSearchDelay": 200"#));
     assert!(is_instantsearch_json_decl(r#""stalledSearchDelay": 200"#));
     assert!(!is_docsearch_json_decl(r#""initialUiState": {"#));

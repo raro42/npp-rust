@@ -38812,7 +38812,10 @@ fn stork_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool {
 /// `"classNames": {`, `"navigator": {`, `"portalContainer": "…"`,
 /// `"hitComponent": {`, `"transformItems": {`,
 /// `"transformSearchClient": {`, `"resultsFooterComponent": {`,
-/// `"getMissingResultsUrl": {`, `"footerAction": {`.
+/// `"getMissingResultsUrl": {`, `"footerAction": {`,
+/// `"initialScrollY": 0` / `120`, `"contextualSearch": true` / `false`,
+/// `"externalUrlRegex": "…"`, `"searchPagePath": true` / `false` / `"…"`,
+/// `"replaceSearchResultPathname": {`.
 /// Optional trailing `,` and `//` / `/*` comment. Incomplete quotes /
 /// missing `:` stay out. Generic `"$schema"` / `"name"` / `"id"` /
 /// `"q"` / `"query"` / `"url"` / `"appId"` / `"apiKey"` / `"indexName"` /
@@ -38931,6 +38934,11 @@ fn docsearch_json_key_ok(key: &str) -> bool {
             | "resultsFooterComponent"
             | "getMissingResultsUrl"
             | "footerAction"
+            | "initialScrollY"
+            | "contextualSearch"
+            | "externalUrlRegex"
+            | "searchPagePath"
+            | "replaceSearchResultPathname"
     )
 }
 
@@ -38958,6 +38966,7 @@ fn docsearch_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool {
                     | "resultsFooterComponent"
                     | "getMissingResultsUrl"
                     | "footerAction"
+                    | "replaceSearchResultPathname"
             ) {
                 return false;
             }
@@ -38987,7 +38996,8 @@ fn docsearch_json_string_and_tail_ok(key: &str, after_colon: &str) -> bool {
     }
     match key {
         "resultBadgeKey" | "initialQuery" | "askAi" | "agentId" | "assistantId"
-        | "expandedWidth" | "width" | "pushSelector" | "portalContainer" => {}
+        | "expandedWidth" | "width" | "pushSelector" | "portalContainer"
+        | "externalUrlRegex" | "searchPagePath" => {}
         "variant" => {
             if !matches!(value, "floating" | "inline") {
                 return false;
@@ -39015,6 +39025,8 @@ fn docsearch_json_bool_and_tail_ok(key: &str, after_colon: &str) -> bool {
             | "insights"
             | "suggestedQuestions"
             | "agentStudio"
+            | "contextualSearch"
+            | "searchPagePath"
     ) {
         return false;
     }
@@ -39036,6 +39048,7 @@ fn docsearch_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool {
             | "recentSearchesWithFavoritesLimit"
             | "expandedWidth"
             | "width"
+            | "initialScrollY"
     ) {
         return false;
     }
@@ -39079,7 +39092,9 @@ fn docsearch_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool {
 /// `"theme"` / `"translations"` / `"classNames"` / `"navigator"` /
 /// `"portalContainer"` / `"hitComponent"` / `"transformItems"` /
 /// `"transformSearchClient"` / `"resultsFooterComponent"` /
-/// `"getMissingResultsUrl"` / `"footerAction"` /
+/// `"getMissingResultsUrl"` / `"footerAction"` / `"initialScrollY"` /
+/// `"contextualSearch"` / `"externalUrlRegex"` / `"searchPagePath"` /
+/// `"replaceSearchResultPathname"` /
 /// Stork `"exclude_html_selector"` / `"frontmatter_handling"` /
 /// `"excerpts_per_result"` / `"displayed_results_count"` /
 /// `"excerpt_buffer"` / `"save_nearest_node_json"` /
@@ -39269,7 +39284,9 @@ fn instantsearch_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool {
 /// DocSearch `"translations"` / `"classNames"` / `"navigator"` /
 /// `"portalContainer"` / `"hitComponent"` / `"transformItems"` /
 /// `"transformSearchClient"` / `"resultsFooterComponent"` /
-/// `"getMissingResultsUrl"` / `"footerAction"` /
+/// `"getMissingResultsUrl"` / `"footerAction"` / `"initialScrollY"` /
+/// `"contextualSearch"` / `"externalUrlRegex"` / `"searchPagePath"` /
+/// `"replaceSearchResultPathname"` /
 /// InstantSearch.js `"stalledSearchDelay"` / `"initialUiState"` /
 /// `"numberLocale"` / `"preserveSharedStateOnUnmount"` /
 /// `"persistHierarchicalRootCount"` / `"insightsInitParams"` /
@@ -39285,7 +39302,9 @@ fn instantsearch_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool {
 /// `"theme"` / `"translations"` / `"classNames"` / `"navigator"` /
 /// `"portalContainer"` / `"hitComponent"` / `"transformItems"` /
 /// `"transformSearchClient"` / `"resultsFooterComponent"` /
-/// `"getMissingResultsUrl"` / `"footerAction"` /
+/// `"getMissingResultsUrl"` / `"footerAction"` / `"initialScrollY"` /
+/// `"contextualSearch"` / `"externalUrlRegex"` / `"searchPagePath"` /
+/// `"replaceSearchResultPathname"` /
 /// Stork `"exclude_html_selector"` / `"frontmatter_handling"` /
 /// `"excerpts_per_result"` / `"displayed_results_count"` /
 /// `"excerpt_buffer"` / `"save_nearest_node_json"` /
@@ -39637,7 +39656,9 @@ fn typesense_instantsearch_json_bool_and_tail_ok(key: &str, after_colon: &str) -
 /// `"theme"` / `"translations"` / `"classNames"` / `"navigator"` /
 /// `"portalContainer"` / `"hitComponent"` / `"transformItems"` /
 /// `"transformSearchClient"` / `"resultsFooterComponent"` /
-/// `"getMissingResultsUrl"` / `"footerAction"` /
+/// `"getMissingResultsUrl"` / `"footerAction"` / `"initialScrollY"` /
+/// `"contextualSearch"` / `"externalUrlRegex"` / `"searchPagePath"` /
+/// `"replaceSearchResultPathname"` /
 /// Stork `"exclude_html_selector"` / `"frontmatter_handling"` /
 /// `"excerpts_per_result"` / `"displayed_results_count"` /
 /// `"excerpt_buffer"` / `"save_nearest_node_json"` /

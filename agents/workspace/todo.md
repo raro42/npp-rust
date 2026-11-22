@@ -1,3 +1,7 @@
+009 keep: Function List DocSearch/Docusaurus initialScrollY/contextualSearch/externalUrlRegex/searchPagePath/replaceSearchResultPathname (v0.3.934)
+
+009 keep: Function List DocSearch resultsFooterComponent/getMissingResultsUrl/footerAction (v0.3.933)
+
 009 keep: Function List DocSearch/Sidepanel portalContainer/hitComponent/transformItems/transformSearchClient (v0.3.932)
 
 009 keep: Function List DocSearch/Sidepanel translations/classNames/navigator (v0.3.931)
