@@ -1536,3 +1536,5 @@
 009 keep: Function List Algolia Insights userToken/eventType/eventName/queryID/objectIDs/positions/filters (v0.3.920)
 
 009 keep: Function List DocSearch resetButtonTitle/resetButtonAriaLabel/cancelButtonText/cancelButtonAriaLabel/searchByText/recentSearchesTitle/noRecentSearchesText/saveRecentSearchButtonTitle/removeRecentSearchButtonTitle/favoriteSearchesTitle (v0.3.937)
+
+009 keep: Function List DocSearch removeFavoriteSearchButtonTitle/recentConversationsTitle/removeRecentConversationButtonTitle/placeholderTextAskAi/placeholderTextAskAiStreaming/enterKeyHintAskAi/backToKeywordSearchButtonText/backToKeywordSearchButtonAriaLabel/newConversationPlaceholder/conversationHistoryTitle (v0.3.938)

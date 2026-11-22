@@ -38830,7 +38830,14 @@ fn stork_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool {
 /// `"searchByText": "…"`, `"recentSearchesTitle": "…"`,
 /// `"noRecentSearchesText": "…"`, `"saveRecentSearchButtonTitle": "…"`,
 /// `"removeRecentSearchButtonTitle": "…"`,
-/// `"favoriteSearchesTitle": "…"`.
+/// `"favoriteSearchesTitle": "…"`,
+/// `"removeFavoriteSearchButtonTitle": "…"`,
+/// `"recentConversationsTitle": "…"`,
+/// `"removeRecentConversationButtonTitle": "…"`,
+/// `"placeholderTextAskAi": "…"`, `"placeholderTextAskAiStreaming": "…"`,
+/// `"enterKeyHintAskAi": "…"`, `"backToKeywordSearchButtonText": "…"`,
+/// `"backToKeywordSearchButtonAriaLabel": "…"`,
+/// `"newConversationPlaceholder": "…"`, `"conversationHistoryTitle": "…"`.
 /// Optional trailing `,` and `//` / `/*` comment. Incomplete quotes /
 /// missing `:` stay out. Generic `"$schema"` / `"name"` / `"id"` /
 /// `"q"` / `"query"` / `"url"` / `"appId"` / `"apiKey"` / `"indexName"` /
@@ -38984,6 +38991,16 @@ fn docsearch_json_key_ok(key: &str) -> bool {
             | "saveRecentSearchButtonTitle"
             | "removeRecentSearchButtonTitle"
             | "favoriteSearchesTitle"
+            | "removeFavoriteSearchButtonTitle"
+            | "recentConversationsTitle"
+            | "removeRecentConversationButtonTitle"
+            | "placeholderTextAskAi"
+            | "placeholderTextAskAiStreaming"
+            | "enterKeyHintAskAi"
+            | "backToKeywordSearchButtonText"
+            | "backToKeywordSearchButtonAriaLabel"
+            | "newConversationPlaceholder"
+            | "conversationHistoryTitle"
     )
 }
 
@@ -39052,7 +39069,12 @@ fn docsearch_json_string_and_tail_ok(key: &str, after_colon: &str) -> bool {
         | "resetButtonAriaLabel" | "cancelButtonText" | "cancelButtonAriaLabel"
         | "searchByText" | "recentSearchesTitle" | "noRecentSearchesText"
         | "saveRecentSearchButtonTitle" | "removeRecentSearchButtonTitle"
-        | "favoriteSearchesTitle" => {}
+        | "favoriteSearchesTitle" | "removeFavoriteSearchButtonTitle"
+        | "recentConversationsTitle" | "removeRecentConversationButtonTitle"
+        | "placeholderTextAskAi" | "placeholderTextAskAiStreaming"
+        | "enterKeyHintAskAi" | "backToKeywordSearchButtonText"
+        | "backToKeywordSearchButtonAriaLabel" | "newConversationPlaceholder"
+        | "conversationHistoryTitle" => {}
         "variant" => {
             if !matches!(value, "floating" | "inline") {
                 return false;

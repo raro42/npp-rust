@@ -45628,6 +45628,62 @@ fn stork_json_keys_count() {
     ));
     assert!(!is_stork_json_decl(r#""favoriteSearchesTitle": "Favorite""#));
     assert!(is_docsearch_json_decl(r#""favoriteSearchesTitle": "Favorite""#));
+    assert!(!is_stork_json_decl(
+        r#""removeFavoriteSearchButtonTitle": "Remove this search from favorites""#
+    ));
+    assert!(is_docsearch_json_decl(
+        r#""removeFavoriteSearchButtonTitle": "Remove this search from favorites""#
+    ));
+    assert!(!is_stork_json_decl(
+        r#""recentConversationsTitle": "Recent conversations""#
+    ));
+    assert!(is_docsearch_json_decl(
+        r#""recentConversationsTitle": "Recent conversations""#
+    ));
+    assert!(!is_stork_json_decl(
+        r#""removeRecentConversationButtonTitle": "Remove this conversation from history""#
+    ));
+    assert!(is_docsearch_json_decl(
+        r#""removeRecentConversationButtonTitle": "Remove this conversation from history""#
+    ));
+    assert!(!is_stork_json_decl(
+        r#""placeholderTextAskAi": "Ask another question...""#
+    ));
+    assert!(is_docsearch_json_decl(
+        r#""placeholderTextAskAi": "Ask another question...""#
+    ));
+    assert!(!is_stork_json_decl(
+        r#""placeholderTextAskAiStreaming": "Answering...""#
+    ));
+    assert!(is_docsearch_json_decl(
+        r#""placeholderTextAskAiStreaming": "Answering...""#
+    ));
+    assert!(!is_stork_json_decl(r#""enterKeyHintAskAi": "enter""#));
+    assert!(is_docsearch_json_decl(r#""enterKeyHintAskAi": "enter""#));
+    assert!(!is_stork_json_decl(
+        r#""backToKeywordSearchButtonText": "Back to keyword search""#
+    ));
+    assert!(is_docsearch_json_decl(
+        r#""backToKeywordSearchButtonText": "Back to keyword search""#
+    ));
+    assert!(!is_stork_json_decl(
+        r#""backToKeywordSearchButtonAriaLabel": "Back to keyword search""#
+    ));
+    assert!(is_docsearch_json_decl(
+        r#""backToKeywordSearchButtonAriaLabel": "Back to keyword search""#
+    ));
+    assert!(!is_stork_json_decl(
+        r#""newConversationPlaceholder": "Ask a question""#
+    ));
+    assert!(is_docsearch_json_decl(
+        r#""newConversationPlaceholder": "Ask a question""#
+    ));
+    assert!(!is_stork_json_decl(
+        r#""conversationHistoryTitle": "My conversation history""#
+    ));
+    assert!(is_docsearch_json_decl(
+        r#""conversationHistoryTitle": "My conversation history""#
+    ));
     assert!(!is_stork_json_decl(r#""stalledSearchDelay": 200"#));
     assert!(is_instantsearch_json_decl(r#""stalledSearchDelay": 200"#));
     assert!(!is_stork_json_decl(r#""initialUiState": {"#));
@@ -45740,6 +45796,34 @@ fn docsearch_json_keys_smoke() {
         r#""removeRecentSearchButtonTitle": "Remove this search from history""#
     ));
     assert!(is_docsearch_json_decl(r#""favoriteSearchesTitle": "Favorite""#));
+    assert!(is_docsearch_json_decl(
+        r#""removeFavoriteSearchButtonTitle": "Remove this search from favorites""#
+    ));
+    assert!(is_docsearch_json_decl(
+        r#""recentConversationsTitle": "Recent conversations""#
+    ));
+    assert!(is_docsearch_json_decl(
+        r#""removeRecentConversationButtonTitle": "Remove this conversation from history""#
+    ));
+    assert!(is_docsearch_json_decl(
+        r#""placeholderTextAskAi": "Ask another question...""#
+    ));
+    assert!(is_docsearch_json_decl(
+        r#""placeholderTextAskAiStreaming": "Answering...""#
+    ));
+    assert!(is_docsearch_json_decl(r#""enterKeyHintAskAi": "enter""#));
+    assert!(is_docsearch_json_decl(
+        r#""backToKeywordSearchButtonText": "Back to keyword search""#
+    ));
+    assert!(is_docsearch_json_decl(
+        r#""backToKeywordSearchButtonAriaLabel": "Back to keyword search""#
+    ));
+    assert!(is_docsearch_json_decl(
+        r#""newConversationPlaceholder": "Ask a question""#
+    ));
+    assert!(is_docsearch_json_decl(
+        r#""conversationHistoryTitle": "My conversation history""#
+    ));
     assert!(!is_docsearch_json_decl(
         r#""exclude_html_selector": ".sidebar""#
     ));
@@ -46639,6 +46723,228 @@ fn docsearch_json_keys_count() {
     assert!(!is_docsearch_json_decl(
         r#""FavoriteSearchesTitle": "Favorite""#
     ));
+    assert!(is_docsearch_json_decl(
+        r#""removeFavoriteSearchButtonTitle": "Remove this search from favorites""#
+    ));
+    assert!(is_docsearch_json_decl(
+        r#""removeFavoriteSearchButtonTitle": "Remove this search from favorites","#
+    ));
+    assert!(is_docsearch_json_decl(
+        r#""removeFavoriteSearchButtonTitle": "Remove this search from favorites" // c"#
+    ));
+    assert!(!is_docsearch_json_decl(
+        r#""removeFavoriteSearchButtonTitle": """#
+    ));
+    assert!(!is_docsearch_json_decl(
+        r#""removeFavoriteSearchButtonTitle": true"#
+    ));
+    assert!(!is_docsearch_json_decl(
+        r#""removeFavoriteSearchButtonTitle": {"#
+    ));
+    assert!(!is_docsearch_json_decl(
+        r#""removeFavoriteSearchButtonTitle": ["#
+    ));
+    assert!(!is_docsearch_json_decl(
+        r#""removeFavoriteSearchButtonTitles": "Remove this search from favorites""#
+    ));
+    assert!(!is_docsearch_json_decl(
+        r#""RemoveFavoriteSearchButtonTitle": "Remove this search from favorites""#
+    ));
+    assert!(is_docsearch_json_decl(
+        r#""recentConversationsTitle": "Recent conversations""#
+    ));
+    assert!(is_docsearch_json_decl(
+        r#""recentConversationsTitle": "Recent conversations","#
+    ));
+    assert!(is_docsearch_json_decl(
+        r#""recentConversationsTitle": "Recent conversations" // c"#
+    ));
+    assert!(!is_docsearch_json_decl(r#""recentConversationsTitle": """#));
+    assert!(!is_docsearch_json_decl(r#""recentConversationsTitle": true"#));
+    assert!(!is_docsearch_json_decl(r#""recentConversationsTitle": {"#));
+    assert!(!is_docsearch_json_decl(r#""recentConversationsTitle": ["#));
+    assert!(!is_docsearch_json_decl(
+        r#""recentConversationsTitles": "Recent conversations""#
+    ));
+    assert!(!is_docsearch_json_decl(
+        r#""RecentConversationsTitle": "Recent conversations""#
+    ));
+    assert!(is_docsearch_json_decl(
+        r#""removeRecentConversationButtonTitle": "Remove this conversation from history""#
+    ));
+    assert!(is_docsearch_json_decl(
+        r#""removeRecentConversationButtonTitle": "Remove this conversation from history","#
+    ));
+    assert!(is_docsearch_json_decl(
+        r#""removeRecentConversationButtonTitle": "Remove this conversation from history" // c"#
+    ));
+    assert!(!is_docsearch_json_decl(
+        r#""removeRecentConversationButtonTitle": """#
+    ));
+    assert!(!is_docsearch_json_decl(
+        r#""removeRecentConversationButtonTitle": true"#
+    ));
+    assert!(!is_docsearch_json_decl(
+        r#""removeRecentConversationButtonTitle": {"#
+    ));
+    assert!(!is_docsearch_json_decl(
+        r#""removeRecentConversationButtonTitle": ["#
+    ));
+    assert!(!is_docsearch_json_decl(
+        r#""removeRecentConversationButtonTitles": "Remove this conversation from history""#
+    ));
+    assert!(!is_docsearch_json_decl(
+        r#""RemoveRecentConversationButtonTitle": "Remove this conversation from history""#
+    ));
+    assert!(is_docsearch_json_decl(
+        r#""placeholderTextAskAi": "Ask another question...""#
+    ));
+    assert!(is_docsearch_json_decl(
+        r#""placeholderTextAskAi": "Ask another question...","#
+    ));
+    assert!(is_docsearch_json_decl(
+        r#""placeholderTextAskAi": "Ask another question..." // c"#
+    ));
+    assert!(!is_docsearch_json_decl(r#""placeholderTextAskAi": """#));
+    assert!(!is_docsearch_json_decl(r#""placeholderTextAskAi": true"#));
+    assert!(!is_docsearch_json_decl(r#""placeholderTextAskAi": {"#));
+    assert!(!is_docsearch_json_decl(r#""placeholderTextAskAi": ["#));
+    assert!(!is_docsearch_json_decl(
+        r#""placeholderTextAskAis": "Ask another question...""#
+    ));
+    assert!(!is_docsearch_json_decl(
+        r#""PlaceholderTextAskAi": "Ask another question...""#
+    ));
+    assert!(is_docsearch_json_decl(
+        r#""placeholderTextAskAiStreaming": "Answering...""#
+    ));
+    assert!(is_docsearch_json_decl(
+        r#""placeholderTextAskAiStreaming": "Answering...","#
+    ));
+    assert!(is_docsearch_json_decl(
+        r#""placeholderTextAskAiStreaming": "Answering..." // c"#
+    ));
+    assert!(!is_docsearch_json_decl(
+        r#""placeholderTextAskAiStreaming": """#
+    ));
+    assert!(!is_docsearch_json_decl(
+        r#""placeholderTextAskAiStreaming": true"#
+    ));
+    assert!(!is_docsearch_json_decl(
+        r#""placeholderTextAskAiStreaming": {"#
+    ));
+    assert!(!is_docsearch_json_decl(
+        r#""placeholderTextAskAiStreaming": ["#
+    ));
+    assert!(!is_docsearch_json_decl(
+        r#""placeholderTextAskAiStreamings": "Answering...""#
+    ));
+    assert!(!is_docsearch_json_decl(
+        r#""PlaceholderTextAskAiStreaming": "Answering...""#
+    ));
+    assert!(is_docsearch_json_decl(r#""enterKeyHintAskAi": "enter""#));
+    assert!(is_docsearch_json_decl(r#""enterKeyHintAskAi": "enter","#));
+    assert!(is_docsearch_json_decl(r#""enterKeyHintAskAi": "enter" // c"#));
+    assert!(!is_docsearch_json_decl(r#""enterKeyHintAskAi": """#));
+    assert!(!is_docsearch_json_decl(r#""enterKeyHintAskAi": true"#));
+    assert!(!is_docsearch_json_decl(r#""enterKeyHintAskAi": {"#));
+    assert!(!is_docsearch_json_decl(r#""enterKeyHintAskAi": ["#));
+    assert!(!is_docsearch_json_decl(r#""enterKeyHintAskAis": "enter""#));
+    assert!(!is_docsearch_json_decl(r#""EnterKeyHintAskAi": "enter""#));
+    assert!(is_docsearch_json_decl(
+        r#""backToKeywordSearchButtonText": "Back to keyword search""#
+    ));
+    assert!(is_docsearch_json_decl(
+        r#""backToKeywordSearchButtonText": "Back to keyword search","#
+    ));
+    assert!(is_docsearch_json_decl(
+        r#""backToKeywordSearchButtonText": "Back to keyword search" // c"#
+    ));
+    assert!(!is_docsearch_json_decl(
+        r#""backToKeywordSearchButtonText": """#
+    ));
+    assert!(!is_docsearch_json_decl(
+        r#""backToKeywordSearchButtonText": true"#
+    ));
+    assert!(!is_docsearch_json_decl(
+        r#""backToKeywordSearchButtonText": {"#
+    ));
+    assert!(!is_docsearch_json_decl(
+        r#""backToKeywordSearchButtonText": ["#
+    ));
+    assert!(!is_docsearch_json_decl(
+        r#""backToKeywordSearchButtonTexts": "Back to keyword search""#
+    ));
+    assert!(!is_docsearch_json_decl(
+        r#""BackToKeywordSearchButtonText": "Back to keyword search""#
+    ));
+    assert!(is_docsearch_json_decl(
+        r#""backToKeywordSearchButtonAriaLabel": "Back to keyword search""#
+    ));
+    assert!(is_docsearch_json_decl(
+        r#""backToKeywordSearchButtonAriaLabel": "Back to keyword search","#
+    ));
+    assert!(is_docsearch_json_decl(
+        r#""backToKeywordSearchButtonAriaLabel": "Back to keyword search" // c"#
+    ));
+    assert!(!is_docsearch_json_decl(
+        r#""backToKeywordSearchButtonAriaLabel": """#
+    ));
+    assert!(!is_docsearch_json_decl(
+        r#""backToKeywordSearchButtonAriaLabel": true"#
+    ));
+    assert!(!is_docsearch_json_decl(
+        r#""backToKeywordSearchButtonAriaLabel": {"#
+    ));
+    assert!(!is_docsearch_json_decl(
+        r#""backToKeywordSearchButtonAriaLabel": ["#
+    ));
+    assert!(!is_docsearch_json_decl(
+        r#""backToKeywordSearchButtonAriaLabels": "Back to keyword search""#
+    ));
+    assert!(!is_docsearch_json_decl(
+        r#""BackToKeywordSearchButtonAriaLabel": "Back to keyword search""#
+    ));
+    assert!(is_docsearch_json_decl(
+        r#""newConversationPlaceholder": "Ask a question""#
+    ));
+    assert!(is_docsearch_json_decl(
+        r#""newConversationPlaceholder": "Ask a question","#
+    ));
+    assert!(is_docsearch_json_decl(
+        r#""newConversationPlaceholder": "Ask a question" // c"#
+    ));
+    assert!(!is_docsearch_json_decl(r#""newConversationPlaceholder": """#));
+    assert!(!is_docsearch_json_decl(
+        r#""newConversationPlaceholder": true"#
+    ));
+    assert!(!is_docsearch_json_decl(r#""newConversationPlaceholder": {"#));
+    assert!(!is_docsearch_json_decl(r#""newConversationPlaceholder": ["#));
+    assert!(!is_docsearch_json_decl(
+        r#""newConversationPlaceholders": "Ask a question""#
+    ));
+    assert!(!is_docsearch_json_decl(
+        r#""NewConversationPlaceholder": "Ask a question""#
+    ));
+    assert!(is_docsearch_json_decl(
+        r#""conversationHistoryTitle": "My conversation history""#
+    ));
+    assert!(is_docsearch_json_decl(
+        r#""conversationHistoryTitle": "My conversation history","#
+    ));
+    assert!(is_docsearch_json_decl(
+        r#""conversationHistoryTitle": "My conversation history" // c"#
+    ));
+    assert!(!is_docsearch_json_decl(r#""conversationHistoryTitle": """#));
+    assert!(!is_docsearch_json_decl(r#""conversationHistoryTitle": true"#));
+    assert!(!is_docsearch_json_decl(r#""conversationHistoryTitle": {"#));
+    assert!(!is_docsearch_json_decl(r#""conversationHistoryTitle": ["#));
+    assert!(!is_docsearch_json_decl(
+        r#""conversationHistoryTitles": "My conversation history""#
+    ));
+    assert!(!is_docsearch_json_decl(
+        r#""ConversationHistoryTitle": "My conversation history""#
+    ));
     assert!(!is_docsearch_json_decl(r#""maxResultsPerGroup""#));
     assert!(!is_docsearch_json_decl(r#""insights""#));
     assert!(!is_docsearch_json_decl(r#""indices""#));
@@ -46703,6 +47009,20 @@ fn docsearch_json_keys_count() {
     assert!(!is_docsearch_json_decl(r#""saveRecentSearchButtonTitle""#));
     assert!(!is_docsearch_json_decl(r#""removeRecentSearchButtonTitle""#));
     assert!(!is_docsearch_json_decl(r#""favoriteSearchesTitle""#));
+    assert!(!is_docsearch_json_decl(r#""removeFavoriteSearchButtonTitle""#));
+    assert!(!is_docsearch_json_decl(r#""recentConversationsTitle""#));
+    assert!(!is_docsearch_json_decl(
+        r#""removeRecentConversationButtonTitle""#
+    ));
+    assert!(!is_docsearch_json_decl(r#""placeholderTextAskAi""#));
+    assert!(!is_docsearch_json_decl(r#""placeholderTextAskAiStreaming""#));
+    assert!(!is_docsearch_json_decl(r#""enterKeyHintAskAi""#));
+    assert!(!is_docsearch_json_decl(r#""backToKeywordSearchButtonText""#));
+    assert!(!is_docsearch_json_decl(
+        r#""backToKeywordSearchButtonAriaLabel""#
+    ));
+    assert!(!is_docsearch_json_decl(r#""newConversationPlaceholder""#));
+    assert!(!is_docsearch_json_decl(r#""conversationHistoryTitle""#));
     assert!(!is_docsearch_json_decl(
         r#""$schema": "https://example.com""#
     ));
@@ -46837,6 +47157,34 @@ fn docsearch_json_keys_count() {
         r#""removeRecentSearchButtonTitle": "Remove this search from history""#
     ));
     assert!(line_is_func_like(r#""favoriteSearchesTitle": "Favorite""#));
+    assert!(line_is_func_like(
+        r#""removeFavoriteSearchButtonTitle": "Remove this search from favorites""#
+    ));
+    assert!(line_is_func_like(
+        r#""recentConversationsTitle": "Recent conversations""#
+    ));
+    assert!(line_is_func_like(
+        r#""removeRecentConversationButtonTitle": "Remove this conversation from history""#
+    ));
+    assert!(line_is_func_like(
+        r#""placeholderTextAskAi": "Ask another question...""#
+    ));
+    assert!(line_is_func_like(
+        r#""placeholderTextAskAiStreaming": "Answering...""#
+    ));
+    assert!(line_is_func_like(r#""enterKeyHintAskAi": "enter""#));
+    assert!(line_is_func_like(
+        r#""backToKeywordSearchButtonText": "Back to keyword search""#
+    ));
+    assert!(line_is_func_like(
+        r#""backToKeywordSearchButtonAriaLabel": "Back to keyword search""#
+    ));
+    assert!(line_is_func_like(
+        r#""newConversationPlaceholder": "Ask a question""#
+    ));
+    assert!(line_is_func_like(
+        r#""conversationHistoryTitle": "My conversation history""#
+    ));
     assert!(!is_docsearch_json_decl(r#""stalledSearchDelay": 200"#));
     assert!(is_instantsearch_json_decl(r#""stalledSearchDelay": 200"#));
     assert!(!is_docsearch_json_decl(r#""initialUiState": {"#));
