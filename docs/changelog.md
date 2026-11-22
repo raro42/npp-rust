@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.948] — 2026-11-23
+
+View:
+
+- **Function List** lists Pagefind UI / search JSON keys: `"processTerm": {`, `"processResult": {`, `"excerptEllipsis": "…"`. Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing `:` stay out. Empty `"excerptEllipsis"` / wrong case / plural misspellings / wrong value shapes stay out. Existing Pagefind UI / index / result keys (`autofocus`, `translations`, `sort`, `mergeIndex`, `bundlePath`, …) unchanged. `"element"` / `"excerptLength"` stay out of Pagefind (generic / Coveo). Neighbouring search JSON families stay out of Pagefind for these keys. Callback `"processTerm"` / `"processResult"` require `{`. String `"excerptEllipsis"` requires a non-empty quoted string.
+
 ## [0.3.947] — 2026-11-23
 
 View:
