@@ -45480,6 +45480,16 @@ fn stork_json_keys_count() {
     assert!(is_docsearch_json_decl(r#""initialQuery": "docs""#));
     assert!(!is_stork_json_decl(r#""indices": ["#));
     assert!(is_docsearch_json_decl(r#""indices": ["#));
+    assert!(!is_stork_json_decl(r#""askAi": "asst_1""#));
+    assert!(is_docsearch_json_decl(r#""askAi": "asst_1""#));
+    assert!(!is_stork_json_decl(r#""askAi": {"#));
+    assert!(is_docsearch_json_decl(r#""askAi": {"#));
+    assert!(!is_stork_json_decl(r#""agentId": "agent-1""#));
+    assert!(is_docsearch_json_decl(r#""agentId": "agent-1""#));
+    assert!(!is_stork_json_decl(r#""assistantId": "asst_1""#));
+    assert!(is_docsearch_json_decl(r#""assistantId": "asst_1""#));
+    assert!(!is_stork_json_decl(r#""suggestedQuestions": true"#));
+    assert!(is_docsearch_json_decl(r#""suggestedQuestions": true"#));
     assert!(!is_stork_json_decl(r#""stalledSearchDelay": 200"#));
     assert!(is_instantsearch_json_decl(r#""stalledSearchDelay": 200"#));
     assert!(!is_stork_json_decl(r#""initialUiState": {"#));
@@ -45516,6 +45526,11 @@ fn docsearch_json_keys_smoke() {
     assert!(is_docsearch_json_decl(r#""insights": true"#));
     assert!(is_docsearch_json_decl(r#""initialQuery": "docs""#));
     assert!(is_docsearch_json_decl(r#""indices": ["#));
+    assert!(is_docsearch_json_decl(r#""askAi": "asst_1""#));
+    assert!(is_docsearch_json_decl(r#""askAi": {"#));
+    assert!(is_docsearch_json_decl(r#""agentId": "agent-1""#));
+    assert!(is_docsearch_json_decl(r#""assistantId": "asst_1""#));
+    assert!(is_docsearch_json_decl(r#""suggestedQuestions": true"#));
     assert!(!is_docsearch_json_decl(
         r#""exclude_html_selector": ".sidebar""#
     ));
@@ -45650,9 +45665,50 @@ fn docsearch_json_keys_count() {
     assert!(!is_docsearch_json_decl(r#""indices": {"#));
     assert!(!is_docsearch_json_decl(r#""indices": true"#));
     assert!(!is_docsearch_json_decl(r#""indices": "docs""#));
+    assert!(is_docsearch_json_decl(r#""askAi": "asst_1""#));
+    assert!(is_docsearch_json_decl(r#""askAi": "asst_1","#));
+    assert!(is_docsearch_json_decl(r#""askAi": "asst_1" // c"#));
+    assert!(is_docsearch_json_decl(r#""askAi": {"#));
+    assert!(is_docsearch_json_decl(r#""askAi": {,"#));
+    assert!(is_docsearch_json_decl(r#""askAi": { // c"#));
+    assert!(!is_docsearch_json_decl(r#""askAi": """#));
+    assert!(!is_docsearch_json_decl(r#""askAi": true"#));
+    assert!(!is_docsearch_json_decl(r#""askAi": ["#));
+    assert!(!is_docsearch_json_decl(r#""askAis": "x""#));
+    assert!(!is_docsearch_json_decl(r#""AskAi": "x""#));
+    assert!(is_docsearch_json_decl(r#""agentId": "agent-1""#));
+    assert!(is_docsearch_json_decl(r#""agentId": "agent-1","#));
+    assert!(is_docsearch_json_decl(r#""agentId": "agent-1" // c"#));
+    assert!(!is_docsearch_json_decl(r#""agentId": """#));
+    assert!(!is_docsearch_json_decl(r#""agentId": true"#));
+    assert!(!is_docsearch_json_decl(r#""agentId": ["#));
+    assert!(!is_docsearch_json_decl(r#""agentIds": "x""#));
+    assert!(!is_docsearch_json_decl(r#""agentID": "agent-1""#));
+    assert!(is_docsearch_json_decl(r#""assistantId": "asst_1""#));
+    assert!(is_docsearch_json_decl(r#""assistantId": "asst_1","#));
+    assert!(is_docsearch_json_decl(r#""assistantId": "asst_1" // c"#));
+    assert!(!is_docsearch_json_decl(r#""assistantId": """#));
+    assert!(!is_docsearch_json_decl(r#""assistantId": true"#));
+    assert!(!is_docsearch_json_decl(r#""assistantId": ["#));
+    assert!(!is_docsearch_json_decl(r#""assistantIds": "x""#));
+    assert!(!is_docsearch_json_decl(r#""assistantID": "asst_1""#));
+    assert!(is_docsearch_json_decl(r#""suggestedQuestions": true"#));
+    assert!(is_docsearch_json_decl(r#""suggestedQuestions": false"#));
+    assert!(is_docsearch_json_decl(r#""suggestedQuestions": true,"#));
+    assert!(is_docsearch_json_decl(
+        r#""suggestedQuestions": false // c"#
+    ));
+    assert!(!is_docsearch_json_decl(r#""suggestedQuestions": 1"#));
+    assert!(!is_docsearch_json_decl(r#""suggestedQuestions": "true""#));
+    assert!(!is_docsearch_json_decl(r#""suggestedQuestions": {"#));
+    assert!(!is_docsearch_json_decl(r#""suggestedQuestion": true"#));
     assert!(!is_docsearch_json_decl(r#""maxResultsPerGroup""#));
     assert!(!is_docsearch_json_decl(r#""insights""#));
     assert!(!is_docsearch_json_decl(r#""indices""#));
+    assert!(!is_docsearch_json_decl(r#""askAi""#));
+    assert!(!is_docsearch_json_decl(r#""agentId""#));
+    assert!(!is_docsearch_json_decl(r#""assistantId""#));
+    assert!(!is_docsearch_json_decl(r#""suggestedQuestions""#));
     assert!(!is_docsearch_json_decl(
         r#""$schema": "https://example.com""#
     ));
@@ -45671,6 +45727,9 @@ fn docsearch_json_keys_count() {
     assert!(!is_docsearch_json_decl(r#""facets": ["#));
     assert!(!is_docsearch_json_decl(r#""searchParameters": {"#));
     assert!(!is_docsearch_json_decl(r#""keyboardShortcuts": {"#));
+    assert!(!is_docsearch_json_decl(r#""agentStudio": true"#));
+    assert!(!is_docsearch_json_decl(r#""memory": {"#));
+    assert!(!is_docsearch_json_decl(r#""promptSuggestions": {"#));
     assert!(!is_docsearch_json_decl(
         r#""exclude_html_selector": ".sidebar""#
     ));
@@ -45719,6 +45778,11 @@ fn docsearch_json_keys_count() {
     assert!(line_is_func_like(r#""insights": true"#));
     assert!(line_is_func_like(r#""initialQuery": "docs""#));
     assert!(line_is_func_like(r#""indices": ["#));
+    assert!(line_is_func_like(r#""askAi": "asst_1""#));
+    assert!(line_is_func_like(r#""askAi": {"#));
+    assert!(line_is_func_like(r#""agentId": "agent-1""#));
+    assert!(line_is_func_like(r#""assistantId": "asst_1""#));
+    assert!(line_is_func_like(r#""suggestedQuestions": true"#));
     assert!(!is_docsearch_json_decl(r#""stalledSearchDelay": 200"#));
     assert!(is_instantsearch_json_decl(r#""stalledSearchDelay": 200"#));
     assert!(!is_docsearch_json_decl(r#""initialUiState": {"#));
@@ -45826,6 +45890,16 @@ fn instantsearch_json_keys_smoke() {
     assert!(is_docsearch_json_decl(r#""insights": true"#));
     assert!(!is_instantsearch_json_decl(r#""indices": ["#));
     assert!(is_docsearch_json_decl(r#""indices": ["#));
+    assert!(!is_instantsearch_json_decl(r#""askAi": "asst_1""#));
+    assert!(is_docsearch_json_decl(r#""askAi": "asst_1""#));
+    assert!(!is_instantsearch_json_decl(r#""askAi": {"#));
+    assert!(is_docsearch_json_decl(r#""askAi": {"#));
+    assert!(!is_instantsearch_json_decl(r#""agentId": "agent-1""#));
+    assert!(is_docsearch_json_decl(r#""agentId": "agent-1""#));
+    assert!(!is_instantsearch_json_decl(r#""assistantId": "asst_1""#));
+    assert!(is_docsearch_json_decl(r#""assistantId": "asst_1""#));
+    assert!(!is_instantsearch_json_decl(r#""suggestedQuestions": true"#));
+    assert!(is_docsearch_json_decl(r#""suggestedQuestions": true"#));
     assert!(!is_instantsearch_json_decl(
         r#""exclude_html_selector": ".sidebar""#
     ));

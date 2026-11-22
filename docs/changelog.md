@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.926] — 2026-11-22
+
+View:
+
+- **Function List** lists DocSearch Ask AI / Agent Studio JSON keys: `"askAi": "…"` / `{`, `"agentId": "…"`, `"assistantId": "…"`, `"suggestedQuestions": true` / `false`. Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing `:` stay out. Empty strings / plural/singular misspellings / `"askAi": ""` / `"askAi": true` / `"askAi": [` / `"askAis": "…"` / `"AskAi": "…"` / `"agentId": ""` / `"agentId": true` / `"agentId": [` / `"agentIds": "…"` / `"agentID": "…"` / `"assistantId": ""` / `"assistantId": true` / `"assistantId": [` / `"assistantIds": "…"` / `"assistantID": "…"` / `"suggestedQuestions": 1` / `"suggestedQuestions": "true"` / `"suggestedQuestions": {` / `"suggestedQuestion": true` / `"agentStudio": true` / `"memory": {` / `"promptSuggestions": {` / generic `"appId"` / `"apiKey"` / `"indexName"` / `"placeholder"` / `"container"` / `"name"` / `"id"` / `"q"` / `"query"` / `"url"` stay out. Existing DocSearch `maxResultsPerGroup` / `disableUserPersonalization` / `recentSearchesLimit` / `recentSearchesWithFavoritesLimit` / `resultBadgeKey` / `insights` / `initialQuery` / `indices` unchanged. InstantSearch / Autocomplete / Typesense InstantSearch Adapter / Algolia Insights (`agentID`) / neighbouring search JSON families stay out of DocSearch for these keys. `"askAi"` accepts a non-empty quoted string or `{`. `"agentId"` / `"assistantId"` require a non-empty quoted string. `"suggestedQuestions"` accepts bool only.
+
 ## [0.3.925] — 2026-11-22
 
 View:
