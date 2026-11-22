@@ -38853,7 +38853,14 @@ fn stork_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool {
 /// `"feedbackCloseButtonTitle": "…"`, `"feedbackTagIncorrect": "…"`,
 /// `"feedbackTagNotWhatIAsked": "…"`, `"feedbackTagSlowOrBuggy": "…"`,
 /// `"feedbackTagStyleOrTone": "…"`, `"feedbackTagSafetyOrLegal": "…"`,
-/// `"feedbackTagOther": "…"`.
+/// `"feedbackTagOther": "…"`, `"feedbackCancelButtonText": "…"`,
+/// `"duringToolCallText": "…"`, `"afterToolCallText": "…"`,
+/// `"preToolCallText": "…"`, `"stoppedStreamingText": "…"`,
+/// `"errorTitleText": "…"`, `"threadDepthExceededMessage": "…"`,
+/// `"startNewConversationButtonText": "…"`,
+/// `"suggestedPromptsTitleText": "…"`,
+/// `"savedMemoryToolResultText": "…"`, `"memoryToolResultText": "…"`,
+/// `"callingToolText": "…"`.
 /// Optional trailing `,` and `//` / `/*` comment. Incomplete quotes /
 /// missing `:` stay out. Generic `"$schema"` / `"name"` / `"id"` /
 /// `"q"` / `"query"` / `"url"` / `"appId"` / `"apiKey"` / `"indexName"` /
@@ -39048,6 +39055,18 @@ fn docsearch_json_key_ok(key: &str) -> bool {
             | "feedbackTagStyleOrTone"
             | "feedbackTagSafetyOrLegal"
             | "feedbackTagOther"
+            | "feedbackCancelButtonText"
+            | "duringToolCallText"
+            | "afterToolCallText"
+            | "preToolCallText"
+            | "stoppedStreamingText"
+            | "errorTitleText"
+            | "threadDepthExceededMessage"
+            | "startNewConversationButtonText"
+            | "suggestedPromptsTitleText"
+            | "savedMemoryToolResultText"
+            | "memoryToolResultText"
+            | "callingToolText"
     )
 }
 
@@ -39134,7 +39153,12 @@ fn docsearch_json_string_and_tail_ok(key: &str, after_colon: &str) -> bool {
         | "feedbackCloseButtonTitle" | "feedbackTagIncorrect"
         | "feedbackTagNotWhatIAsked" | "feedbackTagSlowOrBuggy"
         | "feedbackTagStyleOrTone" | "feedbackTagSafetyOrLegal"
-        | "feedbackTagOther" => {}
+        | "feedbackTagOther" | "feedbackCancelButtonText"
+        | "duringToolCallText" | "afterToolCallText" | "preToolCallText"
+        | "stoppedStreamingText" | "errorTitleText"
+        | "threadDepthExceededMessage" | "startNewConversationButtonText"
+        | "suggestedPromptsTitleText" | "savedMemoryToolResultText"
+        | "memoryToolResultText" | "callingToolText" => {}
         "variant" => {
             if !matches!(value, "floating" | "inline") {
                 return false;

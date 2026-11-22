@@ -45836,6 +45836,42 @@ fn stork_json_keys_count() {
     ));
     assert!(!is_stork_json_decl(r#""feedbackTagOther": "Other""#));
     assert!(is_docsearch_json_decl(r#""feedbackTagOther": "Other""#));
+    assert!(!is_stork_json_decl(r#""feedbackCancelButtonText": "Cancel""#));
+    assert!(is_docsearch_json_decl(r#""feedbackCancelButtonText": "Cancel""#));
+    assert!(!is_stork_json_decl(r#""duringToolCallText": "Searching...""#));
+    assert!(is_docsearch_json_decl(r#""duringToolCallText": "Searching...""#));
+    assert!(!is_stork_json_decl(r#""afterToolCallText": "Searched for""#));
+    assert!(is_docsearch_json_decl(r#""afterToolCallText": "Searched for""#));
+    assert!(!is_stork_json_decl(r#""preToolCallText": "Searching...""#));
+    assert!(is_docsearch_json_decl(r#""preToolCallText": "Searching...""#));
+    assert!(!is_stork_json_decl(r#""stoppedStreamingText": "You stopped this answer.""#));
+    assert!(is_docsearch_json_decl(r#""stoppedStreamingText": "You stopped this answer.""#));
+    assert!(!is_stork_json_decl(r#""errorTitleText": "Something went wrong""#));
+    assert!(is_docsearch_json_decl(r#""errorTitleText": "Something went wrong""#));
+    assert!(!is_stork_json_decl(
+        r#""threadDepthExceededMessage": "This conversation is too long. Start a new one.""#
+    ));
+    assert!(is_docsearch_json_decl(
+        r#""threadDepthExceededMessage": "This conversation is too long. Start a new one.""#
+    ));
+    assert!(!is_stork_json_decl(
+        r#""startNewConversationButtonText": "Start new conversation""#
+    ));
+    assert!(is_docsearch_json_decl(
+        r#""startNewConversationButtonText": "Start new conversation""#
+    ));
+    assert!(!is_stork_json_decl(r#""suggestedPromptsTitleText": "Suggested prompts""#));
+    assert!(is_docsearch_json_decl(r#""suggestedPromptsTitleText": "Suggested prompts""#));
+    assert!(!is_stork_json_decl(r#""savedMemoryToolResultText": "Saved to memory""#));
+    assert!(is_docsearch_json_decl(r#""savedMemoryToolResultText": "Saved to memory""#));
+    assert!(!is_stork_json_decl(
+        r#""memoryToolResultText": "Used memory to enhance results""#
+    ));
+    assert!(is_docsearch_json_decl(
+        r#""memoryToolResultText": "Used memory to enhance results""#
+    ));
+    assert!(!is_stork_json_decl(r#""callingToolText": "Calling tool...""#));
+    assert!(is_docsearch_json_decl(r#""callingToolText": "Calling tool...""#));
     assert!(!is_stork_json_decl(r#""stalledSearchDelay": 200"#));
     assert!(is_instantsearch_json_decl(r#""stalledSearchDelay": 200"#));
     assert!(!is_stork_json_decl(r#""initialUiState": {"#));
@@ -46053,6 +46089,20 @@ fn docsearch_json_keys_smoke() {
         r#""feedbackTagSafetyOrLegal": "Safety or legal concern""#
     ));
     assert!(is_docsearch_json_decl(r#""feedbackTagOther": "Other""#));
+    assert!(is_docsearch_json_decl(r#""feedbackCancelButtonText": "Cancel""#));
+    assert!(is_docsearch_json_decl(r#""duringToolCallText": "Searching...""#));
+    assert!(is_docsearch_json_decl(r#""afterToolCallText": "Searched for""#));
+    assert!(is_docsearch_json_decl(r#""preToolCallText": "Searching...""#));
+    assert!(is_docsearch_json_decl(r#""stoppedStreamingText": "You stopped this answer.""#));
+    assert!(is_docsearch_json_decl(r#""errorTitleText": "Something went wrong""#));
+    assert!(is_docsearch_json_decl(
+        r#""threadDepthExceededMessage": "This conversation is too long. Start a new one.""#
+    ));
+    assert!(is_docsearch_json_decl(r#""startNewConversationButtonText": "Start new conversation""#));
+    assert!(is_docsearch_json_decl(r#""suggestedPromptsTitleText": "Suggested prompts""#));
+    assert!(is_docsearch_json_decl(r#""savedMemoryToolResultText": "Saved to memory""#));
+    assert!(is_docsearch_json_decl(r#""memoryToolResultText": "Used memory to enhance results""#));
+    assert!(is_docsearch_json_decl(r#""callingToolText": "Calling tool...""#));
     assert!(!is_docsearch_json_decl(
         r#""exclude_html_selector": ".sidebar""#
     ));
@@ -47757,6 +47807,128 @@ fn docsearch_json_keys_count() {
     assert!(!is_docsearch_json_decl(r#""feedbackTagOther": ["#));
     assert!(!is_docsearch_json_decl(r#""feedbackTagOthers": "Other""#));
     assert!(!is_docsearch_json_decl(r#""FeedbackTagOther": "Other""#));
+    assert!(is_docsearch_json_decl(r#""feedbackCancelButtonText": "Cancel""#));
+    assert!(is_docsearch_json_decl(r#""feedbackCancelButtonText": "Cancel","#));
+    assert!(is_docsearch_json_decl(r#""feedbackCancelButtonText": "Cancel" // c"#));
+    assert!(!is_docsearch_json_decl(r#""feedbackCancelButtonText": """#));
+    assert!(!is_docsearch_json_decl(r#""feedbackCancelButtonText": true"#));
+    assert!(!is_docsearch_json_decl(r#""feedbackCancelButtonText": {"#));
+    assert!(!is_docsearch_json_decl(r#""feedbackCancelButtonText": ["#));
+    assert!(!is_docsearch_json_decl(r#""feedbackCancelButtonTexts": "Cancel""#));
+    assert!(!is_docsearch_json_decl(r#""FeedbackCancelButtonText": "Cancel""#));
+    assert!(is_docsearch_json_decl(r#""duringToolCallText": "Searching...""#));
+    assert!(is_docsearch_json_decl(r#""duringToolCallText": "Searching...","#));
+    assert!(is_docsearch_json_decl(r#""duringToolCallText": "Searching..." // c"#));
+    assert!(!is_docsearch_json_decl(r#""duringToolCallText": """#));
+    assert!(!is_docsearch_json_decl(r#""duringToolCallText": true"#));
+    assert!(!is_docsearch_json_decl(r#""duringToolCallText": {"#));
+    assert!(!is_docsearch_json_decl(r#""duringToolCallText": ["#));
+    assert!(!is_docsearch_json_decl(r#""duringToolCallTexts": "Searching...""#));
+    assert!(!is_docsearch_json_decl(r#""DuringToolCallText": "Searching...""#));
+    assert!(is_docsearch_json_decl(r#""afterToolCallText": "Searched for""#));
+    assert!(is_docsearch_json_decl(r#""afterToolCallText": "Searched for","#));
+    assert!(is_docsearch_json_decl(r#""afterToolCallText": "Searched for" // c"#));
+    assert!(!is_docsearch_json_decl(r#""afterToolCallText": """#));
+    assert!(!is_docsearch_json_decl(r#""afterToolCallText": true"#));
+    assert!(!is_docsearch_json_decl(r#""afterToolCallText": {"#));
+    assert!(!is_docsearch_json_decl(r#""afterToolCallText": ["#));
+    assert!(!is_docsearch_json_decl(r#""afterToolCallTexts": "Searched for""#));
+    assert!(!is_docsearch_json_decl(r#""AfterToolCallText": "Searched for""#));
+    assert!(is_docsearch_json_decl(r#""preToolCallText": "Searching...""#));
+    assert!(is_docsearch_json_decl(r#""preToolCallText": "Searching...","#));
+    assert!(is_docsearch_json_decl(r#""preToolCallText": "Searching..." // c"#));
+    assert!(!is_docsearch_json_decl(r#""preToolCallText": """#));
+    assert!(!is_docsearch_json_decl(r#""preToolCallText": true"#));
+    assert!(!is_docsearch_json_decl(r#""preToolCallText": {"#));
+    assert!(!is_docsearch_json_decl(r#""preToolCallText": ["#));
+    assert!(!is_docsearch_json_decl(r#""preToolCallTexts": "Searching...""#));
+    assert!(!is_docsearch_json_decl(r#""PreToolCallText": "Searching...""#));
+    assert!(is_docsearch_json_decl(r#""stoppedStreamingText": "You stopped this answer.""#));
+    assert!(is_docsearch_json_decl(r#""stoppedStreamingText": "You stopped this answer.","#));
+    assert!(is_docsearch_json_decl(r#""stoppedStreamingText": "You stopped this answer." // c"#));
+    assert!(!is_docsearch_json_decl(r#""stoppedStreamingText": """#));
+    assert!(!is_docsearch_json_decl(r#""stoppedStreamingText": true"#));
+    assert!(!is_docsearch_json_decl(r#""stoppedStreamingText": {"#));
+    assert!(!is_docsearch_json_decl(r#""stoppedStreamingText": ["#));
+    assert!(!is_docsearch_json_decl(r#""stoppedStreamingTexts": "You stopped this answer.""#));
+    assert!(!is_docsearch_json_decl(r#""StoppedStreamingText": "You stopped this answer.""#));
+    assert!(is_docsearch_json_decl(r#""errorTitleText": "Something went wrong""#));
+    assert!(is_docsearch_json_decl(r#""errorTitleText": "Something went wrong","#));
+    assert!(is_docsearch_json_decl(r#""errorTitleText": "Something went wrong" // c"#));
+    assert!(!is_docsearch_json_decl(r#""errorTitleText": """#));
+    assert!(!is_docsearch_json_decl(r#""errorTitleText": true"#));
+    assert!(!is_docsearch_json_decl(r#""errorTitleText": {"#));
+    assert!(!is_docsearch_json_decl(r#""errorTitleText": ["#));
+    assert!(!is_docsearch_json_decl(r#""errorTitleTexts": "Something went wrong""#));
+    assert!(!is_docsearch_json_decl(r#""ErrorTitleText": "Something went wrong""#));
+    assert!(is_docsearch_json_decl(
+        r#""threadDepthExceededMessage": "This conversation is too long. Start a new one.""#
+    ));
+    assert!(is_docsearch_json_decl(
+        r#""threadDepthExceededMessage": "This conversation is too long. Start a new one.","#
+    ));
+    assert!(is_docsearch_json_decl(
+        r#""threadDepthExceededMessage": "This conversation is too long. Start a new one." // c"#
+    ));
+    assert!(!is_docsearch_json_decl(r#""threadDepthExceededMessage": """#));
+    assert!(!is_docsearch_json_decl(r#""threadDepthExceededMessage": true"#));
+    assert!(!is_docsearch_json_decl(r#""threadDepthExceededMessage": {"#));
+    assert!(!is_docsearch_json_decl(r#""threadDepthExceededMessage": ["#));
+    assert!(!is_docsearch_json_decl(
+        r#""threadDepthExceededMessages": "This conversation is too long. Start a new one.""#
+    ));
+    assert!(!is_docsearch_json_decl(
+        r#""ThreadDepthExceededMessage": "This conversation is too long. Start a new one.""#
+    ));
+    assert!(is_docsearch_json_decl(r#""startNewConversationButtonText": "Start new conversation""#));
+    assert!(is_docsearch_json_decl(r#""startNewConversationButtonText": "Start new conversation","#));
+    assert!(is_docsearch_json_decl(
+        r#""startNewConversationButtonText": "Start new conversation" // c"#
+    ));
+    assert!(!is_docsearch_json_decl(r#""startNewConversationButtonText": """#));
+    assert!(!is_docsearch_json_decl(r#""startNewConversationButtonText": true"#));
+    assert!(!is_docsearch_json_decl(r#""startNewConversationButtonText": {"#));
+    assert!(!is_docsearch_json_decl(r#""startNewConversationButtonText": ["#));
+    assert!(!is_docsearch_json_decl(r#""startNewConversationButtonTexts": "Start new conversation""#));
+    assert!(!is_docsearch_json_decl(r#""StartNewConversationButtonText": "Start new conversation""#));
+    assert!(is_docsearch_json_decl(r#""suggestedPromptsTitleText": "Suggested prompts""#));
+    assert!(is_docsearch_json_decl(r#""suggestedPromptsTitleText": "Suggested prompts","#));
+    assert!(is_docsearch_json_decl(r#""suggestedPromptsTitleText": "Suggested prompts" // c"#));
+    assert!(!is_docsearch_json_decl(r#""suggestedPromptsTitleText": """#));
+    assert!(!is_docsearch_json_decl(r#""suggestedPromptsTitleText": true"#));
+    assert!(!is_docsearch_json_decl(r#""suggestedPromptsTitleText": {"#));
+    assert!(!is_docsearch_json_decl(r#""suggestedPromptsTitleText": ["#));
+    assert!(!is_docsearch_json_decl(r#""suggestedPromptsTitleTexts": "Suggested prompts""#));
+    assert!(!is_docsearch_json_decl(r#""SuggestedPromptsTitleText": "Suggested prompts""#));
+    assert!(is_docsearch_json_decl(r#""savedMemoryToolResultText": "Saved to memory""#));
+    assert!(is_docsearch_json_decl(r#""savedMemoryToolResultText": "Saved to memory","#));
+    assert!(is_docsearch_json_decl(r#""savedMemoryToolResultText": "Saved to memory" // c"#));
+    assert!(!is_docsearch_json_decl(r#""savedMemoryToolResultText": """#));
+    assert!(!is_docsearch_json_decl(r#""savedMemoryToolResultText": true"#));
+    assert!(!is_docsearch_json_decl(r#""savedMemoryToolResultText": {"#));
+    assert!(!is_docsearch_json_decl(r#""savedMemoryToolResultText": ["#));
+    assert!(!is_docsearch_json_decl(r#""savedMemoryToolResultTexts": "Saved to memory""#));
+    assert!(!is_docsearch_json_decl(r#""SavedMemoryToolResultText": "Saved to memory""#));
+    assert!(is_docsearch_json_decl(r#""memoryToolResultText": "Used memory to enhance results""#));
+    assert!(is_docsearch_json_decl(r#""memoryToolResultText": "Used memory to enhance results","#));
+    assert!(is_docsearch_json_decl(
+        r#""memoryToolResultText": "Used memory to enhance results" // c"#
+    ));
+    assert!(!is_docsearch_json_decl(r#""memoryToolResultText": """#));
+    assert!(!is_docsearch_json_decl(r#""memoryToolResultText": true"#));
+    assert!(!is_docsearch_json_decl(r#""memoryToolResultText": {"#));
+    assert!(!is_docsearch_json_decl(r#""memoryToolResultText": ["#));
+    assert!(!is_docsearch_json_decl(r#""memoryToolResultTexts": "Used memory to enhance results""#));
+    assert!(!is_docsearch_json_decl(r#""MemoryToolResultText": "Used memory to enhance results""#));
+    assert!(is_docsearch_json_decl(r#""callingToolText": "Calling tool...""#));
+    assert!(is_docsearch_json_decl(r#""callingToolText": "Calling tool...","#));
+    assert!(is_docsearch_json_decl(r#""callingToolText": "Calling tool..." // c"#));
+    assert!(!is_docsearch_json_decl(r#""callingToolText": """#));
+    assert!(!is_docsearch_json_decl(r#""callingToolText": true"#));
+    assert!(!is_docsearch_json_decl(r#""callingToolText": {"#));
+    assert!(!is_docsearch_json_decl(r#""callingToolText": ["#));
+    assert!(!is_docsearch_json_decl(r#""callingToolTexts": "Calling tool...""#));
+    assert!(!is_docsearch_json_decl(r#""CallingToolText": "Calling tool...""#));
     assert!(!is_docsearch_json_decl(r#""maxResultsPerGroup""#));
     assert!(!is_docsearch_json_decl(r#""insights""#));
     assert!(!is_docsearch_json_decl(r#""indices""#));
@@ -47866,6 +48038,18 @@ fn docsearch_json_keys_count() {
     assert!(!is_docsearch_json_decl(r#""feedbackTagStyleOrTone""#));
     assert!(!is_docsearch_json_decl(r#""feedbackTagSafetyOrLegal""#));
     assert!(!is_docsearch_json_decl(r#""feedbackTagOther""#));
+    assert!(!is_docsearch_json_decl(r#""feedbackCancelButtonText""#));
+    assert!(!is_docsearch_json_decl(r#""duringToolCallText""#));
+    assert!(!is_docsearch_json_decl(r#""afterToolCallText""#));
+    assert!(!is_docsearch_json_decl(r#""preToolCallText""#));
+    assert!(!is_docsearch_json_decl(r#""stoppedStreamingText""#));
+    assert!(!is_docsearch_json_decl(r#""errorTitleText""#));
+    assert!(!is_docsearch_json_decl(r#""threadDepthExceededMessage""#));
+    assert!(!is_docsearch_json_decl(r#""startNewConversationButtonText""#));
+    assert!(!is_docsearch_json_decl(r#""suggestedPromptsTitleText""#));
+    assert!(!is_docsearch_json_decl(r#""savedMemoryToolResultText""#));
+    assert!(!is_docsearch_json_decl(r#""memoryToolResultText""#));
+    assert!(!is_docsearch_json_decl(r#""callingToolText""#));
     assert!(!is_docsearch_json_decl(
         r#""$schema": "https://example.com""#
     ));
@@ -48105,6 +48289,20 @@ fn docsearch_json_keys_count() {
         r#""feedbackTagSafetyOrLegal": "Safety or legal concern""#
     ));
     assert!(line_is_func_like(r#""feedbackTagOther": "Other""#));
+    assert!(line_is_func_like(r#""feedbackCancelButtonText": "Cancel""#));
+    assert!(line_is_func_like(r#""duringToolCallText": "Searching...""#));
+    assert!(line_is_func_like(r#""afterToolCallText": "Searched for""#));
+    assert!(line_is_func_like(r#""preToolCallText": "Searching...""#));
+    assert!(line_is_func_like(r#""stoppedStreamingText": "You stopped this answer.""#));
+    assert!(line_is_func_like(r#""errorTitleText": "Something went wrong""#));
+    assert!(line_is_func_like(
+        r#""threadDepthExceededMessage": "This conversation is too long. Start a new one.""#
+    ));
+    assert!(line_is_func_like(r#""startNewConversationButtonText": "Start new conversation""#));
+    assert!(line_is_func_like(r#""suggestedPromptsTitleText": "Suggested prompts""#));
+    assert!(line_is_func_like(r#""savedMemoryToolResultText": "Saved to memory""#));
+    assert!(line_is_func_like(r#""memoryToolResultText": "Used memory to enhance results""#));
+    assert!(line_is_func_like(r#""callingToolText": "Calling tool...""#));
     assert!(!is_docsearch_json_decl(r#""stalledSearchDelay": 200"#));
     assert!(is_instantsearch_json_decl(r#""stalledSearchDelay": 200"#));
     assert!(!is_docsearch_json_decl(r#""initialUiState": {"#));

@@ -1544,3 +1544,5 @@
 009 keep: Function List DocSearch removeFavoriteSearchButtonTitle/recentConversationsTitle/removeRecentConversationButtonTitle/placeholderTextAskAi/placeholderTextAskAiStreaming/enterKeyHintAskAi/backToKeywordSearchButtonText/backToKeywordSearchButtonAriaLabel/newConversationPlaceholder/conversationHistoryTitle (v0.3.938)
 
 009 keep: Function List DocSearch startNewConversationText/viewConversationHistoryText/threadDepthErrorPlaceholder/titleText/helpText/suggestedQueryText/reportMissingResultsText/reportMissingResultsLinkText/askAiPlaceholder/noResultsAskAiPlaceholder (v0.3.939)
+
+009 keep: Function List DocSearch Ask AI tool-call/streaming/error/cancel translation keys (v0.3.942)
