@@ -38815,12 +38815,16 @@ fn stork_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool {
 /// `"getMissingResultsUrl": {`, `"footerAction": {`,
 /// `"initialScrollY": 0` / `120`, `"contextualSearch": true` / `false`,
 /// `"externalUrlRegex": "…"`, `"searchPagePath": true` / `false` / `"…"`,
-/// `"replaceSearchResultPathname": {`.
+/// `"replaceSearchResultPathname": {`, `"facets": [`,
+/// `"buttonText": "…"`, `"buttonAriaLabel": "…"`,
+/// `"placeholderText": "…"`, `"selectText": "…"`, `"navigateText": "…"`,
+/// `"closeText": "…"`, `"submitQuestionText": "…"`,
+/// `"backToSearchText": "…"`, `"poweredByText": "…"`.
 /// Optional trailing `,` and `//` / `/*` comment. Incomplete quotes /
 /// missing `:` stay out. Generic `"$schema"` / `"name"` / `"id"` /
 /// `"q"` / `"query"` / `"url"` / `"appId"` / `"apiKey"` / `"indexName"` /
 /// `"placeholder"` / `"container"` /
-/// `"facets"` / object `"theme": {` /
+/// object `"theme": {` /
 /// Algolia Insights `"agentID"` / Stork
 /// `"exclude_html_selector"` / `"frontmatter_handling"` /
 /// `"excerpts_per_result"` / `"displayed_results_count"` /
@@ -38939,6 +38943,16 @@ fn docsearch_json_key_ok(key: &str) -> bool {
             | "externalUrlRegex"
             | "searchPagePath"
             | "replaceSearchResultPathname"
+            | "facets"
+            | "buttonText"
+            | "buttonAriaLabel"
+            | "placeholderText"
+            | "selectText"
+            | "navigateText"
+            | "closeText"
+            | "submitQuestionText"
+            | "backToSearchText"
+            | "poweredByText"
     )
 }
 
@@ -38973,7 +38987,7 @@ fn docsearch_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool {
             package_json_tail_ok(&after_colon[1..])
         }
         b'[' => {
-            if key != "indices" {
+            if !matches!(key, "indices" | "facets") {
                 return false;
             }
             package_json_tail_ok(&after_colon[1..])
@@ -38997,7 +39011,9 @@ fn docsearch_json_string_and_tail_ok(key: &str, after_colon: &str) -> bool {
     match key {
         "resultBadgeKey" | "initialQuery" | "askAi" | "agentId" | "assistantId"
         | "expandedWidth" | "width" | "pushSelector" | "portalContainer"
-        | "externalUrlRegex" | "searchPagePath" => {}
+        | "externalUrlRegex" | "searchPagePath" | "buttonText" | "buttonAriaLabel"
+        | "placeholderText" | "selectText" | "navigateText" | "closeText"
+        | "submitQuestionText" | "backToSearchText" | "poweredByText" => {}
         "variant" => {
             if !matches!(value, "floating" | "inline") {
                 return false;
