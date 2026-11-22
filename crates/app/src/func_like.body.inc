@@ -38847,7 +38847,13 @@ fn stork_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool {
 /// `"relatedSourcesTextPlural": "…"`, `"thinkingText": "…"`,
 /// `"copyButtonText": "…"`, `"copyButtonCopiedText": "…"`,
 /// `"copyButtonTitle": "…"`, `"likeButtonTitle": "…"`,
-/// `"dislikeButtonTitle": "…"`, `"thanksForFeedbackText": "…"`.
+/// `"dislikeButtonTitle": "…"`, `"thanksForFeedbackText": "…"`,
+/// `"feedbackPanelTitle": "…"`, `"feedbackDetailsPlaceholder": "…"`,
+/// `"feedbackDisclaimerText": "…"`, `"feedbackSubmitButtonText": "…"`,
+/// `"feedbackCloseButtonTitle": "…"`, `"feedbackTagIncorrect": "…"`,
+/// `"feedbackTagNotWhatIAsked": "…"`, `"feedbackTagSlowOrBuggy": "…"`,
+/// `"feedbackTagStyleOrTone": "…"`, `"feedbackTagSafetyOrLegal": "…"`,
+/// `"feedbackTagOther": "…"`.
 /// Optional trailing `,` and `//` / `/*` comment. Incomplete quotes /
 /// missing `:` stay out. Generic `"$schema"` / `"name"` / `"id"` /
 /// `"q"` / `"query"` / `"url"` / `"appId"` / `"apiKey"` / `"indexName"` /
@@ -39031,6 +39037,17 @@ fn docsearch_json_key_ok(key: &str) -> bool {
             | "likeButtonTitle"
             | "dislikeButtonTitle"
             | "thanksForFeedbackText"
+            | "feedbackPanelTitle"
+            | "feedbackDetailsPlaceholder"
+            | "feedbackDisclaimerText"
+            | "feedbackSubmitButtonText"
+            | "feedbackCloseButtonTitle"
+            | "feedbackTagIncorrect"
+            | "feedbackTagNotWhatIAsked"
+            | "feedbackTagSlowOrBuggy"
+            | "feedbackTagStyleOrTone"
+            | "feedbackTagSafetyOrLegal"
+            | "feedbackTagOther"
     )
 }
 
@@ -39111,7 +39128,13 @@ fn docsearch_json_string_and_tail_ok(key: &str, after_colon: &str) -> bool {
         | "askAiPlaceholder" | "noResultsAskAiPlaceholder" | "disclaimerText"
         | "relatedSourcesText" | "relatedSourcesTextPlural" | "thinkingText"
         | "copyButtonText" | "copyButtonCopiedText" | "copyButtonTitle"
-        | "likeButtonTitle" | "dislikeButtonTitle" | "thanksForFeedbackText" => {}
+        | "likeButtonTitle" | "dislikeButtonTitle" | "thanksForFeedbackText"
+        | "feedbackPanelTitle" | "feedbackDetailsPlaceholder"
+        | "feedbackDisclaimerText" | "feedbackSubmitButtonText"
+        | "feedbackCloseButtonTitle" | "feedbackTagIncorrect"
+        | "feedbackTagNotWhatIAsked" | "feedbackTagSlowOrBuggy"
+        | "feedbackTagStyleOrTone" | "feedbackTagSafetyOrLegal"
+        | "feedbackTagOther" => {}
         "variant" => {
             if !matches!(value, "floating" | "inline") {
                 return false;

@@ -45774,6 +45774,68 @@ fn stork_json_keys_count() {
     assert!(is_docsearch_json_decl(
         r#""thanksForFeedbackText": "Thanks for your feedback!""#
     ));
+    assert!(!is_stork_json_decl(
+        r#""feedbackPanelTitle": "What went wrong?""#
+    ));
+    assert!(is_docsearch_json_decl(
+        r#""feedbackPanelTitle": "What went wrong?""#
+    ));
+    assert!(!is_stork_json_decl(
+        r#""feedbackDetailsPlaceholder": "Additional details…""#
+    ));
+    assert!(is_docsearch_json_decl(
+        r#""feedbackDetailsPlaceholder": "Additional details…""#
+    ));
+    assert!(!is_stork_json_decl(
+        r#""feedbackDisclaimerText": "Your feedback helps improve answers.""#
+    ));
+    assert!(is_docsearch_json_decl(
+        r#""feedbackDisclaimerText": "Your feedback helps improve answers.""#
+    ));
+    assert!(!is_stork_json_decl(
+        r#""feedbackSubmitButtonText": "Submit feedback""#
+    ));
+    assert!(is_docsearch_json_decl(
+        r#""feedbackSubmitButtonText": "Submit feedback""#
+    ));
+    assert!(!is_stork_json_decl(
+        r#""feedbackCloseButtonTitle": "Close feedback""#
+    ));
+    assert!(is_docsearch_json_decl(
+        r#""feedbackCloseButtonTitle": "Close feedback""#
+    ));
+    assert!(!is_stork_json_decl(
+        r#""feedbackTagIncorrect": "Incorrect information""#
+    ));
+    assert!(is_docsearch_json_decl(
+        r#""feedbackTagIncorrect": "Incorrect information""#
+    ));
+    assert!(!is_stork_json_decl(
+        r#""feedbackTagNotWhatIAsked": "Not what I asked""#
+    ));
+    assert!(is_docsearch_json_decl(
+        r#""feedbackTagNotWhatIAsked": "Not what I asked""#
+    ));
+    assert!(!is_stork_json_decl(
+        r#""feedbackTagSlowOrBuggy": "Slow or buggy""#
+    ));
+    assert!(is_docsearch_json_decl(
+        r#""feedbackTagSlowOrBuggy": "Slow or buggy""#
+    ));
+    assert!(!is_stork_json_decl(
+        r#""feedbackTagStyleOrTone": "Style or tone""#
+    ));
+    assert!(is_docsearch_json_decl(
+        r#""feedbackTagStyleOrTone": "Style or tone""#
+    ));
+    assert!(!is_stork_json_decl(
+        r#""feedbackTagSafetyOrLegal": "Safety or legal concern""#
+    ));
+    assert!(is_docsearch_json_decl(
+        r#""feedbackTagSafetyOrLegal": "Safety or legal concern""#
+    ));
+    assert!(!is_stork_json_decl(r#""feedbackTagOther": "Other""#));
+    assert!(is_docsearch_json_decl(r#""feedbackTagOther": "Other""#));
     assert!(!is_stork_json_decl(r#""stalledSearchDelay": 200"#));
     assert!(is_instantsearch_json_decl(r#""stalledSearchDelay": 200"#));
     assert!(!is_stork_json_decl(r#""initialUiState": {"#));
@@ -45960,6 +46022,37 @@ fn docsearch_json_keys_smoke() {
     assert!(is_docsearch_json_decl(
         r#""thanksForFeedbackText": "Thanks for your feedback!""#
     ));
+    assert!(is_docsearch_json_decl(
+        r#""feedbackPanelTitle": "What went wrong?""#
+    ));
+    assert!(is_docsearch_json_decl(
+        r#""feedbackDetailsPlaceholder": "Additional details…""#
+    ));
+    assert!(is_docsearch_json_decl(
+        r#""feedbackDisclaimerText": "Your feedback helps improve answers.""#
+    ));
+    assert!(is_docsearch_json_decl(
+        r#""feedbackSubmitButtonText": "Submit feedback""#
+    ));
+    assert!(is_docsearch_json_decl(
+        r#""feedbackCloseButtonTitle": "Close feedback""#
+    ));
+    assert!(is_docsearch_json_decl(
+        r#""feedbackTagIncorrect": "Incorrect information""#
+    ));
+    assert!(is_docsearch_json_decl(
+        r#""feedbackTagNotWhatIAsked": "Not what I asked""#
+    ));
+    assert!(is_docsearch_json_decl(
+        r#""feedbackTagSlowOrBuggy": "Slow or buggy""#
+    ));
+    assert!(is_docsearch_json_decl(
+        r#""feedbackTagStyleOrTone": "Style or tone""#
+    ));
+    assert!(is_docsearch_json_decl(
+        r#""feedbackTagSafetyOrLegal": "Safety or legal concern""#
+    ));
+    assert!(is_docsearch_json_decl(r#""feedbackTagOther": "Other""#));
     assert!(!is_docsearch_json_decl(
         r#""exclude_html_selector": ".sidebar""#
     ));
@@ -47449,6 +47542,221 @@ fn docsearch_json_keys_count() {
     assert!(!is_docsearch_json_decl(
         r#""ThanksForFeedbackText": "Thanks for your feedback!""#
     ));
+    assert!(is_docsearch_json_decl(
+        r#""feedbackPanelTitle": "What went wrong?""#
+    ));
+    assert!(is_docsearch_json_decl(
+        r#""feedbackPanelTitle": "What went wrong?","#
+    ));
+    assert!(is_docsearch_json_decl(
+        r#""feedbackPanelTitle": "What went wrong?" // c"#
+    ));
+    assert!(!is_docsearch_json_decl(r#""feedbackPanelTitle": """#));
+    assert!(!is_docsearch_json_decl(r#""feedbackPanelTitle": true"#));
+    assert!(!is_docsearch_json_decl(r#""feedbackPanelTitle": {"#));
+    assert!(!is_docsearch_json_decl(r#""feedbackPanelTitle": ["#));
+    assert!(!is_docsearch_json_decl(
+        r#""feedbackPanelTitles": "What went wrong?""#
+    ));
+    assert!(!is_docsearch_json_decl(
+        r#""FeedbackPanelTitle": "What went wrong?""#
+    ));
+    assert!(is_docsearch_json_decl(
+        r#""feedbackDetailsPlaceholder": "Additional details…""#
+    ));
+    assert!(is_docsearch_json_decl(
+        r#""feedbackDetailsPlaceholder": "Additional details…","#
+    ));
+    assert!(is_docsearch_json_decl(
+        r#""feedbackDetailsPlaceholder": "Additional details…" // c"#
+    ));
+    assert!(!is_docsearch_json_decl(r#""feedbackDetailsPlaceholder": """#));
+    assert!(!is_docsearch_json_decl(
+        r#""feedbackDetailsPlaceholder": true"#
+    ));
+    assert!(!is_docsearch_json_decl(
+        r#""feedbackDetailsPlaceholder": {"#
+    ));
+    assert!(!is_docsearch_json_decl(
+        r#""feedbackDetailsPlaceholder": ["#
+    ));
+    assert!(!is_docsearch_json_decl(
+        r#""feedbackDetailsPlaceholders": "Additional details…""#
+    ));
+    assert!(!is_docsearch_json_decl(
+        r#""FeedbackDetailsPlaceholder": "Additional details…""#
+    ));
+    assert!(is_docsearch_json_decl(
+        r#""feedbackDisclaimerText": "Your feedback helps improve answers.""#
+    ));
+    assert!(is_docsearch_json_decl(
+        r#""feedbackDisclaimerText": "Your feedback helps improve answers.","#
+    ));
+    assert!(is_docsearch_json_decl(
+        r#""feedbackDisclaimerText": "Your feedback helps improve answers." // c"#
+    ));
+    assert!(!is_docsearch_json_decl(r#""feedbackDisclaimerText": """#));
+    assert!(!is_docsearch_json_decl(r#""feedbackDisclaimerText": true"#));
+    assert!(!is_docsearch_json_decl(r#""feedbackDisclaimerText": {"#));
+    assert!(!is_docsearch_json_decl(r#""feedbackDisclaimerText": ["#));
+    assert!(!is_docsearch_json_decl(
+        r#""feedbackDisclaimerTexts": "Your feedback helps improve answers.""#
+    ));
+    assert!(!is_docsearch_json_decl(
+        r#""FeedbackDisclaimerText": "Your feedback helps improve answers.""#
+    ));
+    assert!(is_docsearch_json_decl(
+        r#""feedbackSubmitButtonText": "Submit feedback""#
+    ));
+    assert!(is_docsearch_json_decl(
+        r#""feedbackSubmitButtonText": "Submit feedback","#
+    ));
+    assert!(is_docsearch_json_decl(
+        r#""feedbackSubmitButtonText": "Submit feedback" // c"#
+    ));
+    assert!(!is_docsearch_json_decl(r#""feedbackSubmitButtonText": """#));
+    assert!(!is_docsearch_json_decl(
+        r#""feedbackSubmitButtonText": true"#
+    ));
+    assert!(!is_docsearch_json_decl(r#""feedbackSubmitButtonText": {"#));
+    assert!(!is_docsearch_json_decl(r#""feedbackSubmitButtonText": ["#));
+    assert!(!is_docsearch_json_decl(
+        r#""feedbackSubmitButtonTexts": "Submit feedback""#
+    ));
+    assert!(!is_docsearch_json_decl(
+        r#""FeedbackSubmitButtonText": "Submit feedback""#
+    ));
+    assert!(is_docsearch_json_decl(
+        r#""feedbackCloseButtonTitle": "Close feedback""#
+    ));
+    assert!(is_docsearch_json_decl(
+        r#""feedbackCloseButtonTitle": "Close feedback","#
+    ));
+    assert!(is_docsearch_json_decl(
+        r#""feedbackCloseButtonTitle": "Close feedback" // c"#
+    ));
+    assert!(!is_docsearch_json_decl(r#""feedbackCloseButtonTitle": """#));
+    assert!(!is_docsearch_json_decl(
+        r#""feedbackCloseButtonTitle": true"#
+    ));
+    assert!(!is_docsearch_json_decl(r#""feedbackCloseButtonTitle": {"#));
+    assert!(!is_docsearch_json_decl(r#""feedbackCloseButtonTitle": ["#));
+    assert!(!is_docsearch_json_decl(
+        r#""feedbackCloseButtonTitles": "Close feedback""#
+    ));
+    assert!(!is_docsearch_json_decl(
+        r#""FeedbackCloseButtonTitle": "Close feedback""#
+    ));
+    assert!(is_docsearch_json_decl(
+        r#""feedbackTagIncorrect": "Incorrect information""#
+    ));
+    assert!(is_docsearch_json_decl(
+        r#""feedbackTagIncorrect": "Incorrect information","#
+    ));
+    assert!(is_docsearch_json_decl(
+        r#""feedbackTagIncorrect": "Incorrect information" // c"#
+    ));
+    assert!(!is_docsearch_json_decl(r#""feedbackTagIncorrect": """#));
+    assert!(!is_docsearch_json_decl(r#""feedbackTagIncorrect": true"#));
+    assert!(!is_docsearch_json_decl(r#""feedbackTagIncorrect": {"#));
+    assert!(!is_docsearch_json_decl(r#""feedbackTagIncorrect": ["#));
+    assert!(!is_docsearch_json_decl(
+        r#""feedbackTagIncorrects": "Incorrect information""#
+    ));
+    assert!(!is_docsearch_json_decl(
+        r#""FeedbackTagIncorrect": "Incorrect information""#
+    ));
+    assert!(is_docsearch_json_decl(
+        r#""feedbackTagNotWhatIAsked": "Not what I asked""#
+    ));
+    assert!(is_docsearch_json_decl(
+        r#""feedbackTagNotWhatIAsked": "Not what I asked","#
+    ));
+    assert!(is_docsearch_json_decl(
+        r#""feedbackTagNotWhatIAsked": "Not what I asked" // c"#
+    ));
+    assert!(!is_docsearch_json_decl(r#""feedbackTagNotWhatIAsked": """#));
+    assert!(!is_docsearch_json_decl(
+        r#""feedbackTagNotWhatIAsked": true"#
+    ));
+    assert!(!is_docsearch_json_decl(r#""feedbackTagNotWhatIAsked": {"#));
+    assert!(!is_docsearch_json_decl(r#""feedbackTagNotWhatIAsked": ["#));
+    assert!(!is_docsearch_json_decl(
+        r#""feedbackTagNotWhatIAskeds": "Not what I asked""#
+    ));
+    assert!(!is_docsearch_json_decl(
+        r#""FeedbackTagNotWhatIAsked": "Not what I asked""#
+    ));
+    assert!(is_docsearch_json_decl(
+        r#""feedbackTagSlowOrBuggy": "Slow or buggy""#
+    ));
+    assert!(is_docsearch_json_decl(
+        r#""feedbackTagSlowOrBuggy": "Slow or buggy","#
+    ));
+    assert!(is_docsearch_json_decl(
+        r#""feedbackTagSlowOrBuggy": "Slow or buggy" // c"#
+    ));
+    assert!(!is_docsearch_json_decl(r#""feedbackTagSlowOrBuggy": """#));
+    assert!(!is_docsearch_json_decl(r#""feedbackTagSlowOrBuggy": true"#));
+    assert!(!is_docsearch_json_decl(r#""feedbackTagSlowOrBuggy": {"#));
+    assert!(!is_docsearch_json_decl(r#""feedbackTagSlowOrBuggy": ["#));
+    assert!(!is_docsearch_json_decl(
+        r#""feedbackTagSlowOrBuggys": "Slow or buggy""#
+    ));
+    assert!(!is_docsearch_json_decl(
+        r#""FeedbackTagSlowOrBuggy": "Slow or buggy""#
+    ));
+    assert!(is_docsearch_json_decl(
+        r#""feedbackTagStyleOrTone": "Style or tone""#
+    ));
+    assert!(is_docsearch_json_decl(
+        r#""feedbackTagStyleOrTone": "Style or tone","#
+    ));
+    assert!(is_docsearch_json_decl(
+        r#""feedbackTagStyleOrTone": "Style or tone" // c"#
+    ));
+    assert!(!is_docsearch_json_decl(r#""feedbackTagStyleOrTone": """#));
+    assert!(!is_docsearch_json_decl(r#""feedbackTagStyleOrTone": true"#));
+    assert!(!is_docsearch_json_decl(r#""feedbackTagStyleOrTone": {"#));
+    assert!(!is_docsearch_json_decl(r#""feedbackTagStyleOrTone": ["#));
+    assert!(!is_docsearch_json_decl(
+        r#""feedbackTagStyleOrTones": "Style or tone""#
+    ));
+    assert!(!is_docsearch_json_decl(
+        r#""FeedbackTagStyleOrTone": "Style or tone""#
+    ));
+    assert!(is_docsearch_json_decl(
+        r#""feedbackTagSafetyOrLegal": "Safety or legal concern""#
+    ));
+    assert!(is_docsearch_json_decl(
+        r#""feedbackTagSafetyOrLegal": "Safety or legal concern","#
+    ));
+    assert!(is_docsearch_json_decl(
+        r#""feedbackTagSafetyOrLegal": "Safety or legal concern" // c"#
+    ));
+    assert!(!is_docsearch_json_decl(r#""feedbackTagSafetyOrLegal": """#));
+    assert!(!is_docsearch_json_decl(
+        r#""feedbackTagSafetyOrLegal": true"#
+    ));
+    assert!(!is_docsearch_json_decl(r#""feedbackTagSafetyOrLegal": {"#));
+    assert!(!is_docsearch_json_decl(r#""feedbackTagSafetyOrLegal": ["#));
+    assert!(!is_docsearch_json_decl(
+        r#""feedbackTagSafetyOrLegals": "Safety or legal concern""#
+    ));
+    assert!(!is_docsearch_json_decl(
+        r#""FeedbackTagSafetyOrLegal": "Safety or legal concern""#
+    ));
+    assert!(is_docsearch_json_decl(r#""feedbackTagOther": "Other""#));
+    assert!(is_docsearch_json_decl(r#""feedbackTagOther": "Other","#));
+    assert!(is_docsearch_json_decl(
+        r#""feedbackTagOther": "Other" // c"#
+    ));
+    assert!(!is_docsearch_json_decl(r#""feedbackTagOther": """#));
+    assert!(!is_docsearch_json_decl(r#""feedbackTagOther": true"#));
+    assert!(!is_docsearch_json_decl(r#""feedbackTagOther": {"#));
+    assert!(!is_docsearch_json_decl(r#""feedbackTagOther": ["#));
+    assert!(!is_docsearch_json_decl(r#""feedbackTagOthers": "Other""#));
+    assert!(!is_docsearch_json_decl(r#""FeedbackTagOther": "Other""#));
     assert!(!is_docsearch_json_decl(r#""maxResultsPerGroup""#));
     assert!(!is_docsearch_json_decl(r#""insights""#));
     assert!(!is_docsearch_json_decl(r#""indices""#));
@@ -47547,6 +47855,17 @@ fn docsearch_json_keys_count() {
     assert!(!is_docsearch_json_decl(r#""likeButtonTitle""#));
     assert!(!is_docsearch_json_decl(r#""dislikeButtonTitle""#));
     assert!(!is_docsearch_json_decl(r#""thanksForFeedbackText""#));
+    assert!(!is_docsearch_json_decl(r#""feedbackPanelTitle""#));
+    assert!(!is_docsearch_json_decl(r#""feedbackDetailsPlaceholder""#));
+    assert!(!is_docsearch_json_decl(r#""feedbackDisclaimerText""#));
+    assert!(!is_docsearch_json_decl(r#""feedbackSubmitButtonText""#));
+    assert!(!is_docsearch_json_decl(r#""feedbackCloseButtonTitle""#));
+    assert!(!is_docsearch_json_decl(r#""feedbackTagIncorrect""#));
+    assert!(!is_docsearch_json_decl(r#""feedbackTagNotWhatIAsked""#));
+    assert!(!is_docsearch_json_decl(r#""feedbackTagSlowOrBuggy""#));
+    assert!(!is_docsearch_json_decl(r#""feedbackTagStyleOrTone""#));
+    assert!(!is_docsearch_json_decl(r#""feedbackTagSafetyOrLegal""#));
+    assert!(!is_docsearch_json_decl(r#""feedbackTagOther""#));
     assert!(!is_docsearch_json_decl(
         r#""$schema": "https://example.com""#
     ));
@@ -47755,6 +48074,37 @@ fn docsearch_json_keys_count() {
     assert!(line_is_func_like(
         r#""thanksForFeedbackText": "Thanks for your feedback!""#
     ));
+    assert!(line_is_func_like(
+        r#""feedbackPanelTitle": "What went wrong?""#
+    ));
+    assert!(line_is_func_like(
+        r#""feedbackDetailsPlaceholder": "Additional details…""#
+    ));
+    assert!(line_is_func_like(
+        r#""feedbackDisclaimerText": "Your feedback helps improve answers.""#
+    ));
+    assert!(line_is_func_like(
+        r#""feedbackSubmitButtonText": "Submit feedback""#
+    ));
+    assert!(line_is_func_like(
+        r#""feedbackCloseButtonTitle": "Close feedback""#
+    ));
+    assert!(line_is_func_like(
+        r#""feedbackTagIncorrect": "Incorrect information""#
+    ));
+    assert!(line_is_func_like(
+        r#""feedbackTagNotWhatIAsked": "Not what I asked""#
+    ));
+    assert!(line_is_func_like(
+        r#""feedbackTagSlowOrBuggy": "Slow or buggy""#
+    ));
+    assert!(line_is_func_like(
+        r#""feedbackTagStyleOrTone": "Style or tone""#
+    ));
+    assert!(line_is_func_like(
+        r#""feedbackTagSafetyOrLegal": "Safety or legal concern""#
+    ));
+    assert!(line_is_func_like(r#""feedbackTagOther": "Other""#));
     assert!(!is_docsearch_json_decl(r#""stalledSearchDelay": 200"#));
     assert!(is_instantsearch_json_decl(r#""stalledSearchDelay": 200"#));
     assert!(!is_docsearch_json_decl(r#""initialUiState": {"#));

@@ -1,3 +1,5 @@
+009 keep: Function List DocSearch feedbackPanelTitle/feedbackDetailsPlaceholder/feedbackDisclaimerText/feedbackSubmitButtonText/feedbackCloseButtonTitle/feedbackTagIncorrect/feedbackTagNotWhatIAsked/feedbackTagSlowOrBuggy/feedbackTagStyleOrTone/feedbackTagSafetyOrLegal/feedbackTagOther (v0.3.941)
+
 009 keep: Function List DocSearch disclaimerText/relatedSourcesText/relatedSourcesTextPlural/thinkingText/copyButtonText/copyButtonCopiedText/copyButtonTitle/likeButtonTitle/dislikeButtonTitle/thanksForFeedbackText (v0.3.940)
 
 009 keep: Function List DocSearch selectKeyAriaLabel/navigateUpKeyAriaLabel/navigateDownKeyAriaLabel/closeKeyAriaLabel/clearButtonTitle/clearButtonAriaLabel/closeButtonText/closeButtonAriaLabel/searchInputLabel/noResultsText (v0.3.936)
