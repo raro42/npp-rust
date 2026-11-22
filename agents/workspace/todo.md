@@ -1,3 +1,5 @@
+009 keep: Function List DocSearch disclaimerText/relatedSourcesText/relatedSourcesTextPlural/thinkingText/copyButtonText/copyButtonCopiedText/copyButtonTitle/likeButtonTitle/dislikeButtonTitle/thanksForFeedbackText (v0.3.940)
+
 009 keep: Function List DocSearch selectKeyAriaLabel/navigateUpKeyAriaLabel/navigateDownKeyAriaLabel/closeKeyAriaLabel/clearButtonTitle/clearButtonAriaLabel/closeButtonText/closeButtonAriaLabel/searchInputLabel/noResultsText (v0.3.936)
 
 009 keep: Function List DocSearch facets/buttonText/buttonAriaLabel/placeholderText/selectText/navigateText/closeText/submitQuestionText/backToSearchText/poweredByText (v0.3.935)

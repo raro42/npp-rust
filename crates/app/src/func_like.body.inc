@@ -38842,7 +38842,12 @@ fn stork_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool {
 /// `"threadDepthErrorPlaceholder": "…"`, `"titleText": "…"`,
 /// `"helpText": "…"`, `"suggestedQueryText": "…"`,
 /// `"reportMissingResultsText": "…"`, `"reportMissingResultsLinkText": "…"`,
-/// `"askAiPlaceholder": "…"`, `"noResultsAskAiPlaceholder": "…"`.
+/// `"askAiPlaceholder": "…"`, `"noResultsAskAiPlaceholder": "…"`,
+/// `"disclaimerText": "…"`, `"relatedSourcesText": "…"`,
+/// `"relatedSourcesTextPlural": "…"`, `"thinkingText": "…"`,
+/// `"copyButtonText": "…"`, `"copyButtonCopiedText": "…"`,
+/// `"copyButtonTitle": "…"`, `"likeButtonTitle": "…"`,
+/// `"dislikeButtonTitle": "…"`, `"thanksForFeedbackText": "…"`.
 /// Optional trailing `,` and `//` / `/*` comment. Incomplete quotes /
 /// missing `:` stay out. Generic `"$schema"` / `"name"` / `"id"` /
 /// `"q"` / `"query"` / `"url"` / `"appId"` / `"apiKey"` / `"indexName"` /
@@ -39016,6 +39021,16 @@ fn docsearch_json_key_ok(key: &str) -> bool {
             | "reportMissingResultsLinkText"
             | "askAiPlaceholder"
             | "noResultsAskAiPlaceholder"
+            | "disclaimerText"
+            | "relatedSourcesText"
+            | "relatedSourcesTextPlural"
+            | "thinkingText"
+            | "copyButtonText"
+            | "copyButtonCopiedText"
+            | "copyButtonTitle"
+            | "likeButtonTitle"
+            | "dislikeButtonTitle"
+            | "thanksForFeedbackText"
     )
 }
 
@@ -39093,7 +39108,10 @@ fn docsearch_json_string_and_tail_ok(key: &str, after_colon: &str) -> bool {
         | "viewConversationHistoryText" | "threadDepthErrorPlaceholder"
         | "titleText" | "helpText" | "suggestedQueryText"
         | "reportMissingResultsText" | "reportMissingResultsLinkText"
-        | "askAiPlaceholder" | "noResultsAskAiPlaceholder" => {}
+        | "askAiPlaceholder" | "noResultsAskAiPlaceholder" | "disclaimerText"
+        | "relatedSourcesText" | "relatedSourcesTextPlural" | "thinkingText"
+        | "copyButtonText" | "copyButtonCopiedText" | "copyButtonTitle"
+        | "likeButtonTitle" | "dislikeButtonTitle" | "thanksForFeedbackText" => {}
         "variant" => {
             if !matches!(value, "floating" | "inline") {
                 return false;
