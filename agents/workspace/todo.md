@@ -1,3 +1,5 @@
+009 keep: Function List InstantSearch routing/insights/future (v0.3.924)
+
 009 keep: Function List Algolia Insights agentID + eventType instantsearch (v0.3.923)
 
 009 keep: Function List Algolia Insights index/events (v0.3.922)

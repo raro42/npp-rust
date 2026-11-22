@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.924] — 2026-11-22
+
+View:
+
+- **Function List** lists InstantSearch.js / React InstantSearch config JSON keys: `"routing": true` / `false` / `{`, `"insights": true` / `false` / `{`, `"future": {`. Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing `:` stay out. Empty strings / plural/singular misspellings / `"routing": 1` / `"routing": "true"` / `"routing": [` / `"routings": true` / `"insights": 1` / `"insights": "true"` / `"insights": [` / `"insight": true` / `"future": true` / `"future": false` / `"future": [` / `"future": "x"` / `"futures": {` / generic `"appId"` / `"apiKey"` / `"indexName"` / `"searchClient"` / `"widgets"` / `"status"` / `"name"` / `"id"` / `"q"` / `"query"` / `"url"` stay out. Existing InstantSearch `stalledSearchDelay` / `initialUiState` / `numberLocale` / `preserveSharedStateOnUnmount` / `persistHierarchicalRootCount` / `insightsInitParams` unchanged. DocSearch still matches bool `"insights"` (not object). Autocomplete / Typesense InstantSearch Adapter / neighbouring search JSON families stay out of InstantSearch for these keys. `"routing"` / `"insights"` accept bool or `{`. `"future"` accepts `{` only.
+
 ## [0.3.923] — 2026-11-22
 
 View:

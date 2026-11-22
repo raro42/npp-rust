@@ -38849,6 +38849,7 @@ fn stork_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool {
 /// InstantSearch.js `"stalledSearchDelay"` / `"initialUiState"` /
 /// `"numberLocale"` / `"preserveSharedStateOnUnmount"` /
 /// `"persistHierarchicalRootCount"` / `"insightsInitParams"` /
+/// `"routing"` / `"future"` /
 /// Autocomplete.js `"detachedMediaQuery"` / `"panelPlacement"` /
 /// `"panelContainer"` / `"openOnFocus"` / `"stallThreshold"` /
 /// `"ignoreCompositionEvents"` / `"defaultActiveItemId"` /
@@ -38973,12 +38974,13 @@ fn docsearch_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool {
 /// `"stalledSearchDelay": 0` / `200`, `"initialUiState": {`,
 /// `"numberLocale": "…"`, `"preserveSharedStateOnUnmount": true` /
 /// `false`, `"persistHierarchicalRootCount": true` / `false`,
-/// `"insightsInitParams": {`.
+/// `"insightsInitParams": {`, `"routing": true` / `false` / `{`,
+/// `"insights": true` / `false` / `{`, `"future": {`.
 /// Optional trailing `,` and `//` / `/*` comment. Incomplete quotes /
 /// missing `:` stay out. Generic `"$schema"` / `"name"` / `"id"` /
 /// `"q"` / `"query"` / `"url"` / `"appId"` / `"apiKey"` / `"indexName"` /
-/// `"searchClient"` / `"routing"` / `"insights"` / `"future"` /
-/// `"onStateChange"` / `"searchFunction"` / `"widgets"` / `"status"` /
+/// `"searchClient"` / `"onStateChange"` / `"searchFunction"` /
+/// `"widgets"` / `"status"` /
 /// DocSearch `"maxResultsPerGroup"` / `"disableUserPersonalization"` /
 /// `"recentSearchesLimit"` / `"recentSearchesWithFavoritesLimit"` /
 /// `"resultBadgeKey"` / `"initialQuery"` / `"indices"` / Stork
@@ -39062,6 +39064,9 @@ fn instantsearch_json_key_ok(key: &str) -> bool {
             | "preserveSharedStateOnUnmount"
             | "persistHierarchicalRootCount"
             | "insightsInitParams"
+            | "routing"
+            | "insights"
+            | "future"
     )
 }
 
@@ -39072,7 +39077,10 @@ fn instantsearch_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool {
     };
     match first {
         b'{' => {
-            if !matches!(key, "initialUiState" | "insightsInitParams") {
+            if !matches!(
+                key,
+                "initialUiState" | "insightsInitParams" | "routing" | "insights" | "future"
+            ) {
                 return false;
             }
             package_json_tail_ok(&after_colon[1..])
@@ -39102,7 +39110,10 @@ fn instantsearch_json_string_and_tail_ok(key: &str, after_colon: &str) -> bool {
 fn instantsearch_json_bool_and_tail_ok(key: &str, after_colon: &str) -> bool {
     if !matches!(
         key,
-        "preserveSharedStateOnUnmount" | "persistHierarchicalRootCount"
+        "preserveSharedStateOnUnmount"
+            | "persistHierarchicalRootCount"
+            | "routing"
+            | "insights"
     ) {
         return false;
     }
@@ -39155,6 +39166,7 @@ fn instantsearch_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool {
 /// InstantSearch.js `"stalledSearchDelay"` / `"initialUiState"` /
 /// `"numberLocale"` / `"preserveSharedStateOnUnmount"` /
 /// `"persistHierarchicalRootCount"` / `"insightsInitParams"` /
+/// `"routing"` / `"insights"` / `"future"` /
 /// DocSearch `"maxResultsPerGroup"` / `"disableUserPersonalization"` /
 /// `"recentSearchesLimit"` / `"recentSearchesWithFavoritesLimit"` /
 /// `"resultBadgeKey"` / `"initialQuery"` / `"indices"` / Stork

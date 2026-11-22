@@ -45805,6 +45805,11 @@ fn instantsearch_json_keys_smoke() {
         r#""persistHierarchicalRootCount": false"#
     ));
     assert!(is_instantsearch_json_decl(r#""insightsInitParams": {"#));
+    assert!(is_instantsearch_json_decl(r#""routing": true"#));
+    assert!(is_instantsearch_json_decl(r#""routing": {"#));
+    assert!(is_instantsearch_json_decl(r#""insights": true"#));
+    assert!(is_instantsearch_json_decl(r#""insights": {"#));
+    assert!(is_instantsearch_json_decl(r#""future": {"#));
     assert!(!is_instantsearch_json_decl(r#""maxResultsPerGroup": 5"#));
     assert!(is_docsearch_json_decl(r#""maxResultsPerGroup": 5"#));
     assert!(!is_instantsearch_json_decl(
@@ -45813,7 +45818,7 @@ fn instantsearch_json_keys_smoke() {
     assert!(is_docsearch_json_decl(
         r#""disableUserPersonalization": true"#
     ));
-    assert!(!is_instantsearch_json_decl(r#""insights": true"#));
+    assert!(is_instantsearch_json_decl(r#""insights": true"#));
     assert!(is_docsearch_json_decl(r#""insights": true"#));
     assert!(!is_instantsearch_json_decl(r#""indices": ["#));
     assert!(is_docsearch_json_decl(r#""indices": ["#));
@@ -45981,9 +45986,44 @@ fn instantsearch_json_keys_count() {
     assert!(!is_instantsearch_json_decl(r#""insightsInitParams": ["#));
     assert!(!is_instantsearch_json_decl(r#""insightsInitParams": true"#));
     assert!(!is_instantsearch_json_decl(r#""insightsInitParams": "x""#));
+    assert!(is_instantsearch_json_decl(r#""routing": true"#));
+    assert!(is_instantsearch_json_decl(r#""routing": false"#));
+    assert!(is_instantsearch_json_decl(r#""routing": true,"#));
+    assert!(is_instantsearch_json_decl(r#""routing": false // c"#));
+    assert!(is_instantsearch_json_decl(r#""routing": {"#));
+    assert!(is_instantsearch_json_decl(r#""routing": {,"#));
+    assert!(is_instantsearch_json_decl(r#""routing": { // c"#));
+    assert!(!is_instantsearch_json_decl(r#""routing": ["#));
+    assert!(!is_instantsearch_json_decl(r#""routing": 1"#));
+    assert!(!is_instantsearch_json_decl(r#""routing": "true""#));
+    assert!(!is_instantsearch_json_decl(r#""routings": true"#));
+    assert!(is_instantsearch_json_decl(r#""insights": true"#));
+    assert!(is_instantsearch_json_decl(r#""insights": false"#));
+    assert!(is_instantsearch_json_decl(r#""insights": true,"#));
+    assert!(is_instantsearch_json_decl(r#""insights": false // c"#));
+    assert!(is_instantsearch_json_decl(r#""insights": {"#));
+    assert!(is_instantsearch_json_decl(r#""insights": {,"#));
+    assert!(is_instantsearch_json_decl(r#""insights": { // c"#));
+    assert!(!is_instantsearch_json_decl(r#""insights": ["#));
+    assert!(!is_instantsearch_json_decl(r#""insights": 1"#));
+    assert!(!is_instantsearch_json_decl(r#""insights": "true""#));
+    assert!(!is_instantsearch_json_decl(r#""insight": true"#));
+    assert!(is_docsearch_json_decl(r#""insights": true"#));
+    assert!(!is_docsearch_json_decl(r#""insights": {"#));
+    assert!(is_instantsearch_json_decl(r#""future": {"#));
+    assert!(is_instantsearch_json_decl(r#""future": {,"#));
+    assert!(is_instantsearch_json_decl(r#""future": { // c"#));
+    assert!(!is_instantsearch_json_decl(r#""future": true"#));
+    assert!(!is_instantsearch_json_decl(r#""future": false"#));
+    assert!(!is_instantsearch_json_decl(r#""future": ["#));
+    assert!(!is_instantsearch_json_decl(r#""future": "x""#));
+    assert!(!is_instantsearch_json_decl(r#""futures": {"#));
     assert!(!is_instantsearch_json_decl(r#""stalledSearchDelay""#));
     assert!(!is_instantsearch_json_decl(r#""initialUiState""#));
     assert!(!is_instantsearch_json_decl(r#""numberLocale""#));
+    assert!(!is_instantsearch_json_decl(r#""routing""#));
+    assert!(!is_instantsearch_json_decl(r#""insights""#));
+    assert!(!is_instantsearch_json_decl(r#""future""#));
     assert!(!is_instantsearch_json_decl(
         r#""$schema": "https://example.com""#
     ));
@@ -45996,10 +46036,6 @@ fn instantsearch_json_keys_count() {
     assert!(!is_instantsearch_json_decl(r#""apiKey": "key""#));
     assert!(!is_instantsearch_json_decl(r#""indexName": "products""#));
     assert!(!is_instantsearch_json_decl(r#""searchClient": {"#));
-    assert!(!is_instantsearch_json_decl(r#""routing": true"#));
-    assert!(!is_instantsearch_json_decl(r#""insights": true"#));
-    assert!(is_docsearch_json_decl(r#""insights": true"#));
-    assert!(!is_instantsearch_json_decl(r#""future": {"#));
     assert!(!is_instantsearch_json_decl(r#""widgets": ["#));
     assert!(!is_instantsearch_json_decl(r#""status": "idle""#));
     assert!(!is_instantsearch_json_decl(r#""maxResultsPerGroup": 5"#));
@@ -46046,6 +46082,11 @@ fn instantsearch_json_keys_count() {
     assert!(line_is_func_like(r#""preserveSharedStateOnUnmount": true"#));
     assert!(line_is_func_like(r#""persistHierarchicalRootCount": true"#));
     assert!(line_is_func_like(r#""insightsInitParams": {"#));
+    assert!(line_is_func_like(r#""routing": true"#));
+    assert!(line_is_func_like(r#""routing": {"#));
+    assert!(line_is_func_like(r#""insights": true"#));
+    assert!(line_is_func_like(r#""insights": {"#));
+    assert!(line_is_func_like(r#""future": {"#));
     assert!(!is_instantsearch_json_decl(
         r#""detachedMediaQuery": "(max-width: 680px)""#
     ));
