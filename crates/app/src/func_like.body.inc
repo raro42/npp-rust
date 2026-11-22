@@ -38805,14 +38805,16 @@ fn stork_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool {
 /// `"suggestedQuestions": true` / `false`, `"searchParameters": {`,
 /// `"agentStudio": true` / `false`, `"memory": {`,
 /// `"promptSuggestions": {`, `"keyboardShortcuts": {`,
-/// `"expandedWidth": 0` / `580` / `"…"`.
+/// `"expandedWidth": 0` / `580` / `"…"`, `"tools": {`,
+/// `"width": 0` / `360` / `"…"`, `"variant": "floating"` / `"inline"`,
+/// `"side": "right"` / `"left"`.
 /// Optional trailing `,` and `//` / `/*` comment. Incomplete quotes /
 /// missing `:` stay out. Generic `"$schema"` / `"name"` / `"id"` /
 /// `"q"` / `"query"` / `"url"` / `"appId"` / `"apiKey"` / `"indexName"` /
 /// `"placeholder"` / `"container"` / `"theme"` / `"translations"` /
 /// `"facets"` / `"hitComponent"` /
 /// `"transformItems"` / `"transformSearchClient"` / `"navigator"` /
-/// `"portalContainer"` / `"tools"` / `"width"` / `"variant"` / `"side"` /
+/// `"portalContainer"` / `"pushSelector"` /
 /// Algolia Insights `"agentID"` / Stork
 /// `"exclude_html_selector"` / `"frontmatter_handling"` /
 /// `"excerpts_per_result"` / `"displayed_results_count"` /
@@ -38910,6 +38912,10 @@ fn docsearch_json_key_ok(key: &str) -> bool {
             | "promptSuggestions"
             | "keyboardShortcuts"
             | "expandedWidth"
+            | "tools"
+            | "width"
+            | "variant"
+            | "side"
     )
 }
 
@@ -38927,6 +38933,7 @@ fn docsearch_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool {
                     | "memory"
                     | "promptSuggestions"
                     | "keyboardShortcuts"
+                    | "tools"
             ) {
                 return false;
             }
@@ -38946,17 +38953,6 @@ fn docsearch_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool {
 }
 
 fn docsearch_json_string_and_tail_ok(key: &str, after_colon: &str) -> bool {
-    if !matches!(
-        key,
-        "resultBadgeKey"
-            | "initialQuery"
-            | "askAi"
-            | "agentId"
-            | "assistantId"
-            | "expandedWidth"
-    ) {
-        return false;
-    }
     let rest = &after_colon[1..];
     let Some(end) = rest.find('"') else {
         return false;
@@ -38964,6 +38960,21 @@ fn docsearch_json_string_and_tail_ok(key: &str, after_colon: &str) -> bool {
     let value = &rest[..end];
     if value.is_empty() || value.contains('\n') {
         return false;
+    }
+    match key {
+        "resultBadgeKey" | "initialQuery" | "askAi" | "agentId" | "assistantId"
+        | "expandedWidth" | "width" => {}
+        "variant" => {
+            if !matches!(value, "floating" | "inline") {
+                return false;
+            }
+        }
+        "side" => {
+            if !matches!(value, "right" | "left") {
+                return false;
+            }
+        }
+        _ => return false,
     }
     package_json_tail_ok(&rest[end + 1..])
 }
@@ -38995,6 +39006,7 @@ fn docsearch_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool {
             | "recentSearchesLimit"
             | "recentSearchesWithFavoritesLimit"
             | "expandedWidth"
+            | "width"
     ) {
         return false;
     }
@@ -39034,6 +39046,7 @@ fn docsearch_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool {
 /// `"agentId"` / `"assistantId"` / `"suggestedQuestions"` /
 /// `"searchParameters"` / `"agentStudio"` / `"memory"` /
 /// `"promptSuggestions"` / `"keyboardShortcuts"` / `"expandedWidth"` /
+/// `"tools"` / `"width"` / `"variant"` / `"side"` /
 /// Stork `"exclude_html_selector"` / `"frontmatter_handling"` /
 /// `"excerpts_per_result"` / `"displayed_results_count"` /
 /// `"excerpt_buffer"` / `"save_nearest_node_json"` /
@@ -39231,6 +39244,7 @@ fn instantsearch_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool {
 /// `"agentId"` / `"assistantId"` / `"suggestedQuestions"` /
 /// `"searchParameters"` / `"agentStudio"` / `"memory"` /
 /// `"promptSuggestions"` / `"keyboardShortcuts"` / `"expandedWidth"` /
+/// `"tools"` / `"width"` / `"variant"` / `"side"` /
 /// Stork `"exclude_html_selector"` / `"frontmatter_handling"` /
 /// `"excerpts_per_result"` / `"displayed_results_count"` /
 /// `"excerpt_buffer"` / `"save_nearest_node_json"` /
@@ -39578,6 +39592,7 @@ fn typesense_instantsearch_json_bool_and_tail_ok(key: &str, after_colon: &str) -
 /// `"agentId"` / `"assistantId"` / `"suggestedQuestions"` /
 /// `"searchParameters"` / `"agentStudio"` / `"memory"` /
 /// `"promptSuggestions"` / `"keyboardShortcuts"` / `"expandedWidth"` /
+/// `"tools"` / `"width"` / `"variant"` / `"side"` /
 /// Stork `"exclude_html_selector"` / `"frontmatter_handling"` /
 /// `"excerpts_per_result"` / `"displayed_results_count"` /
 /// `"excerpt_buffer"` / `"save_nearest_node_json"` /
