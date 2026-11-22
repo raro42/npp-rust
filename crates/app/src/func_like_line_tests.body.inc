@@ -45498,6 +45498,12 @@ fn stork_json_keys_count() {
     assert!(is_docsearch_json_decl(r#""memory": {"#));
     assert!(!is_stork_json_decl(r#""promptSuggestions": {"#));
     assert!(is_docsearch_json_decl(r#""promptSuggestions": {"#));
+    assert!(!is_stork_json_decl(r#""keyboardShortcuts": {"#));
+    assert!(is_docsearch_json_decl(r#""keyboardShortcuts": {"#));
+    assert!(!is_stork_json_decl(r#""expandedWidth": 580"#));
+    assert!(is_docsearch_json_decl(r#""expandedWidth": 580"#));
+    assert!(!is_stork_json_decl(r#""expandedWidth": "580px""#));
+    assert!(is_docsearch_json_decl(r#""expandedWidth": "580px""#));
     assert!(!is_stork_json_decl(r#""stalledSearchDelay": 200"#));
     assert!(is_instantsearch_json_decl(r#""stalledSearchDelay": 200"#));
     assert!(!is_stork_json_decl(r#""initialUiState": {"#));
@@ -45543,6 +45549,9 @@ fn docsearch_json_keys_smoke() {
     assert!(is_docsearch_json_decl(r#""agentStudio": true"#));
     assert!(is_docsearch_json_decl(r#""memory": {"#));
     assert!(is_docsearch_json_decl(r#""promptSuggestions": {"#));
+    assert!(is_docsearch_json_decl(r#""keyboardShortcuts": {"#));
+    assert!(is_docsearch_json_decl(r#""expandedWidth": 580"#));
+    assert!(is_docsearch_json_decl(r#""expandedWidth": "580px""#));
     assert!(!is_docsearch_json_decl(
         r#""exclude_html_selector": ".sidebar""#
     ));
@@ -45748,6 +45757,31 @@ fn docsearch_json_keys_count() {
     assert!(!is_docsearch_json_decl(r#""promptSuggestions": ["#));
     assert!(!is_docsearch_json_decl(r#""promptSuggestions": "x""#));
     assert!(!is_docsearch_json_decl(r#""promptSuggestion": {"#));
+    assert!(is_docsearch_json_decl(r#""keyboardShortcuts": {"#));
+    assert!(is_docsearch_json_decl(r#""keyboardShortcuts": {,"#));
+    assert!(is_docsearch_json_decl(r#""keyboardShortcuts": { // c"#));
+    assert!(!is_docsearch_json_decl(r#""keyboardShortcuts": true"#));
+    assert!(!is_docsearch_json_decl(r#""keyboardShortcuts": false"#));
+    assert!(!is_docsearch_json_decl(r#""keyboardShortcuts": ["#));
+    assert!(!is_docsearch_json_decl(r#""keyboardShortcuts": "x""#));
+    assert!(!is_docsearch_json_decl(r#""keyboardShortcut": {"#));
+    assert!(!is_docsearch_json_decl(r#""KeyboardShortcuts": {"#));
+    assert!(is_docsearch_json_decl(r#""expandedWidth": 0"#));
+    assert!(is_docsearch_json_decl(r#""expandedWidth": 580"#));
+    assert!(is_docsearch_json_decl(r#""expandedWidth": 580,"#));
+    assert!(is_docsearch_json_decl(r#""expandedWidth": 580 // c"#));
+    assert!(is_docsearch_json_decl(r#""expandedWidth": "580px""#));
+    assert!(is_docsearch_json_decl(r#""expandedWidth": "36rem""#));
+    assert!(is_docsearch_json_decl(r#""expandedWidth": "580px","#));
+    assert!(is_docsearch_json_decl(r#""expandedWidth": "580px" // c"#));
+    assert!(!is_docsearch_json_decl(r#""expandedWidth": 0580"#));
+    assert!(!is_docsearch_json_decl(r#""expandedWidth": true"#));
+    assert!(!is_docsearch_json_decl(r#""expandedWidth": false"#));
+    assert!(!is_docsearch_json_decl(r#""expandedWidth": {"#));
+    assert!(!is_docsearch_json_decl(r#""expandedWidth": ["#));
+    assert!(!is_docsearch_json_decl(r#""expandedWidth": """#));
+    assert!(!is_docsearch_json_decl(r#""expandedWidths": 580"#));
+    assert!(!is_docsearch_json_decl(r#""ExpandedWidth": 580"#));
     assert!(!is_docsearch_json_decl(r#""maxResultsPerGroup""#));
     assert!(!is_docsearch_json_decl(r#""insights""#));
     assert!(!is_docsearch_json_decl(r#""indices""#));
@@ -45759,6 +45793,8 @@ fn docsearch_json_keys_count() {
     assert!(!is_docsearch_json_decl(r#""agentStudio""#));
     assert!(!is_docsearch_json_decl(r#""memory""#));
     assert!(!is_docsearch_json_decl(r#""promptSuggestions""#));
+    assert!(!is_docsearch_json_decl(r#""keyboardShortcuts""#));
+    assert!(!is_docsearch_json_decl(r#""expandedWidth""#));
     assert!(!is_docsearch_json_decl(
         r#""$schema": "https://example.com""#
     ));
@@ -45775,8 +45811,11 @@ fn docsearch_json_keys_count() {
     assert!(!is_docsearch_json_decl(r#""theme": {"#));
     assert!(!is_docsearch_json_decl(r#""translations": {"#));
     assert!(!is_docsearch_json_decl(r#""facets": ["#));
-    assert!(!is_docsearch_json_decl(r#""keyboardShortcuts": {"#));
     assert!(!is_docsearch_json_decl(r#""tools": {"#));
+    assert!(!is_docsearch_json_decl(r#""width": 360"#));
+    assert!(!is_docsearch_json_decl(r#""width": "360px""#));
+    assert!(!is_docsearch_json_decl(r#""variant": "floating""#));
+    assert!(!is_docsearch_json_decl(r#""side": "right""#));
     assert!(!is_docsearch_json_decl(
         r#""exclude_html_selector": ".sidebar""#
     ));
@@ -45834,6 +45873,9 @@ fn docsearch_json_keys_count() {
     assert!(line_is_func_like(r#""agentStudio": true"#));
     assert!(line_is_func_like(r#""memory": {"#));
     assert!(line_is_func_like(r#""promptSuggestions": {"#));
+    assert!(line_is_func_like(r#""keyboardShortcuts": {"#));
+    assert!(line_is_func_like(r#""expandedWidth": 580"#));
+    assert!(line_is_func_like(r#""expandedWidth": "580px""#));
     assert!(!is_docsearch_json_decl(r#""stalledSearchDelay": 200"#));
     assert!(is_instantsearch_json_decl(r#""stalledSearchDelay": 200"#));
     assert!(!is_docsearch_json_decl(r#""initialUiState": {"#));
@@ -45959,6 +46001,12 @@ fn instantsearch_json_keys_smoke() {
     assert!(is_docsearch_json_decl(r#""memory": {"#));
     assert!(!is_instantsearch_json_decl(r#""promptSuggestions": {"#));
     assert!(is_docsearch_json_decl(r#""promptSuggestions": {"#));
+    assert!(!is_instantsearch_json_decl(r#""keyboardShortcuts": {"#));
+    assert!(is_docsearch_json_decl(r#""keyboardShortcuts": {"#));
+    assert!(!is_instantsearch_json_decl(r#""expandedWidth": 580"#));
+    assert!(is_docsearch_json_decl(r#""expandedWidth": 580"#));
+    assert!(!is_instantsearch_json_decl(r#""expandedWidth": "580px""#));
+    assert!(is_docsearch_json_decl(r#""expandedWidth": "580px""#));
     assert!(!is_instantsearch_json_decl(
         r#""exclude_html_selector": ".sidebar""#
     ));

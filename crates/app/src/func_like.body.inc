@@ -38804,15 +38804,16 @@ fn stork_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool {
 /// `"askAi": "…"` / `{`, `"agentId": "…"`, `"assistantId": "…"`,
 /// `"suggestedQuestions": true` / `false`, `"searchParameters": {`,
 /// `"agentStudio": true` / `false`, `"memory": {`,
-/// `"promptSuggestions": {`.
+/// `"promptSuggestions": {`, `"keyboardShortcuts": {`,
+/// `"expandedWidth": 0` / `580` / `"…"`.
 /// Optional trailing `,` and `//` / `/*` comment. Incomplete quotes /
 /// missing `:` stay out. Generic `"$schema"` / `"name"` / `"id"` /
 /// `"q"` / `"query"` / `"url"` / `"appId"` / `"apiKey"` / `"indexName"` /
 /// `"placeholder"` / `"container"` / `"theme"` / `"translations"` /
 /// `"facets"` / `"hitComponent"` /
 /// `"transformItems"` / `"transformSearchClient"` / `"navigator"` /
-/// `"portalContainer"` / `"keyboardShortcuts"` / `"tools"` / Algolia Insights
-/// `"agentID"` / Stork
+/// `"portalContainer"` / `"tools"` / `"width"` / `"variant"` / `"side"` /
+/// Algolia Insights `"agentID"` / Stork
 /// `"exclude_html_selector"` / `"frontmatter_handling"` /
 /// `"excerpts_per_result"` / `"displayed_results_count"` /
 /// `"excerpt_buffer"` / `"save_nearest_node_json"` /
@@ -38907,6 +38908,8 @@ fn docsearch_json_key_ok(key: &str) -> bool {
             | "agentStudio"
             | "memory"
             | "promptSuggestions"
+            | "keyboardShortcuts"
+            | "expandedWidth"
     )
 }
 
@@ -38919,7 +38922,11 @@ fn docsearch_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool {
         b'{' => {
             if !matches!(
                 key,
-                "askAi" | "searchParameters" | "memory" | "promptSuggestions"
+                "askAi"
+                    | "searchParameters"
+                    | "memory"
+                    | "promptSuggestions"
+                    | "keyboardShortcuts"
             ) {
                 return false;
             }
@@ -38941,7 +38948,12 @@ fn docsearch_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool {
 fn docsearch_json_string_and_tail_ok(key: &str, after_colon: &str) -> bool {
     if !matches!(
         key,
-        "resultBadgeKey" | "initialQuery" | "askAi" | "agentId" | "assistantId"
+        "resultBadgeKey"
+            | "initialQuery"
+            | "askAi"
+            | "agentId"
+            | "assistantId"
+            | "expandedWidth"
     ) {
         return false;
     }
@@ -38979,7 +38991,10 @@ fn docsearch_json_bool_and_tail_ok(key: &str, after_colon: &str) -> bool {
 fn docsearch_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool {
     if !matches!(
         key,
-        "maxResultsPerGroup" | "recentSearchesLimit" | "recentSearchesWithFavoritesLimit"
+        "maxResultsPerGroup"
+            | "recentSearchesLimit"
+            | "recentSearchesWithFavoritesLimit"
+            | "expandedWidth"
     ) {
         return false;
     }
@@ -39018,8 +39033,8 @@ fn docsearch_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool {
 /// `"resultBadgeKey"` / `"initialQuery"` / `"indices"` / `"askAi"` /
 /// `"agentId"` / `"assistantId"` / `"suggestedQuestions"` /
 /// `"searchParameters"` / `"agentStudio"` / `"memory"` /
-/// `"promptSuggestions"` / Stork
-/// `"exclude_html_selector"` / `"frontmatter_handling"` /
+/// `"promptSuggestions"` / `"keyboardShortcuts"` / `"expandedWidth"` /
+/// Stork `"exclude_html_selector"` / `"frontmatter_handling"` /
 /// `"excerpts_per_result"` / `"displayed_results_count"` /
 /// `"excerpt_buffer"` / `"save_nearest_node_json"` /
 /// `"exclude_html_selector_override"` / `"frontmatter_handling_override"` /
@@ -39215,8 +39230,8 @@ fn instantsearch_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool {
 /// `"resultBadgeKey"` / `"initialQuery"` / `"indices"` / `"askAi"` /
 /// `"agentId"` / `"assistantId"` / `"suggestedQuestions"` /
 /// `"searchParameters"` / `"agentStudio"` / `"memory"` /
-/// `"promptSuggestions"` / Stork
-/// `"exclude_html_selector"` / `"frontmatter_handling"` /
+/// `"promptSuggestions"` / `"keyboardShortcuts"` / `"expandedWidth"` /
+/// Stork `"exclude_html_selector"` / `"frontmatter_handling"` /
 /// `"excerpts_per_result"` / `"displayed_results_count"` /
 /// `"excerpt_buffer"` / `"save_nearest_node_json"` /
 /// `"exclude_html_selector_override"` / `"frontmatter_handling_override"` /
@@ -39562,8 +39577,8 @@ fn typesense_instantsearch_json_bool_and_tail_ok(key: &str, after_colon: &str) -
 /// `"resultBadgeKey"` / `"initialQuery"` / `"indices"` / `"askAi"` /
 /// `"agentId"` / `"assistantId"` / `"suggestedQuestions"` /
 /// `"searchParameters"` / `"agentStudio"` / `"memory"` /
-/// `"promptSuggestions"` / Stork
-/// `"exclude_html_selector"` / `"frontmatter_handling"` /
+/// `"promptSuggestions"` / `"keyboardShortcuts"` / `"expandedWidth"` /
+/// Stork `"exclude_html_selector"` / `"frontmatter_handling"` /
 /// `"excerpts_per_result"` / `"displayed_results_count"` /
 /// `"excerpt_buffer"` / `"save_nearest_node_json"` /
 /// `"exclude_html_selector_override"` / `"frontmatter_handling_override"` /

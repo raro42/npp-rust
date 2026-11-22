@@ -1,3 +1,5 @@
+009 keep: Function List DocSearch/Sidepanel keyboardShortcuts/expandedWidth (v0.3.928)
+
 009 keep: Function List DocSearch searchParameters/agentStudio/memory/promptSuggestions (v0.3.927)
 
 009 keep: Function List DocSearch askAi/agentId/assistantId/suggestedQuestions (v0.3.926)

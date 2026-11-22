@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.928] — 2026-11-22
+
+View:
+
+- **Function List** lists DocSearch / Sidepanel JSON keys: `"keyboardShortcuts": {`, `"expandedWidth": 0` / `580` / `"…"`. Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing `:` stay out. Empty strings / plural/singular misspellings / `"keyboardShortcuts": true` / `"keyboardShortcuts": false` / `"keyboardShortcuts": [` / `"keyboardShortcuts": "x"` / `"keyboardShortcut": {` / `"KeyboardShortcuts": {` / `"expandedWidth": 0580` / `"expandedWidth": true` / `"expandedWidth": false` / `"expandedWidth": {` / `"expandedWidth": [` / `"expandedWidth": ""` / `"expandedWidths": 580` / `"ExpandedWidth": 580` / `"tools": {` / `"width": 360` / `"width": "360px"` / `"variant": "floating"` / `"side": "right"` / generic `"appId"` / `"apiKey"` / `"indexName"` / `"placeholder"` / `"container"` / `"name"` / `"id"` / `"q"` / `"query"` / `"url"` stay out. Existing DocSearch `maxResultsPerGroup` / `disableUserPersonalization` / `recentSearchesLimit` / `recentSearchesWithFavoritesLimit` / `resultBadgeKey` / `insights` / `initialQuery` / `indices` / `askAi` / `agentId` / `assistantId` / `suggestedQuestions` / `searchParameters` / `agentStudio` / `memory` / `promptSuggestions` unchanged. InstantSearch / Autocomplete / Typesense InstantSearch Adapter / neighbouring search JSON families stay out of DocSearch for these keys. `"keyboardShortcuts"` accepts `{` only. `"expandedWidth"` accepts a non-negative integer without a leading zero, or a non-empty quoted CSS width string.
+
 ## [0.3.927] — 2026-11-22
 
 View:
