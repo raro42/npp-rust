@@ -38819,7 +38819,12 @@ fn stork_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool {
 /// `"buttonText": "…"`, `"buttonAriaLabel": "…"`,
 /// `"placeholderText": "…"`, `"selectText": "…"`, `"navigateText": "…"`,
 /// `"closeText": "…"`, `"submitQuestionText": "…"`,
-/// `"backToSearchText": "…"`, `"poweredByText": "…"`.
+/// `"backToSearchText": "…"`, `"poweredByText": "…"`,
+/// `"selectKeyAriaLabel": "…"`, `"navigateUpKeyAriaLabel": "…"`,
+/// `"navigateDownKeyAriaLabel": "…"`, `"closeKeyAriaLabel": "…"`,
+/// `"clearButtonTitle": "…"`, `"clearButtonAriaLabel": "…"`,
+/// `"closeButtonText": "…"`, `"closeButtonAriaLabel": "…"`,
+/// `"searchInputLabel": "…"`, `"noResultsText": "…"`.
 /// Optional trailing `,` and `//` / `/*` comment. Incomplete quotes /
 /// missing `:` stay out. Generic `"$schema"` / `"name"` / `"id"` /
 /// `"q"` / `"query"` / `"url"` / `"appId"` / `"apiKey"` / `"indexName"` /
@@ -38953,6 +38958,16 @@ fn docsearch_json_key_ok(key: &str) -> bool {
             | "submitQuestionText"
             | "backToSearchText"
             | "poweredByText"
+            | "selectKeyAriaLabel"
+            | "navigateUpKeyAriaLabel"
+            | "navigateDownKeyAriaLabel"
+            | "closeKeyAriaLabel"
+            | "clearButtonTitle"
+            | "clearButtonAriaLabel"
+            | "closeButtonText"
+            | "closeButtonAriaLabel"
+            | "searchInputLabel"
+            | "noResultsText"
     )
 }
 
@@ -39013,7 +39028,11 @@ fn docsearch_json_string_and_tail_ok(key: &str, after_colon: &str) -> bool {
         | "expandedWidth" | "width" | "pushSelector" | "portalContainer"
         | "externalUrlRegex" | "searchPagePath" | "buttonText" | "buttonAriaLabel"
         | "placeholderText" | "selectText" | "navigateText" | "closeText"
-        | "submitQuestionText" | "backToSearchText" | "poweredByText" => {}
+        | "submitQuestionText" | "backToSearchText" | "poweredByText"
+        | "selectKeyAriaLabel" | "navigateUpKeyAriaLabel"
+        | "navigateDownKeyAriaLabel" | "closeKeyAriaLabel" | "clearButtonTitle"
+        | "clearButtonAriaLabel" | "closeButtonText" | "closeButtonAriaLabel"
+        | "searchInputLabel" | "noResultsText" => {}
         "variant" => {
             if !matches!(value, "floating" | "inline") {
                 return false;

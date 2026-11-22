@@ -45572,6 +45572,26 @@ fn stork_json_keys_count() {
     assert!(is_docsearch_json_decl(r#""backToSearchText": "Back to search""#));
     assert!(!is_stork_json_decl(r#""poweredByText": "Powered by""#));
     assert!(is_docsearch_json_decl(r#""poweredByText": "Powered by""#));
+    assert!(!is_stork_json_decl(r#""selectKeyAriaLabel": "Enter to select""#));
+    assert!(is_docsearch_json_decl(r#""selectKeyAriaLabel": "Enter to select""#));
+    assert!(!is_stork_json_decl(r#""navigateUpKeyAriaLabel": "Arrow up""#));
+    assert!(is_docsearch_json_decl(r#""navigateUpKeyAriaLabel": "Arrow up""#));
+    assert!(!is_stork_json_decl(r#""navigateDownKeyAriaLabel": "Arrow down""#));
+    assert!(is_docsearch_json_decl(r#""navigateDownKeyAriaLabel": "Arrow down""#));
+    assert!(!is_stork_json_decl(r#""closeKeyAriaLabel": "Escape to close""#));
+    assert!(is_docsearch_json_decl(r#""closeKeyAriaLabel": "Escape to close""#));
+    assert!(!is_stork_json_decl(r#""clearButtonTitle": "Clear""#));
+    assert!(is_docsearch_json_decl(r#""clearButtonTitle": "Clear""#));
+    assert!(!is_stork_json_decl(r#""clearButtonAriaLabel": "Clear the query""#));
+    assert!(is_docsearch_json_decl(r#""clearButtonAriaLabel": "Clear the query""#));
+    assert!(!is_stork_json_decl(r#""closeButtonText": "Close""#));
+    assert!(is_docsearch_json_decl(r#""closeButtonText": "Close""#));
+    assert!(!is_stork_json_decl(r#""closeButtonAriaLabel": "Close search""#));
+    assert!(is_docsearch_json_decl(r#""closeButtonAriaLabel": "Close search""#));
+    assert!(!is_stork_json_decl(r#""searchInputLabel": "Search""#));
+    assert!(is_docsearch_json_decl(r#""searchInputLabel": "Search""#));
+    assert!(!is_stork_json_decl(r#""noResultsText": "No results""#));
+    assert!(is_docsearch_json_decl(r#""noResultsText": "No results""#));
     assert!(!is_stork_json_decl(r#""stalledSearchDelay": 200"#));
     assert!(is_instantsearch_json_decl(r#""stalledSearchDelay": 200"#));
     assert!(!is_stork_json_decl(r#""initialUiState": {"#));
@@ -45656,6 +45676,16 @@ fn docsearch_json_keys_smoke() {
     assert!(is_docsearch_json_decl(r#""submitQuestionText": "Submit question""#));
     assert!(is_docsearch_json_decl(r#""backToSearchText": "Back to search""#));
     assert!(is_docsearch_json_decl(r#""poweredByText": "Powered by""#));
+    assert!(is_docsearch_json_decl(r#""selectKeyAriaLabel": "Enter to select""#));
+    assert!(is_docsearch_json_decl(r#""navigateUpKeyAriaLabel": "Arrow up""#));
+    assert!(is_docsearch_json_decl(r#""navigateDownKeyAriaLabel": "Arrow down""#));
+    assert!(is_docsearch_json_decl(r#""closeKeyAriaLabel": "Escape to close""#));
+    assert!(is_docsearch_json_decl(r#""clearButtonTitle": "Clear""#));
+    assert!(is_docsearch_json_decl(r#""clearButtonAriaLabel": "Clear the query""#));
+    assert!(is_docsearch_json_decl(r#""closeButtonText": "Close""#));
+    assert!(is_docsearch_json_decl(r#""closeButtonAriaLabel": "Close search""#));
+    assert!(is_docsearch_json_decl(r#""searchInputLabel": "Search""#));
+    assert!(is_docsearch_json_decl(r#""noResultsText": "No results""#));
     assert!(!is_docsearch_json_decl(
         r#""exclude_html_selector": ".sidebar""#
     ));
@@ -46245,6 +46275,156 @@ fn docsearch_json_keys_count() {
     assert!(!is_docsearch_json_decl(r#""poweredByText": ["#));
     assert!(!is_docsearch_json_decl(r#""poweredByTexts": "Powered by""#));
     assert!(!is_docsearch_json_decl(r#""PoweredByText": "Powered by""#));
+    assert!(is_docsearch_json_decl(
+        r#""selectKeyAriaLabel": "Enter to select""#
+    ));
+    assert!(is_docsearch_json_decl(
+        r#""selectKeyAriaLabel": "Enter to select","#
+    ));
+    assert!(is_docsearch_json_decl(
+        r#""selectKeyAriaLabel": "Enter to select" // c"#
+    ));
+    assert!(!is_docsearch_json_decl(r#""selectKeyAriaLabel": """#));
+    assert!(!is_docsearch_json_decl(r#""selectKeyAriaLabel": true"#));
+    assert!(!is_docsearch_json_decl(r#""selectKeyAriaLabel": {"#));
+    assert!(!is_docsearch_json_decl(r#""selectKeyAriaLabel": ["#));
+    assert!(!is_docsearch_json_decl(
+        r#""selectKeyAriaLabels": "Enter to select""#
+    ));
+    assert!(!is_docsearch_json_decl(
+        r#""SelectKeyAriaLabel": "Enter to select""#
+    ));
+    assert!(is_docsearch_json_decl(
+        r#""navigateUpKeyAriaLabel": "Arrow up""#
+    ));
+    assert!(is_docsearch_json_decl(
+        r#""navigateUpKeyAriaLabel": "Arrow up","#
+    ));
+    assert!(is_docsearch_json_decl(
+        r#""navigateUpKeyAriaLabel": "Arrow up" // c"#
+    ));
+    assert!(!is_docsearch_json_decl(r#""navigateUpKeyAriaLabel": """#));
+    assert!(!is_docsearch_json_decl(r#""navigateUpKeyAriaLabel": true"#));
+    assert!(!is_docsearch_json_decl(r#""navigateUpKeyAriaLabel": {"#));
+    assert!(!is_docsearch_json_decl(r#""navigateUpKeyAriaLabel": ["#));
+    assert!(!is_docsearch_json_decl(
+        r#""navigateUpKeyAriaLabels": "Arrow up""#
+    ));
+    assert!(!is_docsearch_json_decl(
+        r#""NavigateUpKeyAriaLabel": "Arrow up""#
+    ));
+    assert!(is_docsearch_json_decl(
+        r#""navigateDownKeyAriaLabel": "Arrow down""#
+    ));
+    assert!(is_docsearch_json_decl(
+        r#""navigateDownKeyAriaLabel": "Arrow down","#
+    ));
+    assert!(is_docsearch_json_decl(
+        r#""navigateDownKeyAriaLabel": "Arrow down" // c"#
+    ));
+    assert!(!is_docsearch_json_decl(r#""navigateDownKeyAriaLabel": """#));
+    assert!(!is_docsearch_json_decl(r#""navigateDownKeyAriaLabel": true"#));
+    assert!(!is_docsearch_json_decl(r#""navigateDownKeyAriaLabel": {"#));
+    assert!(!is_docsearch_json_decl(r#""navigateDownKeyAriaLabel": ["#));
+    assert!(!is_docsearch_json_decl(
+        r#""navigateDownKeyAriaLabels": "Arrow down""#
+    ));
+    assert!(!is_docsearch_json_decl(
+        r#""NavigateDownKeyAriaLabel": "Arrow down""#
+    ));
+    assert!(is_docsearch_json_decl(
+        r#""closeKeyAriaLabel": "Escape to close""#
+    ));
+    assert!(is_docsearch_json_decl(
+        r#""closeKeyAriaLabel": "Escape to close","#
+    ));
+    assert!(is_docsearch_json_decl(
+        r#""closeKeyAriaLabel": "Escape to close" // c"#
+    ));
+    assert!(!is_docsearch_json_decl(r#""closeKeyAriaLabel": """#));
+    assert!(!is_docsearch_json_decl(r#""closeKeyAriaLabel": true"#));
+    assert!(!is_docsearch_json_decl(r#""closeKeyAriaLabel": {"#));
+    assert!(!is_docsearch_json_decl(r#""closeKeyAriaLabel": ["#));
+    assert!(!is_docsearch_json_decl(
+        r#""closeKeyAriaLabels": "Escape to close""#
+    ));
+    assert!(!is_docsearch_json_decl(
+        r#""CloseKeyAriaLabel": "Escape to close""#
+    ));
+    assert!(is_docsearch_json_decl(r#""clearButtonTitle": "Clear""#));
+    assert!(is_docsearch_json_decl(r#""clearButtonTitle": "Clear","#));
+    assert!(is_docsearch_json_decl(r#""clearButtonTitle": "Clear" // c"#));
+    assert!(!is_docsearch_json_decl(r#""clearButtonTitle": """#));
+    assert!(!is_docsearch_json_decl(r#""clearButtonTitle": true"#));
+    assert!(!is_docsearch_json_decl(r#""clearButtonTitle": {"#));
+    assert!(!is_docsearch_json_decl(r#""clearButtonTitle": ["#));
+    assert!(!is_docsearch_json_decl(r#""clearButtonTitles": "Clear""#));
+    assert!(!is_docsearch_json_decl(r#""ClearButtonTitle": "Clear""#));
+    assert!(is_docsearch_json_decl(
+        r#""clearButtonAriaLabel": "Clear the query""#
+    ));
+    assert!(is_docsearch_json_decl(
+        r#""clearButtonAriaLabel": "Clear the query","#
+    ));
+    assert!(is_docsearch_json_decl(
+        r#""clearButtonAriaLabel": "Clear the query" // c"#
+    ));
+    assert!(!is_docsearch_json_decl(r#""clearButtonAriaLabel": """#));
+    assert!(!is_docsearch_json_decl(r#""clearButtonAriaLabel": true"#));
+    assert!(!is_docsearch_json_decl(r#""clearButtonAriaLabel": {"#));
+    assert!(!is_docsearch_json_decl(r#""clearButtonAriaLabel": ["#));
+    assert!(!is_docsearch_json_decl(
+        r#""clearButtonAriaLabels": "Clear the query""#
+    ));
+    assert!(!is_docsearch_json_decl(
+        r#""ClearButtonAriaLabel": "Clear the query""#
+    ));
+    assert!(is_docsearch_json_decl(r#""closeButtonText": "Close""#));
+    assert!(is_docsearch_json_decl(r#""closeButtonText": "Close","#));
+    assert!(is_docsearch_json_decl(r#""closeButtonText": "Close" // c"#));
+    assert!(!is_docsearch_json_decl(r#""closeButtonText": """#));
+    assert!(!is_docsearch_json_decl(r#""closeButtonText": true"#));
+    assert!(!is_docsearch_json_decl(r#""closeButtonText": {"#));
+    assert!(!is_docsearch_json_decl(r#""closeButtonText": ["#));
+    assert!(!is_docsearch_json_decl(r#""closeButtonTexts": "Close""#));
+    assert!(!is_docsearch_json_decl(r#""CloseButtonText": "Close""#));
+    assert!(is_docsearch_json_decl(
+        r#""closeButtonAriaLabel": "Close search""#
+    ));
+    assert!(is_docsearch_json_decl(
+        r#""closeButtonAriaLabel": "Close search","#
+    ));
+    assert!(is_docsearch_json_decl(
+        r#""closeButtonAriaLabel": "Close search" // c"#
+    ));
+    assert!(!is_docsearch_json_decl(r#""closeButtonAriaLabel": """#));
+    assert!(!is_docsearch_json_decl(r#""closeButtonAriaLabel": true"#));
+    assert!(!is_docsearch_json_decl(r#""closeButtonAriaLabel": {"#));
+    assert!(!is_docsearch_json_decl(r#""closeButtonAriaLabel": ["#));
+    assert!(!is_docsearch_json_decl(
+        r#""closeButtonAriaLabels": "Close search""#
+    ));
+    assert!(!is_docsearch_json_decl(
+        r#""CloseButtonAriaLabel": "Close search""#
+    ));
+    assert!(is_docsearch_json_decl(r#""searchInputLabel": "Search""#));
+    assert!(is_docsearch_json_decl(r#""searchInputLabel": "Search","#));
+    assert!(is_docsearch_json_decl(r#""searchInputLabel": "Search" // c"#));
+    assert!(!is_docsearch_json_decl(r#""searchInputLabel": """#));
+    assert!(!is_docsearch_json_decl(r#""searchInputLabel": true"#));
+    assert!(!is_docsearch_json_decl(r#""searchInputLabel": {"#));
+    assert!(!is_docsearch_json_decl(r#""searchInputLabel": ["#));
+    assert!(!is_docsearch_json_decl(r#""searchInputLabels": "Search""#));
+    assert!(!is_docsearch_json_decl(r#""SearchInputLabel": "Search""#));
+    assert!(is_docsearch_json_decl(r#""noResultsText": "No results""#));
+    assert!(is_docsearch_json_decl(r#""noResultsText": "No results","#));
+    assert!(is_docsearch_json_decl(r#""noResultsText": "No results" // c"#));
+    assert!(!is_docsearch_json_decl(r#""noResultsText": """#));
+    assert!(!is_docsearch_json_decl(r#""noResultsText": true"#));
+    assert!(!is_docsearch_json_decl(r#""noResultsText": {"#));
+    assert!(!is_docsearch_json_decl(r#""noResultsText": ["#));
+    assert!(!is_docsearch_json_decl(r#""noResultsTexts": "No results""#));
+    assert!(!is_docsearch_json_decl(r#""NoResultsText": "No results""#));
     assert!(!is_docsearch_json_decl(r#""maxResultsPerGroup""#));
     assert!(!is_docsearch_json_decl(r#""insights""#));
     assert!(!is_docsearch_json_decl(r#""indices""#));
@@ -46289,6 +46469,16 @@ fn docsearch_json_keys_count() {
     assert!(!is_docsearch_json_decl(r#""submitQuestionText""#));
     assert!(!is_docsearch_json_decl(r#""backToSearchText""#));
     assert!(!is_docsearch_json_decl(r#""poweredByText""#));
+    assert!(!is_docsearch_json_decl(r#""selectKeyAriaLabel""#));
+    assert!(!is_docsearch_json_decl(r#""navigateUpKeyAriaLabel""#));
+    assert!(!is_docsearch_json_decl(r#""navigateDownKeyAriaLabel""#));
+    assert!(!is_docsearch_json_decl(r#""closeKeyAriaLabel""#));
+    assert!(!is_docsearch_json_decl(r#""clearButtonTitle""#));
+    assert!(!is_docsearch_json_decl(r#""clearButtonAriaLabel""#));
+    assert!(!is_docsearch_json_decl(r#""closeButtonText""#));
+    assert!(!is_docsearch_json_decl(r#""closeButtonAriaLabel""#));
+    assert!(!is_docsearch_json_decl(r#""searchInputLabel""#));
+    assert!(!is_docsearch_json_decl(r#""noResultsText""#));
     assert!(!is_docsearch_json_decl(
         r#""$schema": "https://example.com""#
     ));
@@ -46395,6 +46585,16 @@ fn docsearch_json_keys_count() {
     assert!(line_is_func_like(r#""submitQuestionText": "Submit question""#));
     assert!(line_is_func_like(r#""backToSearchText": "Back to search""#));
     assert!(line_is_func_like(r#""poweredByText": "Powered by""#));
+    assert!(line_is_func_like(r#""selectKeyAriaLabel": "Enter to select""#));
+    assert!(line_is_func_like(r#""navigateUpKeyAriaLabel": "Arrow up""#));
+    assert!(line_is_func_like(r#""navigateDownKeyAriaLabel": "Arrow down""#));
+    assert!(line_is_func_like(r#""closeKeyAriaLabel": "Escape to close""#));
+    assert!(line_is_func_like(r#""clearButtonTitle": "Clear""#));
+    assert!(line_is_func_like(r#""clearButtonAriaLabel": "Clear the query""#));
+    assert!(line_is_func_like(r#""closeButtonText": "Close""#));
+    assert!(line_is_func_like(r#""closeButtonAriaLabel": "Close search""#));
+    assert!(line_is_func_like(r#""searchInputLabel": "Search""#));
+    assert!(line_is_func_like(r#""noResultsText": "No results""#));
     assert!(!is_docsearch_json_decl(r#""stalledSearchDelay": 200"#));
     assert!(is_instantsearch_json_decl(r#""stalledSearchDelay": 200"#));
     assert!(!is_docsearch_json_decl(r#""initialUiState": {"#));

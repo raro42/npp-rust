@@ -1,3 +1,7 @@
+009 keep: Function List DocSearch selectKeyAriaLabel/navigateUpKeyAriaLabel/navigateDownKeyAriaLabel/closeKeyAriaLabel/clearButtonTitle/clearButtonAriaLabel/closeButtonText/closeButtonAriaLabel/searchInputLabel/noResultsText (v0.3.936)
+
+009 keep: Function List DocSearch facets/buttonText/buttonAriaLabel/placeholderText/selectText/navigateText/closeText/submitQuestionText/backToSearchText/poweredByText (v0.3.935)
+
 009 keep: Function List DocSearch/Docusaurus initialScrollY/contextualSearch/externalUrlRegex/searchPagePath/replaceSearchResultPathname (v0.3.934)
 
 009 keep: Function List DocSearch resultsFooterComponent/getMissingResultsUrl/footerAction (v0.3.933)
