@@ -45514,6 +45514,10 @@ fn stork_json_keys_count() {
     assert!(is_docsearch_json_decl(r#""variant": "floating""#));
     assert!(!is_stork_json_decl(r#""side": "right""#));
     assert!(is_docsearch_json_decl(r#""side": "right""#));
+    assert!(!is_stork_json_decl(r##""pushSelector": "#root""##));
+    assert!(is_docsearch_json_decl(r##""pushSelector": "#root""##));
+    assert!(!is_stork_json_decl(r#""theme": "light""#));
+    assert!(is_docsearch_json_decl(r#""theme": "light""#));
     assert!(!is_stork_json_decl(r#""stalledSearchDelay": 200"#));
     assert!(is_instantsearch_json_decl(r#""stalledSearchDelay": 200"#));
     assert!(!is_stork_json_decl(r#""initialUiState": {"#));
@@ -45567,6 +45571,8 @@ fn docsearch_json_keys_smoke() {
     assert!(is_docsearch_json_decl(r#""width": "360px""#));
     assert!(is_docsearch_json_decl(r#""variant": "floating""#));
     assert!(is_docsearch_json_decl(r#""side": "right""#));
+    assert!(is_docsearch_json_decl(r##""pushSelector": "#root""##));
+    assert!(is_docsearch_json_decl(r#""theme": "light""#));
     assert!(!is_docsearch_json_decl(
         r#""exclude_html_selector": ".sidebar""#
     ));
@@ -45844,6 +45850,27 @@ fn docsearch_json_keys_count() {
     assert!(!is_docsearch_json_decl(r#""side": ["#));
     assert!(!is_docsearch_json_decl(r#""sides": "right""#));
     assert!(!is_docsearch_json_decl(r#""Side": "right""#));
+    assert!(is_docsearch_json_decl(r##""pushSelector": "#root""##));
+    assert!(is_docsearch_json_decl(r##""pushSelector": "#documentation""##));
+    assert!(is_docsearch_json_decl(r##""pushSelector": "#root","##));
+    assert!(is_docsearch_json_decl(r##""pushSelector": "#root" // c"##));
+    assert!(!is_docsearch_json_decl(r##""pushSelector": """##));
+    assert!(!is_docsearch_json_decl(r##""pushSelector": true"##));
+    assert!(!is_docsearch_json_decl(r##""pushSelector": {"##));
+    assert!(!is_docsearch_json_decl(r##""pushSelector": ["##));
+    assert!(!is_docsearch_json_decl(r##""pushSelectors": "#root""##));
+    assert!(!is_docsearch_json_decl(r##""PushSelector": "#root""##));
+    assert!(is_docsearch_json_decl(r#""theme": "light""#));
+    assert!(is_docsearch_json_decl(r#""theme": "dark""#));
+    assert!(is_docsearch_json_decl(r#""theme": "light","#));
+    assert!(is_docsearch_json_decl(r#""theme": "dark" // c"#));
+    assert!(!is_docsearch_json_decl(r#""theme": "auto""#));
+    assert!(!is_docsearch_json_decl(r#""theme": """#));
+    assert!(!is_docsearch_json_decl(r#""theme": true"#));
+    assert!(!is_docsearch_json_decl(r#""theme": {"#));
+    assert!(!is_docsearch_json_decl(r#""theme": ["#));
+    assert!(!is_docsearch_json_decl(r#""themes": "light""#));
+    assert!(!is_docsearch_json_decl(r#""Theme": "light""#));
     assert!(!is_docsearch_json_decl(r#""maxResultsPerGroup""#));
     assert!(!is_docsearch_json_decl(r#""insights""#));
     assert!(!is_docsearch_json_decl(r#""indices""#));
@@ -45861,6 +45888,8 @@ fn docsearch_json_keys_count() {
     assert!(!is_docsearch_json_decl(r#""width""#));
     assert!(!is_docsearch_json_decl(r#""variant""#));
     assert!(!is_docsearch_json_decl(r#""side""#));
+    assert!(!is_docsearch_json_decl(r#""pushSelector""#));
+    assert!(!is_docsearch_json_decl(r#""theme""#));
     assert!(!is_docsearch_json_decl(
         r#""$schema": "https://example.com""#
     ));
@@ -45874,10 +45903,8 @@ fn docsearch_json_keys_count() {
     assert!(!is_docsearch_json_decl(r#""indexName": "docs""#));
     assert!(!is_docsearch_json_decl(r#""placeholder": "Search""#));
     assert!(!is_docsearch_json_decl(r##""container": "#docsearch""##));
-    assert!(!is_docsearch_json_decl(r#""theme": {"#));
     assert!(!is_docsearch_json_decl(r#""translations": {"#));
     assert!(!is_docsearch_json_decl(r#""facets": ["#));
-    assert!(!is_docsearch_json_decl(r##""pushSelector": "#root""##));
     assert!(!is_docsearch_json_decl(
         r#""exclude_html_selector": ".sidebar""#
     ));
@@ -45943,6 +45970,8 @@ fn docsearch_json_keys_count() {
     assert!(line_is_func_like(r#""width": "360px""#));
     assert!(line_is_func_like(r#""variant": "floating""#));
     assert!(line_is_func_like(r#""side": "right""#));
+    assert!(line_is_func_like(r##""pushSelector": "#root""##));
+    assert!(line_is_func_like(r#""theme": "light""#));
     assert!(!is_docsearch_json_decl(r#""stalledSearchDelay": 200"#));
     assert!(is_instantsearch_json_decl(r#""stalledSearchDelay": 200"#));
     assert!(!is_docsearch_json_decl(r#""initialUiState": {"#));
@@ -46084,6 +46113,10 @@ fn instantsearch_json_keys_smoke() {
     assert!(is_docsearch_json_decl(r#""variant": "floating""#));
     assert!(!is_instantsearch_json_decl(r#""side": "right""#));
     assert!(is_docsearch_json_decl(r#""side": "right""#));
+    assert!(!is_instantsearch_json_decl(r##""pushSelector": "#root""##));
+    assert!(is_docsearch_json_decl(r##""pushSelector": "#root""##));
+    assert!(!is_instantsearch_json_decl(r#""theme": "light""#));
+    assert!(is_docsearch_json_decl(r#""theme": "light""#));
     assert!(!is_instantsearch_json_decl(
         r#""exclude_html_selector": ".sidebar""#
     ));
