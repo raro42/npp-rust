@@ -1,3 +1,5 @@
+009 keep: Function List DocSearch/Sidepanel portalContainer/hitComponent/transformItems/transformSearchClient (v0.3.932)
+
 009 keep: Function List DocSearch/Sidepanel translations/classNames/navigator (v0.3.931)
 
 009 keep: Function List DocSearch/Sidepanel pushSelector/theme (v0.3.930)

@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.932] — 2026-11-22
+
+View:
+
+- **Function List** lists DocSearch / Sidepanel JSON keys: `"portalContainer": "…"`, `"hitComponent": {`, `"transformItems": {`, `"transformSearchClient": {`. Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing `:` stay out. Empty strings / plural/singular misspellings / `"portalContainer": ""` / `"portalContainer": true` / `"portalContainer": {` / `"portalContainer": [` / `"portalContainers": "…"` / `"PortalContainer": "…"` / `"hitComponent": true` / `"hitComponent": false` / `"hitComponent": [` / `"hitComponent": "x"` / `"hitComponents": {` / `"HitComponent": {` / `"transformItems": true` / `"transformItems": false` / `"transformItems": [` / `"transformItems": "x"` / `"transformItem": {` / `"TransformItems": {` / `"transformSearchClient": true` / `"transformSearchClient": false` / `"transformSearchClient": [` / `"transformSearchClient": "x"` / `"transformSearchClients": {` / `"TransformSearchClient": {` / `"facets"` / object `"theme": {` / generic `"appId"` / `"apiKey"` / `"indexName"` / `"placeholder"` / `"container"` / `"name"` / `"id"` / `"q"` / `"query"` / `"url"` stay out. Existing DocSearch `maxResultsPerGroup` / `disableUserPersonalization` / `recentSearchesLimit` / `recentSearchesWithFavoritesLimit` / `resultBadgeKey` / `insights` / `initialQuery` / `indices` / `askAi` / `agentId` / `assistantId` / `suggestedQuestions` / `searchParameters` / `agentStudio` / `memory` / `promptSuggestions` / `keyboardShortcuts` / `expandedWidth` / `tools` / `width` / `variant` / `side` / `pushSelector` / `theme` / `translations` / `classNames` / `navigator` unchanged. InstantSearch / Autocomplete / Typesense InstantSearch Adapter / neighbouring search JSON families stay out of DocSearch for these keys. `"portalContainer"` requires a non-empty quoted CSS selector string. `"hitComponent"` / `"transformItems"` / `"transformSearchClient"` accept `{` only.
+
 ## [0.3.931] — 2026-11-22
 
 View:

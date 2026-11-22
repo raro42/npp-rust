@@ -45524,6 +45524,14 @@ fn stork_json_keys_count() {
     assert!(is_docsearch_json_decl(r#""classNames": {"#));
     assert!(!is_stork_json_decl(r#""navigator": {"#));
     assert!(is_docsearch_json_decl(r#""navigator": {"#));
+    assert!(!is_stork_json_decl(r##""portalContainer": "#docsearch""##));
+    assert!(is_docsearch_json_decl(r##""portalContainer": "#docsearch""##));
+    assert!(!is_stork_json_decl(r#""hitComponent": {"#));
+    assert!(is_docsearch_json_decl(r#""hitComponent": {"#));
+    assert!(!is_stork_json_decl(r#""transformItems": {"#));
+    assert!(is_docsearch_json_decl(r#""transformItems": {"#));
+    assert!(!is_stork_json_decl(r#""transformSearchClient": {"#));
+    assert!(is_docsearch_json_decl(r#""transformSearchClient": {"#));
     assert!(!is_stork_json_decl(r#""stalledSearchDelay": 200"#));
     assert!(is_instantsearch_json_decl(r#""stalledSearchDelay": 200"#));
     assert!(!is_stork_json_decl(r#""initialUiState": {"#));
@@ -45582,6 +45590,10 @@ fn docsearch_json_keys_smoke() {
     assert!(is_docsearch_json_decl(r#""translations": {"#));
     assert!(is_docsearch_json_decl(r#""classNames": {"#));
     assert!(is_docsearch_json_decl(r#""navigator": {"#));
+    assert!(is_docsearch_json_decl(r##""portalContainer": "#docsearch""##));
+    assert!(is_docsearch_json_decl(r#""hitComponent": {"#));
+    assert!(is_docsearch_json_decl(r#""transformItems": {"#));
+    assert!(is_docsearch_json_decl(r#""transformSearchClient": {"#));
     assert!(!is_docsearch_json_decl(
         r#""exclude_html_selector": ".sidebar""#
     ));
@@ -45907,6 +45919,45 @@ fn docsearch_json_keys_count() {
     assert!(!is_docsearch_json_decl(r#""navigator": "x""#));
     assert!(!is_docsearch_json_decl(r#""navigators": {"#));
     assert!(!is_docsearch_json_decl(r#""Navigator": {"#));
+    assert!(is_docsearch_json_decl(r##""portalContainer": "#docsearch""##));
+    assert!(is_docsearch_json_decl(r##""portalContainer": "body""##));
+    assert!(is_docsearch_json_decl(r##""portalContainer": "#docsearch","##));
+    assert!(is_docsearch_json_decl(
+        r##""portalContainer": "#docsearch" // c"##
+    ));
+    assert!(!is_docsearch_json_decl(r##""portalContainer": """##));
+    assert!(!is_docsearch_json_decl(r##""portalContainer": true"##));
+    assert!(!is_docsearch_json_decl(r##""portalContainer": {"##));
+    assert!(!is_docsearch_json_decl(r##""portalContainer": ["##));
+    assert!(!is_docsearch_json_decl(r##""portalContainers": "#docsearch""##));
+    assert!(!is_docsearch_json_decl(r##""PortalContainer": "#docsearch""##));
+    assert!(is_docsearch_json_decl(r#""hitComponent": {"#));
+    assert!(is_docsearch_json_decl(r#""hitComponent": {,"#));
+    assert!(is_docsearch_json_decl(r#""hitComponent": { // c"#));
+    assert!(!is_docsearch_json_decl(r#""hitComponent": true"#));
+    assert!(!is_docsearch_json_decl(r#""hitComponent": false"#));
+    assert!(!is_docsearch_json_decl(r#""hitComponent": ["#));
+    assert!(!is_docsearch_json_decl(r#""hitComponent": "x""#));
+    assert!(!is_docsearch_json_decl(r#""hitComponents": {"#));
+    assert!(!is_docsearch_json_decl(r#""HitComponent": {"#));
+    assert!(is_docsearch_json_decl(r#""transformItems": {"#));
+    assert!(is_docsearch_json_decl(r#""transformItems": {,"#));
+    assert!(is_docsearch_json_decl(r#""transformItems": { // c"#));
+    assert!(!is_docsearch_json_decl(r#""transformItems": true"#));
+    assert!(!is_docsearch_json_decl(r#""transformItems": false"#));
+    assert!(!is_docsearch_json_decl(r#""transformItems": ["#));
+    assert!(!is_docsearch_json_decl(r#""transformItems": "x""#));
+    assert!(!is_docsearch_json_decl(r#""transformItem": {"#));
+    assert!(!is_docsearch_json_decl(r#""TransformItems": {"#));
+    assert!(is_docsearch_json_decl(r#""transformSearchClient": {"#));
+    assert!(is_docsearch_json_decl(r#""transformSearchClient": {,"#));
+    assert!(is_docsearch_json_decl(r#""transformSearchClient": { // c"#));
+    assert!(!is_docsearch_json_decl(r#""transformSearchClient": true"#));
+    assert!(!is_docsearch_json_decl(r#""transformSearchClient": false"#));
+    assert!(!is_docsearch_json_decl(r#""transformSearchClient": ["#));
+    assert!(!is_docsearch_json_decl(r#""transformSearchClient": "x""#));
+    assert!(!is_docsearch_json_decl(r#""transformSearchClients": {"#));
+    assert!(!is_docsearch_json_decl(r#""TransformSearchClient": {"#));
     assert!(!is_docsearch_json_decl(r#""maxResultsPerGroup""#));
     assert!(!is_docsearch_json_decl(r#""insights""#));
     assert!(!is_docsearch_json_decl(r#""indices""#));
@@ -45929,6 +45980,10 @@ fn docsearch_json_keys_count() {
     assert!(!is_docsearch_json_decl(r#""translations""#));
     assert!(!is_docsearch_json_decl(r#""classNames""#));
     assert!(!is_docsearch_json_decl(r#""navigator""#));
+    assert!(!is_docsearch_json_decl(r#""portalContainer""#));
+    assert!(!is_docsearch_json_decl(r#""hitComponent""#));
+    assert!(!is_docsearch_json_decl(r#""transformItems""#));
+    assert!(!is_docsearch_json_decl(r#""transformSearchClient""#));
     assert!(!is_docsearch_json_decl(
         r#""$schema": "https://example.com""#
     ));
@@ -46013,6 +46068,10 @@ fn docsearch_json_keys_count() {
     assert!(line_is_func_like(r#""translations": {"#));
     assert!(line_is_func_like(r#""classNames": {"#));
     assert!(line_is_func_like(r#""navigator": {"#));
+    assert!(line_is_func_like(r##""portalContainer": "#docsearch""##));
+    assert!(line_is_func_like(r#""hitComponent": {"#));
+    assert!(line_is_func_like(r#""transformItems": {"#));
+    assert!(line_is_func_like(r#""transformSearchClient": {"#));
     assert!(!is_docsearch_json_decl(r#""stalledSearchDelay": 200"#));
     assert!(is_instantsearch_json_decl(r#""stalledSearchDelay": 200"#));
     assert!(!is_docsearch_json_decl(r#""initialUiState": {"#));
