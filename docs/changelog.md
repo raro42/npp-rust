@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.946] — 2026-11-22
+
+View:
+
+- **Function List** lists Pagefind UI JSON keys: `"bundlePath": "…"`, `"debounceTimeoutMs": 0` / `300`. Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing `:` stay out. Empty `"bundlePath"` / wrong case / plural misspellings / wrong value shapes stay out. Existing Pagefind UI / index / result keys (`showImages`, `pageSize`, `unfilteredResultCount`, …) unchanged. `"excerptLength"` stays out of Pagefind (Coveo). Neighbouring search JSON families stay out of Pagefind for these keys. String `"bundlePath"` requires a non-empty quoted string. Numeric `"debounceTimeoutMs"` rejects leading zeros beyond `0`.
+
 ## [0.3.945] — 2026-11-22
 
 View:

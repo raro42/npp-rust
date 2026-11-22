@@ -38481,14 +38481,15 @@ fn orama_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool {
 /// `"showSubResults": true` / `false`, `"showImages": true` / `false`,
 /// `"showEmptyFilters": true` / `false`, `"resetStyles": true` / `false`,
 /// `"focusOnSlash": true` / `false`, `"openFilters": [`,
-/// `"pageSize": 0` / `5`. Optional trailing `,` and
+/// `"pageSize": 0` / `5`, `"bundlePath": "…"`,
+/// `"debounceTimeoutMs": 0` / `300`. Optional trailing `,` and
 /// `//` / `/*` comment. Incomplete quotes / missing `:` stay out.
 /// Generic `"$schema"` / `"name"` / `"id"` / `"q"` / `"query"` /
 /// `"url"` / `"content"` / `"excerpt"` / `"filters"` / `"meta"` /
 /// `"anchors"` / `"locations"` / `"results"` / `"timings"` /
 /// `"word_count"` / `"basePath"` / `"baseUrl"` / `"language"` /
-/// `"excerptLength"` / `"raw_content"` / `"raw_url"` / `"bundlePath"` /
-/// `"debounceTimeoutMs"` / Orama `"searchableProperties"` /
+/// `"excerptLength"` / `"raw_content"` / `"raw_url"` / Orama
+/// `"searchableProperties"` /
 /// `"searchablePropertiesWithTypes"` / `"tokenOccurrences"` /
 /// `"avgFieldLength"` / `"vectorIndexes"` / `"hybridWeights"` /
 /// `"internalDocumentIDStore"` / `"hitsVector"` / Lunr.js
@@ -38525,8 +38526,9 @@ fn orama_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool {
 /// `"excerpt_buffer"` / `"save_nearest_node_json"` /
 /// `"exclude_html_selector_override"` / `"frontmatter_handling_override"` /
 /// prettier `"printWidth"` / karma `"basePath"` stay out. String
-/// `"highlightParam"` requires a non-empty quoted string. Bool keys only
-/// match `true` / `false`. Numeric keys reject leading zeros beyond `0`.
+/// `"highlightParam"` / `"bundlePath"` require a non-empty quoted string.
+/// Bool keys only match `true` / `false`. Numeric keys reject leading
+/// zeros beyond `0`.
 fn is_pagefind_json_decl(s: &str) -> bool {
     let s = s.trim_start();
     let Some(rest) = s.strip_prefix('"') else {
@@ -38564,6 +38566,8 @@ fn pagefind_json_key_ok(key: &str) -> bool {
             | "focusOnSlash"
             | "openFilters"
             | "pageSize"
+            | "bundlePath"
+            | "debounceTimeoutMs"
     )
 }
 
@@ -38586,7 +38590,7 @@ fn pagefind_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool {
             package_json_tail_ok(&after_colon[1..])
         }
         b'"' => {
-            if key != "highlightParam" {
+            if !matches!(key, "highlightParam" | "bundlePath") {
                 return false;
             }
             pagefind_json_nonempty_string_and_tail_ok(after_colon)
@@ -38631,7 +38635,10 @@ fn pagefind_json_bool_and_tail_ok(key: &str, after_colon: &str) -> bool {
 }
 
 fn pagefind_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool {
-    if !matches!(key, "unfilteredResultCount" | "indexWeight" | "pageSize") {
+    if !matches!(
+        key,
+        "unfilteredResultCount" | "indexWeight" | "pageSize" | "debounceTimeoutMs"
+    ) {
         return false;
     }
     let bytes = after_colon.as_bytes();

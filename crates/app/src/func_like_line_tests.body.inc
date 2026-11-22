@@ -44528,6 +44528,10 @@ fn flexsearch_json_keys_smoke() {
     assert!(is_pagefind_json_decl(r#""openFilters": ["#));
     assert!(!is_flexsearch_json_decl(r#""pageSize": 5"#));
     assert!(is_pagefind_json_decl(r#""pageSize": 5"#));
+    assert!(!is_flexsearch_json_decl(r#""bundlePath": "/pagefind/""#));
+    assert!(is_pagefind_json_decl(r#""bundlePath": "/pagefind/""#));
+    assert!(!is_flexsearch_json_decl(r#""debounceTimeoutMs": 300"#));
+    assert!(is_pagefind_json_decl(r#""debounceTimeoutMs": 300"#));
 }
 
 #[test]
@@ -44800,6 +44804,10 @@ fn lunr_json_keys_smoke() {
     assert!(is_pagefind_json_decl(r#""openFilters": ["#));
     assert!(!is_lunr_json_decl(r#""pageSize": 5"#));
     assert!(is_pagefind_json_decl(r#""pageSize": 5"#));
+    assert!(!is_lunr_json_decl(r#""bundlePath": "/pagefind/""#));
+    assert!(is_pagefind_json_decl(r#""bundlePath": "/pagefind/""#));
+    assert!(!is_lunr_json_decl(r#""debounceTimeoutMs": 300"#));
+    assert!(is_pagefind_json_decl(r#""debounceTimeoutMs": 300"#));
 }
 
 #[test]
@@ -44930,6 +44938,10 @@ fn lunr_json_keys_count() {
     assert!(is_pagefind_json_decl(r#""openFilters": ["#));
     assert!(!is_lunr_json_decl(r#""pageSize": 5"#));
     assert!(is_pagefind_json_decl(r#""pageSize": 5"#));
+    assert!(!is_lunr_json_decl(r#""bundlePath": "/pagefind/""#));
+    assert!(is_pagefind_json_decl(r#""bundlePath": "/pagefind/""#));
+    assert!(!is_lunr_json_decl(r#""debounceTimeoutMs": 300"#));
+    assert!(is_pagefind_json_decl(r#""debounceTimeoutMs": 300"#));
 }
 
 #[test]
@@ -44994,6 +45006,10 @@ fn orama_json_keys_smoke() {
     assert!(is_pagefind_json_decl(r#""openFilters": ["#));
     assert!(!is_orama_json_decl(r#""pageSize": 5"#));
     assert!(is_pagefind_json_decl(r#""pageSize": 5"#));
+    assert!(!is_orama_json_decl(r#""bundlePath": "/pagefind/""#));
+    assert!(is_pagefind_json_decl(r#""bundlePath": "/pagefind/""#));
+    assert!(!is_orama_json_decl(r#""debounceTimeoutMs": 300"#));
+    assert!(is_pagefind_json_decl(r#""debounceTimeoutMs": 300"#));
 }
 
 #[test]
@@ -45111,6 +45127,10 @@ fn orama_json_keys_count() {
     assert!(is_pagefind_json_decl(r#""openFilters": ["#));
     assert!(!is_orama_json_decl(r#""pageSize": 5"#));
     assert!(is_pagefind_json_decl(r#""pageSize": 5"#));
+    assert!(!is_orama_json_decl(r#""bundlePath": "/pagefind/""#));
+    assert!(is_pagefind_json_decl(r#""bundlePath": "/pagefind/""#));
+    assert!(!is_orama_json_decl(r#""debounceTimeoutMs": 300"#));
+    assert!(is_pagefind_json_decl(r#""debounceTimeoutMs": 300"#));
 }
 
 #[test]
@@ -45129,6 +45149,8 @@ fn pagefind_json_keys_smoke() {
     assert!(is_pagefind_json_decl(r#""focusOnSlash": true"#));
     assert!(is_pagefind_json_decl(r#""openFilters": ["#));
     assert!(is_pagefind_json_decl(r#""pageSize": 5"#));
+    assert!(is_pagefind_json_decl(r#""bundlePath": "/pagefind/""#));
+    assert!(is_pagefind_json_decl(r#""debounceTimeoutMs": 300"#));
     assert!(!is_pagefind_json_decl(r#""searchableProperties": ["#));
     assert!(is_orama_json_decl(r#""searchableProperties": ["#));
     assert!(!is_pagefind_json_decl(r#""fieldVectors": {"#));
@@ -45286,6 +45308,26 @@ fn pagefind_json_keys_count() {
     assert!(!is_pagefind_json_decl(r#""pageSize": ["#));
     assert!(!is_pagefind_json_decl(r#""pageSizes": 5"#));
     assert!(!is_pagefind_json_decl(r#""PageSize": 5"#));
+    assert!(is_pagefind_json_decl(r#""bundlePath": "/pagefind/""#));
+    assert!(is_pagefind_json_decl(r#""bundlePath": "./pagefind/""#));
+    assert!(is_pagefind_json_decl(r#""bundlePath": "/pagefind/","#));
+    assert!(is_pagefind_json_decl(r#""bundlePath": "/pagefind/" // c"#));
+    assert!(!is_pagefind_json_decl(r#""bundlePath": """#));
+    assert!(!is_pagefind_json_decl(r#""bundlePath": true"#));
+    assert!(!is_pagefind_json_decl(r#""bundlePath": 1"#));
+    assert!(!is_pagefind_json_decl(r#""bundlePath": ["#));
+    assert!(!is_pagefind_json_decl(r#""bundlePaths": "/pagefind/""#));
+    assert!(!is_pagefind_json_decl(r#""BundlePath": "/pagefind/""#));
+    assert!(is_pagefind_json_decl(r#""debounceTimeoutMs": 0"#));
+    assert!(is_pagefind_json_decl(r#""debounceTimeoutMs": 300"#));
+    assert!(is_pagefind_json_decl(r#""debounceTimeoutMs": 300,"#));
+    assert!(is_pagefind_json_decl(r#""debounceTimeoutMs": 300 // c"#));
+    assert!(!is_pagefind_json_decl(r#""debounceTimeoutMs": 00"#));
+    assert!(!is_pagefind_json_decl(r#""debounceTimeoutMs": 1.5"#));
+    assert!(!is_pagefind_json_decl(r#""debounceTimeoutMs": true"#));
+    assert!(!is_pagefind_json_decl(r#""debounceTimeoutMs": ["#));
+    assert!(!is_pagefind_json_decl(r#""debounceTimeoutMss": 300"#));
+    assert!(!is_pagefind_json_decl(r#""DebounceTimeoutMs": 300"#));
     assert!(!is_pagefind_json_decl(r#""unfilteredResultCount""#));
     assert!(!is_pagefind_json_decl(r#""weighted_locations""#));
     assert!(!is_pagefind_json_decl(r#""showSubResults""#));
@@ -45295,6 +45337,8 @@ fn pagefind_json_keys_count() {
     assert!(!is_pagefind_json_decl(r#""focusOnSlash""#));
     assert!(!is_pagefind_json_decl(r#""openFilters""#));
     assert!(!is_pagefind_json_decl(r#""pageSize""#));
+    assert!(!is_pagefind_json_decl(r#""bundlePath""#));
+    assert!(!is_pagefind_json_decl(r#""debounceTimeoutMs""#));
     assert!(!is_pagefind_json_decl(
         r#""$schema": "https://example.com""#
     ));
@@ -45314,8 +45358,6 @@ fn pagefind_json_keys_count() {
     assert!(!is_pagefind_json_decl(r#""word_count": 12"#));
     assert!(!is_pagefind_json_decl(r#""raw_content": "hello""#));
     assert!(!is_pagefind_json_decl(r#""raw_url": "/about/""#));
-    assert!(!is_pagefind_json_decl(r#""bundlePath": "/pagefind/""#));
-    assert!(!is_pagefind_json_decl(r#""debounceTimeoutMs": 300"#));
     assert!(!is_pagefind_json_decl(r#""excerptLength": 200"#));
     assert!(is_coveo_json_decl(r#""excerptLength": 200"#));
     assert!(!is_pagefind_json_decl(r#""searchableProperties": ["#));
@@ -45356,6 +45398,8 @@ fn pagefind_json_keys_count() {
     assert!(line_is_func_like(r#""focusOnSlash": true"#));
     assert!(line_is_func_like(r#""openFilters": ["#));
     assert!(line_is_func_like(r#""pageSize": 5"#));
+    assert!(line_is_func_like(r#""bundlePath": "/pagefind/""#));
+    assert!(line_is_func_like(r#""debounceTimeoutMs": 300"#));
     assert!(!is_pagefind_json_decl(
         r#""exclude_html_selector": ".sidebar""#
     ));
