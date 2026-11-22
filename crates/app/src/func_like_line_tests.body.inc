@@ -45810,6 +45810,10 @@ fn instantsearch_json_keys_smoke() {
     assert!(is_instantsearch_json_decl(r#""insights": true"#));
     assert!(is_instantsearch_json_decl(r#""insights": {"#));
     assert!(is_instantsearch_json_decl(r#""future": {"#));
+    assert!(is_instantsearch_json_decl(
+        r#""compositionID": "COMPOSITION_ID""#
+    ));
+    assert!(is_instantsearch_json_decl(r#""initialResults": {"#));
     assert!(!is_instantsearch_json_decl(r#""maxResultsPerGroup": 5"#));
     assert!(is_docsearch_json_decl(r#""maxResultsPerGroup": 5"#));
     assert!(!is_instantsearch_json_decl(
@@ -46018,12 +46022,36 @@ fn instantsearch_json_keys_count() {
     assert!(!is_instantsearch_json_decl(r#""future": ["#));
     assert!(!is_instantsearch_json_decl(r#""future": "x""#));
     assert!(!is_instantsearch_json_decl(r#""futures": {"#));
+    assert!(is_instantsearch_json_decl(
+        r#""compositionID": "COMPOSITION_ID""#
+    ));
+    assert!(is_instantsearch_json_decl(
+        r#""compositionID": "COMPOSITION_ID","#
+    ));
+    assert!(is_instantsearch_json_decl(
+        r#""compositionID": "COMPOSITION_ID" // c"#
+    ));
+    assert!(!is_instantsearch_json_decl(r#""compositionID": """#));
+    assert!(!is_instantsearch_json_decl(r#""compositionID": true"#));
+    assert!(!is_instantsearch_json_decl(r#""compositionID": ["#));
+    assert!(!is_instantsearch_json_decl(r#""compositionIDs": "x""#));
+    assert!(!is_instantsearch_json_decl(r#""compositionId": "x""#));
+    assert!(is_instantsearch_json_decl(r#""initialResults": {"#));
+    assert!(is_instantsearch_json_decl(r#""initialResults": {,"#));
+    assert!(is_instantsearch_json_decl(r#""initialResults": { // c"#));
+    assert!(!is_instantsearch_json_decl(r#""initialResults": true"#));
+    assert!(!is_instantsearch_json_decl(r#""initialResults": false"#));
+    assert!(!is_instantsearch_json_decl(r#""initialResults": ["#));
+    assert!(!is_instantsearch_json_decl(r#""initialResults": "x""#));
+    assert!(!is_instantsearch_json_decl(r#""initialResult": {"#));
     assert!(!is_instantsearch_json_decl(r#""stalledSearchDelay""#));
     assert!(!is_instantsearch_json_decl(r#""initialUiState""#));
     assert!(!is_instantsearch_json_decl(r#""numberLocale""#));
     assert!(!is_instantsearch_json_decl(r#""routing""#));
     assert!(!is_instantsearch_json_decl(r#""insights""#));
     assert!(!is_instantsearch_json_decl(r#""future""#));
+    assert!(!is_instantsearch_json_decl(r#""compositionID""#));
+    assert!(!is_instantsearch_json_decl(r#""initialResults""#));
     assert!(!is_instantsearch_json_decl(
         r#""$schema": "https://example.com""#
     ));
@@ -46087,6 +46115,8 @@ fn instantsearch_json_keys_count() {
     assert!(line_is_func_like(r#""insights": true"#));
     assert!(line_is_func_like(r#""insights": {"#));
     assert!(line_is_func_like(r#""future": {"#));
+    assert!(line_is_func_like(r#""compositionID": "COMPOSITION_ID""#));
+    assert!(line_is_func_like(r#""initialResults": {"#));
     assert!(!is_instantsearch_json_decl(
         r#""detachedMediaQuery": "(max-width: 680px)""#
     ));

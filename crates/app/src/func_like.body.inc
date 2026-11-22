@@ -38849,7 +38849,7 @@ fn stork_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool {
 /// InstantSearch.js `"stalledSearchDelay"` / `"initialUiState"` /
 /// `"numberLocale"` / `"preserveSharedStateOnUnmount"` /
 /// `"persistHierarchicalRootCount"` / `"insightsInitParams"` /
-/// `"routing"` / `"future"` /
+/// `"routing"` / `"future"` / `"compositionID"` / `"initialResults"` /
 /// Autocomplete.js `"detachedMediaQuery"` / `"panelPlacement"` /
 /// `"panelContainer"` / `"openOnFocus"` / `"stallThreshold"` /
 /// `"ignoreCompositionEvents"` / `"defaultActiveItemId"` /
@@ -38975,7 +38975,8 @@ fn docsearch_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool {
 /// `"numberLocale": "…"`, `"preserveSharedStateOnUnmount": true` /
 /// `false`, `"persistHierarchicalRootCount": true` / `false`,
 /// `"insightsInitParams": {`, `"routing": true` / `false` / `{`,
-/// `"insights": true` / `false` / `{`, `"future": {`.
+/// `"insights": true` / `false` / `{`, `"future": {`,
+/// `"compositionID": "…"`, `"initialResults": {`.
 /// Optional trailing `,` and `//` / `/*` comment. Incomplete quotes /
 /// missing `:` stay out. Generic `"$schema"` / `"name"` / `"id"` /
 /// `"q"` / `"query"` / `"url"` / `"appId"` / `"apiKey"` / `"indexName"` /
@@ -39067,6 +39068,8 @@ fn instantsearch_json_key_ok(key: &str) -> bool {
             | "routing"
             | "insights"
             | "future"
+            | "compositionID"
+            | "initialResults"
     )
 }
 
@@ -39079,7 +39082,12 @@ fn instantsearch_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool {
         b'{' => {
             if !matches!(
                 key,
-                "initialUiState" | "insightsInitParams" | "routing" | "insights" | "future"
+                "initialUiState"
+                    | "insightsInitParams"
+                    | "routing"
+                    | "insights"
+                    | "future"
+                    | "initialResults"
             ) {
                 return false;
             }
@@ -39093,7 +39101,7 @@ fn instantsearch_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool {
 }
 
 fn instantsearch_json_string_and_tail_ok(key: &str, after_colon: &str) -> bool {
-    if key != "numberLocale" {
+    if !matches!(key, "numberLocale" | "compositionID") {
         return false;
     }
     let rest = &after_colon[1..];
@@ -39166,7 +39174,8 @@ fn instantsearch_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool {
 /// InstantSearch.js `"stalledSearchDelay"` / `"initialUiState"` /
 /// `"numberLocale"` / `"preserveSharedStateOnUnmount"` /
 /// `"persistHierarchicalRootCount"` / `"insightsInitParams"` /
-/// `"routing"` / `"insights"` / `"future"` /
+/// `"routing"` / `"insights"` / `"future"` / `"compositionID"` /
+/// `"initialResults"` /
 /// DocSearch `"maxResultsPerGroup"` / `"disableUserPersonalization"` /
 /// `"recentSearchesLimit"` / `"recentSearchesWithFavoritesLimit"` /
 /// `"resultBadgeKey"` / `"initialQuery"` / `"indices"` / Stork

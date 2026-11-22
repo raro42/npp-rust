@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.925] — 2026-11-22
+
+View:
+
+- **Function List** lists InstantSearch.js / React InstantSearch Composition / SSR JSON keys: `"compositionID": "…"`, `"initialResults": {`. Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing `:` stay out. Empty strings / plural/singular misspellings / `"compositionID": ""` / `"compositionID": true` / `"compositionID": [` / `"compositionIDs": "…"` / `"compositionId": "…"` / `"initialResults": true` / `"initialResults": false` / `"initialResults": [` / `"initialResults": "x"` / `"initialResult": {` / generic `"appId"` / `"apiKey"` / `"indexName"` / `"searchClient"` / `"widgets"` / `"status"` / `"name"` / `"id"` / `"q"` / `"query"` / `"url"` stay out. Existing InstantSearch `stalledSearchDelay` / `initialUiState` / `numberLocale` / `preserveSharedStateOnUnmount` / `persistHierarchicalRootCount` / `insightsInitParams` / `routing` / `insights` / `future` unchanged. Autocomplete / DocSearch / Typesense InstantSearch Adapter / neighbouring search JSON families stay out of InstantSearch for these keys. `"compositionID"` requires a non-empty quoted string. `"initialResults"` accepts `{` only.
+
 ## [0.3.924] — 2026-11-22
 
 View:
