@@ -1600,3 +1600,5 @@
 009 keep: Function List Pagefind UI total_*/results_label/error_search/input_hint/filter_selected_* (v0.3.954)
 
 009 keep: Function List Instant Meilisearch httpClient/cropMarker/cropLength/attributesToCrop/showMatchesPosition/hybrid (v0.3.966)
+
+009 keep: Function List Meilisearch embedders/localizedAttributes/facetSearch/prefixSearch (v0.3.970)
