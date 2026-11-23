@@ -1,3 +1,5 @@
+009 keep: Function List Stork Result/Excerpt highlight_ranges/title_highlight_ranges/url_suffix/src_url (v0.3.963)
+
 009 keep: Function List Stork v2 excerptLength/numberOfResults (v0.3.962)
 
 009 keep: Function List Stork v2 strings attribution/closeButtonSvg (v0.3.961)
