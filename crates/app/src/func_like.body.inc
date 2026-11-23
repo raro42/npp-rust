@@ -38496,14 +38496,17 @@ fn orama_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool {
 /// `"search_label": "…"`, `"filters_label": "…"`,
 /// `"zero_results": "…"`, `"many_results": "…"`, `"one_result": "…"`,
 /// `"alt_search": "…"`, `"search_suggestion": "…"`,
-/// `"searching": "…"`. Optional
+/// `"searching": "…"`, translation-file `"thanks_to": "…"`, Component UI
+/// results `"hideSubResults": true` / `false`, `"maxSubResults": 0` /
+/// `3`, `"linkTarget": "…"`. Optional
 /// trailing `,` and `//` / `/*` comment. Incomplete quotes / missing
 /// `:` stay out. Generic `"$schema"` / `"name"` / `"id"` / `"q"` /
 /// `"query"` / `"url"` / `"content"` / `"excerpt"` / `"filters"` /
 /// `"meta"` / `"anchors"` / `"locations"` / `"results"` / `"timings"` /
 /// `"word_count"` / `"basePath"` / `"baseUrl"` / `"language"` /
 /// `"excerptLength"` / `"raw_content"` / `"raw_url"` / `"element"` /
-/// `"placeholder"` / `"loading"` /
+/// `"placeholder"` / `"loading"` / `"comments"` / `"direction"` /
+/// `"strings"` / `"maxResults"` /
 /// Orama
 /// `"searchableProperties"` /
 /// `"searchablePropertiesWithTypes"` / `"tokenOccurrences"` /
@@ -38543,8 +38546,8 @@ fn orama_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool {
 /// `"exclude_html_selector_override"` / `"frontmatter_handling_override"` /
 /// prettier `"printWidth"` / karma `"basePath"` stay out. String
 /// `"highlightParam"` / `"bundlePath"` / `"excerptEllipsis"` /
-/// `"metaCacheTag"` / UI translation string keys require a non-empty
-/// quoted string. Callback
+/// `"metaCacheTag"` / `"thanks_to"` / `"linkTarget"` / UI translation
+/// string keys require a non-empty quoted string. Callback
 /// `"processTerm"` / `"processResult"` require `{`. Object `"ranking"` /
 /// `"metaWeights"` require `{` (Vespa may also match `"ranking"`). Bool
 /// keys only match `true` / `false`. Ranking float keys accept `0` /
@@ -38618,6 +38621,10 @@ fn pagefind_json_key_ok(key: &str) -> bool {
             | "alt_search"
             | "search_suggestion"
             | "searching"
+            | "thanks_to"
+            | "hideSubResults"
+            | "maxSubResults"
+            | "linkTarget"
     )
 }
 
@@ -38669,6 +38676,8 @@ fn pagefind_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool {
                     | "alt_search"
                     | "search_suggestion"
                     | "searching"
+                    | "thanks_to"
+                    | "linkTarget"
             ) {
                 return false;
             }
@@ -38751,6 +38760,7 @@ fn pagefind_json_bool_and_tail_ok(key: &str, after_colon: &str) -> bool {
             | "noWorker"
             | "preload"
             | "faceted"
+            | "hideSubResults"
     ) {
         return false;
     }
@@ -38767,7 +38777,11 @@ fn pagefind_json_bool_and_tail_ok(key: &str, after_colon: &str) -> bool {
 fn pagefind_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool {
     if !matches!(
         key,
-        "unfilteredResultCount" | "indexWeight" | "pageSize" | "debounceTimeoutMs"
+        "unfilteredResultCount"
+            | "indexWeight"
+            | "pageSize"
+            | "debounceTimeoutMs"
+            | "maxSubResults"
     ) {
         return false;
     }

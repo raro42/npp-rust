@@ -45192,6 +45192,12 @@ fn pagefind_json_keys_smoke() {
     assert!(is_pagefind_json_decl(
         r#""searching": "Searching for [SEARCH_TERM]...""#
     ));
+    assert!(is_pagefind_json_decl(
+        r#""thanks_to": "Pagefind translators""#
+    ));
+    assert!(is_pagefind_json_decl(r#""hideSubResults": true"#));
+    assert!(is_pagefind_json_decl(r#""maxSubResults": 3"#));
+    assert!(is_pagefind_json_decl(r#""linkTarget": "_blank""#));
     assert!(!is_pagefind_json_decl(r##""element": "#search""##));
     assert!(!is_pagefind_json_decl(r#""searchableProperties": ["#));
     assert!(is_orama_json_decl(r#""searchableProperties": ["#));
@@ -45714,6 +45720,58 @@ fn pagefind_json_keys_count() {
     assert!(!is_pagefind_json_decl(
         r#""Searching": "Searching for [SEARCH_TERM]...""#
     ));
+    assert!(is_pagefind_json_decl(
+        r#""thanks_to": "Pagefind translators""#
+    ));
+    assert!(is_pagefind_json_decl(
+        r#""thanks_to": "Pagefind translators","#
+    ));
+    assert!(is_pagefind_json_decl(
+        r#""thanks_to": "Pagefind translators" // c"#
+    ));
+    assert!(!is_pagefind_json_decl(r#""thanks_to": """#));
+    assert!(!is_pagefind_json_decl(r#""thanks_to": true"#));
+    assert!(!is_pagefind_json_decl(r#""thanks_to": ["#));
+    assert!(!is_pagefind_json_decl(r#""thanks_to": {"#));
+    assert!(!is_pagefind_json_decl(
+        r#""thanks_tos": "Pagefind translators""#
+    ));
+    assert!(!is_pagefind_json_decl(
+        r#""Thanks_to": "Pagefind translators""#
+    ));
+    assert!(is_pagefind_json_decl(r#""hideSubResults": true"#));
+    assert!(is_pagefind_json_decl(r#""hideSubResults": false"#));
+    assert!(is_pagefind_json_decl(r#""hideSubResults": true,"#));
+    assert!(is_pagefind_json_decl(r#""hideSubResults": false // c"#));
+    assert!(!is_pagefind_json_decl(r#""hideSubResults": 1"#));
+    assert!(!is_pagefind_json_decl(r#""hideSubResults": "true""#));
+    assert!(!is_pagefind_json_decl(r#""hideSubResults": ["#));
+    assert!(!is_pagefind_json_decl(r#""hideSubResults": {"#));
+    assert!(!is_pagefind_json_decl(r#""hideSubResultss": true"#));
+    assert!(!is_pagefind_json_decl(r#""HideSubResults": true"#));
+    assert!(is_pagefind_json_decl(r#""maxSubResults": 0"#));
+    assert!(is_pagefind_json_decl(r#""maxSubResults": 3"#));
+    assert!(is_pagefind_json_decl(r#""maxSubResults": 3,"#));
+    assert!(is_pagefind_json_decl(r#""maxSubResults": 3 // c"#));
+    assert!(!is_pagefind_json_decl(r#""maxSubResults": 00"#));
+    assert!(!is_pagefind_json_decl(r#""maxSubResults": 1.5"#));
+    assert!(!is_pagefind_json_decl(r#""maxSubResults": true"#));
+    assert!(!is_pagefind_json_decl(r#""maxSubResults": ["#));
+    assert!(!is_pagefind_json_decl(r#""maxSubResults": {"#));
+    assert!(!is_pagefind_json_decl(r#""maxSubResultss": 3"#));
+    assert!(!is_pagefind_json_decl(r#""MaxSubResults": 3"#));
+    assert!(!is_pagefind_json_decl(r#""maxResults": 10"#));
+    assert!(is_pagefind_json_decl(r#""linkTarget": "_blank""#));
+    assert!(is_pagefind_json_decl(r#""linkTarget": "_self""#));
+    assert!(is_pagefind_json_decl(r#""linkTarget": "_blank","#));
+    assert!(is_pagefind_json_decl(r#""linkTarget": "_blank" // c"#));
+    assert!(!is_pagefind_json_decl(r#""linkTarget": """#));
+    assert!(!is_pagefind_json_decl(r#""linkTarget": true"#));
+    assert!(!is_pagefind_json_decl(r#""linkTarget": 1"#));
+    assert!(!is_pagefind_json_decl(r#""linkTarget": ["#));
+    assert!(!is_pagefind_json_decl(r#""linkTarget": {"#));
+    assert!(!is_pagefind_json_decl(r#""linkTargets": "_blank""#));
+    assert!(!is_pagefind_json_decl(r#""LinkTarget": "_blank""#));
     assert!(!is_pagefind_json_decl(r#""unfilteredResultCount""#));
     assert!(!is_pagefind_json_decl(r#""weighted_locations""#));
     assert!(!is_pagefind_json_decl(r#""showSubResults""#));
@@ -45754,6 +45812,10 @@ fn pagefind_json_keys_count() {
     assert!(!is_pagefind_json_decl(r#""alt_search""#));
     assert!(!is_pagefind_json_decl(r#""search_suggestion""#));
     assert!(!is_pagefind_json_decl(r#""searching""#));
+    assert!(!is_pagefind_json_decl(r#""thanks_to""#));
+    assert!(!is_pagefind_json_decl(r#""hideSubResults""#));
+    assert!(!is_pagefind_json_decl(r#""maxSubResults""#));
+    assert!(!is_pagefind_json_decl(r#""linkTarget""#));
     assert!(!is_pagefind_json_decl(
         r#""$schema": "https://example.com""#
     ));
@@ -45775,6 +45837,9 @@ fn pagefind_json_keys_count() {
     assert!(!is_pagefind_json_decl(r#""raw_url": "/about/""#));
     assert!(!is_pagefind_json_decl(r#""placeholder": "Search""#));
     assert!(!is_pagefind_json_decl(r#""loading": "Loading""#));
+    assert!(!is_pagefind_json_decl(r#""comments": """#));
+    assert!(!is_pagefind_json_decl(r#""direction": "ltr""#));
+    assert!(!is_pagefind_json_decl(r#""strings": {"#));
     assert!(!is_pagefind_json_decl(r#""excerptLength": 200"#));
     assert!(is_coveo_json_decl(r#""excerptLength": 200"#));
     assert!(!is_pagefind_json_decl(r#""searchableProperties": ["#));
@@ -45858,6 +45923,12 @@ fn pagefind_json_keys_count() {
     assert!(line_is_func_like(
         r#""searching": "Searching for [SEARCH_TERM]...""#
     ));
+    assert!(line_is_func_like(
+        r#""thanks_to": "Pagefind translators""#
+    ));
+    assert!(line_is_func_like(r#""hideSubResults": true"#));
+    assert!(line_is_func_like(r#""maxSubResults": 3"#));
+    assert!(line_is_func_like(r#""linkTarget": "_blank""#));
     assert!(!is_pagefind_json_decl(r##""element": "#search""##));
     assert!(!is_pagefind_json_decl(
         r#""exclude_html_selector": ".sidebar""#

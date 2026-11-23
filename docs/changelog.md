@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.953] — 2026-11-23
+
+View:
+
+- **Function List** lists Pagefind translation-file / Component UI results JSON keys: `"thanks_to": "…"`, `"hideSubResults": true` / `false`, `"maxSubResults": 0` / `3`, `"linkTarget": "…"`. Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing `:` stay out. Empty strings / wrong case / plural misspellings / wrong value shapes stay out. Existing Pagefind UI / search / index / ranking / translation string keys unchanged. Generic `"comments"` / `"direction"` / `"strings"` / `"maxResults"` / `"placeholder"` / `"loading"` / `"element"` stay out of Pagefind. Neighbouring search JSON families stay out of Pagefind for these keys. String `"thanks_to"` / `"linkTarget"` require a non-empty quoted string. Bool `"hideSubResults"` only matches `true` / `false`. Numeric `"maxSubResults"` rejects leading zeros beyond `0`.
+
 ## [0.3.952] — 2026-11-23
 
 View:
