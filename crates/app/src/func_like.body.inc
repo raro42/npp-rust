@@ -39314,7 +39314,7 @@ fn stork_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool {
 /// `"geoLocationField"` / `"facetableAttributesWithSpecialCharacters"` /
 /// `"flattenGroupedHits"` / Instant Meilisearch `"placeholderSearch"` /
 /// `"finitePagination"` / `"primaryKey"` / `"keepZeroFacets"` /
-/// `"requestInit"` / `"meiliSearchParams"` / `"clientAgents"` / `"indexesOverrides"` / `"httpClient"` / `"cropMarker"` / `"cropLength"` / `"attributesToCrop"` / `"showMatchesPosition"` / `"hybrid"` / prettier `"printWidth"` /
+/// `"requestInit"` / `"meiliSearchParams"` / `"clientAgents"` / `"indexesOverrides"` / `"httpClient"` / `"cropMarker"` / `"cropLength"` / `"attributesToCrop"` / `"showMatchesPosition"` / `"hybrid"` / `"showRankingScoreDetails"` / `"retrieveVectors"` / `"locales"` / `"embedder"` / `"semanticRatio"` / `"indexUid"` / `"vector"` / `"federationOptions"` / prettier `"printWidth"` /
 /// karma `"basePath"`
 /// stay out. String keys require a non-empty quoted string. Bool keys
 /// only match `true` / `false`. Numeric keys reject leading zeros beyond
@@ -39720,7 +39720,7 @@ fn docsearch_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool {
 /// `"geoLocationField"` / `"facetableAttributesWithSpecialCharacters"` /
 /// `"flattenGroupedHits"` / Instant Meilisearch `"placeholderSearch"` /
 /// `"finitePagination"` / `"primaryKey"` / `"keepZeroFacets"` /
-/// `"requestInit"` / `"meiliSearchParams"` / `"clientAgents"` / `"indexesOverrides"` / `"httpClient"` / `"cropMarker"` / `"cropLength"` / `"attributesToCrop"` / `"showMatchesPosition"` / `"hybrid"` / prettier `"printWidth"` /
+/// `"requestInit"` / `"meiliSearchParams"` / `"clientAgents"` / `"indexesOverrides"` / `"httpClient"` / `"cropMarker"` / `"cropLength"` / `"attributesToCrop"` / `"showMatchesPosition"` / `"hybrid"` / `"showRankingScoreDetails"` / `"retrieveVectors"` / `"locales"` / `"embedder"` / `"semanticRatio"` / `"indexUid"` / `"vector"` / `"federationOptions"` / prettier `"printWidth"` /
 /// karma `"basePath"`
 /// stay out. String keys require a non-empty quoted string. Bool keys
 /// only match `true` / `false`. Numeric keys reject leading zeros beyond
@@ -39927,7 +39927,7 @@ fn instantsearch_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool {
 /// `"facetableAttributesWithSpecialCharacters"` /
 /// `"flattenGroupedHits"` / Instant Meilisearch `"placeholderSearch"` /
 /// `"finitePagination"` / `"primaryKey"` / `"keepZeroFacets"` /
-/// `"requestInit"` / `"meiliSearchParams"` / `"clientAgents"` / `"indexesOverrides"` / `"httpClient"` / `"cropMarker"` / `"cropLength"` / `"attributesToCrop"` / `"showMatchesPosition"` / `"hybrid"` / prettier `"printWidth"` /
+/// `"requestInit"` / `"meiliSearchParams"` / `"clientAgents"` / `"indexesOverrides"` / `"httpClient"` / `"cropMarker"` / `"cropLength"` / `"attributesToCrop"` / `"showMatchesPosition"` / `"hybrid"` / `"showRankingScoreDetails"` / `"retrieveVectors"` / `"locales"` / `"embedder"` / `"semanticRatio"` / `"indexUid"` / `"vector"` / `"federationOptions"` / prettier `"printWidth"` /
 /// karma `"basePath"`
 /// stay out. String / enum keys require a non-empty quoted string. Bool
 /// keys only match `true` / `false`. Numeric keys reject leading zeros
@@ -40116,7 +40116,7 @@ fn autocomplete_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool {
 /// `"primaryKey"` / `"keepZeroFacets"` / `"requestInit"` /
 /// `"meiliSearchParams"` / `"clientAgents"` / `"indexesOverrides"` /
 /// `"httpClient"` / `"cropMarker"` / `"cropLength"` / `"attributesToCrop"` /
-/// `"showMatchesPosition"` / `"hybrid"` /
+/// `"showMatchesPosition"` / `"hybrid"` / `"showRankingScoreDetails"` / `"retrieveVectors"` / `"locales"` / `"embedder"` / `"semanticRatio"` / `"indexUid"` / `"vector"` / `"federationOptions"` /
 /// Searchkit `"search_settings"` /
 /// `"search_attributes"` / `"result_attributes"` /
 /// `"highlight_attributes"` / `"snippet_attributes"` /
@@ -40217,7 +40217,10 @@ fn typesense_instantsearch_json_bool_and_tail_ok(key: &str, after_colon: &str) -
 /// `"requestInit": {`, `"meiliSearchParams": {`, `"clientAgents": [`,
 /// `"indexesOverrides": {`, `"httpClient": {`, `"cropMarker": "…"`,
 /// `"cropLength": 0` / `10`, `"attributesToCrop": [`,
-/// `"showMatchesPosition": true` / `false`, `"hybrid": {`.
+/// `"showMatchesPosition": true` / `false`, `"hybrid": {`,
+/// `"showRankingScoreDetails": true` / `false`, `"retrieveVectors": true` /
+/// `false`, `"locales": [`, `"embedder": "…"`, `"semanticRatio": 0` /
+/// `0.5` / `1`, `"indexUid": "…"`, `"vector": [`, `"federationOptions": {`.
 /// Optional trailing `,` and `//` / `/*` comment. Incomplete quotes /
 /// missing `:` stay out. Generic `"$schema"` / `"name"` / `"id"` / `"q"` /
 /// `"query"` / `"url"` / `"host"` / `"apiKey"` / `"searchClient"` /
@@ -40288,9 +40291,11 @@ fn typesense_instantsearch_json_bool_and_tail_ok(key: &str, after_colon: &str) -
 /// `"geo_attribute"` / `"fuzziness"` / prettier `"printWidth"` / karma
 /// `"basePath"` stay out. String keys require a non-empty quoted string.
 /// Bool keys only match `true` / `false`. Numeric `"cropLength"` rejects
-/// leading zeros beyond `0`. Array `"clientAgents"` / `"attributesToCrop"`
-/// require `[`. Object `"indexesOverrides"` / `"httpClient"` / `"hybrid"`
-/// require `{`.
+/// leading zeros beyond `0`. Numeric `"semanticRatio"` allows a simple
+/// decimal (no exponent). Array `"clientAgents"` / `"attributesToCrop"` /
+/// `"locales"` / `"vector"` require `[`. Object `"indexesOverrides"` /
+/// `"httpClient"` / `"hybrid"` / `"federationOptions"` require `{`. String
+/// `"embedder"` / `"indexUid"` require a non-empty quoted string.
 fn is_instant_meilisearch_json_decl(s: &str) -> bool {
     let s = s.trim_start();
     let Some(rest) = s.strip_prefix('"') else {
@@ -40328,6 +40333,14 @@ fn instant_meilisearch_json_key_ok(key: &str) -> bool {
             | "attributesToCrop"
             | "showMatchesPosition"
             | "hybrid"
+            | "showRankingScoreDetails"
+            | "retrieveVectors"
+            | "locales"
+            | "embedder"
+            | "semanticRatio"
+            | "indexUid"
+            | "vector"
+            | "federationOptions"
     )
 }
 
@@ -40345,26 +40358,36 @@ fn instant_meilisearch_json_value_and_tail_ok(key: &str, after_colon: &str) -> b
                     | "indexesOverrides"
                     | "httpClient"
                     | "hybrid"
+                    | "federationOptions"
             ) {
                 return false;
             }
             package_json_tail_ok(&after_colon[1..])
         }
         b'[' => {
-            if !matches!(key, "clientAgents" | "attributesToCrop") {
+            if !matches!(
+                key,
+                "clientAgents" | "attributesToCrop" | "locales" | "vector"
+            ) {
                 return false;
             }
             package_json_tail_ok(&after_colon[1..])
         }
         b'"' => instant_meilisearch_json_string_and_tail_ok(key, after_colon),
         b't' | b'f' => instant_meilisearch_json_bool_and_tail_ok(key, after_colon),
-        b'0'..=b'9' => instant_meilisearch_json_uint_and_tail_ok(key, after_colon),
+        b'0'..=b'9' => {
+            if key == "semanticRatio" {
+                meilisearch_json_ranking_score_and_tail_ok(after_colon)
+            } else {
+                instant_meilisearch_json_uint_and_tail_ok(key, after_colon)
+            }
+        }
         _ => false,
     }
 }
 
 fn instant_meilisearch_json_string_and_tail_ok(key: &str, after_colon: &str) -> bool {
-    if !matches!(key, "primaryKey" | "cropMarker") {
+    if !matches!(key, "primaryKey" | "cropMarker" | "embedder" | "indexUid") {
         return false;
     }
     let rest = &after_colon[1..];
@@ -40385,6 +40408,8 @@ fn instant_meilisearch_json_bool_and_tail_ok(key: &str, after_colon: &str) -> bo
             | "finitePagination"
             | "keepZeroFacets"
             | "showMatchesPosition"
+            | "showRankingScoreDetails"
+            | "retrieveVectors"
     ) {
         return false;
     }
@@ -40431,7 +40456,7 @@ fn instant_meilisearch_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bo
 /// `"query"` / `"url"` / `"host"` / `"apiKey"` / `"connection"` /
 /// `"sorting"` / `"runtime_mappings"` / Instant Meilisearch
 /// `"placeholderSearch"` / `"finitePagination"` / `"primaryKey"` /
-/// `"keepZeroFacets"` / `"requestInit"` / `"meiliSearchParams"` / `"clientAgents"` / `"indexesOverrides"` / `"httpClient"` / `"cropMarker"` / `"cropLength"` / `"attributesToCrop"` / `"showMatchesPosition"` / `"hybrid"` /
+/// `"keepZeroFacets"` / `"requestInit"` / `"meiliSearchParams"` / `"clientAgents"` / `"indexesOverrides"` / `"httpClient"` / `"cropMarker"` / `"cropLength"` / `"attributesToCrop"` / `"showMatchesPosition"` / `"hybrid"` / `"showRankingScoreDetails"` / `"retrieveVectors"` / `"locales"` / `"embedder"` / `"semanticRatio"` / `"indexUid"` / `"vector"` / `"federationOptions"` /
 /// Typesense InstantSearch Adapter `"additionalSearchParameters"` /
 /// `"collectionSpecificSearchParameters"` / `"geoLocationField"` /
 /// `"facetableAttributesWithSpecialCharacters"` / `"flattenGroupedHits"` /
@@ -40590,7 +40615,7 @@ fn searchkit_json_string_and_tail_ok(key: &str, after_colon: &str) -> bool {
 /// `"facet_attributes"` / `"filter_attributes"` / `"query_rules"` /
 /// `"geo_attribute"` / `"fuzziness"` / Instant Meilisearch
 /// `"placeholderSearch"` / `"finitePagination"` / `"primaryKey"` /
-/// `"keepZeroFacets"` / `"requestInit"` / `"meiliSearchParams"` / `"clientAgents"` / `"indexesOverrides"` / `"httpClient"` / `"cropMarker"` / `"cropLength"` / `"attributesToCrop"` / `"showMatchesPosition"` / `"hybrid"` /
+/// `"keepZeroFacets"` / `"requestInit"` / `"meiliSearchParams"` / `"clientAgents"` / `"indexesOverrides"` / `"httpClient"` / `"cropMarker"` / `"cropLength"` / `"attributesToCrop"` / `"showMatchesPosition"` / `"hybrid"` / `"showRankingScoreDetails"` / `"retrieveVectors"` / `"locales"` / `"embedder"` / `"semanticRatio"` / `"indexUid"` / `"vector"` / `"federationOptions"` /
 /// Typesense InstantSearch Adapter `"additionalSearchParameters"` /
 /// `"collectionSpecificSearchParameters"` / `"geoLocationField"` /
 /// `"facetableAttributesWithSpecialCharacters"` / `"flattenGroupedHits"` /
@@ -40862,7 +40887,7 @@ fn algolia_recommend_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool
 /// `"facet_attributes"` / `"filter_attributes"` / `"query_rules"` /
 /// `"geo_attribute"` / `"fuzziness"` / Instant Meilisearch
 /// `"placeholderSearch"` / `"finitePagination"` / `"primaryKey"` /
-/// `"keepZeroFacets"` / `"requestInit"` / `"meiliSearchParams"` / `"clientAgents"` / `"indexesOverrides"` / `"httpClient"` / `"cropMarker"` / `"cropLength"` / `"attributesToCrop"` / `"showMatchesPosition"` / `"hybrid"` /
+/// `"keepZeroFacets"` / `"requestInit"` / `"meiliSearchParams"` / `"clientAgents"` / `"indexesOverrides"` / `"httpClient"` / `"cropMarker"` / `"cropLength"` / `"attributesToCrop"` / `"showMatchesPosition"` / `"hybrid"` / `"showRankingScoreDetails"` / `"retrieveVectors"` / `"locales"` / `"embedder"` / `"semanticRatio"` / `"indexUid"` / `"vector"` / `"federationOptions"` /
 /// Typesense InstantSearch Adapter `"additionalSearchParameters"` /
 /// `"collectionSpecificSearchParameters"` / `"geoLocationField"` /
 /// `"facetableAttributesWithSpecialCharacters"` / `"flattenGroupedHits"` /
@@ -41455,7 +41480,7 @@ fn algolia_insights_json_decimal_and_tail_ok(after_colon: &str) -> bool {
 /// `"facet_attributes"` / `"filter_attributes"` / `"query_rules"` /
 /// `"geo_attribute"` / `"fuzziness"` / Instant Meilisearch
 /// `"placeholderSearch"` / `"finitePagination"` / `"primaryKey"` /
-/// `"keepZeroFacets"` / `"requestInit"` / `"meiliSearchParams"` / `"clientAgents"` / `"indexesOverrides"` / `"httpClient"` / `"cropMarker"` / `"cropLength"` / `"attributesToCrop"` / `"showMatchesPosition"` / `"hybrid"` /
+/// `"keepZeroFacets"` / `"requestInit"` / `"meiliSearchParams"` / `"clientAgents"` / `"indexesOverrides"` / `"httpClient"` / `"cropMarker"` / `"cropLength"` / `"attributesToCrop"` / `"showMatchesPosition"` / `"hybrid"` / `"showRankingScoreDetails"` / `"retrieveVectors"` / `"locales"` / `"embedder"` / `"semanticRatio"` / `"indexUid"` / `"vector"` / `"federationOptions"` /
 /// Typesense InstantSearch Adapter `"additionalSearchParameters"` /
 /// `"collectionSpecificSearchParameters"` / `"geoLocationField"` /
 /// `"facetableAttributesWithSpecialCharacters"` /

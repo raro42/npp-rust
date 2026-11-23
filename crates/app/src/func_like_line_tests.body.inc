@@ -51518,6 +51518,20 @@ fn instant_meilisearch_json_keys_smoke() {
         r#""showMatchesPosition": true"#
     ));
     assert!(is_instant_meilisearch_json_decl(r#""hybrid": {"#));
+    assert!(is_instant_meilisearch_json_decl(
+        r#""showRankingScoreDetails": true"#
+    ));
+    assert!(is_instant_meilisearch_json_decl(
+        r#""retrieveVectors": false"#
+    ));
+    assert!(is_instant_meilisearch_json_decl(r#""locales": ["#));
+    assert!(is_instant_meilisearch_json_decl(r#""embedder": "default""#));
+    assert!(is_instant_meilisearch_json_decl(r#""semanticRatio": 0.5"#));
+    assert!(is_instant_meilisearch_json_decl(r#""indexUid": "movies""#));
+    assert!(is_instant_meilisearch_json_decl(r#""vector": ["#));
+    assert!(is_instant_meilisearch_json_decl(
+        r#""federationOptions": {"#
+    ));
     assert!(!is_instant_meilisearch_json_decl(
         r#""additionalSearchParameters": {"#
     ));
@@ -51794,6 +51808,138 @@ fn instant_meilisearch_json_keys_count() {
     assert!(!is_instant_meilisearch_json_decl(r#""hybrid": true"#));
     assert!(!is_instant_meilisearch_json_decl(r#""hybrid": "x""#));
     assert!(!is_instant_meilisearch_json_decl(r#""Hybrid": {"#));
+    assert!(!is_meilisearch_json_decl(
+        r#""showRankingScoreDetails": true"#
+    ));
+    assert!(!is_pagefind_json_decl(
+        r#""showRankingScoreDetails": true"#
+    ));
+    assert!(is_instant_meilisearch_json_decl(
+        r#""showRankingScoreDetails": true"#
+    ));
+    assert!(is_instant_meilisearch_json_decl(
+        r#""showRankingScoreDetails": false"#
+    ));
+    assert!(is_instant_meilisearch_json_decl(
+        r#""showRankingScoreDetails": true,"#
+    ));
+    assert!(is_instant_meilisearch_json_decl(
+        r#""showRankingScoreDetails": false // c"#
+    ));
+    assert!(!is_instant_meilisearch_json_decl(
+        r#""showRankingScoreDetails": 1"#
+    ));
+    assert!(!is_instant_meilisearch_json_decl(
+        r#""showRankingScoreDetails": "true""#
+    ));
+    assert!(!is_instant_meilisearch_json_decl(
+        r#""showRankingScoreDetails": {"#
+    ));
+    assert!(!is_instant_meilisearch_json_decl(
+        r#""ShowRankingScoreDetails": true"#
+    ));
+    assert!(!is_meilisearch_json_decl(r#""retrieveVectors": true"#));
+    assert!(!is_pagefind_json_decl(r#""retrieveVectors": true"#));
+    assert!(is_instant_meilisearch_json_decl(
+        r#""retrieveVectors": true"#
+    ));
+    assert!(is_instant_meilisearch_json_decl(
+        r#""retrieveVectors": false"#
+    ));
+    assert!(is_instant_meilisearch_json_decl(
+        r#""retrieveVectors": true,"#
+    ));
+    assert!(is_instant_meilisearch_json_decl(
+        r#""retrieveVectors": false // c"#
+    ));
+    assert!(!is_instant_meilisearch_json_decl(
+        r#""retrieveVectors": 1"#
+    ));
+    assert!(!is_instant_meilisearch_json_decl(
+        r#""retrieveVectors": "true""#
+    ));
+    assert!(!is_instant_meilisearch_json_decl(
+        r#""retrieveVectors": {"#
+    ));
+    assert!(!is_instant_meilisearch_json_decl(
+        r#""RetrieveVectors": true"#
+    ));
+    assert!(!is_meilisearch_json_decl(r#""locales": ["#));
+    assert!(!is_pagefind_json_decl(r#""locales": ["#));
+    assert!(is_instant_meilisearch_json_decl(r#""locales": ["#));
+    assert!(is_instant_meilisearch_json_decl(r#""locales": [,"#));
+    assert!(is_instant_meilisearch_json_decl(r#""locales": [ // c"#));
+    assert!(!is_instant_meilisearch_json_decl(r#""locales": {"#));
+    assert!(!is_instant_meilisearch_json_decl(r#""locales": true"#));
+    assert!(!is_instant_meilisearch_json_decl(r#""locales": "en""#));
+    assert!(!is_instant_meilisearch_json_decl(r#""Locales": ["#));
+    assert!(!is_meilisearch_json_decl(r#""embedder": "default""#));
+    assert!(!is_pagefind_json_decl(r#""embedder": "default""#));
+    assert!(is_instant_meilisearch_json_decl(r#""embedder": "default""#));
+    assert!(is_instant_meilisearch_json_decl(r#""embedder": "default","#));
+    assert!(is_instant_meilisearch_json_decl(
+        r#""embedder": "default" // c"#
+    ));
+    assert!(!is_instant_meilisearch_json_decl(r#""embedder": """#));
+    assert!(!is_instant_meilisearch_json_decl(r#""embedder": true"#));
+    assert!(!is_instant_meilisearch_json_decl(r#""embedder": 1"#));
+    assert!(!is_instant_meilisearch_json_decl(r#""Embedder": "default""#));
+    assert!(!is_meilisearch_json_decl(r#""semanticRatio": 0.5"#));
+    assert!(!is_pagefind_json_decl(r#""semanticRatio": 0.5"#));
+    assert!(is_instant_meilisearch_json_decl(r#""semanticRatio": 0"#));
+    assert!(is_instant_meilisearch_json_decl(r#""semanticRatio": 0.5"#));
+    assert!(is_instant_meilisearch_json_decl(r#""semanticRatio": 1"#));
+    assert!(is_instant_meilisearch_json_decl(r#""semanticRatio": 0.5,"#));
+    assert!(is_instant_meilisearch_json_decl(
+        r#""semanticRatio": 0.5 // c"#
+    ));
+    assert!(!is_instant_meilisearch_json_decl(r#""semanticRatio": 01"#));
+    assert!(!is_instant_meilisearch_json_decl(r#""semanticRatio": true"#));
+    assert!(!is_instant_meilisearch_json_decl(r#""semanticRatio": "0.5""#));
+    assert!(!is_instant_meilisearch_json_decl(r#""SemanticRatio": 0.5"#));
+    assert!(!is_meilisearch_json_decl(r#""indexUid": "movies""#));
+    assert!(!is_pagefind_json_decl(r#""indexUid": "movies""#));
+    assert!(is_instant_meilisearch_json_decl(r#""indexUid": "movies""#));
+    assert!(is_instant_meilisearch_json_decl(r#""indexUid": "movies","#));
+    assert!(is_instant_meilisearch_json_decl(
+        r#""indexUid": "movies" // c"#
+    ));
+    assert!(!is_instant_meilisearch_json_decl(r#""indexUid": """#));
+    assert!(!is_instant_meilisearch_json_decl(r#""indexUid": true"#));
+    assert!(!is_instant_meilisearch_json_decl(r#""indexUid": 1"#));
+    assert!(!is_instant_meilisearch_json_decl(r#""IndexUid": "movies""#));
+    assert!(!is_meilisearch_json_decl(r#""vector": ["#));
+    assert!(!is_pagefind_json_decl(r#""vector": ["#));
+    assert!(is_instant_meilisearch_json_decl(r#""vector": ["#));
+    assert!(is_instant_meilisearch_json_decl(r#""vector": [,"#));
+    assert!(is_instant_meilisearch_json_decl(r#""vector": [ // c"#));
+    assert!(!is_instant_meilisearch_json_decl(r#""vector": {"#));
+    assert!(!is_instant_meilisearch_json_decl(r#""vector": true"#));
+    assert!(!is_instant_meilisearch_json_decl(r#""vector": "x""#));
+    assert!(!is_instant_meilisearch_json_decl(r#""Vector": ["#));
+    assert!(!is_meilisearch_json_decl(r#""federationOptions": {"#));
+    assert!(!is_pagefind_json_decl(r#""federationOptions": {"#));
+    assert!(is_instant_meilisearch_json_decl(
+        r#""federationOptions": {"#
+    ));
+    assert!(is_instant_meilisearch_json_decl(
+        r#""federationOptions": {,"#
+    ));
+    assert!(is_instant_meilisearch_json_decl(
+        r#""federationOptions": { // c"#
+    ));
+    assert!(!is_instant_meilisearch_json_decl(
+        r#""federationOptions": ["#
+    ));
+    assert!(!is_instant_meilisearch_json_decl(
+        r#""federationOptions": true"#
+    ));
+    assert!(!is_instant_meilisearch_json_decl(
+        r#""federationOptions": "x""#
+    ));
+    assert!(!is_instant_meilisearch_json_decl(
+        r#""FederationOptions": {"#
+    ));
     assert!(!is_instant_meilisearch_json_decl(
         r#""additionalSearchParameters": {"#
     ));
@@ -51884,6 +52030,14 @@ fn instant_meilisearch_json_keys_count() {
     assert!(line_is_func_like(r#""attributesToCrop": ["#));
     assert!(line_is_func_like(r#""showMatchesPosition": true"#));
     assert!(line_is_func_like(r#""hybrid": {"#));
+    assert!(line_is_func_like(r#""showRankingScoreDetails": true"#));
+    assert!(line_is_func_like(r#""retrieveVectors": true"#));
+    assert!(line_is_func_like(r#""locales": ["#));
+    assert!(line_is_func_like(r#""embedder": "default""#));
+    assert!(line_is_func_like(r#""semanticRatio": 0.5"#));
+    assert!(line_is_func_like(r#""indexUid": "movies""#));
+    assert!(line_is_func_like(r#""vector": ["#));
+    assert!(line_is_func_like(r#""federationOptions": {"#));
     assert!(!is_instant_meilisearch_json_decl(r#""search_settings": {"#));
     assert!(is_searchkit_json_decl(r#""search_settings": {"#));
     assert!(!is_instant_meilisearch_json_decl(

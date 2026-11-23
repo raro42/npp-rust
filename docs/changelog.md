@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.967] — 2026-11-23
+
+View:
+
+- **Function List** lists Instant Meilisearch (`@meilisearch/instant-meilisearch`) `meiliSearchParams` / multi-search JSON keys: `"showRankingScoreDetails": true` / `false`, `"retrieveVectors": true` / `false`, `"locales": [`, `"embedder": "…"`, `"semanticRatio": 0` / `0.5` / `1`, `"indexUid": "…"`, `"vector": [`, `"federationOptions": {`. Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing `:` stay out. Empty strings / wrong case / plural misspellings / wrong value shapes stay out. Existing Instant Meilisearch keys (`httpClient`, `cropMarker`, `cropLength`, `attributesToCrop`, `showMatchesPosition`, `hybrid`, …) unchanged. Generic `"host"` / `"apiKey"` / `"searchClient"` stay out of Instant Meilisearch. Neighbouring search JSON families stay out of Instant Meilisearch for these keys. Bool keys only match `true` / `false`. String `"embedder"` / `"indexUid"` require a non-empty quoted string. Numeric `"semanticRatio"` allows a simple decimal (no exponent). Array `"locales"` / `"vector"` require `[`. Object `"federationOptions"` requires `{`.
+
 ## [0.3.966] — 2026-11-23
 
 View:
