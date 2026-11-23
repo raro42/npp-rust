@@ -38508,7 +38508,13 @@ fn orama_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool {
 /// `"keyboard_key_alt": "…"`, `"keyboard_key_win": "…"`,
 /// `"keyboard_key_esc": "…"`,
 /// Component UI results `"hideSubResults": true` / `false`,
-/// `"maxSubResults": 0` / `3`, `"linkTarget": "…"`. Optional
+/// `"maxSubResults": 0` / `3`, `"linkTarget": "…"`, Pagefind CLI
+/// `pagefind.json` / `pagefind.yml` keys `"output_subdir": "…"`,
+/// `"output_path": "…"`, `"root_selector": "…"`,
+/// `"exclude_selectors": [`, `"include_characters": "…"`,
+/// `"max_fragments": 0` / `1000`, `"force_language": "…"`,
+/// `"keep_index_url": true` / `false`, `"write_playground": true` /
+/// `false`. Optional
 /// trailing `,` and `//` / `/*` comment. Incomplete quotes / missing
 /// `:` stay out. Generic `"$schema"` / `"name"` / `"id"` / `"q"` /
 /// `"query"` / `"url"` / `"content"` / `"excerpt"` / `"filters"` /
@@ -38516,7 +38522,8 @@ fn orama_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool {
 /// `"word_count"` / `"basePath"` / `"baseUrl"` / `"language"` /
 /// `"excerptLength"` / `"raw_content"` / `"raw_url"` / `"element"` /
 /// `"placeholder"` / `"loading"` / `"comments"` / `"direction"` /
-/// `"strings"` / `"maxResults"` /
+/// `"strings"` / `"maxResults"` / `"site"` / `"serve"` / `"glob"` /
+/// `"verbose"` / `"quiet"` / `"silent"` / `"logfile"` /
 /// Orama
 /// `"searchableProperties"` /
 /// `"searchablePropertiesWithTypes"` / `"tokenOccurrences"` /
@@ -38556,10 +38563,13 @@ fn orama_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool {
 /// `"exclude_html_selector_override"` / `"frontmatter_handling_override"` /
 /// prettier `"printWidth"` / karma `"basePath"` stay out. String
 /// `"highlightParam"` / `"bundlePath"` / `"excerptEllipsis"` /
-/// `"metaCacheTag"` / `"thanks_to"` / `"linkTarget"` / UI translation
+/// `"metaCacheTag"` / `"thanks_to"` / `"linkTarget"` /
+/// `"output_subdir"` / `"output_path"` / `"root_selector"` /
+/// `"include_characters"` / `"force_language"` / UI translation
 /// string keys require a non-empty quoted string. Callback
 /// `"processTerm"` / `"processResult"` require `{`. Object `"ranking"` /
-/// `"metaWeights"` require `{` (Vespa may also match `"ranking"`). Bool
+/// `"metaWeights"` require `{` (Vespa may also match `"ranking"`). Array
+/// `"exclude_selectors"` requires `[`. Bool
 /// keys only match `true` / `false`. Ranking float keys accept `0` /
 /// `1.0` / `0.75` (reject leading zeros / trailing `.`). Other numeric
 /// keys reject leading zeros beyond `0`.
@@ -38653,6 +38663,15 @@ fn pagefind_json_key_ok(key: &str) -> bool {
             | "hideSubResults"
             | "maxSubResults"
             | "linkTarget"
+            | "output_subdir"
+            | "output_path"
+            | "root_selector"
+            | "exclude_selectors"
+            | "include_characters"
+            | "max_fragments"
+            | "force_language"
+            | "keep_index_url"
+            | "write_playground"
     )
 }
 
@@ -38681,7 +38700,11 @@ fn pagefind_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool {
         b'[' => {
             if !matches!(
                 key,
-                "weighted_locations" | "sub_results" | "openFilters" | "mergeIndex"
+                "weighted_locations"
+                    | "sub_results"
+                    | "openFilters"
+                    | "mergeIndex"
+                    | "exclude_selectors"
             ) {
                 return false;
             }
@@ -38724,6 +38747,11 @@ fn pagefind_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool {
                     | "keyboard_key_win"
                     | "keyboard_key_esc"
                     | "linkTarget"
+                    | "output_subdir"
+                    | "output_path"
+                    | "root_selector"
+                    | "include_characters"
+                    | "force_language"
             ) {
                 return false;
             }
@@ -38807,6 +38835,8 @@ fn pagefind_json_bool_and_tail_ok(key: &str, after_colon: &str) -> bool {
             | "preload"
             | "faceted"
             | "hideSubResults"
+            | "keep_index_url"
+            | "write_playground"
     ) {
         return false;
     }
@@ -38828,6 +38858,7 @@ fn pagefind_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool {
             | "pageSize"
             | "debounceTimeoutMs"
             | "maxSubResults"
+            | "max_fragments"
     ) {
         return false;
     }

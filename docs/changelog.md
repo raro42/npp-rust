@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.956] — 2026-11-23
+
+View:
+
+- **Function List** lists Pagefind CLI `pagefind.json` / `pagefind.yml` config JSON keys: `"output_subdir": "…"`, `"output_path": "…"`, `"root_selector": "…"`, `"exclude_selectors": [`, `"include_characters": "…"`, `"max_fragments": 0` / `1000`, `"force_language": "…"`, `"keep_index_url": true` / `false`, `"write_playground": true` / `false`. Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing `:` stay out. Empty strings / wrong case / plural misspellings / wrong value shapes stay out. Existing Pagefind UI / search / index / ranking / translation string keys unchanged. Generic `"site"` / `"serve"` / `"glob"` / `"verbose"` / `"quiet"` / `"silent"` / `"logfile"` / `"placeholder"` / `"loading"` / `"element"` stay out of Pagefind. Neighbouring search JSON families stay out of Pagefind for these keys. String CLI keys require a non-empty quoted string. Array `"exclude_selectors"` requires `[`. Bool keys only match `true` / `false`. Numeric `"max_fragments"` rejects leading zeros beyond `0`.
+
 ## [0.3.955] — 2026-11-23
 
 View:
