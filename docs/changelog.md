@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.951] — 2026-11-23
+
+View:
+
+- **Function List** lists Pagefind ranking nested JSON keys: `"termFrequency": 0` / `1.0`, `"termSimilarity": 0` / `1.0`, `"pageLength": 0` / `0.75`, `"termSaturation": 0` / `1.4`, `"diacriticSimilarity": 0` / `0.8`, `"metaWeights": {`. Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing `:` stay out. Wrong case / plural misspellings / wrong value shapes stay out. Existing Pagefind UI / search / index keys (`ranking`, `exactDiacritics`, `metaCacheTag`, `noWorker`, `preload`, `faceted`, …) unchanged. `"element"` / `"excerptLength"` / `"baseUrl"` / `"basePath"` / `"language"` stay out of Pagefind (generic / Coveo / karma). Neighbouring search JSON families stay out of Pagefind for these keys. Ranking float keys accept integers or decimals (reject leading zeros / trailing `.`). Object `"metaWeights"` requires `{`.
+
 ## [0.3.950] — 2026-11-23
 
 View:

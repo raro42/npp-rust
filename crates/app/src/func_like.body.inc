@@ -38488,7 +38488,10 @@ fn orama_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool {
 /// `"excerptEllipsis": "…"`, `"ranking": {`,
 /// `"exactDiacritics": true` / `false`, `"metaCacheTag": "…"`,
 /// `"noWorker": true` / `false`, `"preload": true` / `false`,
-/// `"faceted": true` / `false`. Optional
+/// `"faceted": true` / `false`, ranking nested
+/// `"termFrequency": 0` / `1.0`, `"termSimilarity": 0` / `1.0`,
+/// `"pageLength": 0` / `0.75`, `"termSaturation": 0` / `1.4`,
+/// `"diacriticSimilarity": 0` / `0.8`, `"metaWeights": {`. Optional
 /// trailing `,` and `//` / `/*` comment. Incomplete quotes / missing
 /// `:` stay out. Generic `"$schema"` / `"name"` / `"id"` / `"q"` /
 /// `"query"` / `"url"` / `"content"` / `"excerpt"` / `"filters"` /
@@ -38535,9 +38538,11 @@ fn orama_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool {
 /// prettier `"printWidth"` / karma `"basePath"` stay out. String
 /// `"highlightParam"` / `"bundlePath"` / `"excerptEllipsis"` /
 /// `"metaCacheTag"` require a non-empty quoted string. Callback
-/// `"processTerm"` / `"processResult"` require `{`. Object `"ranking"`
-/// requires `{` (Vespa may also match). Bool keys only match `true` /
-/// `false`. Numeric keys reject leading zeros beyond `0`.
+/// `"processTerm"` / `"processResult"` require `{`. Object `"ranking"` /
+/// `"metaWeights"` require `{` (Vespa may also match `"ranking"`). Bool
+/// keys only match `true` / `false`. Ranking float keys accept `0` /
+/// `1.0` / `0.75` (reject leading zeros / trailing `.`). Other numeric
+/// keys reject leading zeros beyond `0`.
 fn is_pagefind_json_decl(s: &str) -> bool {
     let s = s.trim_start();
     let Some(rest) = s.strip_prefix('"') else {
@@ -38590,6 +38595,12 @@ fn pagefind_json_key_ok(key: &str) -> bool {
             | "noWorker"
             | "preload"
             | "faceted"
+            | "termFrequency"
+            | "termSimilarity"
+            | "pageLength"
+            | "termSaturation"
+            | "diacriticSimilarity"
+            | "metaWeights"
     )
 }
 
@@ -38609,6 +38620,7 @@ fn pagefind_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool {
                     | "processTerm"
                     | "processResult"
                     | "ranking"
+                    | "metaWeights"
             ) {
                 return false;
             }
@@ -38633,9 +38645,55 @@ fn pagefind_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool {
             pagefind_json_nonempty_string_and_tail_ok(after_colon)
         }
         b't' | b'f' => pagefind_json_bool_and_tail_ok(key, after_colon),
-        b'0'..=b'9' => pagefind_json_uint_and_tail_ok(key, after_colon),
+        b'0'..=b'9' => {
+            if pagefind_json_ranking_float_key_ok(key) {
+                pagefind_json_float_and_tail_ok(after_colon)
+            } else {
+                pagefind_json_uint_and_tail_ok(key, after_colon)
+            }
+        }
         _ => false,
     }
+}
+
+fn pagefind_json_ranking_float_key_ok(key: &str) -> bool {
+    matches!(
+        key,
+        "termFrequency"
+            | "termSimilarity"
+            | "pageLength"
+            | "termSaturation"
+            | "diacriticSimilarity"
+    )
+}
+
+fn pagefind_json_float_and_tail_ok(after_colon: &str) -> bool {
+    let bytes = after_colon.as_bytes();
+    let mut i = 0usize;
+    if i >= bytes.len() || !bytes[i].is_ascii_digit() {
+        return false;
+    }
+    if bytes[i] == b'0' {
+        i += 1;
+        if i < bytes.len() && bytes[i].is_ascii_digit() {
+            return false;
+        }
+    } else {
+        while i < bytes.len() && bytes[i].is_ascii_digit() {
+            i += 1;
+        }
+    }
+    if i < bytes.len() && bytes[i] == b'.' {
+        i += 1;
+        let frac_start = i;
+        while i < bytes.len() && bytes[i].is_ascii_digit() {
+            i += 1;
+        }
+        if i == frac_start || i - frac_start > 12 {
+            return false;
+        }
+    }
+    package_json_tail_ok(&after_colon[i..])
 }
 
 fn pagefind_json_nonempty_string_and_tail_ok(after_colon: &str) -> bool {

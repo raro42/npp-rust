@@ -1,3 +1,5 @@
+009 keep: Function List Pagefind ranking termFrequency/termSimilarity/pageLength/termSaturation/diacriticSimilarity/metaWeights (v0.3.951)
+
 009 keep: Function List Pagefind Component UI preload/faceted (v0.3.950)
 
 009 keep: Function List Pagefind ranking/exactDiacritics/metaCacheTag/noWorker (v0.3.949)
