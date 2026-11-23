@@ -1602,3 +1602,5 @@
 009 keep: Function List Instant Meilisearch httpClient/cropMarker/cropLength/attributesToCrop/showMatchesPosition/hybrid (v0.3.966)
 
 009 keep: Function List Meilisearch embedders/localizedAttributes/facetSearch/prefixSearch (v0.3.970)
+
+009 keep: Function List Meilisearch chat/documentTemplate/documentTemplateMaxBytes (v0.3.971)
