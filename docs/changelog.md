@@ -1,5 +1,12 @@
 ## [Unreleased]
 
+## [0.3.969] — 2026-11-23
+
+View:
+
+- **Function List** lists Meilisearch index settings JSON keys: `"searchableAttributes": [`, `"separatorTokens": [`, `"nonSeparatorTokens": [`, `"dictionary": [`, `"distinctAttribute": "…"`, `"typoTolerance": {`, `"pagination": {`, `"faceting": {`. Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing `:` stay out. Empty strings / wrong case / plural misspellings / wrong value shapes stay out. Existing Meilisearch keys (`processingTimeMs`, `estimatedTotalHits`, `exhaustiveNbHits`, `nbHits`, `hitsPerPage`, `facetDistribution`, `facetStats`, `exhaustiveFacetsCount`, `rankingScoreThreshold`, `showRankingScore`, `matchingStrategy`, `attributesToSearchOn`, `filterableAttributes`, `sortableAttributes`, `rankingRules`, `displayedAttributes`, `stopWords`, `synonyms`, `proximityPrecision`, `searchCutoffMs`, …) unchanged. Generic `"filter"` / `"sort"` / `"facets"` / `"limit"` / `"offset"` / `"page"` stay out. Neighbouring search JSON families stay out of Meilisearch for these keys. Array index-setting keys require `[`. Object `"typoTolerance"` / `"pagination"` / `"faceting"` require `{` (Algolia bool/string `"typoTolerance"` / string `"dictionary"` stay out of this scanner). String `"distinctAttribute"` requires a non-empty quoted string.
+
+
 ## [0.3.968] — 2026-11-23
 
 View:

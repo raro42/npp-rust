@@ -30666,7 +30666,7 @@ fn elasticsearch_json_bool_and_tail_ok(after_colon: &str) -> bool {
 /// `"processingTimeMs"` / `"estimatedTotalHits"` / `"exhaustiveNbHits"` /
 /// `"nbHits"` / `"hitsPerPage"` / `"facetDistribution"` / `"facetStats"` /
 /// `"exhaustiveFacetsCount"` / `"rankingScoreThreshold"` /
-/// `"showRankingScore"` / `"matchingStrategy"` / `"attributesToSearchOn"` / `"filterableAttributes"` / `"sortableAttributes"` / `"rankingRules"` / `"displayedAttributes"` / `"stopWords"` / `"synonyms"` / `"proximityPrecision"` / `"searchCutoffMs"` /
+/// `"showRankingScore"` / `"matchingStrategy"` / `"attributesToSearchOn"` / `"filterableAttributes"` / `"sortableAttributes"` / `"rankingRules"` / `"displayedAttributes"` / `"stopWords"` / `"synonyms"` / `"proximityPrecision"` / `"searchCutoffMs"` / `"searchableAttributes"` / `"separatorTokens"` / `"nonSeparatorTokens"` / `"dictionary"` / `"distinctAttribute"` / `"typoTolerance"` / `"pagination"` / `"faceting"` /
 /// Grafana alerting `"noDataState"` / `"execErrState"` / `"datasourceUid"` /
 /// `"folderUID"` / `"relativeTimeRange"` / `"grafana_alert"` /
 /// `"contactPoints"` / `"muteTimes"` / `"isPaused"` / Grafana
@@ -30810,7 +30810,11 @@ fn solr_json_bool_and_tail_ok(after_colon: &str) -> bool {
 /// `"filterableAttributes": [`, `"sortableAttributes": [`,
 /// `"rankingRules": [`, `"displayedAttributes": [`, `"stopWords": [`,
 /// `"synonyms": {`, `"proximityPrecision": "byWord"` / `"byAttribute"`,
-/// `"searchCutoffMs": 0` / `50`.
+/// `"searchCutoffMs": 0` / `50`,
+/// `"searchableAttributes": [`, `"separatorTokens": [`,
+/// `"nonSeparatorTokens": [`, `"dictionary": [`,
+/// `"distinctAttribute": "…"`, `"typoTolerance": {`,
+/// `"pagination": {`, `"faceting": {`.
 /// Optional trailing `,` and `//` / `/*` comment. Incomplete quotes /
 /// missing `:` stay out. Generic `"$schema"` / `"name"` / `"id"` /
 /// `"hits": [` / `"query"` / `"limit"` / `"offset"` / `"page"` /
@@ -30868,7 +30872,9 @@ fn solr_json_bool_and_tail_ok(after_colon: &str) -> bool {
 /// `"processingTimeMs"` / `"estimatedTotalHits"` / `"nbHits"` /
 /// `"hitsPerPage"` / `"searchCutoffMs"` reject leading zeros beyond `0`.
 /// `"rankingScoreThreshold"` allows a simple decimal (no exponent). Array
-/// index-setting keys require `[`. Object `"synonyms"` requires `{`.
+/// index-setting keys require `[`. Object `"synonyms"` / `"typoTolerance"` /
+/// `"pagination"` / `"faceting"` require `{`. String `"distinctAttribute"`
+/// requires a non-empty quoted string.
 fn is_meilisearch_json_decl(s: &str) -> bool {
     let s = s.trim_start();
     let Some(rest) = s.strip_prefix('"') else {
@@ -30912,6 +30918,14 @@ fn meilisearch_json_key_ok(key: &str) -> bool {
             | "synonyms"
             | "proximityPrecision"
             | "searchCutoffMs"
+            | "searchableAttributes"
+            | "separatorTokens"
+            | "nonSeparatorTokens"
+            | "dictionary"
+            | "distinctAttribute"
+            | "typoTolerance"
+            | "pagination"
+            | "faceting"
     )
 }
 
@@ -30922,7 +30936,15 @@ fn meilisearch_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool {
     };
     match first {
         b'{' => {
-            if !matches!(key, "facetDistribution" | "facetStats" | "synonyms") {
+            if !matches!(
+                key,
+                "facetDistribution"
+                    | "facetStats"
+                    | "synonyms"
+                    | "typoTolerance"
+                    | "pagination"
+                    | "faceting"
+            ) {
                 return false;
             }
             package_json_tail_ok(&after_colon[1..])
@@ -30936,6 +30958,10 @@ fn meilisearch_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool {
                     | "rankingRules"
                     | "displayedAttributes"
                     | "stopWords"
+                    | "searchableAttributes"
+                    | "separatorTokens"
+                    | "nonSeparatorTokens"
+                    | "dictionary"
             ) {
                 return false;
             }
@@ -30946,6 +30972,8 @@ fn meilisearch_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool {
                 meilisearch_json_matching_strategy_and_tail_ok(after_colon)
             } else if key == "proximityPrecision" {
                 meilisearch_json_proximity_precision_and_tail_ok(after_colon)
+            } else if key == "distinctAttribute" {
+                meilisearch_json_nonempty_string_and_tail_ok(after_colon)
             } else {
                 false
             }
@@ -30983,6 +31011,18 @@ fn meilisearch_json_proximity_precision_and_tail_ok(after_colon: &str) -> bool {
     };
     let value = &rest[..end];
     if !matches!(value, "byWord" | "byAttribute") {
+        return false;
+    }
+    package_json_tail_ok(&rest[end + 1..])
+}
+
+fn meilisearch_json_nonempty_string_and_tail_ok(after_colon: &str) -> bool {
+    let rest = &after_colon[1..];
+    let Some(end) = rest.find('"') else {
+        return false;
+    };
+    let value = &rest[..end];
+    if value.is_empty() || value.contains('\n') {
         return false;
     }
     package_json_tail_ok(&rest[end + 1..])
@@ -31073,7 +31113,11 @@ fn meilisearch_json_bool_and_tail_ok(after_colon: &str) -> bool {
 /// `"attributesToSearchOn"` / `"filterableAttributes"` /
 /// `"sortableAttributes"` / `"rankingRules"` /
 /// `"displayedAttributes"` / `"stopWords"` / `"synonyms"` /
-/// `"proximityPrecision"` / `"searchCutoffMs"` / Algolia
+/// `"proximityPrecision"` / `"searchCutoffMs"` /
+/// `"searchableAttributes"` / `"separatorTokens"` /
+/// `"nonSeparatorTokens"` / `"dictionary"` /
+/// `"distinctAttribute"` / `"typoTolerance"` /
+/// `"pagination"` / `"faceting"` / Algolia
 /// `"processingTimeMS"` /
 /// `"nbPages"` / `"serverTimeMS"` / `"queryID"` / `"indexUsed"` /
 /// `"aroundLatLng"` / `"highlightPreTag"` / `"facets_stats"` /
@@ -31258,7 +31302,7 @@ fn typesense_json_bool_and_tail_ok(after_colon: &str) -> bool {
 /// `"hitsPerPage"` / Meilisearch `"processingTimeMs"` /
 /// `"estimatedTotalHits"` / `"exhaustiveNbHits"` / `"facetDistribution"` /
 /// `"facetStats"` / `"exhaustiveFacetsCount"` / `"rankingScoreThreshold"` /
-/// `"showRankingScore"` / `"matchingStrategy"` / `"attributesToSearchOn"` / `"filterableAttributes"` / `"sortableAttributes"` / `"rankingRules"` / `"displayedAttributes"` / `"stopWords"` / `"synonyms"` / `"proximityPrecision"` / `"searchCutoffMs"` /
+/// `"showRankingScore"` / `"matchingStrategy"` / `"attributesToSearchOn"` / `"filterableAttributes"` / `"sortableAttributes"` / `"rankingRules"` / `"displayedAttributes"` / `"stopWords"` / `"synonyms"` / `"proximityPrecision"` / `"searchCutoffMs"` / `"searchableAttributes"` / `"separatorTokens"` / `"nonSeparatorTokens"` / `"dictionary"` / `"distinctAttribute"` / `"typoTolerance"` / `"pagination"` / `"faceting"` /
 /// Typesense `"search_time_ms"` / `"out_of"` / `"search_cutoff"` /
 /// `"grouped_hits"` / `"facet_counts": [` / `"default_sorting_field"` /
 /// `"enable_nested_fields"` / `"token_separators"` / `"symbols_to_index"` /
@@ -31461,7 +31505,7 @@ fn algolia_json_bool_and_tail_ok(after_colon: &str) -> bool {
 /// `"estimatedTotalHits"` / `"exhaustiveNbHits"` / `"nbHits"` /
 /// `"hitsPerPage"` / `"facetDistribution"` / `"facetStats"` /
 /// `"exhaustiveFacetsCount"` / `"rankingScoreThreshold"` /
-/// `"showRankingScore"` / `"matchingStrategy"` / `"attributesToSearchOn"` / `"filterableAttributes"` / `"sortableAttributes"` / `"rankingRules"` / `"displayedAttributes"` / `"stopWords"` / `"synonyms"` / `"proximityPrecision"` / `"searchCutoffMs"` /
+/// `"showRankingScore"` / `"matchingStrategy"` / `"attributesToSearchOn"` / `"filterableAttributes"` / `"sortableAttributes"` / `"rankingRules"` / `"displayedAttributes"` / `"stopWords"` / `"synonyms"` / `"proximityPrecision"` / `"searchCutoffMs"` / `"searchableAttributes"` / `"separatorTokens"` / `"nonSeparatorTokens"` / `"dictionary"` / `"distinctAttribute"` / `"typoTolerance"` / `"pagination"` / `"faceting"` /
 /// Typesense `"search_time_ms"` / `"out_of"` / `"search_cutoff"` /
 /// `"grouped_hits"` / `"facet_counts": [` / `"default_sorting_field"` /
 /// `"enable_nested_fields"` / `"token_separators"` / `"symbols_to_index"` /
@@ -31696,7 +31740,7 @@ fn qdrant_json_bool_and_tail_ok(after_colon: &str) -> bool {
 /// `"estimatedTotalHits"` / `"exhaustiveNbHits"` / `"nbHits"` /
 /// `"hitsPerPage"` / `"facetDistribution"` / `"facetStats"` /
 /// `"exhaustiveFacetsCount"` / `"rankingScoreThreshold"` /
-/// `"showRankingScore"` / `"matchingStrategy"` / `"attributesToSearchOn"` / `"filterableAttributes"` / `"sortableAttributes"` / `"rankingRules"` / `"displayedAttributes"` / `"stopWords"` / `"synonyms"` / `"proximityPrecision"` / `"searchCutoffMs"` /
+/// `"showRankingScore"` / `"matchingStrategy"` / `"attributesToSearchOn"` / `"filterableAttributes"` / `"sortableAttributes"` / `"rankingRules"` / `"displayedAttributes"` / `"stopWords"` / `"synonyms"` / `"proximityPrecision"` / `"searchCutoffMs"` / `"searchableAttributes"` / `"separatorTokens"` / `"nonSeparatorTokens"` / `"dictionary"` / `"distinctAttribute"` / `"typoTolerance"` / `"pagination"` / `"faceting"` /
 /// Typesense `"search_time_ms"` / `"out_of"` / `"search_cutoff"` /
 /// `"grouped_hits"` / `"facet_counts": [` / `"default_sorting_field"` /
 /// `"enable_nested_fields"` / `"token_separators"` / `"symbols_to_index"` /
@@ -31928,7 +31972,7 @@ fn weaviate_json_bool_and_tail_ok(after_colon: &str) -> bool {
 /// `"processingTimeMs"` / `"estimatedTotalHits"` / `"exhaustiveNbHits"` /
 /// `"nbHits"` / `"hitsPerPage"` / `"facetDistribution"` / `"facetStats"` /
 /// `"exhaustiveFacetsCount"` / `"rankingScoreThreshold"` /
-/// `"showRankingScore"` / `"matchingStrategy"` / `"attributesToSearchOn"` / `"filterableAttributes"` / `"sortableAttributes"` / `"rankingRules"` / `"displayedAttributes"` / `"stopWords"` / `"synonyms"` / `"proximityPrecision"` / `"searchCutoffMs"` /
+/// `"showRankingScore"` / `"matchingStrategy"` / `"attributesToSearchOn"` / `"filterableAttributes"` / `"sortableAttributes"` / `"rankingRules"` / `"displayedAttributes"` / `"stopWords"` / `"synonyms"` / `"proximityPrecision"` / `"searchCutoffMs"` / `"searchableAttributes"` / `"separatorTokens"` / `"nonSeparatorTokens"` / `"dictionary"` / `"distinctAttribute"` / `"typoTolerance"` / `"pagination"` / `"faceting"` /
 /// Typesense `"search_time_ms"` / `"out_of"` / `"search_cutoff"` /
 /// `"grouped_hits"` / `"facet_counts": [` / `"default_sorting_field"` /
 /// `"enable_nested_fields"` / `"token_separators"` / `"symbols_to_index"` /
@@ -32173,7 +32217,7 @@ fn pinecone_json_bool_and_tail_ok(after_colon: &str) -> bool {
 /// `"estimatedTotalHits"` / `"exhaustiveNbHits"` / `"nbHits"` /
 /// `"hitsPerPage"` / `"facetDistribution"` / `"facetStats"` /
 /// `"exhaustiveFacetsCount"` / `"rankingScoreThreshold"` /
-/// `"showRankingScore"` / `"matchingStrategy"` / `"attributesToSearchOn"` / `"filterableAttributes"` / `"sortableAttributes"` / `"rankingRules"` / `"displayedAttributes"` / `"stopWords"` / `"synonyms"` / `"proximityPrecision"` / `"searchCutoffMs"` /
+/// `"showRankingScore"` / `"matchingStrategy"` / `"attributesToSearchOn"` / `"filterableAttributes"` / `"sortableAttributes"` / `"rankingRules"` / `"displayedAttributes"` / `"stopWords"` / `"synonyms"` / `"proximityPrecision"` / `"searchCutoffMs"` / `"searchableAttributes"` / `"separatorTokens"` / `"nonSeparatorTokens"` / `"dictionary"` / `"distinctAttribute"` / `"typoTolerance"` / `"pagination"` / `"faceting"` /
 /// Typesense `"search_time_ms"` / `"out_of"` / `"search_cutoff"` /
 /// `"grouped_hits"` / `"facet_counts": [` / `"default_sorting_field"` /
 /// `"enable_nested_fields"` / `"token_separators"` / `"symbols_to_index"` /
@@ -32374,7 +32418,7 @@ fn chroma_json_bool_and_tail_ok(after_colon: &str) -> bool {
 /// `"estimatedTotalHits"` / `"exhaustiveNbHits"` / `"nbHits"` /
 /// `"hitsPerPage"` / `"facetDistribution"` / `"facetStats"` /
 /// `"exhaustiveFacetsCount"` / `"rankingScoreThreshold"` /
-/// `"showRankingScore"` / `"matchingStrategy"` / `"attributesToSearchOn"` / `"filterableAttributes"` / `"sortableAttributes"` / `"rankingRules"` / `"displayedAttributes"` / `"stopWords"` / `"synonyms"` / `"proximityPrecision"` / `"searchCutoffMs"` /
+/// `"showRankingScore"` / `"matchingStrategy"` / `"attributesToSearchOn"` / `"filterableAttributes"` / `"sortableAttributes"` / `"rankingRules"` / `"displayedAttributes"` / `"stopWords"` / `"synonyms"` / `"proximityPrecision"` / `"searchCutoffMs"` / `"searchableAttributes"` / `"separatorTokens"` / `"nonSeparatorTokens"` / `"dictionary"` / `"distinctAttribute"` / `"typoTolerance"` / `"pagination"` / `"faceting"` /
 /// Typesense `"search_time_ms"` / `"out_of"` / `"search_cutoff"` /
 /// `"grouped_hits"` / `"facet_counts": [` / `"default_sorting_field"` /
 /// `"enable_nested_fields"` / `"token_separators"` / `"symbols_to_index"` /
