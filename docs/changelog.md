@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.960] — 2026-11-23
+
+View:
+
+- **Function List** lists Stork Search v2 UI / register JSON keys: `"forceRefreshIndex": true` / `false`, `"numberOfExcerpts": 0` / `5`, `"strings": {`, `"generateMessage": {`, `"queryTooShort": "…"`. Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing `:` stay out. Empty strings / wrong case / plural misspellings / wrong value shapes stay out. Existing Stork keys (`showCloseButton`, `forceOverwrite`, `resultNoun`, `showProgress`, `srt_config`, …) unchanged. Generic `"site"` / `"files"` / `"title"` / `"base_directory"` / `"url_prefix"` / `"html_selector"` / `"stemming"` / `"debug"` / `"filename"` stay out of Stork. Coveo `"numberOfResults"` / `"excerptLength"` stay out of Stork. Neighbouring search JSON families stay out of Stork for these keys. Bool `"forceRefreshIndex"` only matches `true` / `false`. Numeric `"numberOfExcerpts"` rejects leading zeros beyond `0`. Object `"strings"` / callback `"generateMessage"` require `{`. String `"queryTooShort"` requires a non-empty quoted string.
+
 ## [0.3.959] — 2026-11-23
 
 View:

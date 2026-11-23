@@ -45356,6 +45356,16 @@ fn pagefind_json_keys_smoke() {
     assert!(is_stork_json_decl(r#""forceOverwrite": false"#));
     assert!(!is_pagefind_json_decl(r#""resultNoun": {"#));
     assert!(is_stork_json_decl(r#""resultNoun": {"#));
+    assert!(!is_pagefind_json_decl(r#""forceRefreshIndex": true"#));
+    assert!(is_stork_json_decl(r#""forceRefreshIndex": true"#));
+    assert!(!is_pagefind_json_decl(r#""numberOfExcerpts": 5"#));
+    assert!(is_stork_json_decl(r#""numberOfExcerpts": 5"#));
+    assert!(!is_pagefind_json_decl(r#""strings": {"#));
+    assert!(is_stork_json_decl(r#""strings": {"#));
+    assert!(!is_pagefind_json_decl(r#""generateMessage": {"#));
+    assert!(is_stork_json_decl(r#""generateMessage": {"#));
+    assert!(!is_pagefind_json_decl(r#""queryTooShort": "Searching...""#));
+    assert!(is_stork_json_decl(r#""queryTooShort": "Searching...""#));
 }
 
 #[test]
@@ -46507,6 +46517,16 @@ fn pagefind_json_keys_count() {
     assert!(is_stork_json_decl(r#""forceOverwrite": false"#));
     assert!(!is_pagefind_json_decl(r#""resultNoun": {"#));
     assert!(is_stork_json_decl(r#""resultNoun": {"#));
+    assert!(!is_pagefind_json_decl(r#""forceRefreshIndex": true"#));
+    assert!(is_stork_json_decl(r#""forceRefreshIndex": true"#));
+    assert!(!is_pagefind_json_decl(r#""numberOfExcerpts": 5"#));
+    assert!(is_stork_json_decl(r#""numberOfExcerpts": 5"#));
+    assert!(!is_pagefind_json_decl(r#""strings": {"#));
+    assert!(is_stork_json_decl(r#""strings": {"#));
+    assert!(!is_pagefind_json_decl(r#""generateMessage": {"#));
+    assert!(is_stork_json_decl(r#""generateMessage": {"#));
+    assert!(!is_pagefind_json_decl(r#""queryTooShort": "Searching...""#));
+    assert!(is_stork_json_decl(r#""queryTooShort": "Searching...""#));
 }
 
 #[test]
@@ -46558,6 +46578,11 @@ fn stork_json_keys_smoke() {
     assert!(is_stork_json_decl(r#""showCloseButton": true"#));
     assert!(is_stork_json_decl(r#""forceOverwrite": false"#));
     assert!(is_stork_json_decl(r#""resultNoun": {"#));
+    assert!(is_stork_json_decl(r#""forceRefreshIndex": true"#));
+    assert!(is_stork_json_decl(r#""numberOfExcerpts": 5"#));
+    assert!(is_stork_json_decl(r#""strings": {"#));
+    assert!(is_stork_json_decl(r#""generateMessage": {"#));
+    assert!(is_stork_json_decl(r#""queryTooShort": "Searching...""#));
     assert!(!is_stork_json_decl(r#""unfilteredResultCount": 42"#));
     assert!(is_pagefind_json_decl(r#""unfilteredResultCount": 42"#));
     assert!(!is_stork_json_decl(r#""searchableProperties": ["#));
@@ -46903,6 +46928,42 @@ fn stork_json_keys_count() {
     assert!(!is_stork_json_decl(r#""resultNoun": ["#));
     assert!(!is_stork_json_decl(r#""resultNoun": "file""#));
     assert!(!is_stork_json_decl(r#""resultNouns": {"#));
+    assert!(is_stork_json_decl(r#""forceRefreshIndex": true"#));
+    assert!(is_stork_json_decl(r#""forceRefreshIndex": false"#));
+    assert!(is_stork_json_decl(r#""forceRefreshIndex": true,"#));
+    assert!(is_stork_json_decl(r#""forceRefreshIndex": false // c"#));
+    assert!(!is_stork_json_decl(r#""forceRefreshIndex": 1"#));
+    assert!(!is_stork_json_decl(r#""forceRefreshIndex": "true""#));
+    assert!(!is_stork_json_decl(r#""forceRefreshIndexes": true"#));
+    assert!(is_stork_json_decl(r#""numberOfExcerpts": 0"#));
+    assert!(is_stork_json_decl(r#""numberOfExcerpts": 5"#));
+    assert!(is_stork_json_decl(r#""numberOfExcerpts": 5,"#));
+    assert!(is_stork_json_decl(r#""numberOfExcerpts": 5 // c"#));
+    assert!(!is_stork_json_decl(r#""numberOfExcerpts": 05"#));
+    assert!(!is_stork_json_decl(r#""numberOfExcerpts": true"#));
+    assert!(!is_stork_json_decl(r#""numberOfExcerpts": "5""#));
+    assert!(!is_stork_json_decl(r#""numberOfExcerptss": 5"#));
+    assert!(is_stork_json_decl(r#""strings": {"#));
+    assert!(is_stork_json_decl(r#""strings": {,"#));
+    assert!(is_stork_json_decl(r#""strings": { // c"#));
+    assert!(!is_stork_json_decl(r#""strings": true"#));
+    assert!(!is_stork_json_decl(r#""strings": ["#));
+    assert!(!is_stork_json_decl(r#""strings": "x""#));
+    assert!(!is_stork_json_decl(r#""stringss": {"#));
+    assert!(is_stork_json_decl(r#""generateMessage": {"#));
+    assert!(is_stork_json_decl(r#""generateMessage": {,"#));
+    assert!(is_stork_json_decl(r#""generateMessage": { // c"#));
+    assert!(!is_stork_json_decl(r#""generateMessage": true"#));
+    assert!(!is_stork_json_decl(r#""generateMessage": ["#));
+    assert!(!is_stork_json_decl(r#""generateMessage": "fn""#));
+    assert!(!is_stork_json_decl(r#""generateMessages": {"#));
+    assert!(is_stork_json_decl(r#""queryTooShort": "Searching...""#));
+    assert!(is_stork_json_decl(r#""queryTooShort": "Searching...","#));
+    assert!(is_stork_json_decl(r#""queryTooShort": "Searching..." // c"#));
+    assert!(!is_stork_json_decl(r#""queryTooShort": """#));
+    assert!(!is_stork_json_decl(r#""queryTooShort": true"#));
+    assert!(!is_stork_json_decl(r#""queryTooShort": {"#));
+    assert!(!is_stork_json_decl(r#""queryTooShorts": "Searching...""#));
     assert!(!is_stork_json_decl(r#""exclude_html_selector""#));
     assert!(!is_stork_json_decl(r#""frontmatter_handling""#));
     assert!(!is_stork_json_decl(r#""save_nearest_node_json""#));
@@ -46943,6 +47004,8 @@ fn stork_json_keys_count() {
     assert!(is_marqo_json_decl(r#""searchableAttributes": ["#));
     assert!(!is_stork_json_decl(r#""excerptLength": 200"#));
     assert!(is_coveo_json_decl(r#""excerptLength": 200"#));
+    assert!(!is_stork_json_decl(r#""numberOfResults": 10"#));
+    assert!(is_coveo_json_decl(r#""numberOfResults": 10"#));
     assert!(!is_stork_json_decl(r#""invertedIndexConfig": {"#));
     assert!(is_weaviate_json_decl(r#""invertedIndexConfig": {"#));
     assert!(!is_stork_json_decl(r#""track_total_hits": true"#));
@@ -46994,6 +47057,11 @@ fn stork_json_keys_count() {
     assert!(line_is_func_like(r#""showCloseButton": true"#));
     assert!(line_is_func_like(r#""forceOverwrite": false"#));
     assert!(line_is_func_like(r#""resultNoun": {"#));
+    assert!(line_is_func_like(r#""forceRefreshIndex": true"#));
+    assert!(line_is_func_like(r#""numberOfExcerpts": 5"#));
+    assert!(line_is_func_like(r#""strings": {"#));
+    assert!(line_is_func_like(r#""generateMessage": {"#));
+    assert!(line_is_func_like(r#""queryTooShort": "Searching...""#));
     assert!(!is_stork_json_decl(r#""maxResultsPerGroup": 5"#));
     assert!(is_docsearch_json_decl(r#""maxResultsPerGroup": 5"#));
     assert!(!is_stork_json_decl(r#""disableUserPersonalization": true"#));
