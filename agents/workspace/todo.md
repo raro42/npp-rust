@@ -1568,3 +1568,5 @@
 009 keep: Function List DocSearch Ask AI searchingText/toolCallResultText/newConversationTitle/newConversationDescription/recentConversationTimestampFallback/askAiResultsTitle/resultsSectionTitle/resultBadgeLabelText (v0.3.943)
 
 009 keep: Function List DocSearch FacetBar defaultValueLabel/facetMenuTriggerAriaLabel/clearAllLabel/facetsAriaLabel/selectedFacetsAriaLabel/clearFacetAriaLabel (v0.3.944)
+
+009 keep: Function List Pagefind UI total_*/results_label/error_search/input_hint/filter_selected_* (v0.3.954)
