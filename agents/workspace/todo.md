@@ -1,3 +1,5 @@
+009 keep: Function List Pagefind CLI output_subdir/output_path/root_selector/exclude_selectors/include_characters/max_fragments/force_language/keep_index_url/write_playground (v0.3.956)
+
 009 keep: Function List Pagefind UI keyboard_* translation keys (v0.3.955)
 
 009 keep: Function List Pagefind thanks_to/hideSubResults/maxSubResults/linkTarget (v0.3.953)
