@@ -7,8 +7,12 @@ cd "$ROOT"
 
 echo "===== daily-clean $(date -u +%Y-%m-%dT%H:%M:%SZ)"
 
-if [[ -d target ]]; then
-  echo "----- cargo clean"
+HOUSEKEEP="${HOME}/backoffice/scripts/rust_target_housekeep.py"
+if [[ -f "$HOUSEKEEP" ]]; then
+  echo "----- rust target housekeep"
+  python3 "$HOUSEKEEP" --only npp --min-bytes 0 || true
+elif [[ -d target ]]; then
+  echo "----- cargo clean (fallback)"
   cargo clean
 fi
 
