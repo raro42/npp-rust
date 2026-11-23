@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.957] — 2026-11-23
+
+View:
+
+- **Function List** lists Stork Search config JSON keys: `"title_boost": "Minimal"` / `"Moderate"` / `"Large"` / `"Ridiculous"`, `"html_selector_override": "…"`, `"stemming_override": "…"`, `"minimum_indexed_substring_length": 0` / `3`, `"minimum_index_ideographic_substring_length": 0` / `1`, `"break_on_file_error": true` / `false`, `"filetype": "PlainText"` / `"SRTSubtitle"` / `"HTML"` / `"Markdown"`, `"timestamp_linking": true` / `false`, `"timestamp_template_string": "…"`, `"timestamp_format": "NumberOfSeconds"`, `"save_nearest_html_id": true` / `false`, `"srt_config": {`. Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing `:` stay out. Empty strings / wrong case / plural misspellings / wrong value shapes stay out. Existing Stork keys (`exclude_html_selector`, `frontmatter_handling`, `excerpts_per_result`, …) unchanged. Generic `"site"` / `"files"` / `"title"` / `"base_directory"` / `"url_prefix"` / `"html_selector"` / `"stemming"` / `"debug"` / `"filename"` stay out of Stork. Neighbouring search JSON families stay out of Stork for these keys. String keys require a non-empty quoted string. Enum keys only match the listed values. Object `"srt_config"` requires `{`. Bool keys only match `true` / `false`. Numeric keys reject leading zeros beyond `0`.
+
 ## [0.3.956] — 2026-11-23
 
 View:

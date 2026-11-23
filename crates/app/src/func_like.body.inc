@@ -38886,7 +38886,17 @@ fn pagefind_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool {
 /// `"displayed_results_count": 0` / `10`, `"excerpt_buffer": 0` / `8`,
 /// `"save_nearest_node_json": true` / `false`,
 /// `"exclude_html_selector_override": "…"`,
-/// `"frontmatter_handling_override": "Omit"` / `"Ignore"` / `"Parse"`.
+/// `"frontmatter_handling_override": "Omit"` / `"Ignore"` / `"Parse"`,
+/// `"title_boost": "Minimal"` / `"Moderate"` / `"Large"` / `"Ridiculous"`,
+/// `"html_selector_override": "…"`, `"stemming_override": "…"`,
+/// `"minimum_indexed_substring_length": 0` / `3`,
+/// `"minimum_index_ideographic_substring_length": 0` / `1`,
+/// `"break_on_file_error": true` / `false`,
+/// `"filetype": "PlainText"` / `"SRTSubtitle"` / `"HTML"` / `"Markdown"`,
+/// `"timestamp_linking": true` / `false`,
+/// `"timestamp_template_string": "…"`,
+/// `"timestamp_format": "NumberOfSeconds"`,
+/// `"save_nearest_html_id": true` / `false`, `"srt_config": {`.
 /// Optional trailing `,` and `//` / `/*` comment. Incomplete quotes /
 /// missing `:` stay out. Generic `"$schema"` / `"name"` / `"id"` /
 /// `"q"` / `"query"` / `"url"` / `"files"` / `"title"` / `"base_directory"` /
@@ -38931,8 +38941,10 @@ fn pagefind_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool {
 /// `"resultBadgeKey"` / `"insights"` / `"initialQuery"` / `"indices"` /
 /// prettier `"printWidth"` / karma `"basePath"` stay out. String keys
 /// require a non-empty quoted string. Enum keys only match
-/// `Ignore` / `Omit` / `Parse`. Bool keys only match `true` / `false`.
-/// Numeric keys reject leading zeros beyond `0`.
+/// `Ignore` / `Omit` / `Parse` / `Minimal` / `Moderate` / `Large` /
+/// `Ridiculous` / `PlainText` / `SRTSubtitle` / `HTML` / `Markdown` /
+/// `NumberOfSeconds`. Object `"srt_config"` requires `{`. Bool keys only
+/// match `true` / `false`. Numeric keys reject leading zeros beyond `0`.
 fn is_stork_json_decl(s: &str) -> bool {
     let s = s.trim_start();
     let Some(rest) = s.strip_prefix('"') else {
@@ -38964,6 +38976,18 @@ fn stork_json_key_ok(key: &str) -> bool {
             | "save_nearest_node_json"
             | "exclude_html_selector_override"
             | "frontmatter_handling_override"
+            | "title_boost"
+            | "html_selector_override"
+            | "stemming_override"
+            | "minimum_indexed_substring_length"
+            | "minimum_index_ideographic_substring_length"
+            | "break_on_file_error"
+            | "filetype"
+            | "timestamp_linking"
+            | "timestamp_template_string"
+            | "timestamp_format"
+            | "save_nearest_html_id"
+            | "srt_config"
     )
 }
 
@@ -38973,6 +38997,12 @@ fn stork_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool {
         return false;
     };
     match first {
+        b'{' => {
+            if key != "srt_config" {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[1..])
+        }
         b'"' => stork_json_string_or_enum_and_tail_ok(key, after_colon),
         b't' | b'f' => stork_json_bool_and_tail_ok(key, after_colon),
         b'0'..=b'9' => stork_json_uint_and_tail_ok(key, after_colon),
@@ -38990,9 +39020,28 @@ fn stork_json_string_or_enum_and_tail_ok(key: &str, after_colon: &str) -> bool {
         return false;
     }
     match key {
-        "exclude_html_selector" | "exclude_html_selector_override" => {}
+        "exclude_html_selector"
+        | "exclude_html_selector_override"
+        | "html_selector_override"
+        | "stemming_override"
+        | "timestamp_template_string" => {}
         "frontmatter_handling" | "frontmatter_handling_override" => {
             if !matches!(value, "Ignore" | "Omit" | "Parse") {
+                return false;
+            }
+        }
+        "title_boost" => {
+            if !matches!(value, "Minimal" | "Moderate" | "Large" | "Ridiculous") {
+                return false;
+            }
+        }
+        "filetype" => {
+            if !matches!(value, "PlainText" | "SRTSubtitle" | "HTML" | "Markdown") {
+                return false;
+            }
+        }
+        "timestamp_format" => {
+            if value != "NumberOfSeconds" {
                 return false;
             }
         }
@@ -39002,7 +39051,13 @@ fn stork_json_string_or_enum_and_tail_ok(key: &str, after_colon: &str) -> bool {
 }
 
 fn stork_json_bool_and_tail_ok(key: &str, after_colon: &str) -> bool {
-    if key != "save_nearest_node_json" {
+    if !matches!(
+        key,
+        "save_nearest_node_json"
+            | "break_on_file_error"
+            | "timestamp_linking"
+            | "save_nearest_html_id"
+    ) {
         return false;
     }
     let rest = if let Some(rest) = after_colon.strip_prefix("true") {
@@ -39018,7 +39073,11 @@ fn stork_json_bool_and_tail_ok(key: &str, after_colon: &str) -> bool {
 fn stork_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool {
     if !matches!(
         key,
-        "excerpts_per_result" | "displayed_results_count" | "excerpt_buffer"
+        "excerpts_per_result"
+            | "displayed_results_count"
+            | "excerpt_buffer"
+            | "minimum_indexed_substring_length"
+            | "minimum_index_ideographic_substring_length"
     ) {
         return false;
     }

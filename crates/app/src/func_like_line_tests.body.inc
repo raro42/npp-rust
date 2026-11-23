@@ -45286,6 +45286,46 @@ fn pagefind_json_keys_smoke() {
     assert!(is_stork_json_decl(
         r#""frontmatter_handling_override": "Parse""#
     ));
+    assert!(!is_pagefind_json_decl(r#""title_boost": "Large""#));
+    assert!(is_stork_json_decl(r#""title_boost": "Large""#));
+    assert!(!is_pagefind_json_decl(r#""html_selector_override": "article""#));
+    assert!(is_stork_json_decl(r#""html_selector_override": "article""#));
+    assert!(!is_pagefind_json_decl(r#""stemming_override": "Dutch""#));
+    assert!(is_stork_json_decl(r#""stemming_override": "Dutch""#));
+    assert!(!is_pagefind_json_decl(
+        r#""minimum_indexed_substring_length": 3"#
+    ));
+    assert!(is_stork_json_decl(
+        r#""minimum_indexed_substring_length": 3"#
+    ));
+    assert!(!is_pagefind_json_decl(
+        r#""minimum_index_ideographic_substring_length": 1"#
+    ));
+    assert!(is_stork_json_decl(
+        r#""minimum_index_ideographic_substring_length": 1"#
+    ));
+    assert!(!is_pagefind_json_decl(r#""break_on_file_error": true"#));
+    assert!(is_stork_json_decl(r#""break_on_file_error": true"#));
+    assert!(!is_pagefind_json_decl(r#""filetype": "Markdown""#));
+    assert!(is_stork_json_decl(r#""filetype": "Markdown""#));
+    assert!(!is_pagefind_json_decl(r#""timestamp_linking": false"#));
+    assert!(is_stork_json_decl(r#""timestamp_linking": false"#));
+    assert!(!is_pagefind_json_decl(
+        r#""timestamp_template_string": "&t={ts}""#
+    ));
+    assert!(is_stork_json_decl(
+        r#""timestamp_template_string": "&t={ts}""#
+    ));
+    assert!(!is_pagefind_json_decl(
+        r#""timestamp_format": "NumberOfSeconds""#
+    ));
+    assert!(is_stork_json_decl(
+        r#""timestamp_format": "NumberOfSeconds""#
+    ));
+    assert!(!is_pagefind_json_decl(r#""save_nearest_html_id": true"#));
+    assert!(is_stork_json_decl(r#""save_nearest_html_id": true"#));
+    assert!(!is_pagefind_json_decl(r#""srt_config": {"#));
+    assert!(is_stork_json_decl(r#""srt_config": {"#));
 }
 
 #[test]
@@ -46367,6 +46407,46 @@ fn pagefind_json_keys_count() {
     assert!(is_stork_json_decl(
         r#""frontmatter_handling_override": "Parse""#
     ));
+    assert!(!is_pagefind_json_decl(r#""title_boost": "Large""#));
+    assert!(is_stork_json_decl(r#""title_boost": "Large""#));
+    assert!(!is_pagefind_json_decl(r#""html_selector_override": "article""#));
+    assert!(is_stork_json_decl(r#""html_selector_override": "article""#));
+    assert!(!is_pagefind_json_decl(r#""stemming_override": "Dutch""#));
+    assert!(is_stork_json_decl(r#""stemming_override": "Dutch""#));
+    assert!(!is_pagefind_json_decl(
+        r#""minimum_indexed_substring_length": 3"#
+    ));
+    assert!(is_stork_json_decl(
+        r#""minimum_indexed_substring_length": 3"#
+    ));
+    assert!(!is_pagefind_json_decl(
+        r#""minimum_index_ideographic_substring_length": 1"#
+    ));
+    assert!(is_stork_json_decl(
+        r#""minimum_index_ideographic_substring_length": 1"#
+    ));
+    assert!(!is_pagefind_json_decl(r#""break_on_file_error": true"#));
+    assert!(is_stork_json_decl(r#""break_on_file_error": true"#));
+    assert!(!is_pagefind_json_decl(r#""filetype": "Markdown""#));
+    assert!(is_stork_json_decl(r#""filetype": "Markdown""#));
+    assert!(!is_pagefind_json_decl(r#""timestamp_linking": false"#));
+    assert!(is_stork_json_decl(r#""timestamp_linking": false"#));
+    assert!(!is_pagefind_json_decl(
+        r#""timestamp_template_string": "&t={ts}""#
+    ));
+    assert!(is_stork_json_decl(
+        r#""timestamp_template_string": "&t={ts}""#
+    ));
+    assert!(!is_pagefind_json_decl(
+        r#""timestamp_format": "NumberOfSeconds""#
+    ));
+    assert!(is_stork_json_decl(
+        r#""timestamp_format": "NumberOfSeconds""#
+    ));
+    assert!(!is_pagefind_json_decl(r#""save_nearest_html_id": true"#));
+    assert!(is_stork_json_decl(r#""save_nearest_html_id": true"#));
+    assert!(!is_pagefind_json_decl(r#""srt_config": {"#));
+    assert!(is_stork_json_decl(r#""srt_config": {"#));
 }
 
 #[test]
@@ -46383,6 +46463,26 @@ fn stork_json_keys_smoke() {
     assert!(is_stork_json_decl(
         r#""frontmatter_handling_override": "Parse""#
     ));
+    assert!(is_stork_json_decl(r#""title_boost": "Large""#));
+    assert!(is_stork_json_decl(r#""html_selector_override": "article""#));
+    assert!(is_stork_json_decl(r#""stemming_override": "Dutch""#));
+    assert!(is_stork_json_decl(
+        r#""minimum_indexed_substring_length": 3"#
+    ));
+    assert!(is_stork_json_decl(
+        r#""minimum_index_ideographic_substring_length": 1"#
+    ));
+    assert!(is_stork_json_decl(r#""break_on_file_error": true"#));
+    assert!(is_stork_json_decl(r#""filetype": "Markdown""#));
+    assert!(is_stork_json_decl(r#""timestamp_linking": false"#));
+    assert!(is_stork_json_decl(
+        r#""timestamp_template_string": "&t={ts}""#
+    ));
+    assert!(is_stork_json_decl(
+        r#""timestamp_format": "NumberOfSeconds""#
+    ));
+    assert!(is_stork_json_decl(r#""save_nearest_html_id": true"#));
+    assert!(is_stork_json_decl(r#""srt_config": {"#));
     assert!(!is_stork_json_decl(r#""unfilteredResultCount": 42"#));
     assert!(is_pagefind_json_decl(r#""unfilteredResultCount": 42"#));
     assert!(!is_stork_json_decl(r#""searchableProperties": ["#));
@@ -46515,6 +46615,135 @@ fn stork_json_keys_count() {
     assert!(!is_stork_json_decl(
         r#""frontmatter_handling_override": true"#
     ));
+    assert!(is_stork_json_decl(r#""title_boost": "Minimal""#));
+    assert!(is_stork_json_decl(r#""title_boost": "Moderate""#));
+    assert!(is_stork_json_decl(r#""title_boost": "Large""#));
+    assert!(is_stork_json_decl(r#""title_boost": "Ridiculous""#));
+    assert!(is_stork_json_decl(r#""title_boost": "Large","#));
+    assert!(is_stork_json_decl(r#""title_boost": "Large" // c"#));
+    assert!(!is_stork_json_decl(r#""title_boost": "large""#));
+    assert!(!is_stork_json_decl(r#""title_boost": "Huge""#));
+    assert!(!is_stork_json_decl(r#""title_boost": true"#));
+    assert!(!is_stork_json_decl(r#""title_boosts": "Large""#));
+    assert!(is_stork_json_decl(r#""html_selector_override": "article""#));
+    assert!(is_stork_json_decl(
+        r#""html_selector_override": "article","#
+    ));
+    assert!(is_stork_json_decl(
+        r#""html_selector_override": "article" // c"#
+    ));
+    assert!(!is_stork_json_decl(r#""html_selector_override": """#));
+    assert!(!is_stork_json_decl(r#""html_selector_override": true"#));
+    assert!(!is_stork_json_decl(r#""html_selector_override": ["#));
+    assert!(!is_stork_json_decl(r#""html_selector_overrides": "article""#));
+    assert!(is_stork_json_decl(r#""stemming_override": "Dutch""#));
+    assert!(is_stork_json_decl(r#""stemming_override": "Dutch","#));
+    assert!(!is_stork_json_decl(r#""stemming_override": """#));
+    assert!(!is_stork_json_decl(r#""stemming_override": true"#));
+    assert!(!is_stork_json_decl(r#""stemming_overrides": "Dutch""#));
+    assert!(is_stork_json_decl(
+        r#""minimum_indexed_substring_length": 0"#
+    ));
+    assert!(is_stork_json_decl(
+        r#""minimum_indexed_substring_length": 3"#
+    ));
+    assert!(is_stork_json_decl(
+        r#""minimum_indexed_substring_length": 3,"#
+    ));
+    assert!(is_stork_json_decl(
+        r#""minimum_indexed_substring_length": 3 // c"#
+    ));
+    assert!(!is_stork_json_decl(
+        r#""minimum_indexed_substring_length": 03"#
+    ));
+    assert!(!is_stork_json_decl(
+        r#""minimum_indexed_substring_length": true"#
+    ));
+    assert!(!is_stork_json_decl(
+        r#""minimum_indexed_substring_length": "3""#
+    ));
+    assert!(!is_stork_json_decl(
+        r#""minimum_indexed_substring_lengths": 3"#
+    ));
+    assert!(is_stork_json_decl(
+        r#""minimum_index_ideographic_substring_length": 0"#
+    ));
+    assert!(is_stork_json_decl(
+        r#""minimum_index_ideographic_substring_length": 1"#
+    ));
+    assert!(is_stork_json_decl(
+        r#""minimum_index_ideographic_substring_length": 1,"#
+    ));
+    assert!(!is_stork_json_decl(
+        r#""minimum_index_ideographic_substring_length": 01"#
+    ));
+    assert!(!is_stork_json_decl(
+        r#""minimum_index_ideographic_substring_length": true"#
+    ));
+    assert!(!is_stork_json_decl(
+        r#""minimum_index_ideographic_substring_lengths": 1"#
+    ));
+    assert!(is_stork_json_decl(r#""break_on_file_error": true"#));
+    assert!(is_stork_json_decl(r#""break_on_file_error": false"#));
+    assert!(is_stork_json_decl(r#""break_on_file_error": true,"#));
+    assert!(is_stork_json_decl(r#""break_on_file_error": false // c"#));
+    assert!(!is_stork_json_decl(r#""break_on_file_error": 1"#));
+    assert!(!is_stork_json_decl(r#""break_on_file_error": "true""#));
+    assert!(!is_stork_json_decl(r#""break_on_file_errors": true"#));
+    assert!(is_stork_json_decl(r#""filetype": "PlainText""#));
+    assert!(is_stork_json_decl(r#""filetype": "SRTSubtitle""#));
+    assert!(is_stork_json_decl(r#""filetype": "HTML""#));
+    assert!(is_stork_json_decl(r#""filetype": "Markdown""#));
+    assert!(is_stork_json_decl(r#""filetype": "Markdown","#));
+    assert!(!is_stork_json_decl(r#""filetype": "markdown""#));
+    assert!(!is_stork_json_decl(r#""filetype": "Text""#));
+    assert!(!is_stork_json_decl(r#""filetype": true"#));
+    assert!(!is_stork_json_decl(r#""filetypes": "Markdown""#));
+    assert!(is_stork_json_decl(r#""timestamp_linking": true"#));
+    assert!(is_stork_json_decl(r#""timestamp_linking": false"#));
+    assert!(is_stork_json_decl(r#""timestamp_linking": true,"#));
+    assert!(!is_stork_json_decl(r#""timestamp_linking": 1"#));
+    assert!(!is_stork_json_decl(r#""timestamp_linking": "true""#));
+    assert!(!is_stork_json_decl(r#""timestamp_linkings": true"#));
+    assert!(is_stork_json_decl(
+        r#""timestamp_template_string": "&t={ts}""#
+    ));
+    assert!(is_stork_json_decl(
+        r#""timestamp_template_string": "&t={ts}","#
+    ));
+    assert!(!is_stork_json_decl(r#""timestamp_template_string": """#));
+    assert!(!is_stork_json_decl(r#""timestamp_template_string": true"#));
+    assert!(!is_stork_json_decl(
+        r#""timestamp_template_strings": "&t={ts}""#
+    ));
+    assert!(is_stork_json_decl(
+        r#""timestamp_format": "NumberOfSeconds""#
+    ));
+    assert!(is_stork_json_decl(
+        r#""timestamp_format": "NumberOfSeconds","#
+    ));
+    assert!(!is_stork_json_decl(
+        r#""timestamp_format": "MinutesAndSeconds""#
+    ));
+    assert!(!is_stork_json_decl(r#""timestamp_format": "numberofseconds""#));
+    assert!(!is_stork_json_decl(r#""timestamp_format": true"#));
+    assert!(!is_stork_json_decl(
+        r#""timestamp_formats": "NumberOfSeconds""#
+    ));
+    assert!(is_stork_json_decl(r#""save_nearest_html_id": true"#));
+    assert!(is_stork_json_decl(r#""save_nearest_html_id": false"#));
+    assert!(is_stork_json_decl(r#""save_nearest_html_id": true,"#));
+    assert!(is_stork_json_decl(r#""save_nearest_html_id": false // c"#));
+    assert!(!is_stork_json_decl(r#""save_nearest_html_id": 1"#));
+    assert!(!is_stork_json_decl(r#""save_nearest_html_id": "true""#));
+    assert!(!is_stork_json_decl(r#""save_nearest_html_ids": true"#));
+    assert!(is_stork_json_decl(r#""srt_config": {"#));
+    assert!(is_stork_json_decl(r#""srt_config": {,"#));
+    assert!(is_stork_json_decl(r#""srt_config": { // c"#));
+    assert!(!is_stork_json_decl(r#""srt_config": true"#));
+    assert!(!is_stork_json_decl(r#""srt_config": ["#));
+    assert!(!is_stork_json_decl(r#""srt_config": "nested""#));
+    assert!(!is_stork_json_decl(r#""srt_configs": {"#));
     assert!(!is_stork_json_decl(r#""exclude_html_selector""#));
     assert!(!is_stork_json_decl(r#""frontmatter_handling""#));
     assert!(!is_stork_json_decl(r#""save_nearest_node_json""#));
@@ -46575,6 +46804,22 @@ fn stork_json_keys_count() {
     assert!(line_is_func_like(
         r#""frontmatter_handling_override": "Parse""#
     ));
+    assert!(line_is_func_like(r#""title_boost": "Large""#));
+    assert!(line_is_func_like(r#""html_selector_override": "article""#));
+    assert!(line_is_func_like(r#""stemming_override": "Dutch""#));
+    assert!(line_is_func_like(
+        r#""minimum_indexed_substring_length": 3"#
+    ));
+    assert!(line_is_func_like(
+        r#""minimum_index_ideographic_substring_length": 1"#
+    ));
+    assert!(line_is_func_like(r#""break_on_file_error": true"#));
+    assert!(line_is_func_like(r#""filetype": "Markdown""#));
+    assert!(line_is_func_like(r#""timestamp_linking": false"#));
+    assert!(line_is_func_like(r#""timestamp_template_string": "&t={ts}""#));
+    assert!(line_is_func_like(r#""timestamp_format": "NumberOfSeconds""#));
+    assert!(line_is_func_like(r#""save_nearest_html_id": true"#));
+    assert!(line_is_func_like(r#""srt_config": {"#));
     assert!(!is_stork_json_decl(r#""maxResultsPerGroup": 5"#));
     assert!(is_docsearch_json_decl(r#""maxResultsPerGroup": 5"#));
     assert!(!is_stork_json_decl(r#""disableUserPersonalization": true"#));
