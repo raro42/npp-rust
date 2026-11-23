@@ -1,3 +1,5 @@
+009 keep: Function List Stork JS showProgress/printIndexInfo/showScores/minimumQueryLength/on*/transformResultUrl + MinutesAndSeconds (v0.3.958)
+
 009 keep: Function List Stork title_boost/html_selector_override/stemming_override/minimum_*_substring_length/break_on_file_error/filetype/timestamp_*/save_nearest_html_id/srt_config (v0.3.957)
 
 009 keep: Function List Pagefind CLI output_subdir/output_path/root_selector/exclude_selectors/include_characters/max_fragments/force_language/keep_index_url/write_playground (v0.3.956)
