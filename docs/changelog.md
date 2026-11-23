@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.970] — 2026-11-24
+
+View:
+
+- **Function List** lists Meilisearch index settings JSON keys: `"embedders": {`, `"localizedAttributes": [`, `"facetSearch": true` / `false`, `"prefixSearch": "indexingTime"` / `"disabled"`. Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing `:` stay out. Empty strings / wrong case / plural misspellings / wrong value shapes stay out. Existing Meilisearch keys (`processingTimeMs`, `estimatedTotalHits`, `exhaustiveNbHits`, `nbHits`, `hitsPerPage`, `facetDistribution`, `facetStats`, `exhaustiveFacetsCount`, `rankingScoreThreshold`, `showRankingScore`, `matchingStrategy`, `attributesToSearchOn`, `filterableAttributes`, `sortableAttributes`, `rankingRules`, `displayedAttributes`, `stopWords`, `synonyms`, `proximityPrecision`, `searchCutoffMs`, `searchableAttributes`, `separatorTokens`, `nonSeparatorTokens`, `dictionary`, `distinctAttribute`, `typoTolerance`, `pagination`, `faceting`, …) unchanged. Generic `"filter"` / `"sort"` / `"facets"` / `"limit"` / `"offset"` / `"page"` / `"chat"` stay out. Neighbouring search JSON families stay out of Meilisearch for these keys. Object `"embedders"` requires `{`. Array `"localizedAttributes"` requires `[`. Bool `"facetSearch"` only matches `true` / `false`. `"prefixSearch"` only matches its Meilisearch enums.
+
 ## [0.3.969] — 2026-11-23
 
 View:

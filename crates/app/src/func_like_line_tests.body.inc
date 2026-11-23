@@ -32910,6 +32910,14 @@ fn meilisearch_json_keys_smoke() {
     assert!(is_meilisearch_json_decl(r#""typoTolerance": {"#));
     assert!(is_meilisearch_json_decl(r#""pagination": {"#));
     assert!(is_meilisearch_json_decl(r#""faceting": {"#));
+    assert!(is_meilisearch_json_decl(r#""embedders": {"#));
+    assert!(is_meilisearch_json_decl(r#""localizedAttributes": ["#));
+    assert!(is_meilisearch_json_decl(r#""facetSearch": true"#));
+    assert!(is_meilisearch_json_decl(r#""facetSearch": false"#));
+    assert!(is_meilisearch_json_decl(
+        r#""prefixSearch": "indexingTime""#
+    ));
+    assert!(is_meilisearch_json_decl(r#""prefixSearch": "disabled""#));
     // Distinctive neighbours stay out of this scanner.
     assert!(!is_meilisearch_json_decl(r#""responseHeader": {"#));
     assert!(is_solr_json_decl(r#""responseHeader": {"#));
@@ -32989,6 +32997,10 @@ fn meilisearch_json_keys_smoke() {
     assert!(line_is_func_like(r#""typoTolerance": {"#));
     assert!(line_is_func_like(r#""pagination": {"#));
     assert!(line_is_func_like(r#""faceting": {"#));
+    assert!(line_is_func_like(r#""embedders": {"#));
+    assert!(line_is_func_like(r#""localizedAttributes": ["#));
+    assert!(line_is_func_like(r#""facetSearch": true"#));
+    assert!(line_is_func_like(r#""prefixSearch": "indexingTime""#));
 }
 
 #[test]
@@ -33247,6 +33259,43 @@ fn meilisearch_json_keys_count() {
     assert!(!is_meilisearch_json_decl(r#""faceting": ["#));
     assert!(!is_meilisearch_json_decl(r#""faceting": true"#));
     assert!(!is_meilisearch_json_decl(r#""faceting": """#));
+    assert!(is_meilisearch_json_decl(r#""embedders": {"#));
+    assert!(is_meilisearch_json_decl(r#""embedders": {,"#));
+    assert!(is_meilisearch_json_decl(r#""embedders": { // e"#));
+    assert!(!is_meilisearch_json_decl(r#""embedders": ["#));
+    assert!(!is_meilisearch_json_decl(r#""embedders": true"#));
+    assert!(!is_meilisearch_json_decl(r#""embedders": """#));
+    assert!(is_meilisearch_json_decl(r#""localizedAttributes": ["#));
+    assert!(is_meilisearch_json_decl(r#""localizedAttributes": [,"#));
+    assert!(is_meilisearch_json_decl(
+        r#""localizedAttributes": [ // l"#
+    ));
+    assert!(!is_meilisearch_json_decl(r#""localizedAttributes": {"#));
+    assert!(!is_meilisearch_json_decl(r#""localizedAttributes": true"#));
+    assert!(!is_meilisearch_json_decl(r#""localizedAttributes": """#));
+    assert!(is_meilisearch_json_decl(r#""facetSearch": true"#));
+    assert!(is_meilisearch_json_decl(r#""facetSearch": false"#));
+    assert!(is_meilisearch_json_decl(r#""facetSearch": true,"#));
+    assert!(is_meilisearch_json_decl(r#""facetSearch": false // f"#));
+    assert!(!is_meilisearch_json_decl(r#""facetSearch": 1"#));
+    assert!(!is_meilisearch_json_decl(r#""facetSearch": "true""#));
+    assert!(!is_meilisearch_json_decl(r#""facetSearch": {"#));
+    assert!(!is_meilisearch_json_decl(r#""facetSearch": ["#));
+    assert!(is_meilisearch_json_decl(
+        r#""prefixSearch": "indexingTime""#
+    ));
+    assert!(is_meilisearch_json_decl(r#""prefixSearch": "disabled""#));
+    assert!(is_meilisearch_json_decl(
+        r#""prefixSearch": "indexingTime","#
+    ));
+    assert!(is_meilisearch_json_decl(
+        r#""prefixSearch": "disabled" // p"#
+    ));
+    assert!(!is_meilisearch_json_decl(r#""prefixSearch": "enabled""#));
+    assert!(!is_meilisearch_json_decl(r#""prefixSearch": true"#));
+    assert!(!is_meilisearch_json_decl(r#""prefixSearch": {"#));
+    assert!(!is_meilisearch_json_decl(r#""prefixSearch": ["#));
+    assert!(!is_meilisearch_json_decl(r#""prefixSearch": """#));
     // Incomplete / wrong shapes stay out.
     assert!(!is_meilisearch_json_decl(r#""processingTimeMs""#));
     assert!(!is_meilisearch_json_decl(r#""processingTimeMs":"#));
@@ -33277,6 +33326,10 @@ fn meilisearch_json_keys_count() {
     assert!(!is_meilisearch_json_decl(r#""typoTolerance""#));
     assert!(!is_meilisearch_json_decl(r#""pagination""#));
     assert!(!is_meilisearch_json_decl(r#""faceting""#));
+    assert!(!is_meilisearch_json_decl(r#""embedders""#));
+    assert!(!is_meilisearch_json_decl(r#""localizedAttributes""#));
+    assert!(!is_meilisearch_json_decl(r#""facetSearch""#));
+    assert!(!is_meilisearch_json_decl(r#""prefixSearch""#));
     // Generic / neighbouring stay out.
     assert!(!is_meilisearch_json_decl(
         r#""$schema": "https://json-schema.org/draft/2020-12/schema""#
@@ -33376,6 +33429,10 @@ fn meilisearch_json_keys_count() {
     assert!(line_is_func_like(r#""typoTolerance": {"#));
     assert!(line_is_func_like(r#""pagination": {"#));
     assert!(line_is_func_like(r#""faceting": {"#));
+    assert!(line_is_func_like(r#""embedders": {"#));
+    assert!(line_is_func_like(r#""localizedAttributes": ["#));
+    assert!(line_is_func_like(r#""facetSearch": false"#));
+    assert!(line_is_func_like(r#""prefixSearch": "disabled""#));
     assert!(!is_meilisearch_json_decl(r#""search_time_ms": 12"#));
     assert!(is_typesense_json_decl(r#""search_time_ms": 12"#));
     assert!(!is_meilisearch_json_decl(r#""out_of": 100"#));
