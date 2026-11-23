@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.964] — 2026-11-23
+
+View:
+
+- **Function List** lists Stork Search Output / Excerpt / IndexMetadata JSON keys: `"internal_annotations": [`, `"total_hit_count": 0` / `42`, `"indexVersion": "…"`. Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing `:` stay out. Empty strings / wrong case / plural misspellings / wrong value shapes stay out. Existing Stork keys (`highlight_ranges`, `title_highlight_ranges`, `url_suffix`, `src_url`, `excerptLength`, `numberOfResults`, …) unchanged. Generic `"site"` / `"files"` / `"title"` / `"base_directory"` / `"url_prefix"` / `"html_selector"` / `"stemming"` / `"debug"` / `"filename"` / `"path"` / `"contents"` / `"entry"` / `"excerpts"` / `"text"` / `"score"` / `"beginning"` / `"end"` / `"results"` / `"fields"` stay out of Stork. Neighbouring search JSON families stay out of Stork for these keys. Array `"internal_annotations"` requires `[`. Numeric `"total_hit_count"` rejects leading zeros beyond `0`. String `"indexVersion"` requires a non-empty quoted string.
+
 ## [0.3.963] — 2026-11-23
 
 View:

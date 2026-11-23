@@ -45410,6 +45410,34 @@ fn pagefind_json_keys_smoke() {
     assert!(!is_stork_json_decl(r#""src_url": ["#));
     assert!(!is_stork_json_decl(r#""src_urls": "https://example.com/a""#));
     assert!(!is_stork_json_decl(r#""Src_url": "https://example.com/a""#));
+    assert!(!is_pagefind_json_decl(r#""internal_annotations": ["#));
+    assert!(is_stork_json_decl(r#""internal_annotations": ["#));
+    assert!(is_stork_json_decl(r#""internal_annotations": [,"#));
+    assert!(is_stork_json_decl(r#""internal_annotations": [ // c"#));
+    assert!(!is_stork_json_decl(r#""internal_annotations": {"#));
+    assert!(!is_stork_json_decl(r#""internal_annotations": true"#));
+    assert!(!is_stork_json_decl(r#""internal_annotations": 1"#));
+    assert!(!is_stork_json_decl(r#""internal_annotationss": ["#));
+    assert!(!is_stork_json_decl(r#""Internal_annotations": ["#));
+    assert!(!is_pagefind_json_decl(r#""total_hit_count": 0"#));
+    assert!(is_stork_json_decl(r#""total_hit_count": 0"#));
+    assert!(is_stork_json_decl(r#""total_hit_count": 42"#));
+    assert!(is_stork_json_decl(r#""total_hit_count": 42,"#));
+    assert!(is_stork_json_decl(r#""total_hit_count": 42 // c"#));
+    assert!(!is_stork_json_decl(r#""total_hit_count": 00"#));
+    assert!(!is_stork_json_decl(r#""total_hit_count": true"#));
+    assert!(!is_stork_json_decl(r#""total_hit_count": ["#));
+    assert!(!is_stork_json_decl(r#""total_hit_counts": 42"#));
+    assert!(!is_stork_json_decl(r#""Total_hit_count": 42"#));
+    assert!(!is_pagefind_json_decl(r#""indexVersion": "stork-3""#));
+    assert!(is_stork_json_decl(r#""indexVersion": "stork-3""#));
+    assert!(is_stork_json_decl(r#""indexVersion": "stork-3","#));
+    assert!(is_stork_json_decl(r#""indexVersion": "stork-3" // c"#));
+    assert!(!is_stork_json_decl(r#""indexVersion": """#));
+    assert!(!is_stork_json_decl(r#""indexVersion": true"#));
+    assert!(!is_stork_json_decl(r#""indexVersion": ["#));
+    assert!(!is_stork_json_decl(r#""indexVersions": "stork-3""#));
+    assert!(!is_stork_json_decl(r#""IndexVersion": "stork-3""#));
     assert!(!is_stork_json_decl(r#""path": "federalist-1.txt""#));
     assert!(!is_stork_json_decl(r#""contents": "hello""#));
     assert!(!is_stork_json_decl(r#""entry": {"#));
@@ -45418,6 +45446,8 @@ fn pagefind_json_keys_smoke() {
     assert!(!is_stork_json_decl(r#""score": 100"#));
     assert!(!is_stork_json_decl(r#""beginning": 25"#));
     assert!(!is_stork_json_decl(r#""end": 29"#));
+    assert!(!is_stork_json_decl(r#""results": ["#));
+    assert!(!is_stork_json_decl(r#""fields": {"#));
 }
 
 #[test]
