@@ -38895,8 +38895,13 @@ fn pagefind_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool {
 /// `"filetype": "PlainText"` / `"SRTSubtitle"` / `"HTML"` / `"Markdown"`,
 /// `"timestamp_linking": true` / `false`,
 /// `"timestamp_template_string": "…"`,
-/// `"timestamp_format": "NumberOfSeconds"`,
-/// `"save_nearest_html_id": true` / `false`, `"srt_config": {`.
+/// `"timestamp_format": "NumberOfSeconds"` / `"MinutesAndSeconds"`,
+/// `"save_nearest_html_id": true` / `false`, `"srt_config": {`,
+/// Stork JS `register()` options `"showProgress": true` / `false`,
+/// `"printIndexInfo": true` / `false`, `"showScores": true` / `false`,
+/// `"minimumQueryLength": 0` / `3`, `"onQueryUpdate": {`,
+/// `"onResultSelected": {`, `"onResultsHidden": {`,
+/// `"onInputCleared": {`, `"transformResultUrl": {`.
 /// Optional trailing `,` and `//` / `/*` comment. Incomplete quotes /
 /// missing `:` stay out. Generic `"$schema"` / `"name"` / `"id"` /
 /// `"q"` / `"query"` / `"url"` / `"files"` / `"title"` / `"base_directory"` /
@@ -38943,8 +38948,9 @@ fn pagefind_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool {
 /// require a non-empty quoted string. Enum keys only match
 /// `Ignore` / `Omit` / `Parse` / `Minimal` / `Moderate` / `Large` /
 /// `Ridiculous` / `PlainText` / `SRTSubtitle` / `HTML` / `Markdown` /
-/// `NumberOfSeconds`. Object `"srt_config"` requires `{`. Bool keys only
-/// match `true` / `false`. Numeric keys reject leading zeros beyond `0`.
+/// `NumberOfSeconds` / `MinutesAndSeconds`. Object `"srt_config"` and
+/// JS callback keys require `{`. Bool keys only match `true` / `false`.
+/// Numeric keys reject leading zeros beyond `0`.
 fn is_stork_json_decl(s: &str) -> bool {
     let s = s.trim_start();
     let Some(rest) = s.strip_prefix('"') else {
@@ -38988,6 +38994,15 @@ fn stork_json_key_ok(key: &str) -> bool {
             | "timestamp_format"
             | "save_nearest_html_id"
             | "srt_config"
+            | "showProgress"
+            | "printIndexInfo"
+            | "showScores"
+            | "minimumQueryLength"
+            | "onQueryUpdate"
+            | "onResultSelected"
+            | "onResultsHidden"
+            | "onInputCleared"
+            | "transformResultUrl"
     )
 }
 
@@ -38998,7 +39013,15 @@ fn stork_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool {
     };
     match first {
         b'{' => {
-            if key != "srt_config" {
+            if !matches!(
+                key,
+                "srt_config"
+                    | "onQueryUpdate"
+                    | "onResultSelected"
+                    | "onResultsHidden"
+                    | "onInputCleared"
+                    | "transformResultUrl"
+            ) {
                 return false;
             }
             package_json_tail_ok(&after_colon[1..])
@@ -39041,7 +39064,7 @@ fn stork_json_string_or_enum_and_tail_ok(key: &str, after_colon: &str) -> bool {
             }
         }
         "timestamp_format" => {
-            if value != "NumberOfSeconds" {
+            if !matches!(value, "NumberOfSeconds" | "MinutesAndSeconds") {
                 return false;
             }
         }
@@ -39057,6 +39080,9 @@ fn stork_json_bool_and_tail_ok(key: &str, after_colon: &str) -> bool {
             | "break_on_file_error"
             | "timestamp_linking"
             | "save_nearest_html_id"
+            | "showProgress"
+            | "printIndexInfo"
+            | "showScores"
     ) {
         return false;
     }
@@ -39078,6 +39104,7 @@ fn stork_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool {
             | "excerpt_buffer"
             | "minimum_indexed_substring_length"
             | "minimum_index_ideographic_substring_length"
+            | "minimumQueryLength"
     ) {
         return false;
     }

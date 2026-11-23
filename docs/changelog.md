@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.958] — 2026-11-23
+
+View:
+
+- **Function List** lists Stork Search JS `register()` / SRT config JSON keys: `"showProgress": true` / `false`, `"printIndexInfo": true` / `false`, `"showScores": true` / `false`, `"minimumQueryLength": 0` / `3`, `"onQueryUpdate": {`, `"onResultSelected": {`, `"onResultsHidden": {`, `"onInputCleared": {`, `"transformResultUrl": {`, and `"timestamp_format": "MinutesAndSeconds"` (alongside `"NumberOfSeconds"`). Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing `:` stay out. Empty strings / wrong case / plural misspellings / wrong value shapes stay out. Existing Stork index keys (`exclude_html_selector`, `title_boost`, `srt_config`, …) unchanged. Generic `"site"` / `"files"` / `"title"` / `"base_directory"` / `"url_prefix"` / `"html_selector"` / `"stemming"` / `"debug"` / `"filename"` stay out of Stork. Neighbouring search JSON families stay out of Stork for these keys. Bool keys only match `true` / `false`. Numeric `"minimumQueryLength"` rejects leading zeros beyond `0`. Object / callback keys require `{`.
+
 ## [0.3.957] — 2026-11-23
 
 View:

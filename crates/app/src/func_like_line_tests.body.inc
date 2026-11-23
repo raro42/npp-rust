@@ -45326,6 +45326,30 @@ fn pagefind_json_keys_smoke() {
     assert!(is_stork_json_decl(r#""save_nearest_html_id": true"#));
     assert!(!is_pagefind_json_decl(r#""srt_config": {"#));
     assert!(is_stork_json_decl(r#""srt_config": {"#));
+    assert!(!is_pagefind_json_decl(
+        r#""timestamp_format": "MinutesAndSeconds""#
+    ));
+    assert!(is_stork_json_decl(
+        r#""timestamp_format": "MinutesAndSeconds""#
+    ));
+    assert!(!is_pagefind_json_decl(r#""showProgress": true"#));
+    assert!(is_stork_json_decl(r#""showProgress": true"#));
+    assert!(!is_pagefind_json_decl(r#""printIndexInfo": true"#));
+    assert!(is_stork_json_decl(r#""printIndexInfo": true"#));
+    assert!(!is_pagefind_json_decl(r#""showScores": false"#));
+    assert!(is_stork_json_decl(r#""showScores": false"#));
+    assert!(!is_pagefind_json_decl(r#""minimumQueryLength": 3"#));
+    assert!(is_stork_json_decl(r#""minimumQueryLength": 3"#));
+    assert!(!is_pagefind_json_decl(r#""onQueryUpdate": {"#));
+    assert!(is_stork_json_decl(r#""onQueryUpdate": {"#));
+    assert!(!is_pagefind_json_decl(r#""onResultSelected": {"#));
+    assert!(is_stork_json_decl(r#""onResultSelected": {"#));
+    assert!(!is_pagefind_json_decl(r#""onResultsHidden": {"#));
+    assert!(is_stork_json_decl(r#""onResultsHidden": {"#));
+    assert!(!is_pagefind_json_decl(r#""onInputCleared": {"#));
+    assert!(is_stork_json_decl(r#""onInputCleared": {"#));
+    assert!(!is_pagefind_json_decl(r#""transformResultUrl": {"#));
+    assert!(is_stork_json_decl(r#""transformResultUrl": {"#));
 }
 
 #[test]
@@ -46447,6 +46471,30 @@ fn pagefind_json_keys_count() {
     assert!(is_stork_json_decl(r#""save_nearest_html_id": true"#));
     assert!(!is_pagefind_json_decl(r#""srt_config": {"#));
     assert!(is_stork_json_decl(r#""srt_config": {"#));
+    assert!(!is_pagefind_json_decl(
+        r#""timestamp_format": "MinutesAndSeconds""#
+    ));
+    assert!(is_stork_json_decl(
+        r#""timestamp_format": "MinutesAndSeconds""#
+    ));
+    assert!(!is_pagefind_json_decl(r#""showProgress": true"#));
+    assert!(is_stork_json_decl(r#""showProgress": true"#));
+    assert!(!is_pagefind_json_decl(r#""printIndexInfo": true"#));
+    assert!(is_stork_json_decl(r#""printIndexInfo": true"#));
+    assert!(!is_pagefind_json_decl(r#""showScores": false"#));
+    assert!(is_stork_json_decl(r#""showScores": false"#));
+    assert!(!is_pagefind_json_decl(r#""minimumQueryLength": 3"#));
+    assert!(is_stork_json_decl(r#""minimumQueryLength": 3"#));
+    assert!(!is_pagefind_json_decl(r#""onQueryUpdate": {"#));
+    assert!(is_stork_json_decl(r#""onQueryUpdate": {"#));
+    assert!(!is_pagefind_json_decl(r#""onResultSelected": {"#));
+    assert!(is_stork_json_decl(r#""onResultSelected": {"#));
+    assert!(!is_pagefind_json_decl(r#""onResultsHidden": {"#));
+    assert!(is_stork_json_decl(r#""onResultsHidden": {"#));
+    assert!(!is_pagefind_json_decl(r#""onInputCleared": {"#));
+    assert!(is_stork_json_decl(r#""onInputCleared": {"#));
+    assert!(!is_pagefind_json_decl(r#""transformResultUrl": {"#));
+    assert!(is_stork_json_decl(r#""transformResultUrl": {"#));
 }
 
 #[test]
@@ -46481,8 +46529,20 @@ fn stork_json_keys_smoke() {
     assert!(is_stork_json_decl(
         r#""timestamp_format": "NumberOfSeconds""#
     ));
+    assert!(is_stork_json_decl(
+        r#""timestamp_format": "MinutesAndSeconds""#
+    ));
     assert!(is_stork_json_decl(r#""save_nearest_html_id": true"#));
     assert!(is_stork_json_decl(r#""srt_config": {"#));
+    assert!(is_stork_json_decl(r#""showProgress": true"#));
+    assert!(is_stork_json_decl(r#""printIndexInfo": true"#));
+    assert!(is_stork_json_decl(r#""showScores": false"#));
+    assert!(is_stork_json_decl(r#""minimumQueryLength": 3"#));
+    assert!(is_stork_json_decl(r#""onQueryUpdate": {"#));
+    assert!(is_stork_json_decl(r#""onResultSelected": {"#));
+    assert!(is_stork_json_decl(r#""onResultsHidden": {"#));
+    assert!(is_stork_json_decl(r#""onInputCleared": {"#));
+    assert!(is_stork_json_decl(r#""transformResultUrl": {"#));
     assert!(!is_stork_json_decl(r#""unfilteredResultCount": 42"#));
     assert!(is_pagefind_json_decl(r#""unfilteredResultCount": 42"#));
     assert!(!is_stork_json_decl(r#""searchableProperties": ["#));
@@ -46722,10 +46782,17 @@ fn stork_json_keys_count() {
     assert!(is_stork_json_decl(
         r#""timestamp_format": "NumberOfSeconds","#
     ));
-    assert!(!is_stork_json_decl(
+    assert!(is_stork_json_decl(
         r#""timestamp_format": "MinutesAndSeconds""#
     ));
+    assert!(is_stork_json_decl(
+        r#""timestamp_format": "MinutesAndSeconds","#
+    ));
     assert!(!is_stork_json_decl(r#""timestamp_format": "numberofseconds""#));
+    assert!(!is_stork_json_decl(
+        r#""timestamp_format": "minutesandseconds""#
+    ));
+    assert!(!is_stork_json_decl(r#""timestamp_format": "HoursMinutes""#));
     assert!(!is_stork_json_decl(r#""timestamp_format": true"#));
     assert!(!is_stork_json_decl(
         r#""timestamp_formats": "NumberOfSeconds""#
@@ -46744,6 +46811,62 @@ fn stork_json_keys_count() {
     assert!(!is_stork_json_decl(r#""srt_config": ["#));
     assert!(!is_stork_json_decl(r#""srt_config": "nested""#));
     assert!(!is_stork_json_decl(r#""srt_configs": {"#));
+    assert!(is_stork_json_decl(r#""showProgress": true"#));
+    assert!(is_stork_json_decl(r#""showProgress": false"#));
+    assert!(is_stork_json_decl(r#""showProgress": true,"#));
+    assert!(is_stork_json_decl(r#""showProgress": false // c"#));
+    assert!(!is_stork_json_decl(r#""showProgress": 1"#));
+    assert!(!is_stork_json_decl(r#""showProgress": "true""#));
+    assert!(!is_stork_json_decl(r#""showProgresses": true"#));
+    assert!(is_stork_json_decl(r#""printIndexInfo": true"#));
+    assert!(is_stork_json_decl(r#""printIndexInfo": false"#));
+    assert!(is_stork_json_decl(r#""printIndexInfo": true,"#));
+    assert!(!is_stork_json_decl(r#""printIndexInfo": 1"#));
+    assert!(!is_stork_json_decl(r#""printIndexInfo": "true""#));
+    assert!(!is_stork_json_decl(r#""printIndexInfos": true"#));
+    assert!(is_stork_json_decl(r#""showScores": true"#));
+    assert!(is_stork_json_decl(r#""showScores": false"#));
+    assert!(is_stork_json_decl(r#""showScores": false,"#));
+    assert!(!is_stork_json_decl(r#""showScores": 1"#));
+    assert!(!is_stork_json_decl(r#""showScores": "false""#));
+    assert!(!is_stork_json_decl(r#""showScoress": false"#));
+    assert!(is_stork_json_decl(r#""minimumQueryLength": 0"#));
+    assert!(is_stork_json_decl(r#""minimumQueryLength": 3"#));
+    assert!(is_stork_json_decl(r#""minimumQueryLength": 3,"#));
+    assert!(is_stork_json_decl(r#""minimumQueryLength": 3 // c"#));
+    assert!(!is_stork_json_decl(r#""minimumQueryLength": 03"#));
+    assert!(!is_stork_json_decl(r#""minimumQueryLength": true"#));
+    assert!(!is_stork_json_decl(r#""minimumQueryLength": "3""#));
+    assert!(!is_stork_json_decl(r#""minimumQueryLengths": 3"#));
+    assert!(is_stork_json_decl(r#""onQueryUpdate": {"#));
+    assert!(is_stork_json_decl(r#""onQueryUpdate": {,"#));
+    assert!(is_stork_json_decl(r#""onQueryUpdate": { // c"#));
+    assert!(!is_stork_json_decl(r#""onQueryUpdate": true"#));
+    assert!(!is_stork_json_decl(r#""onQueryUpdate": ["#));
+    assert!(!is_stork_json_decl(r#""onQueryUpdate": "fn""#));
+    assert!(!is_stork_json_decl(r#""onQueryUpdates": {"#));
+    assert!(is_stork_json_decl(r#""onResultSelected": {"#));
+    assert!(is_stork_json_decl(r#""onResultSelected": {,"#));
+    assert!(!is_stork_json_decl(r#""onResultSelected": true"#));
+    assert!(!is_stork_json_decl(r#""onResultSelected": ["#));
+    assert!(!is_stork_json_decl(r#""onResultSelecteds": {"#));
+    assert!(is_stork_json_decl(r#""onResultsHidden": {"#));
+    assert!(is_stork_json_decl(r#""onResultsHidden": {,"#));
+    assert!(!is_stork_json_decl(r#""onResultsHidden": true"#));
+    assert!(!is_stork_json_decl(r#""onResultsHidden": ["#));
+    assert!(!is_stork_json_decl(r#""onResultsHiddens": {"#));
+    assert!(is_stork_json_decl(r#""onInputCleared": {"#));
+    assert!(is_stork_json_decl(r#""onInputCleared": {,"#));
+    assert!(!is_stork_json_decl(r#""onInputCleared": true"#));
+    assert!(!is_stork_json_decl(r#""onInputCleared": ["#));
+    assert!(!is_stork_json_decl(r#""onInputCleareds": {"#));
+    assert!(is_stork_json_decl(r#""transformResultUrl": {"#));
+    assert!(is_stork_json_decl(r#""transformResultUrl": {,"#));
+    assert!(is_stork_json_decl(r#""transformResultUrl": { // c"#));
+    assert!(!is_stork_json_decl(r#""transformResultUrl": true"#));
+    assert!(!is_stork_json_decl(r#""transformResultUrl": ["#));
+    assert!(!is_stork_json_decl(r#""transformResultUrl": "fn""#));
+    assert!(!is_stork_json_decl(r#""transformResultUrls": {"#));
     assert!(!is_stork_json_decl(r#""exclude_html_selector""#));
     assert!(!is_stork_json_decl(r#""frontmatter_handling""#));
     assert!(!is_stork_json_decl(r#""save_nearest_node_json""#));
@@ -46818,8 +46941,20 @@ fn stork_json_keys_count() {
     assert!(line_is_func_like(r#""timestamp_linking": false"#));
     assert!(line_is_func_like(r#""timestamp_template_string": "&t={ts}""#));
     assert!(line_is_func_like(r#""timestamp_format": "NumberOfSeconds""#));
+    assert!(line_is_func_like(
+        r#""timestamp_format": "MinutesAndSeconds""#
+    ));
     assert!(line_is_func_like(r#""save_nearest_html_id": true"#));
     assert!(line_is_func_like(r#""srt_config": {"#));
+    assert!(line_is_func_like(r#""showProgress": true"#));
+    assert!(line_is_func_like(r#""printIndexInfo": true"#));
+    assert!(line_is_func_like(r#""showScores": false"#));
+    assert!(line_is_func_like(r#""minimumQueryLength": 3"#));
+    assert!(line_is_func_like(r#""onQueryUpdate": {"#));
+    assert!(line_is_func_like(r#""onResultSelected": {"#));
+    assert!(line_is_func_like(r#""onResultsHidden": {"#));
+    assert!(line_is_func_like(r#""onInputCleared": {"#));
+    assert!(line_is_func_like(r#""transformResultUrl": {"#));
     assert!(!is_stork_json_decl(r#""maxResultsPerGroup": 5"#));
     assert!(is_docsearch_json_decl(r#""maxResultsPerGroup": 5"#));
     assert!(!is_stork_json_decl(r#""disableUserPersonalization": true"#));
