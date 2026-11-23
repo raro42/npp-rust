@@ -45372,6 +45372,10 @@ fn pagefind_json_keys_smoke() {
         r#""closeButtonSvg": "<svg></svg>""#
     ));
     assert!(is_stork_json_decl(r#""closeButtonSvg": "<svg></svg>""#));
+    assert!(!is_pagefind_json_decl(r#""excerptLength": 150"#));
+    assert!(is_stork_json_decl(r#""excerptLength": 150"#));
+    assert!(!is_pagefind_json_decl(r#""numberOfResults": 10"#));
+    assert!(is_stork_json_decl(r#""numberOfResults": 10"#));
 }
 
 #[test]
@@ -46597,6 +46601,8 @@ fn stork_json_keys_smoke() {
     assert!(is_stork_json_decl(r#""queryTooShort": "Searching...""#));
     assert!(is_stork_json_decl(r#""attribution": "Powered by Stork""#));
     assert!(is_stork_json_decl(r#""closeButtonSvg": "<svg></svg>""#));
+    assert!(is_stork_json_decl(r#""excerptLength": 150"#));
+    assert!(is_stork_json_decl(r#""numberOfResults": 10"#));
     assert!(!is_stork_json_decl(r#""unfilteredResultCount": 42"#));
     assert!(is_pagefind_json_decl(r#""unfilteredResultCount": 42"#));
     assert!(!is_stork_json_decl(r#""searchableProperties": ["#));
@@ -46615,8 +46621,10 @@ fn stork_json_keys_smoke() {
     assert!(is_addsearch_json_decl(r#""processing_time_ms": 21"#));
     assert!(!is_stork_json_decl(r#""searchableAttributes": ["#));
     assert!(is_marqo_json_decl(r#""searchableAttributes": ["#));
-    assert!(!is_stork_json_decl(r#""excerptLength": 200"#));
+    assert!(is_stork_json_decl(r#""excerptLength": 200"#));
     assert!(is_coveo_json_decl(r#""excerptLength": 200"#));
+    assert!(is_stork_json_decl(r#""numberOfResults": 10"#));
+    assert!(is_coveo_json_decl(r#""numberOfResults": 10"#));
     assert!(!is_stork_json_decl(r#""track_total_hits": true"#));
     assert!(is_elasticsearch_json_decl(r#""track_total_hits": true"#));
     assert!(!is_stork_json_decl(r#""printWidth": 80"#));
@@ -46996,6 +47004,22 @@ fn stork_json_keys_count() {
     assert!(!is_stork_json_decl(r#""closeButtonSvg": true"#));
     assert!(!is_stork_json_decl(r#""closeButtonSvg": {"#));
     assert!(!is_stork_json_decl(r#""closeButtonSvgs": "<svg></svg>""#));
+    assert!(is_stork_json_decl(r#""excerptLength": 0"#));
+    assert!(is_stork_json_decl(r#""excerptLength": 150"#));
+    assert!(is_stork_json_decl(r#""excerptLength": 150,"#));
+    assert!(is_stork_json_decl(r#""excerptLength": 150 // c"#));
+    assert!(!is_stork_json_decl(r#""excerptLength": 0150"#));
+    assert!(!is_stork_json_decl(r#""excerptLength": true"#));
+    assert!(!is_stork_json_decl(r#""excerptLength": "150""#));
+    assert!(!is_stork_json_decl(r#""excerptLengths": 150"#));
+    assert!(is_stork_json_decl(r#""numberOfResults": 0"#));
+    assert!(is_stork_json_decl(r#""numberOfResults": 10"#));
+    assert!(is_stork_json_decl(r#""numberOfResults": 10,"#));
+    assert!(is_stork_json_decl(r#""numberOfResults": 10 // c"#));
+    assert!(!is_stork_json_decl(r#""numberOfResults": 010"#));
+    assert!(!is_stork_json_decl(r#""numberOfResults": true"#));
+    assert!(!is_stork_json_decl(r#""numberOfResults": "10""#));
+    assert!(!is_stork_json_decl(r#""numberOfResultss": 10"#));
     assert!(!is_stork_json_decl(r#""exclude_html_selector""#));
     assert!(!is_stork_json_decl(r#""frontmatter_handling""#));
     assert!(!is_stork_json_decl(r#""save_nearest_node_json""#));
@@ -47034,9 +47058,9 @@ fn stork_json_keys_count() {
     assert!(is_addsearch_json_decl(r#""processing_time_ms": 21"#));
     assert!(!is_stork_json_decl(r#""searchableAttributes": ["#));
     assert!(is_marqo_json_decl(r#""searchableAttributes": ["#));
-    assert!(!is_stork_json_decl(r#""excerptLength": 200"#));
+    assert!(is_stork_json_decl(r#""excerptLength": 200"#));
     assert!(is_coveo_json_decl(r#""excerptLength": 200"#));
-    assert!(!is_stork_json_decl(r#""numberOfResults": 10"#));
+    assert!(is_stork_json_decl(r#""numberOfResults": 10"#));
     assert!(is_coveo_json_decl(r#""numberOfResults": 10"#));
     assert!(!is_stork_json_decl(r#""invertedIndexConfig": {"#));
     assert!(is_weaviate_json_decl(r#""invertedIndexConfig": {"#));
@@ -47096,6 +47120,8 @@ fn stork_json_keys_count() {
     assert!(line_is_func_like(r#""queryTooShort": "Searching...""#));
     assert!(line_is_func_like(r#""attribution": "Powered by Stork""#));
     assert!(line_is_func_like(r#""closeButtonSvg": "<svg></svg>""#));
+    assert!(line_is_func_like(r#""excerptLength": 150"#));
+    assert!(line_is_func_like(r#""numberOfResults": 10"#));
     assert!(!is_stork_json_decl(r#""maxResultsPerGroup": 5"#));
     assert!(is_docsearch_json_decl(r#""maxResultsPerGroup": 5"#));
     assert!(!is_stork_json_decl(r#""disableUserPersonalization": true"#));

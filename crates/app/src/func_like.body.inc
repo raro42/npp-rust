@@ -38904,7 +38904,8 @@ fn pagefind_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool {
 /// `"onQueryUpdate": {`, `"onResultSelected": {`, `"onResultsHidden": {`,
 /// `"onInputCleared": {`, `"transformResultUrl": {`,
 /// Stork v2 UI / register `"forceRefreshIndex": true` / `false`,
-/// `"numberOfExcerpts": 0` / `5`, `"strings": {`, `"generateMessage": {`,
+/// `"numberOfExcerpts": 0` / `5`, `"excerptLength": 0` / `150`,
+/// `"numberOfResults": 0` / `10`, `"strings": {`, `"generateMessage": {`,
 /// `"queryTooShort": "…"`, `"attribution": "…"`, `"closeButtonSvg": "…"`.
 /// Optional trailing `,` and `//` / `/*` comment. Incomplete quotes /
 /// missing `:` stay out. Generic `"$schema"` / `"name"` / `"id"` /
@@ -38938,7 +38939,7 @@ fn pagefind_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool {
 /// `"total_hits"` / Searchspring `"resultLayout"` / Doofinder
 /// `"hashid"` / Klevu `"recordQueries"` / Bloomreach Discovery
 /// `"domain_key"` / Constructor.io `"result_sources"` / Coveo
-/// `"searchHub"` / `"excerptLength"` / Azure AI Search `"@odata.count"` /
+/// `"searchHub"` / Azure AI Search `"@odata.count"` /
 /// Vespa `"yql"` / Marqo `"searchableAttributes"` / LanceDB
 /// `"vector_column_name"` / Milvus `"annsField"` / Chroma `"n_results"` /
 /// Pinecone `"topK"` / Weaviate `"nearVector"` / `"invertedIndexConfig"` /
@@ -38955,8 +38956,8 @@ fn pagefind_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool {
 /// `NumberOfSeconds` / `MinutesAndSeconds`. Object `"srt_config"` /
 /// `"resultNoun"` / `"strings"` and JS callback keys (`generateMessage`,
 /// `onQueryUpdate`, …) require `{`. Bool keys only match `true` / `false`.
-/// Numeric keys reject leading zeros beyond `0`. Coveo `"numberOfResults"` /
-/// `"excerptLength"` stay out of Stork.
+/// Numeric keys reject leading zeros beyond `0`. Coveo also lists
+/// `"excerptLength"` / `"numberOfResults"` (shared key names).
 fn is_stork_json_decl(s: &str) -> bool {
     let s = s.trim_start();
     let Some(rest) = s.strip_prefix('"') else {
@@ -39014,6 +39015,8 @@ fn stork_json_key_ok(key: &str) -> bool {
             | "transformResultUrl"
             | "forceRefreshIndex"
             | "numberOfExcerpts"
+            | "excerptLength"
+            | "numberOfResults"
             | "strings"
             | "generateMessage"
             | "queryTooShort"
@@ -39131,6 +39134,8 @@ fn stork_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool {
             | "minimum_index_ideographic_substring_length"
             | "minimumQueryLength"
             | "numberOfExcerpts"
+            | "excerptLength"
+            | "numberOfResults"
     ) {
         return false;
     }
