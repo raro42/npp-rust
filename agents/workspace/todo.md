@@ -1,3 +1,5 @@
+009 keep: Function List Stork v2 strings attribution/closeButtonSvg (v0.3.961)
+
 009 keep: Function List Stork v2 forceRefreshIndex/numberOfExcerpts/strings/generateMessage/queryTooShort (v0.3.960)
 
 009 keep: Function List Stork JS showCloseButton/forceOverwrite/resultNoun (v0.3.959)
