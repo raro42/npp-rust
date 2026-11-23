@@ -1,3 +1,5 @@
+009 keep: Function List Stork v2 excerptLength/numberOfResults (v0.3.962)
+
 009 keep: Function List Stork v2 strings attribution/closeButtonSvg (v0.3.961)
 
 009 keep: Function List Stork v2 forceRefreshIndex/numberOfExcerpts/strings/generateMessage/queryTooShort (v0.3.960)
