@@ -30666,7 +30666,7 @@ fn elasticsearch_json_bool_and_tail_ok(after_colon: &str) -> bool {
 /// `"processingTimeMs"` / `"estimatedTotalHits"` / `"exhaustiveNbHits"` /
 /// `"nbHits"` / `"hitsPerPage"` / `"facetDistribution"` / `"facetStats"` /
 /// `"exhaustiveFacetsCount"` / `"rankingScoreThreshold"` /
-/// `"showRankingScore"` / `"matchingStrategy"` / `"attributesToSearchOn"` /
+/// `"showRankingScore"` / `"matchingStrategy"` / `"attributesToSearchOn"` / `"filterableAttributes"` / `"sortableAttributes"` / `"rankingRules"` / `"displayedAttributes"` / `"stopWords"` / `"synonyms"` / `"proximityPrecision"` / `"searchCutoffMs"` /
 /// Grafana alerting `"noDataState"` / `"execErrState"` / `"datasourceUid"` /
 /// `"folderUID"` / `"relativeTimeRange"` / `"grafana_alert"` /
 /// `"contactPoints"` / `"muteTimes"` / `"isPaused"` / Grafana
@@ -30794,7 +30794,7 @@ fn solr_json_bool_and_tail_ok(after_colon: &str) -> bool {
     false
 }
 
-/// Meilisearch search response / request JSON keys:
+/// Meilisearch search response / request / index settings JSON keys:
 /// `"processingTimeMs": 0` / `12`,
 /// `"estimatedTotalHits": 0` / `100`,
 /// `"exhaustiveNbHits": true` / `false`,
@@ -30806,7 +30806,11 @@ fn solr_json_bool_and_tail_ok(after_colon: &str) -> bool {
 /// `"rankingScoreThreshold": 0` / `0.5` / `1`,
 /// `"showRankingScore": true` / `false`,
 /// `"matchingStrategy": "all"` / `"last"` / `"frequency"`,
-/// `"attributesToSearchOn": [`.
+/// `"attributesToSearchOn": [`,
+/// `"filterableAttributes": [`, `"sortableAttributes": [`,
+/// `"rankingRules": [`, `"displayedAttributes": [`, `"stopWords": [`,
+/// `"synonyms": {`, `"proximityPrecision": "byWord"` / `"byAttribute"`,
+/// `"searchCutoffMs": 0` / `50`.
 /// Optional trailing `,` and `//` / `/*` comment. Incomplete quotes /
 /// missing `:` stay out. Generic `"$schema"` / `"name"` / `"id"` /
 /// `"hits": [` / `"query"` / `"limit"` / `"offset"` / `"page"` /
@@ -30859,10 +30863,12 @@ fn solr_json_bool_and_tail_ok(after_colon: &str) -> bool {
 /// `"shardingConfig"` / `"multiTenancyConfig"` / `"replicationConfig"` /
 /// `"moduleConfig"` / `"creationTimeUnix"` / `"lastUpdateTimeUnix"` /
 /// `"indexFilterable"` / `"indexSearchable"` / `"tokenization"` stay out.
-/// `"matchingStrategy"` only matches its Meilisearch enums. Numeric
+/// `"matchingStrategy"` only matches its Meilisearch enums.
+/// `"proximityPrecision"` only matches `"byWord"` / `"byAttribute"`. Numeric
 /// `"processingTimeMs"` / `"estimatedTotalHits"` / `"nbHits"` /
-/// `"hitsPerPage"` reject leading zeros beyond `0`.
-/// `"rankingScoreThreshold"` allows a simple decimal (no exponent).
+/// `"hitsPerPage"` / `"searchCutoffMs"` reject leading zeros beyond `0`.
+/// `"rankingScoreThreshold"` allows a simple decimal (no exponent). Array
+/// index-setting keys require `[`. Object `"synonyms"` requires `{`.
 fn is_meilisearch_json_decl(s: &str) -> bool {
     let s = s.trim_start();
     let Some(rest) = s.strip_prefix('"') else {
@@ -30898,6 +30904,14 @@ fn meilisearch_json_key_ok(key: &str) -> bool {
             | "showRankingScore"
             | "matchingStrategy"
             | "attributesToSearchOn"
+            | "filterableAttributes"
+            | "sortableAttributes"
+            | "rankingRules"
+            | "displayedAttributes"
+            | "stopWords"
+            | "synonyms"
+            | "proximityPrecision"
+            | "searchCutoffMs"
     )
 }
 
@@ -30908,22 +30922,33 @@ fn meilisearch_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool {
     };
     match first {
         b'{' => {
-            if !matches!(key, "facetDistribution" | "facetStats") {
+            if !matches!(key, "facetDistribution" | "facetStats" | "synonyms") {
                 return false;
             }
             package_json_tail_ok(&after_colon[1..])
         }
         b'[' => {
-            if key != "attributesToSearchOn" {
+            if !matches!(
+                key,
+                "attributesToSearchOn"
+                    | "filterableAttributes"
+                    | "sortableAttributes"
+                    | "rankingRules"
+                    | "displayedAttributes"
+                    | "stopWords"
+            ) {
                 return false;
             }
             package_json_tail_ok(&after_colon[1..])
         }
         b'"' => {
-            if key != "matchingStrategy" {
-                return false;
+            if key == "matchingStrategy" {
+                meilisearch_json_matching_strategy_and_tail_ok(after_colon)
+            } else if key == "proximityPrecision" {
+                meilisearch_json_proximity_precision_and_tail_ok(after_colon)
+            } else {
+                false
             }
-            meilisearch_json_matching_strategy_and_tail_ok(after_colon)
         }
         b't' | b'f' => {
             if !matches!(
@@ -30951,9 +30976,25 @@ fn meilisearch_json_matching_strategy_and_tail_ok(after_colon: &str) -> bool {
     package_json_tail_ok(&rest[end + 1..])
 }
 
+fn meilisearch_json_proximity_precision_and_tail_ok(after_colon: &str) -> bool {
+    let rest = &after_colon[1..];
+    let Some(end) = rest.find('"') else {
+        return false;
+    };
+    let value = &rest[..end];
+    if !matches!(value, "byWord" | "byAttribute") {
+        return false;
+    }
+    package_json_tail_ok(&rest[end + 1..])
+}
+
 fn meilisearch_json_number_and_tail_ok(key: &str, after_colon: &str) -> bool {
     match key {
-        "processingTimeMs" | "estimatedTotalHits" | "nbHits" | "hitsPerPage" => {
+        "processingTimeMs"
+        | "estimatedTotalHits"
+        | "nbHits"
+        | "hitsPerPage"
+        | "searchCutoffMs" => {
             let digits = after_colon
                 .bytes()
                 .take_while(|b| b.is_ascii_digit())
@@ -31029,7 +31070,11 @@ fn meilisearch_json_bool_and_tail_ok(after_colon: &str) -> bool {
 /// `"hitsPerPage"` / `"facetDistribution"` / `"facetStats"` /
 /// `"exhaustiveFacetsCount"` / `"rankingScoreThreshold"` /
 /// `"showRankingScore"` / `"matchingStrategy"` /
-/// `"attributesToSearchOn"` / Algolia `"processingTimeMS"` /
+/// `"attributesToSearchOn"` / `"filterableAttributes"` /
+/// `"sortableAttributes"` / `"rankingRules"` /
+/// `"displayedAttributes"` / `"stopWords"` / `"synonyms"` /
+/// `"proximityPrecision"` / `"searchCutoffMs"` / Algolia
+/// `"processingTimeMS"` /
 /// `"nbPages"` / `"serverTimeMS"` / `"queryID"` / `"indexUsed"` /
 /// `"aroundLatLng"` / `"highlightPreTag"` / `"facets_stats"` /
 /// `"renderingContent"` / `"appliedRules"` /
@@ -31213,7 +31258,7 @@ fn typesense_json_bool_and_tail_ok(after_colon: &str) -> bool {
 /// `"hitsPerPage"` / Meilisearch `"processingTimeMs"` /
 /// `"estimatedTotalHits"` / `"exhaustiveNbHits"` / `"facetDistribution"` /
 /// `"facetStats"` / `"exhaustiveFacetsCount"` / `"rankingScoreThreshold"` /
-/// `"showRankingScore"` / `"matchingStrategy"` / `"attributesToSearchOn"` /
+/// `"showRankingScore"` / `"matchingStrategy"` / `"attributesToSearchOn"` / `"filterableAttributes"` / `"sortableAttributes"` / `"rankingRules"` / `"displayedAttributes"` / `"stopWords"` / `"synonyms"` / `"proximityPrecision"` / `"searchCutoffMs"` /
 /// Typesense `"search_time_ms"` / `"out_of"` / `"search_cutoff"` /
 /// `"grouped_hits"` / `"facet_counts": [` / `"default_sorting_field"` /
 /// `"enable_nested_fields"` / `"token_separators"` / `"symbols_to_index"` /
@@ -31416,7 +31461,7 @@ fn algolia_json_bool_and_tail_ok(after_colon: &str) -> bool {
 /// `"estimatedTotalHits"` / `"exhaustiveNbHits"` / `"nbHits"` /
 /// `"hitsPerPage"` / `"facetDistribution"` / `"facetStats"` /
 /// `"exhaustiveFacetsCount"` / `"rankingScoreThreshold"` /
-/// `"showRankingScore"` / `"matchingStrategy"` / `"attributesToSearchOn"` /
+/// `"showRankingScore"` / `"matchingStrategy"` / `"attributesToSearchOn"` / `"filterableAttributes"` / `"sortableAttributes"` / `"rankingRules"` / `"displayedAttributes"` / `"stopWords"` / `"synonyms"` / `"proximityPrecision"` / `"searchCutoffMs"` /
 /// Typesense `"search_time_ms"` / `"out_of"` / `"search_cutoff"` /
 /// `"grouped_hits"` / `"facet_counts": [` / `"default_sorting_field"` /
 /// `"enable_nested_fields"` / `"token_separators"` / `"symbols_to_index"` /
@@ -31651,7 +31696,7 @@ fn qdrant_json_bool_and_tail_ok(after_colon: &str) -> bool {
 /// `"estimatedTotalHits"` / `"exhaustiveNbHits"` / `"nbHits"` /
 /// `"hitsPerPage"` / `"facetDistribution"` / `"facetStats"` /
 /// `"exhaustiveFacetsCount"` / `"rankingScoreThreshold"` /
-/// `"showRankingScore"` / `"matchingStrategy"` / `"attributesToSearchOn"` /
+/// `"showRankingScore"` / `"matchingStrategy"` / `"attributesToSearchOn"` / `"filterableAttributes"` / `"sortableAttributes"` / `"rankingRules"` / `"displayedAttributes"` / `"stopWords"` / `"synonyms"` / `"proximityPrecision"` / `"searchCutoffMs"` /
 /// Typesense `"search_time_ms"` / `"out_of"` / `"search_cutoff"` /
 /// `"grouped_hits"` / `"facet_counts": [` / `"default_sorting_field"` /
 /// `"enable_nested_fields"` / `"token_separators"` / `"symbols_to_index"` /
@@ -31883,7 +31928,7 @@ fn weaviate_json_bool_and_tail_ok(after_colon: &str) -> bool {
 /// `"processingTimeMs"` / `"estimatedTotalHits"` / `"exhaustiveNbHits"` /
 /// `"nbHits"` / `"hitsPerPage"` / `"facetDistribution"` / `"facetStats"` /
 /// `"exhaustiveFacetsCount"` / `"rankingScoreThreshold"` /
-/// `"showRankingScore"` / `"matchingStrategy"` / `"attributesToSearchOn"` /
+/// `"showRankingScore"` / `"matchingStrategy"` / `"attributesToSearchOn"` / `"filterableAttributes"` / `"sortableAttributes"` / `"rankingRules"` / `"displayedAttributes"` / `"stopWords"` / `"synonyms"` / `"proximityPrecision"` / `"searchCutoffMs"` /
 /// Typesense `"search_time_ms"` / `"out_of"` / `"search_cutoff"` /
 /// `"grouped_hits"` / `"facet_counts": [` / `"default_sorting_field"` /
 /// `"enable_nested_fields"` / `"token_separators"` / `"symbols_to_index"` /
@@ -32128,7 +32173,7 @@ fn pinecone_json_bool_and_tail_ok(after_colon: &str) -> bool {
 /// `"estimatedTotalHits"` / `"exhaustiveNbHits"` / `"nbHits"` /
 /// `"hitsPerPage"` / `"facetDistribution"` / `"facetStats"` /
 /// `"exhaustiveFacetsCount"` / `"rankingScoreThreshold"` /
-/// `"showRankingScore"` / `"matchingStrategy"` / `"attributesToSearchOn"` /
+/// `"showRankingScore"` / `"matchingStrategy"` / `"attributesToSearchOn"` / `"filterableAttributes"` / `"sortableAttributes"` / `"rankingRules"` / `"displayedAttributes"` / `"stopWords"` / `"synonyms"` / `"proximityPrecision"` / `"searchCutoffMs"` /
 /// Typesense `"search_time_ms"` / `"out_of"` / `"search_cutoff"` /
 /// `"grouped_hits"` / `"facet_counts": [` / `"default_sorting_field"` /
 /// `"enable_nested_fields"` / `"token_separators"` / `"symbols_to_index"` /
@@ -32329,7 +32374,7 @@ fn chroma_json_bool_and_tail_ok(after_colon: &str) -> bool {
 /// `"estimatedTotalHits"` / `"exhaustiveNbHits"` / `"nbHits"` /
 /// `"hitsPerPage"` / `"facetDistribution"` / `"facetStats"` /
 /// `"exhaustiveFacetsCount"` / `"rankingScoreThreshold"` /
-/// `"showRankingScore"` / `"matchingStrategy"` / `"attributesToSearchOn"` /
+/// `"showRankingScore"` / `"matchingStrategy"` / `"attributesToSearchOn"` / `"filterableAttributes"` / `"sortableAttributes"` / `"rankingRules"` / `"displayedAttributes"` / `"stopWords"` / `"synonyms"` / `"proximityPrecision"` / `"searchCutoffMs"` /
 /// Typesense `"search_time_ms"` / `"out_of"` / `"search_cutoff"` /
 /// `"grouped_hits"` / `"facet_counts": [` / `"default_sorting_field"` /
 /// `"enable_nested_fields"` / `"token_separators"` / `"symbols_to_index"` /

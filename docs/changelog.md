@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.968] — 2026-11-23
+
+View:
+
+- **Function List** lists Meilisearch index settings JSON keys: `"filterableAttributes": [`, `"sortableAttributes": [`, `"rankingRules": [`, `"displayedAttributes": [`, `"stopWords": [`, `"synonyms": {`, `"proximityPrecision": "byWord"` / `"byAttribute"`, `"searchCutoffMs": 0` / `50`. Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing `:` stay out. Empty strings / wrong case / plural misspellings / wrong value shapes stay out. Existing Meilisearch keys (`processingTimeMs`, `estimatedTotalHits`, `exhaustiveNbHits`, `nbHits`, `hitsPerPage`, `facetDistribution`, `facetStats`, `exhaustiveFacetsCount`, `rankingScoreThreshold`, `showRankingScore`, `matchingStrategy`, `attributesToSearchOn`, …) unchanged. Generic `"filter"` / `"sort"` / `"facets"` / `"limit"` / `"offset"` / `"page"` stay out. Neighbouring search JSON families stay out of Meilisearch for these keys. Array index-setting keys require `[`. Object `"synonyms"` requires `{`. `"proximityPrecision"` only matches its Meilisearch enums. Numeric `"searchCutoffMs"` rejects leading zeros beyond `0`.
+
 ## [0.3.967] — 2026-11-23
 
 View:

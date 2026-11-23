@@ -32886,6 +32886,20 @@ fn meilisearch_json_keys_smoke() {
         r#""matchingStrategy": "frequency""#
     ));
     assert!(is_meilisearch_json_decl(r#""attributesToSearchOn": ["#));
+    assert!(is_meilisearch_json_decl(r#""filterableAttributes": ["#));
+    assert!(is_meilisearch_json_decl(r#""sortableAttributes": ["#));
+    assert!(is_meilisearch_json_decl(r#""rankingRules": ["#));
+    assert!(is_meilisearch_json_decl(r#""displayedAttributes": ["#));
+    assert!(is_meilisearch_json_decl(r#""stopWords": ["#));
+    assert!(is_meilisearch_json_decl(r#""synonyms": {"#));
+    assert!(is_meilisearch_json_decl(
+        r#""proximityPrecision": "byWord""#
+    ));
+    assert!(is_meilisearch_json_decl(
+        r#""proximityPrecision": "byAttribute""#
+    ));
+    assert!(is_meilisearch_json_decl(r#""searchCutoffMs": 0"#));
+    assert!(is_meilisearch_json_decl(r#""searchCutoffMs": 50"#));
     // Distinctive neighbours stay out of this scanner.
     assert!(!is_meilisearch_json_decl(r#""responseHeader": {"#));
     assert!(is_solr_json_decl(r#""responseHeader": {"#));
@@ -32949,6 +32963,14 @@ fn meilisearch_json_keys_smoke() {
     assert!(line_is_func_like(r#""showRankingScore": true"#));
     assert!(line_is_func_like(r#""matchingStrategy": "all""#));
     assert!(line_is_func_like(r#""attributesToSearchOn": ["#));
+    assert!(line_is_func_like(r#""filterableAttributes": ["#));
+    assert!(line_is_func_like(r#""sortableAttributes": ["#));
+    assert!(line_is_func_like(r#""rankingRules": ["#));
+    assert!(line_is_func_like(r#""displayedAttributes": ["#));
+    assert!(line_is_func_like(r#""stopWords": ["#));
+    assert!(line_is_func_like(r#""synonyms": {"#));
+    assert!(line_is_func_like(r#""proximityPrecision": "byWord""#));
+    assert!(line_is_func_like(r#""searchCutoffMs": 50"#));
 }
 
 #[test]
@@ -33076,6 +33098,76 @@ fn meilisearch_json_keys_count() {
     assert!(!is_meilisearch_json_decl(r#""attributesToSearchOn": {"#));
     assert!(!is_meilisearch_json_decl(r#""attributesToSearchOn": true"#));
     assert!(!is_meilisearch_json_decl(r#""attributesToSearchOn": """#));
+    assert!(is_meilisearch_json_decl(r#""filterableAttributes": ["#));
+    assert!(is_meilisearch_json_decl(r#""filterableAttributes": [,"#));
+    assert!(is_meilisearch_json_decl(
+        r#""filterableAttributes": [ // f"#
+    ));
+    assert!(!is_meilisearch_json_decl(r#""filterableAttributes": {"#));
+    assert!(!is_meilisearch_json_decl(r#""filterableAttributes": true"#));
+    assert!(!is_meilisearch_json_decl(r#""filterableAttributes": """#));
+    assert!(is_meilisearch_json_decl(r#""sortableAttributes": ["#));
+    assert!(is_meilisearch_json_decl(r#""sortableAttributes": [,"#));
+    assert!(is_meilisearch_json_decl(
+        r#""sortableAttributes": [ // s"#
+    ));
+    assert!(!is_meilisearch_json_decl(r#""sortableAttributes": {"#));
+    assert!(!is_meilisearch_json_decl(r#""sortableAttributes": true"#));
+    assert!(!is_meilisearch_json_decl(r#""sortableAttributes": """#));
+    assert!(is_meilisearch_json_decl(r#""rankingRules": ["#));
+    assert!(is_meilisearch_json_decl(r#""rankingRules": [,"#));
+    assert!(is_meilisearch_json_decl(r#""rankingRules": [ // r"#));
+    assert!(!is_meilisearch_json_decl(r#""rankingRules": {"#));
+    assert!(!is_meilisearch_json_decl(r#""rankingRules": true"#));
+    assert!(!is_meilisearch_json_decl(r#""rankingRules": """#));
+    assert!(is_meilisearch_json_decl(r#""displayedAttributes": ["#));
+    assert!(is_meilisearch_json_decl(r#""displayedAttributes": [,"#));
+    assert!(is_meilisearch_json_decl(
+        r#""displayedAttributes": [ // d"#
+    ));
+    assert!(!is_meilisearch_json_decl(r#""displayedAttributes": {"#));
+    assert!(!is_meilisearch_json_decl(r#""displayedAttributes": true"#));
+    assert!(!is_meilisearch_json_decl(r#""displayedAttributes": """#));
+    assert!(is_meilisearch_json_decl(r#""stopWords": ["#));
+    assert!(is_meilisearch_json_decl(r#""stopWords": [,"#));
+    assert!(is_meilisearch_json_decl(r#""stopWords": [ // s"#));
+    assert!(!is_meilisearch_json_decl(r#""stopWords": {"#));
+    assert!(!is_meilisearch_json_decl(r#""stopWords": true"#));
+    assert!(!is_meilisearch_json_decl(r#""stopWords": """#));
+    assert!(is_meilisearch_json_decl(r#""synonyms": {"#));
+    assert!(is_meilisearch_json_decl(r#""synonyms": {,"#));
+    assert!(is_meilisearch_json_decl(r#""synonyms": { // s"#));
+    assert!(!is_meilisearch_json_decl(r#""synonyms": ["#));
+    assert!(!is_meilisearch_json_decl(r#""synonyms": true"#));
+    assert!(!is_meilisearch_json_decl(r#""synonyms": """#));
+    assert!(is_meilisearch_json_decl(
+        r#""proximityPrecision": "byWord""#
+    ));
+    assert!(is_meilisearch_json_decl(
+        r#""proximityPrecision": "byAttribute""#
+    ));
+    assert!(is_meilisearch_json_decl(
+        r#""proximityPrecision": "byWord","#
+    ));
+    assert!(is_meilisearch_json_decl(
+        r#""proximityPrecision": "byAttribute" // p"#
+    ));
+    assert!(!is_meilisearch_json_decl(
+        r#""proximityPrecision": "byWords""#
+    ));
+    assert!(!is_meilisearch_json_decl(r#""proximityPrecision": """#));
+    assert!(!is_meilisearch_json_decl(r#""proximityPrecision": {"#));
+    assert!(!is_meilisearch_json_decl(r#""proximityPrecision": true"#));
+    assert!(!is_meilisearch_json_decl(r#""proximityPrecision": ["#));
+    assert!(is_meilisearch_json_decl(r#""searchCutoffMs": 0"#));
+    assert!(is_meilisearch_json_decl(r#""searchCutoffMs": 50"#));
+    assert!(is_meilisearch_json_decl(r#""searchCutoffMs": 50,"#));
+    assert!(is_meilisearch_json_decl(r#""searchCutoffMs": 50 // c"#));
+    assert!(!is_meilisearch_json_decl(r#""searchCutoffMs": 00"#));
+    assert!(!is_meilisearch_json_decl(r#""searchCutoffMs": 01"#));
+    assert!(!is_meilisearch_json_decl(r#""searchCutoffMs": true"#));
+    assert!(!is_meilisearch_json_decl(r#""searchCutoffMs": {"#));
+    assert!(!is_meilisearch_json_decl(r#""searchCutoffMs": "50""#));
     // Incomplete / wrong shapes stay out.
     assert!(!is_meilisearch_json_decl(r#""processingTimeMs""#));
     assert!(!is_meilisearch_json_decl(r#""processingTimeMs":"#));
@@ -33090,6 +33182,14 @@ fn meilisearch_json_keys_count() {
     assert!(!is_meilisearch_json_decl(r#""showRankingScore""#));
     assert!(!is_meilisearch_json_decl(r#""matchingStrategy""#));
     assert!(!is_meilisearch_json_decl(r#""attributesToSearchOn""#));
+    assert!(!is_meilisearch_json_decl(r#""filterableAttributes""#));
+    assert!(!is_meilisearch_json_decl(r#""sortableAttributes""#));
+    assert!(!is_meilisearch_json_decl(r#""rankingRules""#));
+    assert!(!is_meilisearch_json_decl(r#""displayedAttributes""#));
+    assert!(!is_meilisearch_json_decl(r#""stopWords""#));
+    assert!(!is_meilisearch_json_decl(r#""synonyms""#));
+    assert!(!is_meilisearch_json_decl(r#""proximityPrecision""#));
+    assert!(!is_meilisearch_json_decl(r#""searchCutoffMs""#));
     // Generic / neighbouring stay out.
     assert!(!is_meilisearch_json_decl(
         r#""$schema": "https://json-schema.org/draft/2020-12/schema""#
@@ -33173,6 +33273,14 @@ fn meilisearch_json_keys_count() {
     assert!(line_is_func_like(r#""showRankingScore": false"#));
     assert!(line_is_func_like(r#""matchingStrategy": "frequency""#));
     assert!(line_is_func_like(r#""attributesToSearchOn": ["#));
+    assert!(line_is_func_like(r#""filterableAttributes": ["#));
+    assert!(line_is_func_like(r#""sortableAttributes": ["#));
+    assert!(line_is_func_like(r#""rankingRules": ["#));
+    assert!(line_is_func_like(r#""displayedAttributes": ["#));
+    assert!(line_is_func_like(r#""stopWords": ["#));
+    assert!(line_is_func_like(r#""synonyms": {"#));
+    assert!(line_is_func_like(r#""proximityPrecision": "byAttribute""#));
+    assert!(line_is_func_like(r#""searchCutoffMs": 0"#));
     assert!(!is_meilisearch_json_decl(r#""search_time_ms": 12"#));
     assert!(is_typesense_json_decl(r#""search_time_ms": 12"#));
     assert!(!is_meilisearch_json_decl(r#""out_of": 100"#));
