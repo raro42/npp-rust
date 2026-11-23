@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.965] — 2026-11-23
+
+View:
+
+- **Function List** lists Instant Meilisearch (`@meilisearch/instant-meilisearch`) config JSON keys: `"clientAgents": [`, `"indexesOverrides": {`. Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing `:` stay out. Empty strings / wrong case / plural misspellings / wrong value shapes stay out. Existing Instant Meilisearch keys (`placeholderSearch`, `finitePagination`, `primaryKey`, `keepZeroFacets`, `requestInit`, `meiliSearchParams`, …) unchanged. Generic `"host"` / `"apiKey"` / `"searchClient"` / `"httpClient"` stay out of Instant Meilisearch. Neighbouring search JSON families stay out of Instant Meilisearch for these keys. Array `"clientAgents"` requires `[`. Object `"indexesOverrides"` requires `{`.
+
 ## [0.3.964] — 2026-11-23
 
 View:

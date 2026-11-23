@@ -51096,6 +51096,12 @@ fn autocomplete_json_keys_count() {
     assert!(is_instant_meilisearch_json_decl(
         r#""meiliSearchParams": {"#
     ));
+    assert!(!is_autocomplete_json_decl(r#""clientAgents": ["#));
+    assert!(is_instant_meilisearch_json_decl(r#""clientAgents": ["#));
+    assert!(!is_autocomplete_json_decl(r#""indexesOverrides": {"#));
+    assert!(is_instant_meilisearch_json_decl(
+        r#""indexesOverrides": {"#
+    ));
 }
 
 #[test]
@@ -51220,6 +51226,14 @@ fn typesense_instantsearch_json_keys_smoke() {
     ));
     assert!(is_instant_meilisearch_json_decl(
         r#""meiliSearchParams": {"#
+    ));
+    assert!(!is_typesense_instantsearch_json_decl(r#""clientAgents": ["#));
+    assert!(is_instant_meilisearch_json_decl(r#""clientAgents": ["#));
+    assert!(!is_typesense_instantsearch_json_decl(
+        r#""indexesOverrides": {"#
+    ));
+    assert!(is_instant_meilisearch_json_decl(
+        r#""indexesOverrides": {"#
     ));
     assert!(!is_typesense_instantsearch_json_decl(
         r#""search_settings": {"#
@@ -51463,6 +51477,14 @@ fn typesense_instantsearch_json_keys_count() {
     assert!(is_instant_meilisearch_json_decl(
         r#""meiliSearchParams": {"#
     ));
+    assert!(!is_typesense_instantsearch_json_decl(r#""clientAgents": ["#));
+    assert!(is_instant_meilisearch_json_decl(r#""clientAgents": ["#));
+    assert!(!is_typesense_instantsearch_json_decl(
+        r#""indexesOverrides": {"#
+    ));
+    assert!(is_instant_meilisearch_json_decl(
+        r#""indexesOverrides": {"#
+    ));
 }
 
 #[test]
@@ -51480,6 +51502,10 @@ fn instant_meilisearch_json_keys_smoke() {
     assert!(is_instant_meilisearch_json_decl(r#""requestInit": {"#));
     assert!(is_instant_meilisearch_json_decl(
         r#""meiliSearchParams": {"#
+    ));
+    assert!(is_instant_meilisearch_json_decl(r#""clientAgents": ["#));
+    assert!(is_instant_meilisearch_json_decl(
+        r#""indexesOverrides": {"#
     ));
     assert!(!is_instant_meilisearch_json_decl(
         r#""additionalSearchParameters": {"#
@@ -51648,6 +51674,44 @@ fn instant_meilisearch_json_keys_count() {
     assert!(!is_instant_meilisearch_json_decl(
         r#""meiliSearchParams": "x""#
     ));
+    assert!(!is_meilisearch_json_decl(r#""clientAgents": ["#));
+    assert!(!is_pagefind_json_decl(r#""clientAgents": ["#));
+    assert!(is_instant_meilisearch_json_decl(r#""clientAgents": ["#));
+    assert!(is_instant_meilisearch_json_decl(r#""clientAgents": [,"#));
+    assert!(is_instant_meilisearch_json_decl(
+        r#""clientAgents": [ // c"#
+    ));
+    assert!(!is_instant_meilisearch_json_decl(r#""clientAgents": {"#));
+    assert!(!is_instant_meilisearch_json_decl(r#""clientAgents": true"#));
+    assert!(!is_instant_meilisearch_json_decl(r#""clientAgents": 1"#));
+    assert!(!is_instant_meilisearch_json_decl(r#""clientAgentss": ["#));
+    assert!(!is_instant_meilisearch_json_decl(r#""ClientAgents": ["#));
+    assert!(!is_meilisearch_json_decl(r#""indexesOverrides": {"#));
+    assert!(!is_pagefind_json_decl(r#""indexesOverrides": {"#));
+    assert!(is_instant_meilisearch_json_decl(
+        r#""indexesOverrides": {"#
+    ));
+    assert!(is_instant_meilisearch_json_decl(
+        r#""indexesOverrides": {,"#
+    ));
+    assert!(is_instant_meilisearch_json_decl(
+        r#""indexesOverrides": { // c"#
+    ));
+    assert!(!is_instant_meilisearch_json_decl(
+        r#""indexesOverrides": ["#
+    ));
+    assert!(!is_instant_meilisearch_json_decl(
+        r#""indexesOverrides": true"#
+    ));
+    assert!(!is_instant_meilisearch_json_decl(
+        r#""indexesOverrides": "x""#
+    ));
+    assert!(!is_instant_meilisearch_json_decl(
+        r#""indexesOverridess": {"#
+    ));
+    assert!(!is_instant_meilisearch_json_decl(
+        r#""IndexesOverrides": {"#
+    ));
     assert!(!is_instant_meilisearch_json_decl(r#""placeholderSearch""#));
     assert!(!is_instant_meilisearch_json_decl(r#""primaryKey""#));
     assert!(!is_instant_meilisearch_json_decl(r#""meiliSearchParams""#));
@@ -51745,6 +51809,8 @@ fn instant_meilisearch_json_keys_count() {
     assert!(line_is_func_like(r#""keepZeroFacets": true"#));
     assert!(line_is_func_like(r#""requestInit": {"#));
     assert!(line_is_func_like(r#""meiliSearchParams": {"#));
+    assert!(line_is_func_like(r#""clientAgents": ["#));
+    assert!(line_is_func_like(r#""indexesOverrides": {"#));
     assert!(!is_instant_meilisearch_json_decl(r#""search_settings": {"#));
     assert!(is_searchkit_json_decl(r#""search_settings": {"#));
     assert!(!is_instant_meilisearch_json_decl(
