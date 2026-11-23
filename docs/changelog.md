@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.950] — 2026-11-23
+
+View:
+
+- **Function List** lists Pagefind Component UI JSON keys: `"preload": true` / `false`, `"faceted": true` / `false`. Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing `:` stay out. Wrong case / plural misspellings / wrong value shapes stay out. Existing Pagefind UI / search / index keys (`ranking`, `exactDiacritics`, `metaCacheTag`, `noWorker`, `bundlePath`, …) unchanged. `"element"` / `"excerptLength"` / `"baseUrl"` / `"basePath"` / `"language"` stay out of Pagefind (generic / Coveo / karma). Neighbouring search JSON families stay out of Pagefind for these keys (Grafana may also match `"preload": true` / `false`). Bool `"preload"` / `"faceted"` only match `true` / `false`.
+
 ## [0.3.949] — 2026-11-23
 
 View:

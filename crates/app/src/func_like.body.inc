@@ -38487,7 +38487,8 @@ fn orama_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool {
 /// `"processTerm": {`, `"processResult": {`,
 /// `"excerptEllipsis": "…"`, `"ranking": {`,
 /// `"exactDiacritics": true` / `false`, `"metaCacheTag": "…"`,
-/// `"noWorker": true` / `false`. Optional
+/// `"noWorker": true` / `false`, `"preload": true` / `false`,
+/// `"faceted": true` / `false`. Optional
 /// trailing `,` and `//` / `/*` comment. Incomplete quotes / missing
 /// `:` stay out. Generic `"$schema"` / `"name"` / `"id"` / `"q"` /
 /// `"query"` / `"url"` / `"content"` / `"excerpt"` / `"filters"` /
@@ -38587,6 +38588,8 @@ fn pagefind_json_key_ok(key: &str) -> bool {
             | "exactDiacritics"
             | "metaCacheTag"
             | "noWorker"
+            | "preload"
+            | "faceted"
     )
 }
 
@@ -38658,6 +38661,8 @@ fn pagefind_json_bool_and_tail_ok(key: &str, after_colon: &str) -> bool {
             | "autofocus"
             | "exactDiacritics"
             | "noWorker"
+            | "preload"
+            | "faceted"
     ) {
         return false;
     }

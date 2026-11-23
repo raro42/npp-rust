@@ -1,3 +1,5 @@
+009 keep: Function List Pagefind Component UI preload/faceted (v0.3.950)
+
 009 keep: Function List Pagefind ranking/exactDiacritics/metaCacheTag/noWorker (v0.3.949)
 
 009 keep: Function List Pagefind UI processTerm/processResult/excerptEllipsis (v0.3.948)

@@ -45162,6 +45162,8 @@ fn pagefind_json_keys_smoke() {
     assert!(is_pagefind_json_decl(r#""exactDiacritics": true"#));
     assert!(is_pagefind_json_decl(r#""metaCacheTag": "v1""#));
     assert!(is_pagefind_json_decl(r#""noWorker": false"#));
+    assert!(is_pagefind_json_decl(r#""preload": true"#));
+    assert!(is_pagefind_json_decl(r#""faceted": false"#));
     assert!(!is_pagefind_json_decl(r##""element": "#search""##));
     assert!(!is_pagefind_json_decl(r#""searchableProperties": ["#));
     assert!(is_orama_json_decl(r#""searchableProperties": ["#));
@@ -45446,6 +45448,26 @@ fn pagefind_json_keys_count() {
     assert!(!is_pagefind_json_decl(r#""noWorker": {"#));
     assert!(!is_pagefind_json_decl(r#""noWorkers": true"#));
     assert!(!is_pagefind_json_decl(r#""NoWorker": true"#));
+    assert!(is_pagefind_json_decl(r#""preload": true"#));
+    assert!(is_pagefind_json_decl(r#""preload": false"#));
+    assert!(is_pagefind_json_decl(r#""preload": true,"#));
+    assert!(is_pagefind_json_decl(r#""preload": false // c"#));
+    assert!(!is_pagefind_json_decl(r#""preload": 1"#));
+    assert!(!is_pagefind_json_decl(r#""preload": "true""#));
+    assert!(!is_pagefind_json_decl(r#""preload": ["#));
+    assert!(!is_pagefind_json_decl(r#""preload": {"#));
+    assert!(!is_pagefind_json_decl(r#""preloads": true"#));
+    assert!(!is_pagefind_json_decl(r#""Preload": true"#));
+    assert!(is_pagefind_json_decl(r#""faceted": true"#));
+    assert!(is_pagefind_json_decl(r#""faceted": false"#));
+    assert!(is_pagefind_json_decl(r#""faceted": true,"#));
+    assert!(is_pagefind_json_decl(r#""faceted": false // c"#));
+    assert!(!is_pagefind_json_decl(r#""faceted": 1"#));
+    assert!(!is_pagefind_json_decl(r#""faceted": "true""#));
+    assert!(!is_pagefind_json_decl(r#""faceted": ["#));
+    assert!(!is_pagefind_json_decl(r#""faceted": {"#));
+    assert!(!is_pagefind_json_decl(r#""faceteds": true"#));
+    assert!(!is_pagefind_json_decl(r#""Faceted": true"#));
     assert!(!is_pagefind_json_decl(r#""unfilteredResultCount""#));
     assert!(!is_pagefind_json_decl(r#""weighted_locations""#));
     assert!(!is_pagefind_json_decl(r#""showSubResults""#));
@@ -45468,6 +45490,8 @@ fn pagefind_json_keys_count() {
     assert!(!is_pagefind_json_decl(r#""exactDiacritics""#));
     assert!(!is_pagefind_json_decl(r#""metaCacheTag""#));
     assert!(!is_pagefind_json_decl(r#""noWorker""#));
+    assert!(!is_pagefind_json_decl(r#""preload""#));
+    assert!(!is_pagefind_json_decl(r#""faceted""#));
     assert!(!is_pagefind_json_decl(
         r#""$schema": "https://example.com""#
     ));
@@ -45540,6 +45564,8 @@ fn pagefind_json_keys_count() {
     assert!(line_is_func_like(r#""exactDiacritics": true"#));
     assert!(line_is_func_like(r#""metaCacheTag": "v1""#));
     assert!(line_is_func_like(r#""noWorker": false"#));
+    assert!(line_is_func_like(r#""preload": true"#));
+    assert!(line_is_func_like(r#""faceted": false"#));
     assert!(!is_pagefind_json_decl(r##""element": "#search""##));
     assert!(!is_pagefind_json_decl(
         r#""exclude_html_selector": ".sidebar""#
