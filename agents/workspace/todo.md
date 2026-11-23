@@ -1,3 +1,5 @@
+009 keep: Function List Pagefind thanks_to/hideSubResults/maxSubResults/linkTarget (v0.3.953)
+
 009 keep: Function List Pagefind UI clear_search/load_more/search_label/filters_label/zero_results/many_results/one_result/alt_search/search_suggestion/searching (v0.3.952)
 
 009 keep: Function List Pagefind ranking termFrequency/termSimilarity/pageLength/termSaturation/diacriticSimilarity/metaWeights (v0.3.951)
