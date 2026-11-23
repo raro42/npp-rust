@@ -45366,6 +45366,12 @@ fn pagefind_json_keys_smoke() {
     assert!(is_stork_json_decl(r#""generateMessage": {"#));
     assert!(!is_pagefind_json_decl(r#""queryTooShort": "Searching...""#));
     assert!(is_stork_json_decl(r#""queryTooShort": "Searching...""#));
+    assert!(!is_pagefind_json_decl(r#""attribution": "Powered by Stork""#));
+    assert!(is_stork_json_decl(r#""attribution": "Powered by Stork""#));
+    assert!(!is_pagefind_json_decl(
+        r#""closeButtonSvg": "<svg></svg>""#
+    ));
+    assert!(is_stork_json_decl(r#""closeButtonSvg": "<svg></svg>""#));
 }
 
 #[test]
@@ -46527,6 +46533,12 @@ fn pagefind_json_keys_count() {
     assert!(is_stork_json_decl(r#""generateMessage": {"#));
     assert!(!is_pagefind_json_decl(r#""queryTooShort": "Searching...""#));
     assert!(is_stork_json_decl(r#""queryTooShort": "Searching...""#));
+    assert!(!is_pagefind_json_decl(r#""attribution": "Powered by Stork""#));
+    assert!(is_stork_json_decl(r#""attribution": "Powered by Stork""#));
+    assert!(!is_pagefind_json_decl(
+        r#""closeButtonSvg": "<svg></svg>""#
+    ));
+    assert!(is_stork_json_decl(r#""closeButtonSvg": "<svg></svg>""#));
 }
 
 #[test]
@@ -46583,6 +46595,8 @@ fn stork_json_keys_smoke() {
     assert!(is_stork_json_decl(r#""strings": {"#));
     assert!(is_stork_json_decl(r#""generateMessage": {"#));
     assert!(is_stork_json_decl(r#""queryTooShort": "Searching...""#));
+    assert!(is_stork_json_decl(r#""attribution": "Powered by Stork""#));
+    assert!(is_stork_json_decl(r#""closeButtonSvg": "<svg></svg>""#));
     assert!(!is_stork_json_decl(r#""unfilteredResultCount": 42"#));
     assert!(is_pagefind_json_decl(r#""unfilteredResultCount": 42"#));
     assert!(!is_stork_json_decl(r#""searchableProperties": ["#));
@@ -46964,6 +46978,24 @@ fn stork_json_keys_count() {
     assert!(!is_stork_json_decl(r#""queryTooShort": true"#));
     assert!(!is_stork_json_decl(r#""queryTooShort": {"#));
     assert!(!is_stork_json_decl(r#""queryTooShorts": "Searching...""#));
+    assert!(is_stork_json_decl(r#""attribution": "Powered by Stork""#));
+    assert!(is_stork_json_decl(r#""attribution": "Powered by Stork","#));
+    assert!(is_stork_json_decl(
+        r#""attribution": "Powered by Stork" // c"#
+    ));
+    assert!(!is_stork_json_decl(r#""attribution": """#));
+    assert!(!is_stork_json_decl(r#""attribution": true"#));
+    assert!(!is_stork_json_decl(r#""attribution": {"#));
+    assert!(!is_stork_json_decl(r#""attributions": "Powered by Stork""#));
+    assert!(is_stork_json_decl(r#""closeButtonSvg": "<svg></svg>""#));
+    assert!(is_stork_json_decl(r#""closeButtonSvg": "<svg></svg>","#));
+    assert!(is_stork_json_decl(
+        r#""closeButtonSvg": "<svg></svg>" // c"#
+    ));
+    assert!(!is_stork_json_decl(r#""closeButtonSvg": """#));
+    assert!(!is_stork_json_decl(r#""closeButtonSvg": true"#));
+    assert!(!is_stork_json_decl(r#""closeButtonSvg": {"#));
+    assert!(!is_stork_json_decl(r#""closeButtonSvgs": "<svg></svg>""#));
     assert!(!is_stork_json_decl(r#""exclude_html_selector""#));
     assert!(!is_stork_json_decl(r#""frontmatter_handling""#));
     assert!(!is_stork_json_decl(r#""save_nearest_node_json""#));
@@ -47062,6 +47094,8 @@ fn stork_json_keys_count() {
     assert!(line_is_func_like(r#""strings": {"#));
     assert!(line_is_func_like(r#""generateMessage": {"#));
     assert!(line_is_func_like(r#""queryTooShort": "Searching...""#));
+    assert!(line_is_func_like(r#""attribution": "Powered by Stork""#));
+    assert!(line_is_func_like(r#""closeButtonSvg": "<svg></svg>""#));
     assert!(!is_stork_json_decl(r#""maxResultsPerGroup": 5"#));
     assert!(is_docsearch_json_decl(r#""maxResultsPerGroup": 5"#));
     assert!(!is_stork_json_decl(r#""disableUserPersonalization": true"#));

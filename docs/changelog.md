@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.961] — 2026-11-23
+
+View:
+
+- **Function List** lists Stork Search v2 `strings` JSON keys: `"attribution": "…"`, `"closeButtonSvg": "…"`. Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing `:` stay out. Empty strings / wrong case / plural misspellings / wrong value shapes stay out. Existing Stork keys (`queryTooShort`, `strings`, `forceRefreshIndex`, `numberOfExcerpts`, `generateMessage`, `showCloseButton`, …) unchanged. Generic `"site"` / `"files"` / `"title"` / `"base_directory"` / `"url_prefix"` / `"html_selector"` / `"stemming"` / `"debug"` / `"filename"` stay out of Stork. Coveo `"numberOfResults"` / `"excerptLength"` stay out of Stork. Neighbouring search JSON families stay out of Stork for these keys. String `"attribution"` / `"closeButtonSvg"` require a non-empty quoted string.
+
 ## [0.3.960] — 2026-11-23
 
 View:

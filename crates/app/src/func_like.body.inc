@@ -38905,7 +38905,7 @@ fn pagefind_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool {
 /// `"onInputCleared": {`, `"transformResultUrl": {`,
 /// Stork v2 UI / register `"forceRefreshIndex": true` / `false`,
 /// `"numberOfExcerpts": 0` / `5`, `"strings": {`, `"generateMessage": {`,
-/// `"queryTooShort": "…"`.
+/// `"queryTooShort": "…"`, `"attribution": "…"`, `"closeButtonSvg": "…"`.
 /// Optional trailing `,` and `//` / `/*` comment. Incomplete quotes /
 /// missing `:` stay out. Generic `"$schema"` / `"name"` / `"id"` /
 /// `"q"` / `"query"` / `"url"` / `"files"` / `"title"` / `"base_directory"` /
@@ -39017,6 +39017,8 @@ fn stork_json_key_ok(key: &str) -> bool {
             | "strings"
             | "generateMessage"
             | "queryTooShort"
+            | "attribution"
+            | "closeButtonSvg"
     )
 }
 
@@ -39065,7 +39067,9 @@ fn stork_json_string_or_enum_and_tail_ok(key: &str, after_colon: &str) -> bool {
         | "html_selector_override"
         | "stemming_override"
         | "timestamp_template_string"
-        | "queryTooShort" => {}
+        | "queryTooShort"
+        | "attribution"
+        | "closeButtonSvg" => {}
         "frontmatter_handling" | "frontmatter_handling_override" => {
             if !matches!(value, "Ignore" | "Omit" | "Parse") {
                 return false;
