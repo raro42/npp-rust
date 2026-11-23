@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.971] — 2026-11-24
+
+View:
+
+- **Function List** lists Meilisearch index chat settings JSON keys: `"chat": {`, `"documentTemplate": "…"`, `"documentTemplateMaxBytes": 0` / `400`. Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing `:` stay out. Empty strings / wrong case / plural misspellings / wrong value shapes stay out. Existing Meilisearch keys (`processingTimeMs`, `estimatedTotalHits`, `exhaustiveNbHits`, `nbHits`, `hitsPerPage`, `facetDistribution`, `facetStats`, `exhaustiveFacetsCount`, `rankingScoreThreshold`, `showRankingScore`, `matchingStrategy`, `attributesToSearchOn`, `filterableAttributes`, `sortableAttributes`, `rankingRules`, `displayedAttributes`, `stopWords`, `synonyms`, `proximityPrecision`, `searchCutoffMs`, `searchableAttributes`, `separatorTokens`, `nonSeparatorTokens`, `dictionary`, `distinctAttribute`, `typoTolerance`, `pagination`, `faceting`, `embedders`, `localizedAttributes`, `facetSearch`, `prefixSearch`, …) unchanged. Generic `"filter"` / `"sort"` / `"facets"` / `"limit"` / `"offset"` / `"page"` / `"description"` / `"searchParameters"` stay out. Neighbouring search JSON families stay out of Meilisearch for these keys. Object `"chat"` requires `{`. String `"documentTemplate"` requires a non-empty quoted string. Numeric `"documentTemplateMaxBytes"` rejects leading zeros beyond `0`.
+
 ## [0.3.970] — 2026-11-24
 
 View:

@@ -30817,7 +30817,9 @@ fn solr_json_bool_and_tail_ok(after_colon: &str) -> bool {
 /// `"pagination": {`, `"faceting": {`,
 /// `"embedders": {`, `"localizedAttributes": [`,
 /// `"facetSearch": true` / `false`,
-/// `"prefixSearch": "indexingTime"` / `"disabled"`.
+/// `"prefixSearch": "indexingTime"` / `"disabled"`,
+/// `"chat": {`, `"documentTemplate": "…"`,
+/// `"documentTemplateMaxBytes": 0` / `400`.
 /// Optional trailing `,` and `//` / `/*` comment. Incomplete quotes /
 /// missing `:` stay out. Generic `"$schema"` / `"name"` / `"id"` /
 /// `"hits": [` / `"query"` / `"limit"` / `"offset"` / `"page"` /
@@ -30874,12 +30876,13 @@ fn solr_json_bool_and_tail_ok(after_colon: &str) -> bool {
 /// `"proximityPrecision"` only matches `"byWord"` / `"byAttribute"`.
 /// `"prefixSearch"` only matches `"indexingTime"` / `"disabled"`. Numeric
 /// `"processingTimeMs"` / `"estimatedTotalHits"` / `"nbHits"` /
-/// `"hitsPerPage"` / `"searchCutoffMs"` reject leading zeros beyond `0`.
+/// `"hitsPerPage"` / `"searchCutoffMs"` / `"documentTemplateMaxBytes"`
+/// reject leading zeros beyond `0`.
 /// `"rankingScoreThreshold"` allows a simple decimal (no exponent). Array
 /// index-setting keys require `[`. Object `"synonyms"` / `"typoTolerance"` /
-/// `"pagination"` / `"faceting"` / `"embedders"` require `{`. String
-/// `"distinctAttribute"` requires a non-empty quoted string. Bool
-/// `"facetSearch"` only matches `true` / `false`.
+/// `"pagination"` / `"faceting"` / `"embedders"` / `"chat"` require `{`.
+/// String `"distinctAttribute"` / `"documentTemplate"` require a non-empty
+/// quoted string. Bool `"facetSearch"` only matches `true` / `false`.
 fn is_meilisearch_json_decl(s: &str) -> bool {
     let s = s.trim_start();
     let Some(rest) = s.strip_prefix('"') else {
@@ -30935,6 +30938,9 @@ fn meilisearch_json_key_ok(key: &str) -> bool {
             | "localizedAttributes"
             | "facetSearch"
             | "prefixSearch"
+            | "chat"
+            | "documentTemplate"
+            | "documentTemplateMaxBytes"
     )
 }
 
@@ -30954,6 +30960,7 @@ fn meilisearch_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool {
                     | "pagination"
                     | "faceting"
                     | "embedders"
+                    | "chat"
             ) {
                 return false;
             }
@@ -30985,7 +30992,7 @@ fn meilisearch_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool {
                 meilisearch_json_proximity_precision_and_tail_ok(after_colon)
             } else if key == "prefixSearch" {
                 meilisearch_json_prefix_search_and_tail_ok(after_colon)
-            } else if key == "distinctAttribute" {
+            } else if key == "distinctAttribute" || key == "documentTemplate" {
                 meilisearch_json_nonempty_string_and_tail_ok(after_colon)
             } else {
                 false
@@ -31062,7 +31069,8 @@ fn meilisearch_json_number_and_tail_ok(key: &str, after_colon: &str) -> bool {
         | "estimatedTotalHits"
         | "nbHits"
         | "hitsPerPage"
-        | "searchCutoffMs" => {
+        | "searchCutoffMs"
+        | "documentTemplateMaxBytes" => {
             let digits = after_colon
                 .bytes()
                 .take_while(|b| b.is_ascii_digit())
@@ -31147,7 +31155,8 @@ fn meilisearch_json_bool_and_tail_ok(after_colon: &str) -> bool {
 /// `"distinctAttribute"` / `"typoTolerance"` /
 /// `"pagination"` / `"faceting"` / `"embedders"` /
 /// `"localizedAttributes"` / `"facetSearch"` /
-/// `"prefixSearch"` / Algolia
+/// `"prefixSearch"` / `"chat"` / `"documentTemplate"` /
+/// `"documentTemplateMaxBytes"` / Algolia
 /// `"processingTimeMS"` /
 /// `"nbPages"` / `"serverTimeMS"` / `"queryID"` / `"indexUsed"` /
 /// `"aroundLatLng"` / `"highlightPreTag"` / `"facets_stats"` /

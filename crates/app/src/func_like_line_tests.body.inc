@@ -32918,6 +32918,16 @@ fn meilisearch_json_keys_smoke() {
         r#""prefixSearch": "indexingTime""#
     ));
     assert!(is_meilisearch_json_decl(r#""prefixSearch": "disabled""#));
+    assert!(is_meilisearch_json_decl(r#""chat": {"#));
+    assert!(is_meilisearch_json_decl(
+        r#""documentTemplate": "{{doc.title}}""#
+    ));
+    assert!(is_meilisearch_json_decl(
+        r#""documentTemplateMaxBytes": 0"#
+    ));
+    assert!(is_meilisearch_json_decl(
+        r#""documentTemplateMaxBytes": 400"#
+    ));
     // Distinctive neighbours stay out of this scanner.
     assert!(!is_meilisearch_json_decl(r#""responseHeader": {"#));
     assert!(is_solr_json_decl(r#""responseHeader": {"#));
@@ -33001,6 +33011,11 @@ fn meilisearch_json_keys_smoke() {
     assert!(line_is_func_like(r#""localizedAttributes": ["#));
     assert!(line_is_func_like(r#""facetSearch": true"#));
     assert!(line_is_func_like(r#""prefixSearch": "indexingTime""#));
+    assert!(line_is_func_like(r#""chat": {"#));
+    assert!(line_is_func_like(
+        r#""documentTemplate": "{{doc.title}}""#
+    ));
+    assert!(line_is_func_like(r#""documentTemplateMaxBytes": 400"#));
 }
 
 #[test]
@@ -33296,6 +33311,55 @@ fn meilisearch_json_keys_count() {
     assert!(!is_meilisearch_json_decl(r#""prefixSearch": {"#));
     assert!(!is_meilisearch_json_decl(r#""prefixSearch": ["#));
     assert!(!is_meilisearch_json_decl(r#""prefixSearch": """#));
+    assert!(is_meilisearch_json_decl(r#""chat": {"#));
+    assert!(is_meilisearch_json_decl(r#""chat": {,"#));
+    assert!(is_meilisearch_json_decl(r#""chat": { // c"#));
+    assert!(!is_meilisearch_json_decl(r#""chat": ["#));
+    assert!(!is_meilisearch_json_decl(r#""chat": true"#));
+    assert!(!is_meilisearch_json_decl(r#""chat": """#));
+    assert!(is_meilisearch_json_decl(
+        r#""documentTemplate": "{{doc.title}}""#
+    ));
+    assert!(is_meilisearch_json_decl(
+        r#""documentTemplate": "{{doc.title}}","#
+    ));
+    assert!(is_meilisearch_json_decl(
+        r#""documentTemplate": "{{doc.title}}" // t"#
+    ));
+    assert!(!is_meilisearch_json_decl(r#""documentTemplate": """#));
+    assert!(!is_meilisearch_json_decl(r#""documentTemplate": {"#));
+    assert!(!is_meilisearch_json_decl(r#""documentTemplate": ["#));
+    assert!(!is_meilisearch_json_decl(r#""documentTemplate": true"#));
+    assert!(is_meilisearch_json_decl(
+        r#""documentTemplateMaxBytes": 0"#
+    ));
+    assert!(is_meilisearch_json_decl(
+        r#""documentTemplateMaxBytes": 400"#
+    ));
+    assert!(is_meilisearch_json_decl(
+        r#""documentTemplateMaxBytes": 400,"#
+    ));
+    assert!(is_meilisearch_json_decl(
+        r#""documentTemplateMaxBytes": 400 // m"#
+    ));
+    assert!(!is_meilisearch_json_decl(
+        r#""documentTemplateMaxBytes": 00"#
+    ));
+    assert!(!is_meilisearch_json_decl(
+        r#""documentTemplateMaxBytes": 01"#
+    ));
+    assert!(!is_meilisearch_json_decl(
+        r#""documentTemplateMaxBytes": true"#
+    ));
+    assert!(!is_meilisearch_json_decl(
+        r#""documentTemplateMaxBytes": {"#
+    ));
+    assert!(!is_meilisearch_json_decl(
+        r#""documentTemplateMaxBytes": ["#
+    ));
+    assert!(!is_meilisearch_json_decl(
+        r#""documentTemplateMaxBytes": """#
+    ));
     // Incomplete / wrong shapes stay out.
     assert!(!is_meilisearch_json_decl(r#""processingTimeMs""#));
     assert!(!is_meilisearch_json_decl(r#""processingTimeMs":"#));
@@ -33330,6 +33394,9 @@ fn meilisearch_json_keys_count() {
     assert!(!is_meilisearch_json_decl(r#""localizedAttributes""#));
     assert!(!is_meilisearch_json_decl(r#""facetSearch""#));
     assert!(!is_meilisearch_json_decl(r#""prefixSearch""#));
+    assert!(!is_meilisearch_json_decl(r#""chat""#));
+    assert!(!is_meilisearch_json_decl(r#""documentTemplate""#));
+    assert!(!is_meilisearch_json_decl(r#""documentTemplateMaxBytes""#));
     // Generic / neighbouring stay out.
     assert!(!is_meilisearch_json_decl(
         r#""$schema": "https://json-schema.org/draft/2020-12/schema""#
@@ -33433,6 +33500,11 @@ fn meilisearch_json_keys_count() {
     assert!(line_is_func_like(r#""localizedAttributes": ["#));
     assert!(line_is_func_like(r#""facetSearch": false"#));
     assert!(line_is_func_like(r#""prefixSearch": "disabled""#));
+    assert!(line_is_func_like(r#""chat": {"#));
+    assert!(line_is_func_like(
+        r#""documentTemplate": "{{doc.title}}""#
+    ));
+    assert!(line_is_func_like(r#""documentTemplateMaxBytes": 0"#));
     assert!(!is_meilisearch_json_decl(r#""search_time_ms": 12"#));
     assert!(is_typesense_json_decl(r#""search_time_ms": 12"#));
     assert!(!is_meilisearch_json_decl(r#""out_of": 100"#));
