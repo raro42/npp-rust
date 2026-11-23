@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.963] — 2026-11-23
+
+View:
+
+- **Function List** lists Stork Search Result / Excerpt / File JSON keys: `"highlight_ranges": [`, `"title_highlight_ranges": [`, `"url_suffix": "…"`, `"src_url": "…"`. Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing `:` stay out. Empty strings / wrong case / plural misspellings / wrong value shapes stay out. Existing Stork keys (`excerptLength`, `numberOfResults`, `attribution`, `closeButtonSvg`, `queryTooShort`, `strings`, …) unchanged. Generic `"site"` / `"files"` / `"title"` / `"base_directory"` / `"url_prefix"` / `"html_selector"` / `"stemming"` / `"debug"` / `"filename"` / `"path"` / `"contents"` / `"entry"` / `"excerpts"` / `"text"` / `"score"` / `"beginning"` / `"end"` stay out of Stork. Neighbouring search JSON families stay out of Stork for these keys. Array keys require `[`. String keys require a non-empty quoted string.
+
 ## [0.3.962] — 2026-11-23
 
 View:

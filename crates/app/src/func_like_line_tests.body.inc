@@ -45376,6 +45376,48 @@ fn pagefind_json_keys_smoke() {
     assert!(is_stork_json_decl(r#""excerptLength": 150"#));
     assert!(!is_pagefind_json_decl(r#""numberOfResults": 10"#));
     assert!(is_stork_json_decl(r#""numberOfResults": 10"#));
+    assert!(!is_pagefind_json_decl(r#""highlight_ranges": ["#));
+    assert!(is_stork_json_decl(r#""highlight_ranges": ["#));
+    assert!(is_stork_json_decl(r#""highlight_ranges": [,"#));
+    assert!(is_stork_json_decl(r#""highlight_ranges": [ // c"#));
+    assert!(!is_stork_json_decl(r#""highlight_ranges": {"#));
+    assert!(!is_stork_json_decl(r#""highlight_ranges": true"#));
+    assert!(!is_stork_json_decl(r#""highlight_ranges": 1"#));
+    assert!(!is_stork_json_decl(r#""highlight_rangess": ["#));
+    assert!(!is_stork_json_decl(r#""Highlight_ranges": ["#));
+    assert!(!is_pagefind_json_decl(r#""title_highlight_ranges": ["#));
+    assert!(is_stork_json_decl(r#""title_highlight_ranges": ["#));
+    assert!(is_stork_json_decl(r#""title_highlight_ranges": [,"#));
+    assert!(!is_stork_json_decl(r#""title_highlight_ranges": {"#));
+    assert!(!is_stork_json_decl(r#""title_highlight_rangess": ["#));
+    assert!(!is_pagefind_json_decl(r##""url_suffix": "#t=12""##));
+    assert!(is_stork_json_decl(r##""url_suffix": "#t=12""##));
+    assert!(is_stork_json_decl(r##""url_suffix": "#t=12","##));
+    assert!(is_stork_json_decl(r##""url_suffix": "#t=12" // c"##));
+    assert!(!is_stork_json_decl(r#""url_suffix": """#));
+    assert!(!is_stork_json_decl(r#""url_suffix": true"#));
+    assert!(!is_stork_json_decl(r#""url_suffix": ["#));
+    assert!(!is_stork_json_decl(r##""url_suffixs": "#t=12""##));
+    assert!(!is_stork_json_decl(r##""Url_suffix": "#t=12""##));
+    assert!(!is_pagefind_json_decl(r#""src_url": "https://example.com/a""#));
+    assert!(is_stork_json_decl(r#""src_url": "https://example.com/a""#));
+    assert!(is_stork_json_decl(r#""src_url": "https://example.com/a","#));
+    assert!(is_stork_json_decl(
+        r#""src_url": "https://example.com/a" // c"#
+    ));
+    assert!(!is_stork_json_decl(r#""src_url": """#));
+    assert!(!is_stork_json_decl(r#""src_url": true"#));
+    assert!(!is_stork_json_decl(r#""src_url": ["#));
+    assert!(!is_stork_json_decl(r#""src_urls": "https://example.com/a""#));
+    assert!(!is_stork_json_decl(r#""Src_url": "https://example.com/a""#));
+    assert!(!is_stork_json_decl(r#""path": "federalist-1.txt""#));
+    assert!(!is_stork_json_decl(r#""contents": "hello""#));
+    assert!(!is_stork_json_decl(r#""entry": {"#));
+    assert!(!is_stork_json_decl(r#""excerpts": ["#));
+    assert!(!is_stork_json_decl(r#""text": "excerpt""#));
+    assert!(!is_stork_json_decl(r#""score": 100"#));
+    assert!(!is_stork_json_decl(r#""beginning": 25"#));
+    assert!(!is_stork_json_decl(r#""end": 29"#));
 }
 
 #[test]

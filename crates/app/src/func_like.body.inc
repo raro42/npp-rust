@@ -38906,12 +38906,17 @@ fn pagefind_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool {
 /// Stork v2 UI / register `"forceRefreshIndex": true` / `false`,
 /// `"numberOfExcerpts": 0` / `5`, `"excerptLength": 0` / `150`,
 /// `"numberOfResults": 0` / `10`, `"strings": {`, `"generateMessage": {`,
-/// `"queryTooShort": "…"`, `"attribution": "…"`, `"closeButtonSvg": "…"`.
+/// `"queryTooShort": "…"`, `"attribution": "…"`, `"closeButtonSvg": "…"`,
+/// Stork `stork.search()` Result / Excerpt / File JSON keys
+/// `"highlight_ranges": [`, `"title_highlight_ranges": [`,
+/// `"url_suffix": "…"`, `"src_url": "…"`.
 /// Optional trailing `,` and `//` / `/*` comment. Incomplete quotes /
 /// missing `:` stay out. Generic `"$schema"` / `"name"` / `"id"` /
 /// `"q"` / `"query"` / `"url"` / `"files"` / `"title"` / `"base_directory"` /
 /// `"url_prefix"` / `"title_prefix"` / `"html_selector"` / `"stemming"` /
-/// `"debug"` / `"filename"` / Pagefind `"unfilteredResultCount"` /
+/// `"debug"` / `"filename"` / `"path"` / `"contents"` / `"entry"` /
+/// `"excerpts"` / `"text"` / `"score"` / `"beginning"` / `"end"` /
+/// Pagefind `"unfilteredResultCount"` /
 /// `"weighted_locations"` / `"indexWeight"` / `"mergeFilter"` /
 /// `"highlightParam"` / `"sub_results"` / `"totalFilters"` /
 /// `"showSubResults"` / Orama `"searchableProperties"` /
@@ -38955,9 +38960,11 @@ fn pagefind_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool {
 /// `Ridiculous` / `PlainText` / `SRTSubtitle` / `HTML` / `Markdown` /
 /// `NumberOfSeconds` / `MinutesAndSeconds`. Object `"srt_config"` /
 /// `"resultNoun"` / `"strings"` and JS callback keys (`generateMessage`,
-/// `onQueryUpdate`, …) require `{`. Bool keys only match `true` / `false`.
-/// Numeric keys reject leading zeros beyond `0`. Coveo also lists
-/// `"excerptLength"` / `"numberOfResults"` (shared key names).
+/// `onQueryUpdate`, …) require `{`. Array `"highlight_ranges"` /
+/// `"title_highlight_ranges"` require `[`. Bool keys only match
+/// `true` / `false`. Numeric keys reject leading zeros beyond `0`.
+/// Coveo also lists `"excerptLength"` / `"numberOfResults"` (shared key
+/// names).
 fn is_stork_json_decl(s: &str) -> bool {
     let s = s.trim_start();
     let Some(rest) = s.strip_prefix('"') else {
@@ -39022,6 +39029,10 @@ fn stork_json_key_ok(key: &str) -> bool {
             | "queryTooShort"
             | "attribution"
             | "closeButtonSvg"
+            | "highlight_ranges"
+            | "title_highlight_ranges"
+            | "url_suffix"
+            | "src_url"
     )
 }
 
@@ -39044,6 +39055,12 @@ fn stork_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool {
                     | "strings"
                     | "generateMessage"
             ) {
+                return false;
+            }
+            package_json_tail_ok(&after_colon[1..])
+        }
+        b'[' => {
+            if !matches!(key, "highlight_ranges" | "title_highlight_ranges") {
                 return false;
             }
             package_json_tail_ok(&after_colon[1..])
@@ -39072,7 +39089,9 @@ fn stork_json_string_or_enum_and_tail_ok(key: &str, after_colon: &str) -> bool {
         | "timestamp_template_string"
         | "queryTooShort"
         | "attribution"
-        | "closeButtonSvg" => {}
+        | "closeButtonSvg"
+        | "url_suffix"
+        | "src_url" => {}
         "frontmatter_handling" | "frontmatter_handling_override" => {
             if !matches!(value, "Ignore" | "Omit" | "Parse") {
                 return false;
