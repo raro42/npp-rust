@@ -45195,6 +45195,24 @@ fn pagefind_json_keys_smoke() {
     assert!(is_pagefind_json_decl(
         r#""thanks_to": "Pagefind translators""#
     ));
+    assert!(is_pagefind_json_decl(r#""total_zero_results": "No results""#));
+    assert!(is_pagefind_json_decl(
+        r#""total_one_result": "[COUNT] result""#
+    ));
+    assert!(is_pagefind_json_decl(
+        r#""total_many_results": "[COUNT] results""#
+    ));
+    assert!(is_pagefind_json_decl(r#""results_label": "Search results""#));
+    assert!(is_pagefind_json_decl(r#""error_search": "Search failed""#));
+    assert!(is_pagefind_json_decl(
+        r#""input_hint": "Results will appear as you type""#
+    ));
+    assert!(is_pagefind_json_decl(
+        r#""filter_selected_one": "[COUNT] selected""#
+    ));
+    assert!(is_pagefind_json_decl(
+        r#""filter_selected_many": "[COUNT] selected""#
+    ));
     assert!(is_pagefind_json_decl(r#""hideSubResults": true"#));
     assert!(is_pagefind_json_decl(r#""maxSubResults": 3"#));
     assert!(is_pagefind_json_decl(r#""linkTarget": "_blank""#));
@@ -45739,6 +45757,134 @@ fn pagefind_json_keys_count() {
     assert!(!is_pagefind_json_decl(
         r#""Thanks_to": "Pagefind translators""#
     ));
+    assert!(is_pagefind_json_decl(r#""total_zero_results": "No results""#));
+    assert!(is_pagefind_json_decl(r#""total_zero_results": "No results","#));
+    assert!(is_pagefind_json_decl(
+        r#""total_zero_results": "No results" // c"#
+    ));
+    assert!(!is_pagefind_json_decl(r#""total_zero_results": """#));
+    assert!(!is_pagefind_json_decl(r#""total_zero_results": true"#));
+    assert!(!is_pagefind_json_decl(r#""total_zero_results": ["#));
+    assert!(!is_pagefind_json_decl(r#""total_zero_results": {"#));
+    assert!(!is_pagefind_json_decl(r#""total_zero_resultss": "No results""#));
+    assert!(!is_pagefind_json_decl(r#""Total_zero_results": "No results""#));
+    assert!(is_pagefind_json_decl(
+        r#""total_one_result": "[COUNT] result""#
+    ));
+    assert!(is_pagefind_json_decl(
+        r#""total_one_result": "[COUNT] result","#
+    ));
+    assert!(is_pagefind_json_decl(
+        r#""total_one_result": "[COUNT] result" // c"#
+    ));
+    assert!(!is_pagefind_json_decl(r#""total_one_result": """#));
+    assert!(!is_pagefind_json_decl(r#""total_one_result": true"#));
+    assert!(!is_pagefind_json_decl(r#""total_one_result": ["#));
+    assert!(!is_pagefind_json_decl(r#""total_one_result": {"#));
+    assert!(!is_pagefind_json_decl(
+        r#""total_one_results": "[COUNT] result""#
+    ));
+    assert!(!is_pagefind_json_decl(
+        r#""Total_one_result": "[COUNT] result""#
+    ));
+    assert!(is_pagefind_json_decl(
+        r#""total_many_results": "[COUNT] results""#
+    ));
+    assert!(is_pagefind_json_decl(
+        r#""total_many_results": "[COUNT] results","#
+    ));
+    assert!(is_pagefind_json_decl(
+        r#""total_many_results": "[COUNT] results" // c"#
+    ));
+    assert!(!is_pagefind_json_decl(r#""total_many_results": """#));
+    assert!(!is_pagefind_json_decl(r#""total_many_results": true"#));
+    assert!(!is_pagefind_json_decl(r#""total_many_results": ["#));
+    assert!(!is_pagefind_json_decl(r#""total_many_results": {"#));
+    assert!(!is_pagefind_json_decl(
+        r#""total_many_resultss": "[COUNT] results""#
+    ));
+    assert!(!is_pagefind_json_decl(
+        r#""Total_many_results": "[COUNT] results""#
+    ));
+    assert!(is_pagefind_json_decl(r#""results_label": "Search results""#));
+    assert!(is_pagefind_json_decl(r#""results_label": "Search results","#));
+    assert!(is_pagefind_json_decl(
+        r#""results_label": "Search results" // c"#
+    ));
+    assert!(!is_pagefind_json_decl(r#""results_label": """#));
+    assert!(!is_pagefind_json_decl(r#""results_label": true"#));
+    assert!(!is_pagefind_json_decl(r#""results_label": ["#));
+    assert!(!is_pagefind_json_decl(r#""results_label": {"#));
+    assert!(!is_pagefind_json_decl(r#""results_labels": "Search results""#));
+    assert!(!is_pagefind_json_decl(r#""Results_label": "Search results""#));
+    assert!(is_pagefind_json_decl(r#""error_search": "Search failed""#));
+    assert!(is_pagefind_json_decl(r#""error_search": "Search failed","#));
+    assert!(is_pagefind_json_decl(
+        r#""error_search": "Search failed" // c"#
+    ));
+    assert!(!is_pagefind_json_decl(r#""error_search": """#));
+    assert!(!is_pagefind_json_decl(r#""error_search": true"#));
+    assert!(!is_pagefind_json_decl(r#""error_search": ["#));
+    assert!(!is_pagefind_json_decl(r#""error_search": {"#));
+    assert!(!is_pagefind_json_decl(r#""error_searchs": "Search failed""#));
+    assert!(!is_pagefind_json_decl(r#""Error_search": "Search failed""#));
+    assert!(is_pagefind_json_decl(
+        r#""input_hint": "Results will appear as you type""#
+    ));
+    assert!(is_pagefind_json_decl(
+        r#""input_hint": "Results will appear as you type","#
+    ));
+    assert!(is_pagefind_json_decl(
+        r#""input_hint": "Results will appear as you type" // c"#
+    ));
+    assert!(!is_pagefind_json_decl(r#""input_hint": """#));
+    assert!(!is_pagefind_json_decl(r#""input_hint": true"#));
+    assert!(!is_pagefind_json_decl(r#""input_hint": ["#));
+    assert!(!is_pagefind_json_decl(r#""input_hint": {"#));
+    assert!(!is_pagefind_json_decl(
+        r#""input_hints": "Results will appear as you type""#
+    ));
+    assert!(!is_pagefind_json_decl(
+        r#""Input_hint": "Results will appear as you type""#
+    ));
+    assert!(is_pagefind_json_decl(
+        r#""filter_selected_one": "[COUNT] selected""#
+    ));
+    assert!(is_pagefind_json_decl(
+        r#""filter_selected_one": "[COUNT] selected","#
+    ));
+    assert!(is_pagefind_json_decl(
+        r#""filter_selected_one": "[COUNT] selected" // c"#
+    ));
+    assert!(!is_pagefind_json_decl(r#""filter_selected_one": """#));
+    assert!(!is_pagefind_json_decl(r#""filter_selected_one": true"#));
+    assert!(!is_pagefind_json_decl(r#""filter_selected_one": ["#));
+    assert!(!is_pagefind_json_decl(r#""filter_selected_one": {"#));
+    assert!(!is_pagefind_json_decl(
+        r#""filter_selected_ones": "[COUNT] selected""#
+    ));
+    assert!(!is_pagefind_json_decl(
+        r#""Filter_selected_one": "[COUNT] selected""#
+    ));
+    assert!(is_pagefind_json_decl(
+        r#""filter_selected_many": "[COUNT] selected""#
+    ));
+    assert!(is_pagefind_json_decl(
+        r#""filter_selected_many": "[COUNT] selected","#
+    ));
+    assert!(is_pagefind_json_decl(
+        r#""filter_selected_many": "[COUNT] selected" // c"#
+    ));
+    assert!(!is_pagefind_json_decl(r#""filter_selected_many": """#));
+    assert!(!is_pagefind_json_decl(r#""filter_selected_many": true"#));
+    assert!(!is_pagefind_json_decl(r#""filter_selected_many": ["#));
+    assert!(!is_pagefind_json_decl(r#""filter_selected_many": {"#));
+    assert!(!is_pagefind_json_decl(
+        r#""filter_selected_manys": "[COUNT] selected""#
+    ));
+    assert!(!is_pagefind_json_decl(
+        r#""Filter_selected_many": "[COUNT] selected""#
+    ));
     assert!(is_pagefind_json_decl(r#""hideSubResults": true"#));
     assert!(is_pagefind_json_decl(r#""hideSubResults": false"#));
     assert!(is_pagefind_json_decl(r#""hideSubResults": true,"#));
@@ -45813,6 +45959,14 @@ fn pagefind_json_keys_count() {
     assert!(!is_pagefind_json_decl(r#""search_suggestion""#));
     assert!(!is_pagefind_json_decl(r#""searching""#));
     assert!(!is_pagefind_json_decl(r#""thanks_to""#));
+    assert!(!is_pagefind_json_decl(r#""total_zero_results""#));
+    assert!(!is_pagefind_json_decl(r#""total_one_result""#));
+    assert!(!is_pagefind_json_decl(r#""total_many_results""#));
+    assert!(!is_pagefind_json_decl(r#""results_label""#));
+    assert!(!is_pagefind_json_decl(r#""error_search""#));
+    assert!(!is_pagefind_json_decl(r#""input_hint""#));
+    assert!(!is_pagefind_json_decl(r#""filter_selected_one""#));
+    assert!(!is_pagefind_json_decl(r#""filter_selected_many""#));
     assert!(!is_pagefind_json_decl(r#""hideSubResults""#));
     assert!(!is_pagefind_json_decl(r#""maxSubResults""#));
     assert!(!is_pagefind_json_decl(r#""linkTarget""#));
@@ -45925,6 +46079,20 @@ fn pagefind_json_keys_count() {
     ));
     assert!(line_is_func_like(
         r#""thanks_to": "Pagefind translators""#
+    ));
+    assert!(line_is_func_like(r#""total_zero_results": "No results""#));
+    assert!(line_is_func_like(r#""total_one_result": "[COUNT] result""#));
+    assert!(line_is_func_like(r#""total_many_results": "[COUNT] results""#));
+    assert!(line_is_func_like(r#""results_label": "Search results""#));
+    assert!(line_is_func_like(r#""error_search": "Search failed""#));
+    assert!(line_is_func_like(
+        r#""input_hint": "Results will appear as you type""#
+    ));
+    assert!(line_is_func_like(
+        r#""filter_selected_one": "[COUNT] selected""#
+    ));
+    assert!(line_is_func_like(
+        r#""filter_selected_many": "[COUNT] selected""#
     ));
     assert!(line_is_func_like(r#""hideSubResults": true"#));
     assert!(line_is_func_like(r#""maxSubResults": 3"#));

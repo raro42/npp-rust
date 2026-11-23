@@ -38496,9 +38496,13 @@ fn orama_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool {
 /// `"search_label": "…"`, `"filters_label": "…"`,
 /// `"zero_results": "…"`, `"many_results": "…"`, `"one_result": "…"`,
 /// `"alt_search": "…"`, `"search_suggestion": "…"`,
-/// `"searching": "…"`, translation-file `"thanks_to": "…"`, Component UI
-/// results `"hideSubResults": true` / `false`, `"maxSubResults": 0` /
-/// `3`, `"linkTarget": "…"`. Optional
+/// `"searching": "…"`, translation-file `"thanks_to": "…"`, newer UI
+/// translation strings `"total_zero_results": "…"`,
+/// `"total_one_result": "…"`, `"total_many_results": "…"`,
+/// `"results_label": "…"`, `"error_search": "…"`, `"input_hint": "…"`,
+/// `"filter_selected_one": "…"`, `"filter_selected_many": "…"`,
+/// Component UI results `"hideSubResults": true` / `false`,
+/// `"maxSubResults": 0` / `3`, `"linkTarget": "…"`. Optional
 /// trailing `,` and `//` / `/*` comment. Incomplete quotes / missing
 /// `:` stay out. Generic `"$schema"` / `"name"` / `"id"` / `"q"` /
 /// `"query"` / `"url"` / `"content"` / `"excerpt"` / `"filters"` /
@@ -38622,6 +38626,14 @@ fn pagefind_json_key_ok(key: &str) -> bool {
             | "search_suggestion"
             | "searching"
             | "thanks_to"
+            | "total_zero_results"
+            | "total_one_result"
+            | "total_many_results"
+            | "results_label"
+            | "error_search"
+            | "input_hint"
+            | "filter_selected_one"
+            | "filter_selected_many"
             | "hideSubResults"
             | "maxSubResults"
             | "linkTarget"
@@ -38677,6 +38689,14 @@ fn pagefind_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool {
                     | "search_suggestion"
                     | "searching"
                     | "thanks_to"
+                    | "total_zero_results"
+                    | "total_one_result"
+                    | "total_many_results"
+                    | "results_label"
+                    | "error_search"
+                    | "input_hint"
+                    | "filter_selected_one"
+                    | "filter_selected_many"
                     | "linkTarget"
             ) {
                 return false;
