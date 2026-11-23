@@ -38899,8 +38899,9 @@ fn pagefind_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool {
 /// `"save_nearest_html_id": true` / `false`, `"srt_config": {`,
 /// Stork JS `register()` options `"showProgress": true` / `false`,
 /// `"printIndexInfo": true` / `false`, `"showScores": true` / `false`,
-/// `"minimumQueryLength": 0` / `3`, `"onQueryUpdate": {`,
-/// `"onResultSelected": {`, `"onResultsHidden": {`,
+/// `"showCloseButton": true` / `false`, `"forceOverwrite": true` / `false`,
+/// `"minimumQueryLength": 0` / `3`, `"resultNoun": {`,
+/// `"onQueryUpdate": {`, `"onResultSelected": {`, `"onResultsHidden": {`,
 /// `"onInputCleared": {`, `"transformResultUrl": {`.
 /// Optional trailing `,` and `//` / `/*` comment. Incomplete quotes /
 /// missing `:` stay out. Generic `"$schema"` / `"name"` / `"id"` /
@@ -38948,9 +38949,9 @@ fn pagefind_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool {
 /// require a non-empty quoted string. Enum keys only match
 /// `Ignore` / `Omit` / `Parse` / `Minimal` / `Moderate` / `Large` /
 /// `Ridiculous` / `PlainText` / `SRTSubtitle` / `HTML` / `Markdown` /
-/// `NumberOfSeconds` / `MinutesAndSeconds`. Object `"srt_config"` and
-/// JS callback keys require `{`. Bool keys only match `true` / `false`.
-/// Numeric keys reject leading zeros beyond `0`.
+/// `NumberOfSeconds` / `MinutesAndSeconds`. Object `"srt_config"` /
+/// `"resultNoun"` and JS callback keys require `{`. Bool keys only match
+/// `true` / `false`. Numeric keys reject leading zeros beyond `0`.
 fn is_stork_json_decl(s: &str) -> bool {
     let s = s.trim_start();
     let Some(rest) = s.strip_prefix('"') else {
@@ -38997,7 +38998,10 @@ fn stork_json_key_ok(key: &str) -> bool {
             | "showProgress"
             | "printIndexInfo"
             | "showScores"
+            | "showCloseButton"
+            | "forceOverwrite"
             | "minimumQueryLength"
+            | "resultNoun"
             | "onQueryUpdate"
             | "onResultSelected"
             | "onResultsHidden"
@@ -39016,6 +39020,7 @@ fn stork_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool {
             if !matches!(
                 key,
                 "srt_config"
+                    | "resultNoun"
                     | "onQueryUpdate"
                     | "onResultSelected"
                     | "onResultsHidden"
@@ -39083,6 +39088,8 @@ fn stork_json_bool_and_tail_ok(key: &str, after_colon: &str) -> bool {
             | "showProgress"
             | "printIndexInfo"
             | "showScores"
+            | "showCloseButton"
+            | "forceOverwrite"
     ) {
         return false;
     }
