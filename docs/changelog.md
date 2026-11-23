@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.952] — 2026-11-23
+
+View:
+
+- **Function List** lists Pagefind UI translation JSON keys: `"clear_search": "…"`, `"load_more": "…"`, `"search_label": "…"`, `"filters_label": "…"`, `"zero_results": "…"`, `"many_results": "…"`, `"one_result": "…"`, `"alt_search": "…"`, `"search_suggestion": "…"`, `"searching": "…"`. Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing `:` stay out. Empty strings / wrong case / plural misspellings / wrong value shapes stay out. Existing Pagefind UI / search / index / ranking keys (`metaWeights`, `termFrequency`, `translations`, …) unchanged. Generic `"placeholder"` / `"loading"` / `"element"` / `"excerptLength"` / `"baseUrl"` / `"basePath"` / `"language"` stay out of Pagefind. Neighbouring search JSON families stay out of Pagefind for these keys. Translation string keys require a non-empty quoted string.
+
 ## [0.3.951] — 2026-11-23
 
 View:

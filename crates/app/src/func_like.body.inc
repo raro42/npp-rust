@@ -38491,13 +38491,19 @@ fn orama_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool {
 /// `"faceted": true` / `false`, ranking nested
 /// `"termFrequency": 0` / `1.0`, `"termSimilarity": 0` / `1.0`,
 /// `"pageLength": 0` / `0.75`, `"termSaturation": 0` / `1.4`,
-/// `"diacriticSimilarity": 0` / `0.8`, `"metaWeights": {`. Optional
+/// `"diacriticSimilarity": 0` / `0.8`, `"metaWeights": {`, UI
+/// translation strings `"clear_search": "…"`, `"load_more": "…"`,
+/// `"search_label": "…"`, `"filters_label": "…"`,
+/// `"zero_results": "…"`, `"many_results": "…"`, `"one_result": "…"`,
+/// `"alt_search": "…"`, `"search_suggestion": "…"`,
+/// `"searching": "…"`. Optional
 /// trailing `,` and `//` / `/*` comment. Incomplete quotes / missing
 /// `:` stay out. Generic `"$schema"` / `"name"` / `"id"` / `"q"` /
 /// `"query"` / `"url"` / `"content"` / `"excerpt"` / `"filters"` /
 /// `"meta"` / `"anchors"` / `"locations"` / `"results"` / `"timings"` /
 /// `"word_count"` / `"basePath"` / `"baseUrl"` / `"language"` /
 /// `"excerptLength"` / `"raw_content"` / `"raw_url"` / `"element"` /
+/// `"placeholder"` / `"loading"` /
 /// Orama
 /// `"searchableProperties"` /
 /// `"searchablePropertiesWithTypes"` / `"tokenOccurrences"` /
@@ -38537,7 +38543,8 @@ fn orama_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool {
 /// `"exclude_html_selector_override"` / `"frontmatter_handling_override"` /
 /// prettier `"printWidth"` / karma `"basePath"` stay out. String
 /// `"highlightParam"` / `"bundlePath"` / `"excerptEllipsis"` /
-/// `"metaCacheTag"` require a non-empty quoted string. Callback
+/// `"metaCacheTag"` / UI translation string keys require a non-empty
+/// quoted string. Callback
 /// `"processTerm"` / `"processResult"` require `{`. Object `"ranking"` /
 /// `"metaWeights"` require `{` (Vespa may also match `"ranking"`). Bool
 /// keys only match `true` / `false`. Ranking float keys accept `0` /
@@ -38601,6 +38608,16 @@ fn pagefind_json_key_ok(key: &str) -> bool {
             | "termSaturation"
             | "diacriticSimilarity"
             | "metaWeights"
+            | "clear_search"
+            | "load_more"
+            | "search_label"
+            | "filters_label"
+            | "zero_results"
+            | "many_results"
+            | "one_result"
+            | "alt_search"
+            | "search_suggestion"
+            | "searching"
     )
 }
 
@@ -38638,7 +38655,20 @@ fn pagefind_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool {
         b'"' => {
             if !matches!(
                 key,
-                "highlightParam" | "bundlePath" | "excerptEllipsis" | "metaCacheTag"
+                "highlightParam"
+                    | "bundlePath"
+                    | "excerptEllipsis"
+                    | "metaCacheTag"
+                    | "clear_search"
+                    | "load_more"
+                    | "search_label"
+                    | "filters_label"
+                    | "zero_results"
+                    | "many_results"
+                    | "one_result"
+                    | "alt_search"
+                    | "search_suggestion"
+                    | "searching"
             ) {
                 return false;
             }

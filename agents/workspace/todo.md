@@ -1,3 +1,5 @@
+009 keep: Function List Pagefind UI clear_search/load_more/search_label/filters_label/zero_results/many_results/one_result/alt_search/search_suggestion/searching (v0.3.952)
+
 009 keep: Function List Pagefind ranking termFrequency/termSimilarity/pageLength/termSaturation/diacriticSimilarity/metaWeights (v0.3.951)
 
 009 keep: Function List Pagefind Component UI preload/faceted (v0.3.950)

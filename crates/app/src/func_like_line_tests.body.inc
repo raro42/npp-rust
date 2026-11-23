@@ -45170,6 +45170,28 @@ fn pagefind_json_keys_smoke() {
     assert!(is_pagefind_json_decl(r#""termSaturation": 1.4"#));
     assert!(is_pagefind_json_decl(r#""diacriticSimilarity": 0.8"#));
     assert!(is_pagefind_json_decl(r#""metaWeights": {"#));
+    assert!(is_pagefind_json_decl(r#""clear_search": "Clear""#));
+    assert!(is_pagefind_json_decl(r#""load_more": "Load more results""#));
+    assert!(is_pagefind_json_decl(r#""search_label": "Search this site""#));
+    assert!(is_pagefind_json_decl(r#""filters_label": "Filters""#));
+    assert!(is_pagefind_json_decl(
+        r#""zero_results": "No results for [SEARCH_TERM]""#
+    ));
+    assert!(is_pagefind_json_decl(
+        r#""many_results": "[COUNT] results for [SEARCH_TERM]""#
+    ));
+    assert!(is_pagefind_json_decl(
+        r#""one_result": "[COUNT] result for [SEARCH_TERM]""#
+    ));
+    assert!(is_pagefind_json_decl(
+        r#""alt_search": "No results for [SEARCH_TERM]. Showing results for [DIFFERENT_TERM] instead""#
+    ));
+    assert!(is_pagefind_json_decl(
+        r#""search_suggestion": "No results for [SEARCH_TERM]. Try one of the following searches:""#
+    ));
+    assert!(is_pagefind_json_decl(
+        r#""searching": "Searching for [SEARCH_TERM]...""#
+    ));
     assert!(!is_pagefind_json_decl(r##""element": "#search""##));
     assert!(!is_pagefind_json_decl(r#""searchableProperties": ["#));
     assert!(is_orama_json_decl(r#""searchableProperties": ["#));
@@ -45541,6 +45563,157 @@ fn pagefind_json_keys_count() {
     assert!(!is_pagefind_json_decl(r#""metaWeights": "title""#));
     assert!(!is_pagefind_json_decl(r#""metaWeightss": {"#));
     assert!(!is_pagefind_json_decl(r#""MetaWeights": {"#));
+    assert!(is_pagefind_json_decl(r#""clear_search": "Clear""#));
+    assert!(is_pagefind_json_decl(r#""clear_search": "Clear","#));
+    assert!(is_pagefind_json_decl(r#""clear_search": "Clear" // c"#));
+    assert!(!is_pagefind_json_decl(r#""clear_search": """#));
+    assert!(!is_pagefind_json_decl(r#""clear_search": true"#));
+    assert!(!is_pagefind_json_decl(r#""clear_search": ["#));
+    assert!(!is_pagefind_json_decl(r#""clear_search": {"#));
+    assert!(!is_pagefind_json_decl(r#""clear_searchs": "Clear""#));
+    assert!(!is_pagefind_json_decl(r#""Clear_search": "Clear""#));
+    assert!(is_pagefind_json_decl(r#""load_more": "Load more results""#));
+    assert!(is_pagefind_json_decl(r#""load_more": "Load more results","#));
+    assert!(is_pagefind_json_decl(
+        r#""load_more": "Load more results" // c"#
+    ));
+    assert!(!is_pagefind_json_decl(r#""load_more": """#));
+    assert!(!is_pagefind_json_decl(r#""load_more": true"#));
+    assert!(!is_pagefind_json_decl(r#""load_more": ["#));
+    assert!(!is_pagefind_json_decl(r#""load_mores": "Load more results""#));
+    assert!(!is_pagefind_json_decl(r#""Load_more": "Load more results""#));
+    assert!(is_pagefind_json_decl(r#""search_label": "Search this site""#));
+    assert!(is_pagefind_json_decl(
+        r#""search_label": "Search this site","#
+    ));
+    assert!(is_pagefind_json_decl(
+        r#""search_label": "Search this site" // c"#
+    ));
+    assert!(!is_pagefind_json_decl(r#""search_label": """#));
+    assert!(!is_pagefind_json_decl(r#""search_label": true"#));
+    assert!(!is_pagefind_json_decl(r#""search_label": ["#));
+    assert!(!is_pagefind_json_decl(
+        r#""search_labels": "Search this site""#
+    ));
+    assert!(!is_pagefind_json_decl(
+        r#""Search_label": "Search this site""#
+    ));
+    assert!(is_pagefind_json_decl(r#""filters_label": "Filters""#));
+    assert!(is_pagefind_json_decl(r#""filters_label": "Filters","#));
+    assert!(is_pagefind_json_decl(r#""filters_label": "Filters" // c"#));
+    assert!(!is_pagefind_json_decl(r#""filters_label": """#));
+    assert!(!is_pagefind_json_decl(r#""filters_label": true"#));
+    assert!(!is_pagefind_json_decl(r#""filters_label": ["#));
+    assert!(!is_pagefind_json_decl(r#""filters_labels": "Filters""#));
+    assert!(!is_pagefind_json_decl(r#""Filters_label": "Filters""#));
+    assert!(is_pagefind_json_decl(
+        r#""zero_results": "No results for [SEARCH_TERM]""#
+    ));
+    assert!(is_pagefind_json_decl(
+        r#""zero_results": "No results for [SEARCH_TERM]","#
+    ));
+    assert!(is_pagefind_json_decl(
+        r#""zero_results": "No results for [SEARCH_TERM]" // c"#
+    ));
+    assert!(!is_pagefind_json_decl(r#""zero_results": """#));
+    assert!(!is_pagefind_json_decl(r#""zero_results": true"#));
+    assert!(!is_pagefind_json_decl(r#""zero_results": ["#));
+    assert!(!is_pagefind_json_decl(
+        r#""zero_resultss": "No results for [SEARCH_TERM]""#
+    ));
+    assert!(!is_pagefind_json_decl(
+        r#""Zero_results": "No results for [SEARCH_TERM]""#
+    ));
+    assert!(is_pagefind_json_decl(
+        r#""many_results": "[COUNT] results for [SEARCH_TERM]""#
+    ));
+    assert!(is_pagefind_json_decl(
+        r#""many_results": "[COUNT] results for [SEARCH_TERM]","#
+    ));
+    assert!(is_pagefind_json_decl(
+        r#""many_results": "[COUNT] results for [SEARCH_TERM]" // c"#
+    ));
+    assert!(!is_pagefind_json_decl(r#""many_results": """#));
+    assert!(!is_pagefind_json_decl(r#""many_results": true"#));
+    assert!(!is_pagefind_json_decl(r#""many_results": ["#));
+    assert!(!is_pagefind_json_decl(
+        r#""many_resultss": "[COUNT] results for [SEARCH_TERM]""#
+    ));
+    assert!(!is_pagefind_json_decl(
+        r#""Many_results": "[COUNT] results for [SEARCH_TERM]""#
+    ));
+    assert!(is_pagefind_json_decl(
+        r#""one_result": "[COUNT] result for [SEARCH_TERM]""#
+    ));
+    assert!(is_pagefind_json_decl(
+        r#""one_result": "[COUNT] result for [SEARCH_TERM]","#
+    ));
+    assert!(is_pagefind_json_decl(
+        r#""one_result": "[COUNT] result for [SEARCH_TERM]" // c"#
+    ));
+    assert!(!is_pagefind_json_decl(r#""one_result": """#));
+    assert!(!is_pagefind_json_decl(r#""one_result": true"#));
+    assert!(!is_pagefind_json_decl(r#""one_result": ["#));
+    assert!(!is_pagefind_json_decl(
+        r#""one_results": "[COUNT] result for [SEARCH_TERM]""#
+    ));
+    assert!(!is_pagefind_json_decl(
+        r#""One_result": "[COUNT] result for [SEARCH_TERM]""#
+    ));
+    assert!(is_pagefind_json_decl(
+        r#""alt_search": "No results for [SEARCH_TERM]. Showing results for [DIFFERENT_TERM] instead""#
+    ));
+    assert!(is_pagefind_json_decl(
+        r#""alt_search": "No results for [SEARCH_TERM]. Showing results for [DIFFERENT_TERM] instead","#
+    ));
+    assert!(is_pagefind_json_decl(
+        r#""alt_search": "No results for [SEARCH_TERM]. Showing results for [DIFFERENT_TERM] instead" // c"#
+    ));
+    assert!(!is_pagefind_json_decl(r#""alt_search": """#));
+    assert!(!is_pagefind_json_decl(r#""alt_search": true"#));
+    assert!(!is_pagefind_json_decl(r#""alt_search": ["#));
+    assert!(!is_pagefind_json_decl(
+        r#""alt_searchs": "No results for [SEARCH_TERM]. Showing results for [DIFFERENT_TERM] instead""#
+    ));
+    assert!(!is_pagefind_json_decl(
+        r#""Alt_search": "No results for [SEARCH_TERM]. Showing results for [DIFFERENT_TERM] instead""#
+    ));
+    assert!(is_pagefind_json_decl(
+        r#""search_suggestion": "No results for [SEARCH_TERM]. Try one of the following searches:""#
+    ));
+    assert!(is_pagefind_json_decl(
+        r#""search_suggestion": "No results for [SEARCH_TERM]. Try one of the following searches:","#
+    ));
+    assert!(is_pagefind_json_decl(
+        r#""search_suggestion": "No results for [SEARCH_TERM]. Try one of the following searches:" // c"#
+    ));
+    assert!(!is_pagefind_json_decl(r#""search_suggestion": """#));
+    assert!(!is_pagefind_json_decl(r#""search_suggestion": true"#));
+    assert!(!is_pagefind_json_decl(r#""search_suggestion": ["#));
+    assert!(!is_pagefind_json_decl(
+        r#""search_suggestions": "No results for [SEARCH_TERM]. Try one of the following searches:""#
+    ));
+    assert!(!is_pagefind_json_decl(
+        r#""Search_suggestion": "No results for [SEARCH_TERM]. Try one of the following searches:""#
+    ));
+    assert!(is_pagefind_json_decl(
+        r#""searching": "Searching for [SEARCH_TERM]...""#
+    ));
+    assert!(is_pagefind_json_decl(
+        r#""searching": "Searching for [SEARCH_TERM]...","#
+    ));
+    assert!(is_pagefind_json_decl(
+        r#""searching": "Searching for [SEARCH_TERM]..." // c"#
+    ));
+    assert!(!is_pagefind_json_decl(r#""searching": """#));
+    assert!(!is_pagefind_json_decl(r#""searching": true"#));
+    assert!(!is_pagefind_json_decl(r#""searching": ["#));
+    assert!(!is_pagefind_json_decl(
+        r#""searchings": "Searching for [SEARCH_TERM]...""#
+    ));
+    assert!(!is_pagefind_json_decl(
+        r#""Searching": "Searching for [SEARCH_TERM]...""#
+    ));
     assert!(!is_pagefind_json_decl(r#""unfilteredResultCount""#));
     assert!(!is_pagefind_json_decl(r#""weighted_locations""#));
     assert!(!is_pagefind_json_decl(r#""showSubResults""#));
@@ -45571,6 +45744,16 @@ fn pagefind_json_keys_count() {
     assert!(!is_pagefind_json_decl(r#""termSaturation""#));
     assert!(!is_pagefind_json_decl(r#""diacriticSimilarity""#));
     assert!(!is_pagefind_json_decl(r#""metaWeights""#));
+    assert!(!is_pagefind_json_decl(r#""clear_search""#));
+    assert!(!is_pagefind_json_decl(r#""load_more""#));
+    assert!(!is_pagefind_json_decl(r#""search_label""#));
+    assert!(!is_pagefind_json_decl(r#""filters_label""#));
+    assert!(!is_pagefind_json_decl(r#""zero_results""#));
+    assert!(!is_pagefind_json_decl(r#""many_results""#));
+    assert!(!is_pagefind_json_decl(r#""one_result""#));
+    assert!(!is_pagefind_json_decl(r#""alt_search""#));
+    assert!(!is_pagefind_json_decl(r#""search_suggestion""#));
+    assert!(!is_pagefind_json_decl(r#""searching""#));
     assert!(!is_pagefind_json_decl(
         r#""$schema": "https://example.com""#
     ));
@@ -45590,6 +45773,8 @@ fn pagefind_json_keys_count() {
     assert!(!is_pagefind_json_decl(r#""word_count": 12"#));
     assert!(!is_pagefind_json_decl(r#""raw_content": "hello""#));
     assert!(!is_pagefind_json_decl(r#""raw_url": "/about/""#));
+    assert!(!is_pagefind_json_decl(r#""placeholder": "Search""#));
+    assert!(!is_pagefind_json_decl(r#""loading": "Loading""#));
     assert!(!is_pagefind_json_decl(r#""excerptLength": 200"#));
     assert!(is_coveo_json_decl(r#""excerptLength": 200"#));
     assert!(!is_pagefind_json_decl(r#""searchableProperties": ["#));
@@ -45651,6 +45836,28 @@ fn pagefind_json_keys_count() {
     assert!(line_is_func_like(r#""termSaturation": 1.4"#));
     assert!(line_is_func_like(r#""diacriticSimilarity": 0.8"#));
     assert!(line_is_func_like(r#""metaWeights": {"#));
+    assert!(line_is_func_like(r#""clear_search": "Clear""#));
+    assert!(line_is_func_like(r#""load_more": "Load more results""#));
+    assert!(line_is_func_like(r#""search_label": "Search this site""#));
+    assert!(line_is_func_like(r#""filters_label": "Filters""#));
+    assert!(line_is_func_like(
+        r#""zero_results": "No results for [SEARCH_TERM]""#
+    ));
+    assert!(line_is_func_like(
+        r#""many_results": "[COUNT] results for [SEARCH_TERM]""#
+    ));
+    assert!(line_is_func_like(
+        r#""one_result": "[COUNT] result for [SEARCH_TERM]""#
+    ));
+    assert!(line_is_func_like(
+        r#""alt_search": "No results for [SEARCH_TERM]. Showing results for [DIFFERENT_TERM] instead""#
+    ));
+    assert!(line_is_func_like(
+        r#""search_suggestion": "No results for [SEARCH_TERM]. Try one of the following searches:""#
+    ));
+    assert!(line_is_func_like(
+        r#""searching": "Searching for [SEARCH_TERM]...""#
+    ));
     assert!(!is_pagefind_json_decl(r##""element": "#search""##));
     assert!(!is_pagefind_json_decl(
         r#""exclude_html_selector": ".sidebar""#
