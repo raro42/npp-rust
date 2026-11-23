@@ -39314,7 +39314,7 @@ fn stork_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool {
 /// `"geoLocationField"` / `"facetableAttributesWithSpecialCharacters"` /
 /// `"flattenGroupedHits"` / Instant Meilisearch `"placeholderSearch"` /
 /// `"finitePagination"` / `"primaryKey"` / `"keepZeroFacets"` /
-/// `"requestInit"` / `"meiliSearchParams"` / `"clientAgents"` / `"indexesOverrides"` / prettier `"printWidth"` /
+/// `"requestInit"` / `"meiliSearchParams"` / `"clientAgents"` / `"indexesOverrides"` / `"httpClient"` / `"cropMarker"` / `"cropLength"` / `"attributesToCrop"` / `"showMatchesPosition"` / `"hybrid"` / prettier `"printWidth"` /
 /// karma `"basePath"`
 /// stay out. String keys require a non-empty quoted string. Bool keys
 /// only match `true` / `false`. Numeric keys reject leading zeros beyond
@@ -39720,7 +39720,7 @@ fn docsearch_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool {
 /// `"geoLocationField"` / `"facetableAttributesWithSpecialCharacters"` /
 /// `"flattenGroupedHits"` / Instant Meilisearch `"placeholderSearch"` /
 /// `"finitePagination"` / `"primaryKey"` / `"keepZeroFacets"` /
-/// `"requestInit"` / `"meiliSearchParams"` / `"clientAgents"` / `"indexesOverrides"` / prettier `"printWidth"` /
+/// `"requestInit"` / `"meiliSearchParams"` / `"clientAgents"` / `"indexesOverrides"` / `"httpClient"` / `"cropMarker"` / `"cropLength"` / `"attributesToCrop"` / `"showMatchesPosition"` / `"hybrid"` / prettier `"printWidth"` /
 /// karma `"basePath"`
 /// stay out. String keys require a non-empty quoted string. Bool keys
 /// only match `true` / `false`. Numeric keys reject leading zeros beyond
@@ -39927,7 +39927,7 @@ fn instantsearch_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool {
 /// `"facetableAttributesWithSpecialCharacters"` /
 /// `"flattenGroupedHits"` / Instant Meilisearch `"placeholderSearch"` /
 /// `"finitePagination"` / `"primaryKey"` / `"keepZeroFacets"` /
-/// `"requestInit"` / `"meiliSearchParams"` / `"clientAgents"` / `"indexesOverrides"` / prettier `"printWidth"` /
+/// `"requestInit"` / `"meiliSearchParams"` / `"clientAgents"` / `"indexesOverrides"` / `"httpClient"` / `"cropMarker"` / `"cropLength"` / `"attributesToCrop"` / `"showMatchesPosition"` / `"hybrid"` / prettier `"printWidth"` /
 /// karma `"basePath"`
 /// stay out. String / enum keys require a non-empty quoted string. Bool
 /// keys only match `true` / `false`. Numeric keys reject leading zeros
@@ -40115,6 +40115,8 @@ fn autocomplete_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool {
 /// Instant Meilisearch `"placeholderSearch"` / `"finitePagination"` /
 /// `"primaryKey"` / `"keepZeroFacets"` / `"requestInit"` /
 /// `"meiliSearchParams"` / `"clientAgents"` / `"indexesOverrides"` /
+/// `"httpClient"` / `"cropMarker"` / `"cropLength"` / `"attributesToCrop"` /
+/// `"showMatchesPosition"` / `"hybrid"` /
 /// Searchkit `"search_settings"` /
 /// `"search_attributes"` / `"result_attributes"` /
 /// `"highlight_attributes"` / `"snippet_attributes"` /
@@ -40213,11 +40215,13 @@ fn typesense_instantsearch_json_bool_and_tail_ok(key: &str, after_colon: &str) -
 /// keys: `"placeholderSearch": true` / `false`, `"finitePagination": true` /
 /// `false`, `"primaryKey": "…"`, `"keepZeroFacets": true` / `false`,
 /// `"requestInit": {`, `"meiliSearchParams": {`, `"clientAgents": [`,
-/// `"indexesOverrides": {`.
+/// `"indexesOverrides": {`, `"httpClient": {`, `"cropMarker": "…"`,
+/// `"cropLength": 0` / `10`, `"attributesToCrop": [`,
+/// `"showMatchesPosition": true` / `false`, `"hybrid": {`.
 /// Optional trailing `,` and `//` / `/*` comment. Incomplete quotes /
 /// missing `:` stay out. Generic `"$schema"` / `"name"` / `"id"` / `"q"` /
 /// `"query"` / `"url"` / `"host"` / `"apiKey"` / `"searchClient"` /
-/// `"httpClient"` / Typesense InstantSearch Adapter
+/// Typesense InstantSearch Adapter
 /// `"additionalSearchParameters"` / `"collectionSpecificSearchParameters"` /
 /// `"geoLocationField"` / `"facetableAttributesWithSpecialCharacters"` /
 /// `"flattenGroupedHits"` / Autocomplete.js `"detachedMediaQuery"` /
@@ -40283,8 +40287,10 @@ fn typesense_instantsearch_json_bool_and_tail_ok(key: &str, after_colon: &str) -
 /// `"facet_attributes"` / `"filter_attributes"` / `"query_rules"` /
 /// `"geo_attribute"` / `"fuzziness"` / prettier `"printWidth"` / karma
 /// `"basePath"` stay out. String keys require a non-empty quoted string.
-/// Bool keys only match `true` / `false`. Array `"clientAgents"` requires
-/// `[`. Object `"indexesOverrides"` requires `{`.
+/// Bool keys only match `true` / `false`. Numeric `"cropLength"` rejects
+/// leading zeros beyond `0`. Array `"clientAgents"` / `"attributesToCrop"`
+/// require `[`. Object `"indexesOverrides"` / `"httpClient"` / `"hybrid"`
+/// require `{`.
 fn is_instant_meilisearch_json_decl(s: &str) -> bool {
     let s = s.trim_start();
     let Some(rest) = s.strip_prefix('"') else {
@@ -40316,6 +40322,12 @@ fn instant_meilisearch_json_key_ok(key: &str) -> bool {
             | "meiliSearchParams"
             | "clientAgents"
             | "indexesOverrides"
+            | "httpClient"
+            | "cropMarker"
+            | "cropLength"
+            | "attributesToCrop"
+            | "showMatchesPosition"
+            | "hybrid"
     )
 }
 
@@ -40328,26 +40340,31 @@ fn instant_meilisearch_json_value_and_tail_ok(key: &str, after_colon: &str) -> b
         b'{' => {
             if !matches!(
                 key,
-                "requestInit" | "meiliSearchParams" | "indexesOverrides"
+                "requestInit"
+                    | "meiliSearchParams"
+                    | "indexesOverrides"
+                    | "httpClient"
+                    | "hybrid"
             ) {
                 return false;
             }
             package_json_tail_ok(&after_colon[1..])
         }
         b'[' => {
-            if key != "clientAgents" {
+            if !matches!(key, "clientAgents" | "attributesToCrop") {
                 return false;
             }
             package_json_tail_ok(&after_colon[1..])
         }
         b'"' => instant_meilisearch_json_string_and_tail_ok(key, after_colon),
         b't' | b'f' => instant_meilisearch_json_bool_and_tail_ok(key, after_colon),
+        b'0'..=b'9' => instant_meilisearch_json_uint_and_tail_ok(key, after_colon),
         _ => false,
     }
 }
 
 fn instant_meilisearch_json_string_and_tail_ok(key: &str, after_colon: &str) -> bool {
-    if key != "primaryKey" {
+    if !matches!(key, "primaryKey" | "cropMarker") {
         return false;
     }
     let rest = &after_colon[1..];
@@ -40364,7 +40381,10 @@ fn instant_meilisearch_json_string_and_tail_ok(key: &str, after_colon: &str) -> 
 fn instant_meilisearch_json_bool_and_tail_ok(key: &str, after_colon: &str) -> bool {
     if !matches!(
         key,
-        "placeholderSearch" | "finitePagination" | "keepZeroFacets"
+        "placeholderSearch"
+            | "finitePagination"
+            | "keepZeroFacets"
+            | "showMatchesPosition"
     ) {
         return false;
     }
@@ -40378,6 +40398,28 @@ fn instant_meilisearch_json_bool_and_tail_ok(key: &str, after_colon: &str) -> bo
     package_json_tail_ok(rest)
 }
 
+fn instant_meilisearch_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool {
+    if key != "cropLength" {
+        return false;
+    }
+    let bytes = after_colon.as_bytes();
+    let mut i = 0usize;
+    if i >= bytes.len() || !bytes[i].is_ascii_digit() {
+        return false;
+    }
+    if bytes[i] == b'0' {
+        i += 1;
+        if i < bytes.len() && bytes[i].is_ascii_digit() {
+            return false;
+        }
+    } else {
+        while i < bytes.len() && bytes[i].is_ascii_digit() {
+            i += 1;
+        }
+    }
+    package_json_tail_ok(&after_colon[i..])
+}
+
 /// Searchkit (`searchkit` / `@searchkit/instantsearch-client`) config JSON
 /// keys: `"search_settings": {`, `"search_attributes": [`,
 /// `"result_attributes": [`, `"highlight_attributes": [`,
@@ -40389,7 +40431,7 @@ fn instant_meilisearch_json_bool_and_tail_ok(key: &str, after_colon: &str) -> bo
 /// `"query"` / `"url"` / `"host"` / `"apiKey"` / `"connection"` /
 /// `"sorting"` / `"runtime_mappings"` / Instant Meilisearch
 /// `"placeholderSearch"` / `"finitePagination"` / `"primaryKey"` /
-/// `"keepZeroFacets"` / `"requestInit"` / `"meiliSearchParams"` / `"clientAgents"` / `"indexesOverrides"` /
+/// `"keepZeroFacets"` / `"requestInit"` / `"meiliSearchParams"` / `"clientAgents"` / `"indexesOverrides"` / `"httpClient"` / `"cropMarker"` / `"cropLength"` / `"attributesToCrop"` / `"showMatchesPosition"` / `"hybrid"` /
 /// Typesense InstantSearch Adapter `"additionalSearchParameters"` /
 /// `"collectionSpecificSearchParameters"` / `"geoLocationField"` /
 /// `"facetableAttributesWithSpecialCharacters"` / `"flattenGroupedHits"` /
@@ -40548,7 +40590,7 @@ fn searchkit_json_string_and_tail_ok(key: &str, after_colon: &str) -> bool {
 /// `"facet_attributes"` / `"filter_attributes"` / `"query_rules"` /
 /// `"geo_attribute"` / `"fuzziness"` / Instant Meilisearch
 /// `"placeholderSearch"` / `"finitePagination"` / `"primaryKey"` /
-/// `"keepZeroFacets"` / `"requestInit"` / `"meiliSearchParams"` / `"clientAgents"` / `"indexesOverrides"` /
+/// `"keepZeroFacets"` / `"requestInit"` / `"meiliSearchParams"` / `"clientAgents"` / `"indexesOverrides"` / `"httpClient"` / `"cropMarker"` / `"cropLength"` / `"attributesToCrop"` / `"showMatchesPosition"` / `"hybrid"` /
 /// Typesense InstantSearch Adapter `"additionalSearchParameters"` /
 /// `"collectionSpecificSearchParameters"` / `"geoLocationField"` /
 /// `"facetableAttributesWithSpecialCharacters"` / `"flattenGroupedHits"` /
@@ -40820,7 +40862,7 @@ fn algolia_recommend_json_uint_and_tail_ok(key: &str, after_colon: &str) -> bool
 /// `"facet_attributes"` / `"filter_attributes"` / `"query_rules"` /
 /// `"geo_attribute"` / `"fuzziness"` / Instant Meilisearch
 /// `"placeholderSearch"` / `"finitePagination"` / `"primaryKey"` /
-/// `"keepZeroFacets"` / `"requestInit"` / `"meiliSearchParams"` / `"clientAgents"` / `"indexesOverrides"` /
+/// `"keepZeroFacets"` / `"requestInit"` / `"meiliSearchParams"` / `"clientAgents"` / `"indexesOverrides"` / `"httpClient"` / `"cropMarker"` / `"cropLength"` / `"attributesToCrop"` / `"showMatchesPosition"` / `"hybrid"` /
 /// Typesense InstantSearch Adapter `"additionalSearchParameters"` /
 /// `"collectionSpecificSearchParameters"` / `"geoLocationField"` /
 /// `"facetableAttributesWithSpecialCharacters"` / `"flattenGroupedHits"` /
@@ -41413,7 +41455,7 @@ fn algolia_insights_json_decimal_and_tail_ok(after_colon: &str) -> bool {
 /// `"facet_attributes"` / `"filter_attributes"` / `"query_rules"` /
 /// `"geo_attribute"` / `"fuzziness"` / Instant Meilisearch
 /// `"placeholderSearch"` / `"finitePagination"` / `"primaryKey"` /
-/// `"keepZeroFacets"` / `"requestInit"` / `"meiliSearchParams"` / `"clientAgents"` / `"indexesOverrides"` /
+/// `"keepZeroFacets"` / `"requestInit"` / `"meiliSearchParams"` / `"clientAgents"` / `"indexesOverrides"` / `"httpClient"` / `"cropMarker"` / `"cropLength"` / `"attributesToCrop"` / `"showMatchesPosition"` / `"hybrid"` /
 /// Typesense InstantSearch Adapter `"additionalSearchParameters"` /
 /// `"collectionSpecificSearchParameters"` / `"geoLocationField"` /
 /// `"facetableAttributesWithSpecialCharacters"` /

@@ -51507,6 +51507,17 @@ fn instant_meilisearch_json_keys_smoke() {
     assert!(is_instant_meilisearch_json_decl(
         r#""indexesOverrides": {"#
     ));
+    assert!(is_instant_meilisearch_json_decl(
+        r#""indexesOverrides": {"#
+    ));
+    assert!(is_instant_meilisearch_json_decl(r#""httpClient": {"#));
+    assert!(is_instant_meilisearch_json_decl(r#""cropMarker": "...""#));
+    assert!(is_instant_meilisearch_json_decl(r#""cropLength": 10"#));
+    assert!(is_instant_meilisearch_json_decl(r#""attributesToCrop": ["#));
+    assert!(is_instant_meilisearch_json_decl(
+        r#""showMatchesPosition": true"#
+    ));
+    assert!(is_instant_meilisearch_json_decl(r#""hybrid": {"#));
     assert!(!is_instant_meilisearch_json_decl(
         r#""additionalSearchParameters": {"#
     ));
@@ -51726,7 +51737,63 @@ fn instant_meilisearch_json_keys_count() {
     assert!(!is_instant_meilisearch_json_decl(r#""host": "http://x""#));
     assert!(!is_instant_meilisearch_json_decl(r#""apiKey": "key""#));
     assert!(!is_instant_meilisearch_json_decl(r#""searchClient": {"#));
-    assert!(!is_instant_meilisearch_json_decl(r#""httpClient": {"#));
+    assert!(!is_meilisearch_json_decl(r#""httpClient": {"#));
+    assert!(!is_pagefind_json_decl(r#""httpClient": {"#));
+    assert!(is_instant_meilisearch_json_decl(r#""httpClient": {"#));
+    assert!(is_instant_meilisearch_json_decl(r#""httpClient": {,"#));
+    assert!(is_instant_meilisearch_json_decl(r#""httpClient": { // c"#));
+    assert!(!is_instant_meilisearch_json_decl(r#""httpClient": ["#));
+    assert!(!is_instant_meilisearch_json_decl(r#""httpClient": true"#));
+    assert!(!is_instant_meilisearch_json_decl(r#""httpClient": "x""#));
+    assert!(!is_instant_meilisearch_json_decl(r#""HttpClient": {"#));
+    assert!(!is_instant_meilisearch_json_decl(r#""httpClients": {"#));
+    assert!(!is_meilisearch_json_decl(r#""cropMarker": "...""#));
+    assert!(!is_pagefind_json_decl(r#""cropMarker": "...""#));
+    assert!(is_instant_meilisearch_json_decl(r#""cropMarker": "...""#));
+    assert!(is_instant_meilisearch_json_decl(r#""cropMarker": "...","#));
+    assert!(is_instant_meilisearch_json_decl(r#""cropMarker": "..." // c"#));
+    assert!(!is_instant_meilisearch_json_decl(r#""cropMarker": """#));
+    assert!(!is_instant_meilisearch_json_decl(r#""cropMarker": true"#));
+    assert!(!is_instant_meilisearch_json_decl(r#""cropMarker": 1"#));
+    assert!(!is_instant_meilisearch_json_decl(r#""CropMarker": "...""#));
+    assert!(!is_meilisearch_json_decl(r#""cropLength": 10"#));
+    assert!(!is_pagefind_json_decl(r#""cropLength": 10"#));
+    assert!(is_instant_meilisearch_json_decl(r#""cropLength": 0"#));
+    assert!(is_instant_meilisearch_json_decl(r#""cropLength": 10"#));
+    assert!(is_instant_meilisearch_json_decl(r#""cropLength": 10,"#));
+    assert!(is_instant_meilisearch_json_decl(r#""cropLength": 10 // c"#));
+    assert!(!is_instant_meilisearch_json_decl(r#""cropLength": 01"#));
+    assert!(!is_instant_meilisearch_json_decl(r#""cropLength": true"#));
+    assert!(!is_instant_meilisearch_json_decl(r#""cropLength": "10""#));
+    assert!(!is_instant_meilisearch_json_decl(r#""CropLength": 10"#));
+    assert!(!is_meilisearch_json_decl(r#""attributesToCrop": ["#));
+    assert!(!is_pagefind_json_decl(r#""attributesToCrop": ["#));
+    assert!(is_instant_meilisearch_json_decl(r#""attributesToCrop": ["#));
+    assert!(is_instant_meilisearch_json_decl(r#""attributesToCrop": [,"#));
+    assert!(is_instant_meilisearch_json_decl(r#""attributesToCrop": [ // c"#));
+    assert!(!is_instant_meilisearch_json_decl(r#""attributesToCrop": {"#));
+    assert!(!is_instant_meilisearch_json_decl(r#""attributesToCrop": true"#));
+    assert!(!is_instant_meilisearch_json_decl(r#""attributesToCrop": "x""#));
+    assert!(!is_instant_meilisearch_json_decl(r#""AttributesToCrop": ["#));
+    assert!(!is_meilisearch_json_decl(r#""showMatchesPosition": true"#));
+    assert!(!is_pagefind_json_decl(r#""showMatchesPosition": true"#));
+    assert!(is_instant_meilisearch_json_decl(r#""showMatchesPosition": true"#));
+    assert!(is_instant_meilisearch_json_decl(r#""showMatchesPosition": false"#));
+    assert!(is_instant_meilisearch_json_decl(r#""showMatchesPosition": true,"#));
+    assert!(is_instant_meilisearch_json_decl(r#""showMatchesPosition": false // c"#));
+    assert!(!is_instant_meilisearch_json_decl(r#""showMatchesPosition": 1"#));
+    assert!(!is_instant_meilisearch_json_decl(r#""showMatchesPosition": "true""#));
+    assert!(!is_instant_meilisearch_json_decl(r#""showMatchesPosition": {"#));
+    assert!(!is_instant_meilisearch_json_decl(r#""ShowMatchesPosition": true"#));
+    assert!(!is_meilisearch_json_decl(r#""hybrid": {"#));
+    assert!(!is_pagefind_json_decl(r#""hybrid": {"#));
+    assert!(is_instant_meilisearch_json_decl(r#""hybrid": {"#));
+    assert!(is_instant_meilisearch_json_decl(r#""hybrid": {,"#));
+    assert!(is_instant_meilisearch_json_decl(r#""hybrid": { // c"#));
+    assert!(!is_instant_meilisearch_json_decl(r#""hybrid": ["#));
+    assert!(!is_instant_meilisearch_json_decl(r#""hybrid": true"#));
+    assert!(!is_instant_meilisearch_json_decl(r#""hybrid": "x""#));
+    assert!(!is_instant_meilisearch_json_decl(r#""Hybrid": {"#));
     assert!(!is_instant_meilisearch_json_decl(
         r#""additionalSearchParameters": {"#
     ));
@@ -51811,6 +51878,12 @@ fn instant_meilisearch_json_keys_count() {
     assert!(line_is_func_like(r#""meiliSearchParams": {"#));
     assert!(line_is_func_like(r#""clientAgents": ["#));
     assert!(line_is_func_like(r#""indexesOverrides": {"#));
+    assert!(line_is_func_like(r#""httpClient": {"#));
+    assert!(line_is_func_like(r#""cropMarker": "...""#));
+    assert!(line_is_func_like(r#""cropLength": 10"#));
+    assert!(line_is_func_like(r#""attributesToCrop": ["#));
+    assert!(line_is_func_like(r#""showMatchesPosition": true"#));
+    assert!(line_is_func_like(r#""hybrid": {"#));
     assert!(!is_instant_meilisearch_json_decl(r#""search_settings": {"#));
     assert!(is_searchkit_json_decl(r#""search_settings": {"#));
     assert!(!is_instant_meilisearch_json_decl(

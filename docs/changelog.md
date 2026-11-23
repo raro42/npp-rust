@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.966] — 2026-11-23
+
+View:
+
+- **Function List** lists Instant Meilisearch (`@meilisearch/instant-meilisearch`) config / `meiliSearchParams` JSON keys: `"httpClient": {`, `"cropMarker": "…"`, `"cropLength": 0` / `10`, `"attributesToCrop": [`, `"showMatchesPosition": true` / `false`, `"hybrid": {`. Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing `:` stay out. Empty strings / wrong case / plural misspellings / wrong value shapes stay out. Existing Instant Meilisearch keys (`placeholderSearch`, `finitePagination`, `primaryKey`, `keepZeroFacets`, `requestInit`, `meiliSearchParams`, `clientAgents`, `indexesOverrides`, …) unchanged. Generic `"host"` / `"apiKey"` / `"searchClient"` stay out of Instant Meilisearch. Neighbouring search JSON families stay out of Instant Meilisearch for these keys. Callback/object `"httpClient"` / `"hybrid"` require `{`. String `"cropMarker"` requires a non-empty quoted string. Numeric `"cropLength"` rejects leading zeros beyond `0`. Array `"attributesToCrop"` requires `[`. Bool `"showMatchesPosition"` only matches `true` / `false`.
+
 ## [0.3.965] — 2026-11-23
 
 View:
