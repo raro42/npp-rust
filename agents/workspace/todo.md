@@ -1,3 +1,5 @@
+009 keep: Function List Stork JS showCloseButton/forceOverwrite/resultNoun (v0.3.959)
+
 009 keep: Function List Stork JS showProgress/printIndexInfo/showScores/minimumQueryLength/on*/transformResultUrl + MinutesAndSeconds (v0.3.958)
 
 009 keep: Function List Stork title_boost/html_selector_override/stemming_override/minimum_*_substring_length/break_on_file_error/filetype/timestamp_*/save_nearest_html_id/srt_config (v0.3.957)
