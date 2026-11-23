@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.955] — 2026-11-23
+
+View:
+
+- **Function List** lists Pagefind UI keyboard-hint translation JSON keys: `"keyboard_navigate": "…"`, `"keyboard_select": "…"`, `"keyboard_clear": "…"`, `"keyboard_close": "…"`, `"keyboard_search": "…"`, `"keyboard_key_ctrl": "…"`, `"keyboard_key_shift": "…"`, `"keyboard_key_alt": "…"`, `"keyboard_key_win": "…"`, `"keyboard_key_esc": "…"`. Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing `:` stay out. Empty strings / wrong case / plural misspellings / wrong value shapes stay out. Existing Pagefind UI / search / index / ranking / translation string keys (`filter_selected_*`, `total_*`, `thanks_to`, …) unchanged. Generic `"comments"` / `"direction"` / `"strings"` / `"maxResults"` / `"placeholder"` / `"loading"` / `"element"` stay out of Pagefind. Neighbouring search JSON families stay out of Pagefind for these keys. Translation string keys require a non-empty quoted string.
+
 ## [0.3.954] — 2026-11-23
 
 View:

@@ -38501,6 +38501,12 @@ fn orama_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool {
 /// `"total_one_result": "…"`, `"total_many_results": "…"`,
 /// `"results_label": "…"`, `"error_search": "…"`, `"input_hint": "…"`,
 /// `"filter_selected_one": "…"`, `"filter_selected_many": "…"`,
+/// keyboard-hint strings `"keyboard_navigate": "…"`,
+/// `"keyboard_select": "…"`, `"keyboard_clear": "…"`,
+/// `"keyboard_close": "…"`, `"keyboard_search": "…"`,
+/// `"keyboard_key_ctrl": "…"`, `"keyboard_key_shift": "…"`,
+/// `"keyboard_key_alt": "…"`, `"keyboard_key_win": "…"`,
+/// `"keyboard_key_esc": "…"`,
 /// Component UI results `"hideSubResults": true` / `false`,
 /// `"maxSubResults": 0` / `3`, `"linkTarget": "…"`. Optional
 /// trailing `,` and `//` / `/*` comment. Incomplete quotes / missing
@@ -38634,6 +38640,16 @@ fn pagefind_json_key_ok(key: &str) -> bool {
             | "input_hint"
             | "filter_selected_one"
             | "filter_selected_many"
+            | "keyboard_navigate"
+            | "keyboard_select"
+            | "keyboard_clear"
+            | "keyboard_close"
+            | "keyboard_search"
+            | "keyboard_key_ctrl"
+            | "keyboard_key_shift"
+            | "keyboard_key_alt"
+            | "keyboard_key_win"
+            | "keyboard_key_esc"
             | "hideSubResults"
             | "maxSubResults"
             | "linkTarget"
@@ -38697,6 +38713,16 @@ fn pagefind_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool {
                     | "input_hint"
                     | "filter_selected_one"
                     | "filter_selected_many"
+                    | "keyboard_navigate"
+                    | "keyboard_select"
+                    | "keyboard_clear"
+                    | "keyboard_close"
+                    | "keyboard_search"
+                    | "keyboard_key_ctrl"
+                    | "keyboard_key_shift"
+                    | "keyboard_key_alt"
+                    | "keyboard_key_win"
+                    | "keyboard_key_esc"
                     | "linkTarget"
             ) {
                 return false;
