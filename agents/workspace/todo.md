@@ -1,3 +1,5 @@
+009 keep: Function List Stork v2 forceRefreshIndex/numberOfExcerpts/strings/generateMessage/queryTooShort (v0.3.960)
+
 009 keep: Function List Stork JS showCloseButton/forceOverwrite/resultNoun (v0.3.959)
 
 009 keep: Function List Stork JS showProgress/printIndexInfo/showScores/minimumQueryLength/on*/transformResultUrl + MinutesAndSeconds (v0.3.958)
