@@ -1,3 +1,5 @@
+009 keep: Function List Stork internal_annotations/total_hit_count/indexVersion (v0.3.964)
+
 009 keep: Function List Stork Result/Excerpt highlight_ranges/title_highlight_ranges/url_suffix/src_url (v0.3.963)
 
 009 keep: Function List Stork v2 excerptLength/numberOfResults (v0.3.962)
