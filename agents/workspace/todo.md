@@ -1,3 +1,5 @@
+009 keep: Function List Instant Meilisearch showRankingScoreDetails/retrieveVectors/locales/embedder/semanticRatio/indexUid/vector/federationOptions (v0.3.967)
+
 009 keep: Function List Instant Meilisearch clientAgents/indexesOverrides (v0.3.965)
 
 009 keep: Function List Stork internal_annotations/total_hit_count/indexVersion (v0.3.964)
