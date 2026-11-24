@@ -32967,6 +32967,18 @@ fn meilisearch_json_keys_smoke() {
     assert!(is_meilisearch_json_decl(r#""equality": false"#));
     assert!(is_meilisearch_json_decl(r#""comparison": true"#));
     assert!(is_meilisearch_json_decl(r#""comparison": false"#));
+    assert!(is_meilisearch_json_decl(
+        r#""editDocumentsByFunction": true"#
+    ));
+    assert!(is_meilisearch_json_decl(
+        r#""editDocumentsByFunction": false"#
+    ));
+    assert!(is_meilisearch_json_decl(r#""containsFilter": true"#));
+    assert!(is_meilisearch_json_decl(r#""containsFilter": false"#));
+    assert!(is_meilisearch_json_decl(r#""dynamicSearchRules": true"#));
+    assert!(is_meilisearch_json_decl(r#""dynamicSearchRules": false"#));
+    assert!(is_meilisearch_json_decl(r#""chatCompletions": true"#));
+    assert!(is_meilisearch_json_decl(r#""chatCompletions": false"#));
     // Distinctive neighbours stay out of this scanner.
     assert!(!is_meilisearch_json_decl(r#""responseHeader": {"#));
     assert!(is_solr_json_decl(r#""responseHeader": {"#));
@@ -33080,6 +33092,10 @@ fn meilisearch_json_keys_smoke() {
     assert!(line_is_func_like(r#""features": {"#));
     assert!(line_is_func_like(r#""equality": true"#));
     assert!(line_is_func_like(r#""comparison": false"#));
+    assert!(line_is_func_like(r#""editDocumentsByFunction": true"#));
+    assert!(line_is_func_like(r#""containsFilter": false"#));
+    assert!(line_is_func_like(r#""dynamicSearchRules": true"#));
+    assert!(line_is_func_like(r#""chatCompletions": false"#));
 }
 
 #[test]
@@ -33676,6 +33692,70 @@ fn meilisearch_json_keys_count() {
     assert!(!is_meilisearch_json_decl(r#""comparison": 1"#));
     assert!(!is_meilisearch_json_decl(r#""Comparison": true"#));
     assert!(!is_meilisearch_json_decl(r#""comparisons": true"#));
+    assert!(is_meilisearch_json_decl(
+        r#""editDocumentsByFunction": true"#
+    ));
+    assert!(is_meilisearch_json_decl(
+        r#""editDocumentsByFunction": false"#
+    ));
+    assert!(is_meilisearch_json_decl(
+        r#""editDocumentsByFunction": true,"#
+    ));
+    assert!(is_meilisearch_json_decl(
+        r#""editDocumentsByFunction": true // e"#
+    ));
+    assert!(!is_meilisearch_json_decl(
+        r#""editDocumentsByFunction": {"#
+    ));
+    assert!(!is_meilisearch_json_decl(
+        r#""editDocumentsByFunction": ["#
+    ));
+    assert!(!is_meilisearch_json_decl(
+        r#""editDocumentsByFunction": """#
+    ));
+    assert!(!is_meilisearch_json_decl(
+        r#""editDocumentsByFunction": 1"#
+    ));
+    assert!(!is_meilisearch_json_decl(
+        r#""EditDocumentsByFunction": true"#
+    ));
+    assert!(!is_meilisearch_json_decl(
+        r#""edit_documents_by_function": true"#
+    ));
+    assert!(is_meilisearch_json_decl(r#""containsFilter": true"#));
+    assert!(is_meilisearch_json_decl(r#""containsFilter": false"#));
+    assert!(is_meilisearch_json_decl(r#""containsFilter": true,"#));
+    assert!(is_meilisearch_json_decl(r#""containsFilter": true // c"#));
+    assert!(!is_meilisearch_json_decl(r#""containsFilter": {"#));
+    assert!(!is_meilisearch_json_decl(r#""containsFilter": ["#));
+    assert!(!is_meilisearch_json_decl(r#""containsFilter": """#));
+    assert!(!is_meilisearch_json_decl(r#""containsFilter": 1"#));
+    assert!(!is_meilisearch_json_decl(r#""ContainsFilter": true"#));
+    assert!(!is_meilisearch_json_decl(r#""contains_filter": true"#));
+    assert!(is_meilisearch_json_decl(r#""dynamicSearchRules": true"#));
+    assert!(is_meilisearch_json_decl(r#""dynamicSearchRules": false"#));
+    assert!(is_meilisearch_json_decl(r#""dynamicSearchRules": true,"#));
+    assert!(is_meilisearch_json_decl(
+        r#""dynamicSearchRules": true // d"#
+    ));
+    assert!(!is_meilisearch_json_decl(r#""dynamicSearchRules": {"#));
+    assert!(!is_meilisearch_json_decl(r#""dynamicSearchRules": ["#));
+    assert!(!is_meilisearch_json_decl(r#""dynamicSearchRules": """#));
+    assert!(!is_meilisearch_json_decl(r#""dynamicSearchRules": 1"#));
+    assert!(!is_meilisearch_json_decl(r#""DynamicSearchRules": true"#));
+    assert!(!is_meilisearch_json_decl(
+        r#""dynamic_search_rules": true"#
+    ));
+    assert!(is_meilisearch_json_decl(r#""chatCompletions": true"#));
+    assert!(is_meilisearch_json_decl(r#""chatCompletions": false"#));
+    assert!(is_meilisearch_json_decl(r#""chatCompletions": false,"#));
+    assert!(is_meilisearch_json_decl(r#""chatCompletions": false // c"#));
+    assert!(!is_meilisearch_json_decl(r#""chatCompletions": {"#));
+    assert!(!is_meilisearch_json_decl(r#""chatCompletions": ["#));
+    assert!(!is_meilisearch_json_decl(r#""chatCompletions": """#));
+    assert!(!is_meilisearch_json_decl(r#""chatCompletions": 1"#));
+    assert!(!is_meilisearch_json_decl(r#""ChatCompletions": true"#));
+    assert!(!is_meilisearch_json_decl(r#""chat_completions": true"#));
     // Incomplete / wrong shapes stay out.
     assert!(!is_meilisearch_json_decl(r#""processingTimeMs""#));
     assert!(!is_meilisearch_json_decl(r#""processingTimeMs":"#));
@@ -33738,6 +33818,10 @@ fn meilisearch_json_keys_count() {
     assert!(!is_meilisearch_json_decl(r#""features""#));
     assert!(!is_meilisearch_json_decl(r#""equality""#));
     assert!(!is_meilisearch_json_decl(r#""comparison""#));
+    assert!(!is_meilisearch_json_decl(r#""editDocumentsByFunction""#));
+    assert!(!is_meilisearch_json_decl(r#""containsFilter""#));
+    assert!(!is_meilisearch_json_decl(r#""dynamicSearchRules""#));
+    assert!(!is_meilisearch_json_decl(r#""chatCompletions""#));
     // Generic / neighbouring stay out.
     assert!(!is_meilisearch_json_decl(
         r#""$schema": "https://json-schema.org/draft/2020-12/schema""#

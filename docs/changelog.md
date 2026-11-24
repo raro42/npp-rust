@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.978] — 2026-11-24
+
+View:
+
+- **Function List** lists Meilisearch experimental-feature JSON keys: `"editDocumentsByFunction": true` / `false`, `"containsFilter": true` / `false`, `"dynamicSearchRules": true` / `false`, `"chatCompletions": true` / `false`. Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing `:` stay out. Empty strings / wrong case / snake_case / plural misspellings / wrong value shapes stay out. Existing Meilisearch keys (`processingTimeMs`, `estimatedTotalHits`, `exhaustiveNbHits`, `nbHits`, `hitsPerPage`, `facetDistribution`, `facetStats`, `exhaustiveFacetsCount`, `rankingScoreThreshold`, `showRankingScore`, `matchingStrategy`, `attributesToSearchOn`, `filterableAttributes`, `sortableAttributes`, `rankingRules`, `displayedAttributes`, `stopWords`, `synonyms`, `proximityPrecision`, `searchCutoffMs`, `searchableAttributes`, `separatorTokens`, `nonSeparatorTokens`, `dictionary`, `distinctAttribute`, `typoTolerance`, `pagination`, `faceting`, `embedders`, `localizedAttributes`, `facetSearch`, `prefixSearch`, `chat`, `documentTemplate`, `documentTemplateMaxBytes`, `maxTotalHits`, `maxValuesPerFacet`, `sortFacetValuesBy`, `minWordSizeForTypos`, `disableOnWords`, `disableOnAttributes`, `disableOnNumbers`, `binaryQuantized`, `pooling`, `indexingFragments`, `searchFragments`, `searchEmbedder`, `indexingEmbedder`, `attributePatterns`, `oneTypo`, `twoTypos`, `current_mean`, `current_sigma`, `wordPosition`, `foreignKeys`, `foreignIndexUid`, `fieldName`, `features`, `equality`, `comparison`, …) unchanged. Generic `"filter"` / `"sort"` / `"facets"` / `"limit"` / `"offset"` / `"page"` / `"description"` / `"searchParameters"` / `"enabled"` / `"source"` / `"model"` / `"apiKey"` / `"url"` / `"dimensions"` / `"revision"` / `"distribution"` / `"mean"` / `"sigma"` / `"request"` / `"response"` / `"headers"` / `"metrics"` / `"network"` stay out. Neighbouring search JSON families stay out of Meilisearch for these keys. Bool `"editDocumentsByFunction"` / `"containsFilter"` / `"dynamicSearchRules"` / `"chatCompletions"` only match `true` / `false`.
+
 ## [0.3.977] — 2026-11-24
 
 View:
