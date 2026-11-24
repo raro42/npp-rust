@@ -30856,15 +30856,16 @@ fn solr_json_bool_and_tail_ok(after_colon: &str) -> bool {
 /// alongside the index-settings `"foreignKeys": [` shape),
 /// `"remotes": {` / `[`, `"shards": {`, `"previousShards": {`,
 /// `"previousRemotes": {`, `"addRemotes": [`, `"removeRemotes": [`,
-/// `"searchApiKey": "…"`, `"writeApiKey": "…"`, `"leader": "…"`.
+/// `"searchApiKey": "…"`, `"writeApiKey": "…"`, `"leader": "…"`,
+/// `"self": "…"`, `"url": "http://…"` / `"https://…"`.
 /// Optional trailing `,` and `//` / `/*` comment. Incomplete quotes /
 /// missing `:` stay out. Generic `"$schema"` / `"name"` / `"id"` /
 /// `"hits": [` / `"query"` / `"limit"` / `"offset"` / `"page"` /
 /// `"totalHits"` / `"totalPages"` / `"filter"` / `"sort": [` /
 /// `"facets": [` / `"description"` / `"searchParameters"` / `"enabled"` /
-/// `"source"` / `"model"` / `"apiKey"` / `"url"` / `"dimensions"` /
+/// `"source"` / `"model"` / `"apiKey"` / `"dimensions"` /
 /// `"revision"` / `"distribution"` / `"mean"` / `"sigma"` /
-/// `"request"` / `"response"` / `"headers"` / `"self"` /
+/// `"request"` / `"response"` / `"headers"` /
 /// Typesense `"search_time_ms"` / `"out_of"` /
 /// `"search_cutoff"` / `"grouped_hits"` / `"facet_counts": [` /
 /// `"default_sorting_field"` / `"enable_nested_fields"` /
@@ -30933,9 +30934,10 @@ fn solr_json_bool_and_tail_ok(after_colon: &str) -> bool {
 /// `"features"` / `"shards"` / `"previousShards"` / `"previousRemotes"`
 /// require `{`. Object or array `"remotes"` accepts `{` or `[`.
 /// String `"distinctAttribute"` / `"documentTemplate"` / `"foreignIndexUid"` /
-/// `"fieldName"` / `"searchApiKey"` / `"writeApiKey"` / `"leader"` require a
-/// non-empty quoted string. Array `"foreignKeys"` / `"addRemotes"` /
-/// `"removeRemotes"` require `[`.
+/// `"fieldName"` / `"searchApiKey"` / `"writeApiKey"` / `"leader"` / `"self"`
+/// require a non-empty quoted string. String `"url"` requires a non-empty
+/// `http://` or `https://` quoted string (relative paths stay out). Array
+/// `"foreignKeys"` / `"addRemotes"` / `"removeRemotes"` require `[`.
 /// Bool `"facetSearch"` / `"disableOnNumbers"` / `"binaryQuantized"` /
 /// `"equality"` / `"comparison"` / `"editDocumentsByFunction"` /
 /// `"containsFilter"` / `"dynamicSearchRules"` / `"chatCompletions"` /
@@ -31054,6 +31056,8 @@ fn meilisearch_json_key_ok(key: &str) -> bool {
             | "searchApiKey"
             | "writeApiKey"
             | "leader"
+            | "self"
+            | "url"
     )
 }
 
@@ -31133,8 +31137,11 @@ fn meilisearch_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool {
                 || key == "searchApiKey"
                 || key == "writeApiKey"
                 || key == "leader"
+                || key == "self"
             {
                 meilisearch_json_nonempty_string_and_tail_ok(after_colon)
+            } else if key == "url" {
+                meilisearch_json_http_url_and_tail_ok(after_colon)
             } else {
                 false
             }
@@ -31232,6 +31239,32 @@ fn meilisearch_json_nonempty_string_and_tail_ok(after_colon: &str) -> bool {
     };
     let value = &rest[..end];
     if value.is_empty() || value.contains('\n') {
+        return false;
+    }
+    package_json_tail_ok(&rest[end + 1..])
+}
+
+fn meilisearch_json_http_url_and_tail_ok(after_colon: &str) -> bool {
+    let rest = &after_colon[1..];
+    let Some(end) = rest.find('"') else {
+        return false;
+    };
+    let value = &rest[..end];
+    if value.contains('\n') {
+        return false;
+    }
+    if !(value.starts_with("http://") || value.starts_with("https://")) {
+        return false;
+    }
+    // Need a non-empty host/path after the scheme separator.
+    let after_scheme = if let Some(rest) = value.strip_prefix("https://") {
+        rest
+    } else if let Some(rest) = value.strip_prefix("http://") {
+        rest
+    } else {
+        return false;
+    };
+    if after_scheme.is_empty() {
         return false;
     }
     package_json_tail_ok(&rest[end + 1..])

@@ -33027,6 +33027,13 @@ fn meilisearch_json_keys_smoke() {
     assert!(is_meilisearch_json_decl(r#""searchApiKey": "foo""#));
     assert!(is_meilisearch_json_decl(r#""writeApiKey": "bar""#));
     assert!(is_meilisearch_json_decl(r#""leader": "ms-0""#));
+    assert!(is_meilisearch_json_decl(r#""self": "ms-0""#));
+    assert!(is_meilisearch_json_decl(
+        r#""url": "http://localhost:7700""#
+    ));
+    assert!(is_meilisearch_json_decl(
+        r#""url": "https://ms-01.example.com""#
+    ));
     // Distinctive neighbours stay out of this scanner.
     assert!(!is_meilisearch_json_decl(r#""responseHeader": {"#));
     assert!(is_solr_json_decl(r#""responseHeader": {"#));
@@ -33167,6 +33174,9 @@ fn meilisearch_json_keys_smoke() {
     assert!(line_is_func_like(r#""searchApiKey": "foo""#));
     assert!(line_is_func_like(r#""writeApiKey": "bar""#));
     assert!(line_is_func_like(r#""leader": "ms-0""#));
+    assert!(line_is_func_like(r#""self": "ms-0""#));
+    assert!(line_is_func_like(r#""url": "http://localhost:7700""#));
+    assert!(line_is_func_like(r#""url": "https://ms-01.example.com""#));
 }
 
 #[test]
@@ -34092,7 +34102,38 @@ fn meilisearch_json_keys_count() {
     assert!(!is_meilisearch_json_decl(r#""leader": ["#));
     assert!(!is_meilisearch_json_decl(r#""leader": true"#));
     assert!(!is_meilisearch_json_decl(r#""Leader": "ms-0""#));
-    assert!(!is_meilisearch_json_decl(r#""self": "ms-0""#));
+    assert!(is_meilisearch_json_decl(r#""self": "ms-0""#));
+    assert!(is_meilisearch_json_decl(r#""self": "ms-0","#));
+    assert!(is_meilisearch_json_decl(r#""self": "ms-0" // s"#));
+    assert!(!is_meilisearch_json_decl(r#""self": """#));
+    assert!(!is_meilisearch_json_decl(r#""self": {"#));
+    assert!(!is_meilisearch_json_decl(r#""self": ["#));
+    assert!(!is_meilisearch_json_decl(r#""self": true"#));
+    assert!(!is_meilisearch_json_decl(r#""Self": "ms-0""#));
+    assert!(is_meilisearch_json_decl(
+        r#""url": "http://localhost:7700""#
+    ));
+    assert!(is_meilisearch_json_decl(
+        r#""url": "http://localhost:7700","#
+    ));
+    assert!(is_meilisearch_json_decl(
+        r#""url": "http://localhost:7700" // u"#
+    ));
+    assert!(is_meilisearch_json_decl(
+        r#""url": "https://ms-01.example.com""#
+    ));
+    assert!(!is_meilisearch_json_decl(r#""url": """#));
+    assert!(!is_meilisearch_json_decl(r#""url": "http://""#));
+    assert!(!is_meilisearch_json_decl(r#""url": "https://""#));
+    assert!(!is_meilisearch_json_decl(r#""url": "/about/""#));
+    assert!(!is_meilisearch_json_decl(r#""url": "ftp://host""#));
+    assert!(!is_meilisearch_json_decl(r#""url": "localhost:7700""#));
+    assert!(!is_meilisearch_json_decl(r#""url": {"#));
+    assert!(!is_meilisearch_json_decl(r#""url": ["#));
+    assert!(!is_meilisearch_json_decl(r#""url": true"#));
+    assert!(!is_meilisearch_json_decl(
+        r#""Url": "http://localhost:7700""#
+    ));
     // Incomplete / wrong shapes stay out.
     assert!(!is_meilisearch_json_decl(r#""processingTimeMs""#));
     assert!(!is_meilisearch_json_decl(r#""processingTimeMs":"#));
@@ -34180,6 +34221,8 @@ fn meilisearch_json_keys_count() {
     assert!(!is_meilisearch_json_decl(r#""searchApiKey""#));
     assert!(!is_meilisearch_json_decl(r#""writeApiKey""#));
     assert!(!is_meilisearch_json_decl(r#""leader""#));
+    assert!(!is_meilisearch_json_decl(r#""self""#));
+    assert!(!is_meilisearch_json_decl(r#""url""#));
     // Generic / neighbouring stay out.
     assert!(!is_meilisearch_json_decl(
         r#""$schema": "https://json-schema.org/draft/2020-12/schema""#
