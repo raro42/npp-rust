@@ -1,3 +1,5 @@
+009 keep: Function List Meilisearch self/url network topology (v0.3.982)
+
 009 keep: Function List Meilisearch metrics/network/disableDocumentsFetchQueue/legacySearch/renderRoute/mcpRoute + bool foreignKeys (v0.3.980)
 
 009 keep: Function List Meilisearch logsRoute/tasksStreamingRoute/getTaskDocumentsRoute/taskQueueCompactionRoute/compositeEmbedders/multimodal (v0.3.979)
