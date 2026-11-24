@@ -33098,6 +33098,12 @@ fn meilisearch_json_keys_smoke() {
     assert!(is_meilisearch_json_decl(
         r#""numberOfEmbeddedDocuments": 10"#
     ));
+    assert!(is_meilisearch_json_decl(r#""receivedDocuments": 0"#));
+    assert!(is_meilisearch_json_decl(r#""receivedDocuments": 10"#));
+    assert!(is_meilisearch_json_decl(r#""indexedDocuments": 0"#));
+    assert!(is_meilisearch_json_decl(r#""indexedDocuments": 10"#));
+    assert!(is_meilisearch_json_decl(r#""deletedDocuments": 0"#));
+    assert!(is_meilisearch_json_decl(r#""deletedDocuments": 10"#));
     // Distinctive neighbours stay out of this scanner.
     assert!(!is_meilisearch_json_decl(r#""responseHeader": {"#));
     assert!(is_solr_json_decl(r#""responseHeader": {"#));
@@ -33286,6 +33292,9 @@ fn meilisearch_json_keys_smoke() {
     assert!(line_is_func_like(r#""internalDatabaseSizes": {"#));
     assert!(line_is_func_like(r#""numberOfEmbeddings": 10"#));
     assert!(line_is_func_like(r#""numberOfEmbeddedDocuments": 10"#));
+    assert!(line_is_func_like(r#""receivedDocuments": 10"#));
+    assert!(line_is_func_like(r#""indexedDocuments": 10"#));
+    assert!(line_is_func_like(r#""deletedDocuments": 10"#));
 }
 
 #[test]
@@ -34711,6 +34720,51 @@ fn meilisearch_json_keys_count() {
     assert!(!is_meilisearch_json_decl(
         r#""number_of_embedded_documents": 10"#
     ));
+    assert!(is_meilisearch_json_decl(r#""receivedDocuments": 0"#));
+    assert!(is_meilisearch_json_decl(r#""receivedDocuments": 10"#));
+    assert!(is_meilisearch_json_decl(r#""receivedDocuments": 10,"#));
+    assert!(is_meilisearch_json_decl(
+        r#""receivedDocuments": 10 // n"#
+    ));
+    assert!(!is_meilisearch_json_decl(r#""receivedDocuments": 00"#));
+    assert!(!is_meilisearch_json_decl(r#""receivedDocuments": 01"#));
+    assert!(!is_meilisearch_json_decl(r#""receivedDocuments": true"#));
+    assert!(!is_meilisearch_json_decl(r#""receivedDocuments": {"#));
+    assert!(!is_meilisearch_json_decl(r#""receivedDocuments": "10""#));
+    assert!(!is_meilisearch_json_decl(r#""ReceivedDocuments": 10"#));
+    assert!(!is_meilisearch_json_decl(
+        r#""received_documents": 10"#
+    ));
+    assert!(is_meilisearch_json_decl(r#""indexedDocuments": 0"#));
+    assert!(is_meilisearch_json_decl(r#""indexedDocuments": 10"#));
+    assert!(is_meilisearch_json_decl(r#""indexedDocuments": 10,"#));
+    assert!(is_meilisearch_json_decl(
+        r#""indexedDocuments": 10 // n"#
+    ));
+    assert!(!is_meilisearch_json_decl(r#""indexedDocuments": 00"#));
+    assert!(!is_meilisearch_json_decl(r#""indexedDocuments": 01"#));
+    assert!(!is_meilisearch_json_decl(r#""indexedDocuments": true"#));
+    assert!(!is_meilisearch_json_decl(r#""indexedDocuments": {"#));
+    assert!(!is_meilisearch_json_decl(r#""indexedDocuments": "10""#));
+    assert!(!is_meilisearch_json_decl(r#""IndexedDocuments": 10"#));
+    assert!(!is_meilisearch_json_decl(
+        r#""indexed_documents": 10"#
+    ));
+    assert!(is_meilisearch_json_decl(r#""deletedDocuments": 0"#));
+    assert!(is_meilisearch_json_decl(r#""deletedDocuments": 10"#));
+    assert!(is_meilisearch_json_decl(r#""deletedDocuments": 10,"#));
+    assert!(is_meilisearch_json_decl(
+        r#""deletedDocuments": 10 // n"#
+    ));
+    assert!(!is_meilisearch_json_decl(r#""deletedDocuments": 00"#));
+    assert!(!is_meilisearch_json_decl(r#""deletedDocuments": 01"#));
+    assert!(!is_meilisearch_json_decl(r#""deletedDocuments": true"#));
+    assert!(!is_meilisearch_json_decl(r#""deletedDocuments": {"#));
+    assert!(!is_meilisearch_json_decl(r#""deletedDocuments": "10""#));
+    assert!(!is_meilisearch_json_decl(r#""DeletedDocuments": 10"#));
+    assert!(!is_meilisearch_json_decl(
+        r#""deleted_documents": 10"#
+    ));
     // Incomplete / wrong shapes stay out.
     assert!(!is_meilisearch_json_decl(r#""processingTimeMs""#));
     assert!(!is_meilisearch_json_decl(r#""processingTimeMs":"#));
@@ -34838,6 +34892,9 @@ fn meilisearch_json_keys_count() {
     assert!(!is_meilisearch_json_decl(
         r#""numberOfEmbeddedDocuments""#
     ));
+    assert!(!is_meilisearch_json_decl(r#""receivedDocuments""#));
+    assert!(!is_meilisearch_json_decl(r#""indexedDocuments""#));
+    assert!(!is_meilisearch_json_decl(r#""deletedDocuments""#));
     // Generic / neighbouring stay out.
     assert!(!is_meilisearch_json_decl(
         r#""$schema": "https://json-schema.org/draft/2020-12/schema""#
