@@ -1638,3 +1638,5 @@
 009 keep: Function List Meilisearch pooling/indexingFragments/searchFragments/searchEmbedder/indexingEmbedder/attributePatterns (v0.3.973)
 
 009 keep: Function List Meilisearch remotes/shards/previousShards/previousRemotes/addRemotes/removeRemotes/searchApiKey/writeApiKey/leader (v0.3.981)
+
+009 keep: Function List Meilisearch providedIds/matchedTasks/canceledTasks/deletedTasks (v0.3.989)
