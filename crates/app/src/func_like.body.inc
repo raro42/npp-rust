@@ -30883,7 +30883,8 @@ fn solr_json_bool_and_tail_ok(after_colon: &str) -> bool {
 /// `"matchedTasks": 0` / `10`, `"canceledTasks": 0` / `10`,
 /// `"deletedTasks": 0` / `10`, `"enqueuedAt": "…"`, `"startedAt": "…"`,
 /// `"finishedAt": "…"`, `"canceledBy": 0` / `10`, `"taskUid": 0` / `10`,
-/// `"duration": "PT…"`.
+/// `"duration": "PT…"`, `"batchUid": 0` / `12`, `"originalFilter": "…"`,
+/// `"dumpUid": "…"`, `"swaps": [`.
 /// Optional trailing `,` and `//` / `/*` comment. Incomplete quotes /
 /// missing `:` stay out. Generic `"$schema"` / `"name"` / `"id"` /
 /// `"hits": [` / `"query"` / `"limit"` / `"offset"` / `"page"` /
@@ -30955,7 +30956,7 @@ fn solr_json_bool_and_tail_ok(after_colon: &str) -> bool {
 /// `"numberOfEmbeddings"` / `"numberOfEmbeddedDocuments"` /
 /// `"receivedDocuments"` / `"indexedDocuments"` / `"deletedDocuments"` /
 /// `"providedIds"` / `"matchedTasks"` / `"canceledTasks"` /
-/// `"deletedTasks"` / `"canceledBy"` / `"taskUid"`
+/// `"deletedTasks"` / `"canceledBy"` / `"taskUid"` / `"batchUid"`
 /// reject leading zeros beyond `0`.
 /// `"rankingScoreThreshold"` / `"current_mean"` / `"current_sigma"` /
 /// `"_rankingScore"` allow a
@@ -30973,13 +30974,14 @@ fn solr_json_bool_and_tail_ok(after_colon: &str) -> bool {
 /// String `"distinctAttribute"` / `"documentTemplate"` / `"foreignIndexUid"` /
 /// `"fieldName"` / `"searchApiKey"` / `"writeApiKey"` / `"leader"` / `"self"` /
 /// `"cropMarker"` / `"commitSha"` / `"commitDate"` / `"pkgVersion"` /
-/// `"lastUpdate"` / `"enqueuedAt"` / `"startedAt"` / `"finishedAt"`
+/// `"lastUpdate"` / `"enqueuedAt"` / `"startedAt"` / `"finishedAt"` /
+/// `"originalFilter"` / `"dumpUid"`
 /// require a non-empty quoted string. String `"duration"` requires a
 /// non-empty `PT…` ISO-8601 duration. String `"url"` requires a non-empty
 /// `http://` or `https://` quoted string (relative paths stay out). Array
 /// `"foreignKeys"` / `"addRemotes"` / `"removeRemotes"` /
 /// `"attributesToRetrieve"` / `"attributesToCrop"` / `"locales"` /
-/// `"vector"` require `[`.
+/// `"vector"` / `"swaps"` require `[`.
 /// Bool `"facetSearch"` / `"disableOnNumbers"` / `"binaryQuantized"` /
 /// `"equality"` / `"comparison"` / `"editDocumentsByFunction"` /
 /// `"containsFilter"` / `"dynamicSearchRules"` / `"chatCompletions"` /
@@ -31151,6 +31153,10 @@ fn meilisearch_json_key_ok(key: &str) -> bool {
             | "canceledBy"
             | "taskUid"
             | "duration"
+            | "batchUid"
+            | "originalFilter"
+            | "dumpUid"
+            | "swaps"
     )
 }
 
@@ -31223,6 +31229,7 @@ fn meilisearch_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool {
                     | "attributesToCrop"
                     | "locales"
                     | "vector"
+                    | "swaps"
             ) {
                 return false;
             }
@@ -31253,6 +31260,8 @@ fn meilisearch_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool {
                 || key == "enqueuedAt"
                 || key == "startedAt"
                 || key == "finishedAt"
+                || key == "originalFilter"
+                || key == "dumpUid"
             {
                 meilisearch_json_nonempty_string_and_tail_ok(after_colon)
             } else if key == "duration" {
@@ -31423,7 +31432,8 @@ fn meilisearch_json_number_and_tail_ok(key: &str, after_colon: &str) -> bool {
         | "canceledTasks"
         | "deletedTasks"
         | "canceledBy"
-        | "taskUid" => {
+        | "taskUid"
+        | "batchUid" => {
             let digits = after_colon
                 .bytes()
                 .take_while(|b| b.is_ascii_digit())

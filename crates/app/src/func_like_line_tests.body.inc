@@ -33127,6 +33127,15 @@ fn meilisearch_json_keys_smoke() {
     assert!(is_meilisearch_json_decl(r#""taskUid": 10"#));
     assert!(is_meilisearch_json_decl(r#""duration": "PT0.009330S""#));
     assert!(is_meilisearch_json_decl(r#""duration": "PT1S""#));
+    assert!(is_meilisearch_json_decl(r#""batchUid": 0"#));
+    assert!(is_meilisearch_json_decl(r#""batchUid": 12"#));
+    assert!(is_meilisearch_json_decl(
+        r#""originalFilter": "?uids=1,2""#
+    ));
+    assert!(is_meilisearch_json_decl(
+        r#""dumpUid": "20250710-133700205""#
+    ));
+    assert!(is_meilisearch_json_decl(r#""swaps": ["#));
     // Distinctive neighbours stay out of this scanner.
     assert!(!is_meilisearch_json_decl(r#""responseHeader": {"#));
     assert!(is_solr_json_decl(r#""responseHeader": {"#));
@@ -33334,6 +33343,10 @@ fn meilisearch_json_keys_smoke() {
     assert!(line_is_func_like(r#""canceledBy": 10"#));
     assert!(line_is_func_like(r#""taskUid": 10"#));
     assert!(line_is_func_like(r#""duration": "PT0.009330S""#));
+    assert!(line_is_func_like(r#""batchUid": 12"#));
+    assert!(line_is_func_like(r#""originalFilter": "?uids=1,2""#));
+    assert!(line_is_func_like(r#""dumpUid": "20250710-133700205""#));
+    assert!(line_is_func_like(r#""swaps": ["#));
 }
 
 #[test]
@@ -34933,6 +34946,62 @@ fn meilisearch_json_keys_count() {
     assert!(!is_meilisearch_json_decl(r#""duration": 10"#));
     assert!(!is_meilisearch_json_decl(r#""duration": true"#));
     assert!(!is_meilisearch_json_decl(r#""Duration": "PT1S""#));
+    assert!(is_meilisearch_json_decl(r#""batchUid": 0"#));
+    assert!(is_meilisearch_json_decl(r#""batchUid": 12"#));
+    assert!(is_meilisearch_json_decl(r#""batchUid": 12,"#));
+    assert!(is_meilisearch_json_decl(r#""batchUid": 12 // n"#));
+    assert!(!is_meilisearch_json_decl(r#""batchUid": 00"#));
+    assert!(!is_meilisearch_json_decl(r#""batchUid": 01"#));
+    assert!(!is_meilisearch_json_decl(r#""batchUid": true"#));
+    assert!(!is_meilisearch_json_decl(r#""batchUid": {"#));
+    assert!(!is_meilisearch_json_decl(r#""batchUid": "12""#));
+    assert!(!is_meilisearch_json_decl(r#""BatchUid": 12"#));
+    assert!(!is_meilisearch_json_decl(r#""batch_uid": 12"#));
+    assert!(is_meilisearch_json_decl(
+        r#""originalFilter": "?uids=1,2""#
+    ));
+    assert!(is_meilisearch_json_decl(
+        r#""originalFilter": "?uids=1,2","#
+    ));
+    assert!(is_meilisearch_json_decl(
+        r#""originalFilter": "?uids=1,2" // f"#
+    ));
+    assert!(!is_meilisearch_json_decl(r#""originalFilter": """#));
+    assert!(!is_meilisearch_json_decl(r#""originalFilter": {"#));
+    assert!(!is_meilisearch_json_decl(r#""originalFilter": ["#));
+    assert!(!is_meilisearch_json_decl(r#""originalFilter": true"#));
+    assert!(!is_meilisearch_json_decl(r#""OriginalFilter": "?uids=1,2""#));
+    assert!(!is_meilisearch_json_decl(
+        r#""original_filter": "?uids=1,2""#
+    ));
+    assert!(is_meilisearch_json_decl(
+        r#""dumpUid": "20250710-133700205""#
+    ));
+    assert!(is_meilisearch_json_decl(
+        r#""dumpUid": "20250710-133700205","#
+    ));
+    assert!(is_meilisearch_json_decl(
+        r#""dumpUid": "20250710-133700205" // d"#
+    ));
+    assert!(!is_meilisearch_json_decl(r#""dumpUid": """#));
+    assert!(!is_meilisearch_json_decl(r#""dumpUid": {"#));
+    assert!(!is_meilisearch_json_decl(r#""dumpUid": ["#));
+    assert!(!is_meilisearch_json_decl(r#""dumpUid": true"#));
+    assert!(!is_meilisearch_json_decl(
+        r#""DumpUid": "20250710-133700205""#
+    ));
+    assert!(!is_meilisearch_json_decl(
+        r#""dump_uid": "20250710-133700205""#
+    ));
+    assert!(is_meilisearch_json_decl(r#""swaps": ["#));
+    assert!(is_meilisearch_json_decl(r#""swaps": [,"#));
+    assert!(is_meilisearch_json_decl(r#""swaps": [ // s"#));
+    assert!(!is_meilisearch_json_decl(r#""swaps": {"#));
+    assert!(!is_meilisearch_json_decl(r#""swaps": true"#));
+    assert!(!is_meilisearch_json_decl(r#""swaps": "movies""#));
+    assert!(!is_meilisearch_json_decl(r#""swaps": 1"#));
+    assert!(!is_meilisearch_json_decl(r#""Swaps": ["#));
+    assert!(!is_meilisearch_json_decl(r#""swap": ["#));
     // Incomplete / wrong shapes stay out.
     assert!(!is_meilisearch_json_decl(r#""processingTimeMs""#));
     assert!(!is_meilisearch_json_decl(r#""processingTimeMs":"#));
@@ -35073,6 +35142,10 @@ fn meilisearch_json_keys_count() {
     assert!(!is_meilisearch_json_decl(r#""canceledBy""#));
     assert!(!is_meilisearch_json_decl(r#""taskUid""#));
     assert!(!is_meilisearch_json_decl(r#""duration""#));
+    assert!(!is_meilisearch_json_decl(r#""batchUid""#));
+    assert!(!is_meilisearch_json_decl(r#""originalFilter""#));
+    assert!(!is_meilisearch_json_decl(r#""dumpUid""#));
+    assert!(!is_meilisearch_json_decl(r#""swaps""#));
     // Generic / neighbouring stay out.
     assert!(!is_meilisearch_json_decl(
         r#""$schema": "https://json-schema.org/draft/2020-12/schema""#
