@@ -1642,3 +1642,5 @@
 009 keep: Function List Meilisearch providedIds/matchedTasks/canceledTasks/deletedTasks (v0.3.989)
 
 009 keep: Function List Meilisearch enqueuedAt/startedAt/finishedAt/canceledBy/taskUid/duration (v0.3.990)
+
+009 keep: Function List Meilisearch batchUid/originalFilter/dumpUid/swaps (v0.3.991)
