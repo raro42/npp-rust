@@ -33146,6 +33146,14 @@ fn meilisearch_json_keys_smoke() {
     assert!(is_meilisearch_json_decl(r#""writeChannelCongestion": {"#));
     assert!(is_meilisearch_json_decl(r#""embedderRequests": {"#));
     assert!(is_meilisearch_json_decl(r#""currentStep": "indexing""#));
+    assert!(is_meilisearch_json_decl(r#""attempts": 0"#));
+    assert!(is_meilisearch_json_decl(r#""attempts": 120"#));
+    assert!(is_meilisearch_json_decl(r#""blocking_attempts": 0"#));
+    assert!(is_meilisearch_json_decl(r#""blocking_attempts": 30"#));
+    assert!(is_meilisearch_json_decl(r#""blocking_ratio": 0.25"#));
+    assert!(is_meilisearch_json_decl(
+        r#""lastError": "model timed out""#
+    ));
     // Distinctive neighbours stay out of this scanner.
     assert!(!is_meilisearch_json_decl(r#""responseHeader": {"#));
     assert!(is_solr_json_decl(r#""responseHeader": {"#));
@@ -33366,6 +33374,10 @@ fn meilisearch_json_keys_smoke() {
     assert!(line_is_func_like(r#""writeChannelCongestion": {"#));
     assert!(line_is_func_like(r#""embedderRequests": {"#));
     assert!(line_is_func_like(r#""currentStep": "indexing""#));
+    assert!(line_is_func_like(r#""attempts": 120"#));
+    assert!(line_is_func_like(r#""blocking_attempts": 30"#));
+    assert!(line_is_func_like(r#""blocking_ratio": 0.25"#));
+    assert!(line_is_func_like(r#""lastError": "model timed out""#));
 }
 
 #[test]
@@ -35102,6 +35114,54 @@ fn meilisearch_json_keys_count() {
     assert!(!is_meilisearch_json_decl(r#""currentStep": true"#));
     assert!(!is_meilisearch_json_decl(r#""CurrentStep": "indexing""#));
     assert!(!is_meilisearch_json_decl(r#""current_step": "indexing""#));
+    assert!(is_meilisearch_json_decl(r#""attempts": 0"#));
+    assert!(is_meilisearch_json_decl(r#""attempts": 120"#));
+    assert!(is_meilisearch_json_decl(r#""attempts": 120,"#));
+    assert!(is_meilisearch_json_decl(r#""attempts": 120 // a"#));
+    assert!(!is_meilisearch_json_decl(r#""attempts": 00"#));
+    assert!(!is_meilisearch_json_decl(r#""attempts": 012"#));
+    assert!(!is_meilisearch_json_decl(r#""attempts": true"#));
+    assert!(!is_meilisearch_json_decl(r#""attempts": {"#));
+    assert!(!is_meilisearch_json_decl(r#""attempts": "120""#));
+    assert!(!is_meilisearch_json_decl(r#""Attempts": 120"#));
+    assert!(is_meilisearch_json_decl(r#""blocking_attempts": 0"#));
+    assert!(is_meilisearch_json_decl(r#""blocking_attempts": 30"#));
+    assert!(is_meilisearch_json_decl(r#""blocking_attempts": 30,"#));
+    assert!(is_meilisearch_json_decl(r#""blocking_attempts": 30 // b"#));
+    assert!(!is_meilisearch_json_decl(r#""blocking_attempts": 00"#));
+    assert!(!is_meilisearch_json_decl(r#""blocking_attempts": 030"#));
+    assert!(!is_meilisearch_json_decl(r#""blocking_attempts": true"#));
+    assert!(!is_meilisearch_json_decl(r#""blocking_attempts": {"#));
+    assert!(!is_meilisearch_json_decl(r#""blocking_attempts": "30""#));
+    assert!(!is_meilisearch_json_decl(r#""blockingAttempts": 30"#));
+    assert!(!is_meilisearch_json_decl(r#""Blocking_Attempts": 30"#));
+    assert!(is_meilisearch_json_decl(r#""blocking_ratio": 0"#));
+    assert!(is_meilisearch_json_decl(r#""blocking_ratio": 0.25"#));
+    assert!(is_meilisearch_json_decl(r#""blocking_ratio": 0.25,"#));
+    assert!(is_meilisearch_json_decl(r#""blocking_ratio": 0.25 // r"#));
+    assert!(is_meilisearch_json_decl(r#""blocking_ratio": 1"#));
+    assert!(!is_meilisearch_json_decl(r#""blocking_ratio": 00"#));
+    assert!(!is_meilisearch_json_decl(r#""blocking_ratio": 0."#));
+    assert!(!is_meilisearch_json_decl(r#""blocking_ratio": true"#));
+    assert!(!is_meilisearch_json_decl(r#""blocking_ratio": {"#));
+    assert!(!is_meilisearch_json_decl(r#""blocking_ratio": "0.25""#));
+    assert!(!is_meilisearch_json_decl(r#""blockingRatio": 0.25"#));
+    assert!(!is_meilisearch_json_decl(r#""Blocking_Ratio": 0.25"#));
+    assert!(is_meilisearch_json_decl(
+        r#""lastError": "model timed out""#
+    ));
+    assert!(is_meilisearch_json_decl(
+        r#""lastError": "model timed out","#
+    ));
+    assert!(is_meilisearch_json_decl(
+        r#""lastError": "model timed out" // e"#
+    ));
+    assert!(!is_meilisearch_json_decl(r#""lastError": """#));
+    assert!(!is_meilisearch_json_decl(r#""lastError": {"#));
+    assert!(!is_meilisearch_json_decl(r#""lastError": ["#));
+    assert!(!is_meilisearch_json_decl(r#""lastError": true"#));
+    assert!(!is_meilisearch_json_decl(r#""LastError": "model timed out""#));
+    assert!(!is_meilisearch_json_decl(r#""last_error": "model timed out""#));
     // Incomplete / wrong shapes stay out.
     assert!(!is_meilisearch_json_decl(r#""processingTimeMs""#));
     assert!(!is_meilisearch_json_decl(r#""processingTimeMs":"#));
