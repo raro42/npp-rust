@@ -30889,7 +30889,8 @@ fn solr_json_bool_and_tail_ok(after_colon: &str) -> bool {
 /// `"writeChannelCongestion": {`, `"embedderRequests": {`,
 /// `"currentStep": "…"`, `"attempts": 0` / `120`,
 /// `"blocking_attempts": 0` / `30`, `"blocking_ratio": 0.25`,
-/// `"lastError": "…"`.
+/// `"lastError": "…"`, `"percentage": 0` / `37.98`, `"steps": [`,
+/// `"finished": 0` / `12300`.
 /// Optional trailing `,` and `//` / `/*` comment. Incomplete quotes /
 /// missing `:` stay out. Generic `"$schema"` / `"name"` / `"id"` /
 /// `"hits": [` / `"query"` / `"limit"` / `"offset"` / `"page"` /
@@ -30962,10 +30963,10 @@ fn solr_json_bool_and_tail_ok(after_colon: &str) -> bool {
 /// `"receivedDocuments"` / `"indexedDocuments"` / `"deletedDocuments"` /
 /// `"providedIds"` / `"matchedTasks"` / `"canceledTasks"` /
 /// `"deletedTasks"` / `"canceledBy"` / `"taskUid"` / `"batchUid"` /
-/// `"totalNbTasks"` / `"attempts"` / `"blocking_attempts"`
+/// `"totalNbTasks"` / `"attempts"` / `"blocking_attempts"` / `"finished"`
 /// reject leading zeros beyond `0`.
 /// `"rankingScoreThreshold"` / `"current_mean"` / `"current_sigma"` /
-/// `"_rankingScore"` / `"blocking_ratio"` allow a
+/// `"_rankingScore"` / `"blocking_ratio"` / `"percentage"` allow a
 /// simple decimal (no exponent). Array
 /// index-setting keys / `"attributePatterns"` require `[`. Object
 /// `"synonyms"` / `"typoTolerance"` / `"pagination"` / `"faceting"` /
@@ -30990,7 +30991,7 @@ fn solr_json_bool_and_tail_ok(after_colon: &str) -> bool {
 /// `http://` or `https://` quoted string (relative paths stay out). Array
 /// `"foreignKeys"` / `"addRemotes"` / `"removeRemotes"` /
 /// `"attributesToRetrieve"` / `"attributesToCrop"` / `"locales"` /
-/// `"vector"` / `"swaps"` require `[`.
+/// `"vector"` / `"swaps"` / `"steps"` require `[`.
 /// Bool `"facetSearch"` / `"disableOnNumbers"` / `"binaryQuantized"` /
 /// `"equality"` / `"comparison"` / `"editDocumentsByFunction"` /
 /// `"containsFilter"` / `"dynamicSearchRules"` / `"chatCompletions"` /
@@ -31177,6 +31178,9 @@ fn meilisearch_json_key_ok(key: &str) -> bool {
             | "blocking_attempts"
             | "blocking_ratio"
             | "lastError"
+            | "percentage"
+            | "steps"
+            | "finished"
     )
 }
 
@@ -31254,6 +31258,7 @@ fn meilisearch_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool {
                     | "locales"
                     | "vector"
                     | "swaps"
+                    | "steps"
             ) {
                 return false;
             }
@@ -31463,7 +31468,8 @@ fn meilisearch_json_number_and_tail_ok(key: &str, after_colon: &str) -> bool {
         | "batchUid"
         | "totalNbTasks"
         | "attempts"
-        | "blocking_attempts" => {
+        | "blocking_attempts"
+        | "finished" => {
             let digits = after_colon
                 .bytes()
                 .take_while(|b| b.is_ascii_digit())
@@ -31480,7 +31486,8 @@ fn meilisearch_json_number_and_tail_ok(key: &str, after_colon: &str) -> bool {
         | "current_mean"
         | "current_sigma"
         | "_rankingScore"
-        | "blocking_ratio" => {
+        | "blocking_ratio"
+        | "percentage" => {
             meilisearch_json_ranking_score_and_tail_ok(after_colon)
         }
         _ => false,

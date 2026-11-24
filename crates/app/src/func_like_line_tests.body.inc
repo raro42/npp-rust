@@ -33154,6 +33154,11 @@ fn meilisearch_json_keys_smoke() {
     assert!(is_meilisearch_json_decl(
         r#""lastError": "model timed out""#
     ));
+    assert!(is_meilisearch_json_decl(r#""percentage": 0"#));
+    assert!(is_meilisearch_json_decl(r#""percentage": 37.98"#));
+    assert!(is_meilisearch_json_decl(r#""steps": ["#));
+    assert!(is_meilisearch_json_decl(r#""finished": 0"#));
+    assert!(is_meilisearch_json_decl(r#""finished": 12300"#));
     // Distinctive neighbours stay out of this scanner.
     assert!(!is_meilisearch_json_decl(r#""responseHeader": {"#));
     assert!(is_solr_json_decl(r#""responseHeader": {"#));
@@ -33378,6 +33383,9 @@ fn meilisearch_json_keys_smoke() {
     assert!(line_is_func_like(r#""blocking_attempts": 30"#));
     assert!(line_is_func_like(r#""blocking_ratio": 0.25"#));
     assert!(line_is_func_like(r#""lastError": "model timed out""#));
+    assert!(line_is_func_like(r#""percentage": 37.98"#));
+    assert!(line_is_func_like(r#""steps": ["#));
+    assert!(line_is_func_like(r#""finished": 12300"#));
 }
 
 #[test]
@@ -35162,6 +35170,38 @@ fn meilisearch_json_keys_count() {
     assert!(!is_meilisearch_json_decl(r#""lastError": true"#));
     assert!(!is_meilisearch_json_decl(r#""LastError": "model timed out""#));
     assert!(!is_meilisearch_json_decl(r#""last_error": "model timed out""#));
+    assert!(is_meilisearch_json_decl(r#""percentage": 0"#));
+    assert!(is_meilisearch_json_decl(r#""percentage": 37.98"#));
+    assert!(is_meilisearch_json_decl(r#""percentage": 37.98,"#));
+    assert!(is_meilisearch_json_decl(r#""percentage": 37.98 // p"#));
+    assert!(is_meilisearch_json_decl(r#""percentage": 100"#));
+    assert!(!is_meilisearch_json_decl(r#""percentage": 00"#));
+    assert!(!is_meilisearch_json_decl(r#""percentage": 0."#));
+    assert!(!is_meilisearch_json_decl(r#""percentage": true"#));
+    assert!(!is_meilisearch_json_decl(r#""percentage": {"#));
+    assert!(!is_meilisearch_json_decl(r#""percentage": "37.98""#));
+    assert!(!is_meilisearch_json_decl(r#""Percentage": 37.98"#));
+    assert!(!is_meilisearch_json_decl(r#""PERCENTAGE": 37.98"#));
+    assert!(is_meilisearch_json_decl(r#""steps": ["#));
+    assert!(is_meilisearch_json_decl(r#""steps": [,"#));
+    assert!(is_meilisearch_json_decl(r#""steps": [ // s"#));
+    assert!(!is_meilisearch_json_decl(r#""steps": {"#));
+    assert!(!is_meilisearch_json_decl(r#""steps": true"#));
+    assert!(!is_meilisearch_json_decl(r#""steps": 1"#));
+    assert!(!is_meilisearch_json_decl(r#""steps": "indexing""#));
+    assert!(!is_meilisearch_json_decl(r#""Steps": ["#));
+    assert!(!is_meilisearch_json_decl(r#""STEPS": ["#));
+    assert!(is_meilisearch_json_decl(r#""finished": 0"#));
+    assert!(is_meilisearch_json_decl(r#""finished": 12300"#));
+    assert!(is_meilisearch_json_decl(r#""finished": 12300,"#));
+    assert!(is_meilisearch_json_decl(r#""finished": 12300 // f"#));
+    assert!(!is_meilisearch_json_decl(r#""finished": 00"#));
+    assert!(!is_meilisearch_json_decl(r#""finished": 012"#));
+    assert!(!is_meilisearch_json_decl(r#""finished": true"#));
+    assert!(!is_meilisearch_json_decl(r#""finished": {"#));
+    assert!(!is_meilisearch_json_decl(r#""finished": "12300""#));
+    assert!(!is_meilisearch_json_decl(r#""Finished": 12300"#));
+    assert!(!is_meilisearch_json_decl(r#""FINISHED": 12300"#));
     // Incomplete / wrong shapes stay out.
     assert!(!is_meilisearch_json_decl(r#""processingTimeMs""#));
     assert!(!is_meilisearch_json_decl(r#""processingTimeMs":"#));
