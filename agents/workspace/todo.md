@@ -1,3 +1,5 @@
+009 keep: Function List Meilisearch numberOfEmbeddings/numberOfEmbeddedDocuments (v0.3.987)
+
 009 keep: Function List Meilisearch indexes/indexSize/usedIndexSize/rawDocumentDbSize/maxDocumentSize/avgDocumentSize/internalDatabaseSizes (v0.3.986)
 
 009 keep: Function List Meilisearch commitSha/commitDate/pkgVersion/databaseSize/usedDatabaseSize/lastUpdate/numberOfDocuments/isIndexing/fieldDistribution (v0.3.985)
