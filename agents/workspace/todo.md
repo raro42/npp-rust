@@ -1,3 +1,5 @@
+009 keep: Function List Meilisearch commitSha/commitDate/pkgVersion/databaseSize/usedDatabaseSize/lastUpdate/numberOfDocuments/isIndexing/fieldDistribution (v0.3.985)
+
 009 keep: Function List Meilisearch attributesToCrop/cropLength/cropMarker/showMatchesPosition/retrieveVectors/hybrid/locales/vector/_formatted/_matchesPosition/_rankingScore/_vectors (v0.3.984)
 
 009 keep: Function List Meilisearch useNetwork/showRankingScoreDetails/attributesToRetrieve/federation/_federation/_rankingScoreDetails (v0.3.983)
