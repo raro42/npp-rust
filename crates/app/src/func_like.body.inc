@@ -30872,7 +30872,11 @@ fn solr_json_bool_and_tail_ok(after_colon: &str) -> bool {
 /// `"commitSha": "…"`, `"commitDate": "…"`, `"pkgVersion": "…"`,
 /// `"databaseSize": 0` / `567`, `"usedDatabaseSize": 0` / `456`,
 /// `"lastUpdate": "…"`, `"numberOfDocuments": 0` / `10`,
-/// `"isIndexing": true` / `false`, `"fieldDistribution": {`.
+/// `"isIndexing": true` / `false`, `"fieldDistribution": {`,
+/// `"indexes": {`, `"indexSize": 0` / `1572864`,
+/// `"usedIndexSize": 0` / `524288`, `"rawDocumentDbSize": 0` / `100`,
+/// `"maxDocumentSize": 0` / `16`, `"avgDocumentSize": 0` / `10`,
+/// `"internalDatabaseSizes": {`.
 /// Optional trailing `,` and `//` / `/*` comment. Incomplete quotes /
 /// missing `:` stay out. Generic `"$schema"` / `"name"` / `"id"` /
 /// `"hits": [` / `"query"` / `"limit"` / `"offset"` / `"page"` /
@@ -30939,7 +30943,8 @@ fn solr_json_bool_and_tail_ok(after_colon: &str) -> bool {
 /// `"hitsPerPage"` / `"searchCutoffMs"` / `"documentTemplateMaxBytes"` /
 /// `"maxTotalHits"` / `"maxValuesPerFacet"` / `"oneTypo"` / `"twoTypos"` /
 /// `"cropLength"` / `"databaseSize"` / `"usedDatabaseSize"` /
-/// `"numberOfDocuments"`
+/// `"numberOfDocuments"` / `"indexSize"` / `"usedIndexSize"` /
+/// `"rawDocumentDbSize"` / `"maxDocumentSize"` / `"avgDocumentSize"`
 /// reject leading zeros beyond `0`.
 /// `"rankingScoreThreshold"` / `"current_mean"` / `"current_sigma"` /
 /// `"_rankingScore"` allow a
@@ -30952,7 +30957,7 @@ fn solr_json_bool_and_tail_ok(after_colon: &str) -> bool {
 /// `"features"` / `"shards"` / `"previousShards"` / `"previousRemotes"` /
 /// `"federation"` / `"_federation"` / `"_rankingScoreDetails"` /
 /// `"hybrid"` / `"_formatted"` / `"_matchesPosition"` / `"_vectors"` /
-/// `"fieldDistribution"`
+/// `"fieldDistribution"` / `"indexes"` / `"internalDatabaseSizes"`
 /// require `{`. Object or array `"remotes"` accepts `{` or `[`.
 /// String `"distinctAttribute"` / `"documentTemplate"` / `"foreignIndexUid"` /
 /// `"fieldName"` / `"searchApiKey"` / `"writeApiKey"` / `"leader"` / `"self"` /
@@ -31112,6 +31117,13 @@ fn meilisearch_json_key_ok(key: &str) -> bool {
             | "numberOfDocuments"
             | "isIndexing"
             | "fieldDistribution"
+            | "indexes"
+            | "indexSize"
+            | "usedIndexSize"
+            | "rawDocumentDbSize"
+            | "maxDocumentSize"
+            | "avgDocumentSize"
+            | "internalDatabaseSizes"
     )
 }
 
@@ -31152,6 +31164,8 @@ fn meilisearch_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool {
                     | "_matchesPosition"
                     | "_vectors"
                     | "fieldDistribution"
+                    | "indexes"
+                    | "internalDatabaseSizes"
             ) {
                 return false;
             }
@@ -31361,7 +31375,12 @@ fn meilisearch_json_number_and_tail_ok(key: &str, after_colon: &str) -> bool {
         | "cropLength"
         | "databaseSize"
         | "usedDatabaseSize"
-        | "numberOfDocuments" => {
+        | "numberOfDocuments"
+        | "indexSize"
+        | "usedIndexSize"
+        | "rawDocumentDbSize"
+        | "maxDocumentSize"
+        | "avgDocumentSize" => {
             let digits = after_colon
                 .bytes()
                 .take_while(|b| b.is_ascii_digit())

@@ -33078,6 +33078,18 @@ fn meilisearch_json_keys_smoke() {
     assert!(is_meilisearch_json_decl(r#""isIndexing": true"#));
     assert!(is_meilisearch_json_decl(r#""isIndexing": false"#));
     assert!(is_meilisearch_json_decl(r#""fieldDistribution": {"#));
+    assert!(is_meilisearch_json_decl(r#""indexes": {"#));
+    assert!(is_meilisearch_json_decl(r#""indexSize": 0"#));
+    assert!(is_meilisearch_json_decl(r#""indexSize": 1572864"#));
+    assert!(is_meilisearch_json_decl(r#""usedIndexSize": 0"#));
+    assert!(is_meilisearch_json_decl(r#""usedIndexSize": 524288"#));
+    assert!(is_meilisearch_json_decl(r#""rawDocumentDbSize": 0"#));
+    assert!(is_meilisearch_json_decl(r#""rawDocumentDbSize": 100"#));
+    assert!(is_meilisearch_json_decl(r#""maxDocumentSize": 0"#));
+    assert!(is_meilisearch_json_decl(r#""maxDocumentSize": 16"#));
+    assert!(is_meilisearch_json_decl(r#""avgDocumentSize": 0"#));
+    assert!(is_meilisearch_json_decl(r#""avgDocumentSize": 10"#));
+    assert!(is_meilisearch_json_decl(r#""internalDatabaseSizes": {"#));
     // Distinctive neighbours stay out of this scanner.
     assert!(!is_meilisearch_json_decl(r#""responseHeader": {"#));
     assert!(is_solr_json_decl(r#""responseHeader": {"#));
@@ -33257,6 +33269,13 @@ fn meilisearch_json_keys_smoke() {
     assert!(line_is_func_like(r#""isIndexing": true"#));
     assert!(line_is_func_like(r#""isIndexing": false"#));
     assert!(line_is_func_like(r#""fieldDistribution": {"#));
+    assert!(line_is_func_like(r#""indexes": {"#));
+    assert!(line_is_func_like(r#""indexSize": 1572864"#));
+    assert!(line_is_func_like(r#""usedIndexSize": 524288"#));
+    assert!(line_is_func_like(r#""rawDocumentDbSize": 100"#));
+    assert!(line_is_func_like(r#""maxDocumentSize": 16"#));
+    assert!(line_is_func_like(r#""avgDocumentSize": 10"#));
+    assert!(line_is_func_like(r#""internalDatabaseSizes": {"#));
 }
 
 #[test]
@@ -34537,6 +34556,103 @@ fn meilisearch_json_keys_count() {
     assert!(!is_meilisearch_json_decl(
         r#""field_distribution": {"#
     ));
+    assert!(is_meilisearch_json_decl(r#""indexes": {"#));
+    assert!(is_meilisearch_json_decl(r#""indexes": {,"#));
+    assert!(is_meilisearch_json_decl(r#""indexes": { // i"#));
+    assert!(!is_meilisearch_json_decl(r#""indexes": ["#));
+    assert!(!is_meilisearch_json_decl(r#""indexes": true"#));
+    assert!(!is_meilisearch_json_decl(r#""indexes": """#));
+    assert!(!is_meilisearch_json_decl(r#""Indexes": {"#));
+    assert!(!is_meilisearch_json_decl(r#""index": {"#));
+    assert!(is_meilisearch_json_decl(r#""indexSize": 0"#));
+    assert!(is_meilisearch_json_decl(r#""indexSize": 1572864"#));
+    assert!(is_meilisearch_json_decl(r#""indexSize": 1572864,"#));
+    assert!(is_meilisearch_json_decl(r#""indexSize": 1572864 // i"#));
+    assert!(!is_meilisearch_json_decl(r#""indexSize": 00"#));
+    assert!(!is_meilisearch_json_decl(r#""indexSize": 01"#));
+    assert!(!is_meilisearch_json_decl(r#""indexSize": true"#));
+    assert!(!is_meilisearch_json_decl(r#""indexSize": {"#));
+    assert!(!is_meilisearch_json_decl(r#""indexSize": "1572864""#));
+    assert!(!is_meilisearch_json_decl(r#""IndexSize": 1572864"#));
+    assert!(!is_meilisearch_json_decl(r#""index_size": 1572864"#));
+    assert!(is_meilisearch_json_decl(r#""usedIndexSize": 0"#));
+    assert!(is_meilisearch_json_decl(r#""usedIndexSize": 524288"#));
+    assert!(is_meilisearch_json_decl(r#""usedIndexSize": 524288,"#));
+    assert!(is_meilisearch_json_decl(
+        r#""usedIndexSize": 524288 // u"#
+    ));
+    assert!(!is_meilisearch_json_decl(r#""usedIndexSize": 00"#));
+    assert!(!is_meilisearch_json_decl(r#""usedIndexSize": 01"#));
+    assert!(!is_meilisearch_json_decl(r#""usedIndexSize": true"#));
+    assert!(!is_meilisearch_json_decl(r#""usedIndexSize": {"#));
+    assert!(!is_meilisearch_json_decl(r#""usedIndexSize": "524288""#));
+    assert!(!is_meilisearch_json_decl(r#""UsedIndexSize": 524288"#));
+    assert!(!is_meilisearch_json_decl(r#""used_index_size": 524288"#));
+    assert!(is_meilisearch_json_decl(r#""rawDocumentDbSize": 0"#));
+    assert!(is_meilisearch_json_decl(r#""rawDocumentDbSize": 100"#));
+    assert!(is_meilisearch_json_decl(r#""rawDocumentDbSize": 100,"#));
+    assert!(is_meilisearch_json_decl(
+        r#""rawDocumentDbSize": 100 // r"#
+    ));
+    assert!(!is_meilisearch_json_decl(r#""rawDocumentDbSize": 00"#));
+    assert!(!is_meilisearch_json_decl(r#""rawDocumentDbSize": 01"#));
+    assert!(!is_meilisearch_json_decl(r#""rawDocumentDbSize": true"#));
+    assert!(!is_meilisearch_json_decl(r#""rawDocumentDbSize": {"#));
+    assert!(!is_meilisearch_json_decl(
+        r#""rawDocumentDbSize": "100""#
+    ));
+    assert!(!is_meilisearch_json_decl(r#""RawDocumentDbSize": 100"#));
+    assert!(!is_meilisearch_json_decl(
+        r#""raw_document_db_size": 100"#
+    ));
+    assert!(is_meilisearch_json_decl(r#""maxDocumentSize": 0"#));
+    assert!(is_meilisearch_json_decl(r#""maxDocumentSize": 16"#));
+    assert!(is_meilisearch_json_decl(r#""maxDocumentSize": 16,"#));
+    assert!(is_meilisearch_json_decl(
+        r#""maxDocumentSize": 16 // m"#
+    ));
+    assert!(!is_meilisearch_json_decl(r#""maxDocumentSize": 00"#));
+    assert!(!is_meilisearch_json_decl(r#""maxDocumentSize": 01"#));
+    assert!(!is_meilisearch_json_decl(r#""maxDocumentSize": true"#));
+    assert!(!is_meilisearch_json_decl(r#""maxDocumentSize": {"#));
+    assert!(!is_meilisearch_json_decl(r#""maxDocumentSize": "16""#));
+    assert!(!is_meilisearch_json_decl(r#""MaxDocumentSize": 16"#));
+    assert!(!is_meilisearch_json_decl(r#""max_document_size": 16"#));
+    assert!(is_meilisearch_json_decl(r#""avgDocumentSize": 0"#));
+    assert!(is_meilisearch_json_decl(r#""avgDocumentSize": 10"#));
+    assert!(is_meilisearch_json_decl(r#""avgDocumentSize": 10,"#));
+    assert!(is_meilisearch_json_decl(
+        r#""avgDocumentSize": 10 // a"#
+    ));
+    assert!(!is_meilisearch_json_decl(r#""avgDocumentSize": 00"#));
+    assert!(!is_meilisearch_json_decl(r#""avgDocumentSize": 01"#));
+    assert!(!is_meilisearch_json_decl(r#""avgDocumentSize": true"#));
+    assert!(!is_meilisearch_json_decl(r#""avgDocumentSize": {"#));
+    assert!(!is_meilisearch_json_decl(r#""avgDocumentSize": "10""#));
+    assert!(!is_meilisearch_json_decl(r#""AvgDocumentSize": 10"#));
+    assert!(!is_meilisearch_json_decl(r#""avg_document_size": 10"#));
+    assert!(is_meilisearch_json_decl(r#""internalDatabaseSizes": {"#));
+    assert!(is_meilisearch_json_decl(
+        r#""internalDatabaseSizes": {,"#
+    ));
+    assert!(is_meilisearch_json_decl(
+        r#""internalDatabaseSizes": { // i"#
+    ));
+    assert!(!is_meilisearch_json_decl(
+        r#""internalDatabaseSizes": ["#
+    ));
+    assert!(!is_meilisearch_json_decl(
+        r#""internalDatabaseSizes": true"#
+    ));
+    assert!(!is_meilisearch_json_decl(
+        r#""internalDatabaseSizes": """#
+    ));
+    assert!(!is_meilisearch_json_decl(
+        r#""InternalDatabaseSizes": {"#
+    ));
+    assert!(!is_meilisearch_json_decl(
+        r#""internal_database_sizes": {"#
+    ));
     // Incomplete / wrong shapes stay out.
     assert!(!is_meilisearch_json_decl(r#""processingTimeMs""#));
     assert!(!is_meilisearch_json_decl(r#""processingTimeMs":"#));
@@ -34653,6 +34769,13 @@ fn meilisearch_json_keys_count() {
     assert!(!is_meilisearch_json_decl(r#""numberOfDocuments""#));
     assert!(!is_meilisearch_json_decl(r#""isIndexing""#));
     assert!(!is_meilisearch_json_decl(r#""fieldDistribution""#));
+    assert!(!is_meilisearch_json_decl(r#""indexes""#));
+    assert!(!is_meilisearch_json_decl(r#""indexSize""#));
+    assert!(!is_meilisearch_json_decl(r#""usedIndexSize""#));
+    assert!(!is_meilisearch_json_decl(r#""rawDocumentDbSize""#));
+    assert!(!is_meilisearch_json_decl(r#""maxDocumentSize""#));
+    assert!(!is_meilisearch_json_decl(r#""avgDocumentSize""#));
+    assert!(!is_meilisearch_json_decl(r#""internalDatabaseSizes""#));
     // Generic / neighbouring stay out.
     assert!(!is_meilisearch_json_decl(
         r#""$schema": "https://json-schema.org/draft/2020-12/schema""#
