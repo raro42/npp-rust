@@ -1652,3 +1652,5 @@
 009 keep: Function List Meilisearch enqueuedAt/startedAt/finishedAt/canceledBy/taskUid/duration (v0.3.990)
 
 009 keep: Function List Meilisearch batchUid/originalFilter/dumpUid/swaps (v0.3.991)
+
+009 keep: Function List Meilisearch ProgressStep total (v0.3.996)
