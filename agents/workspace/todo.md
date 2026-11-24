@@ -1622,3 +1622,5 @@
 009 keep: Function List Meilisearch maxTotalHits/maxValuesPerFacet/sortFacetValuesBy/minWordSizeForTypos/disableOnWords/disableOnAttributes/disableOnNumbers/binaryQuantized (v0.3.972)
 
 009 keep: Function List Meilisearch pooling/indexingFragments/searchFragments/searchEmbedder/indexingEmbedder/attributePatterns (v0.3.973)
+
+009 keep: Function List Meilisearch remotes/shards/previousShards/previousRemotes/addRemotes/removeRemotes/searchApiKey/writeApiKey/leader (v0.3.981)
