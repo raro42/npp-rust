@@ -30879,7 +30879,9 @@ fn solr_json_bool_and_tail_ok(after_colon: &str) -> bool {
 /// `"internalDatabaseSizes": {`, `"numberOfEmbeddings": 0` / `10`,
 /// `"numberOfEmbeddedDocuments": 0` / `10`,
 /// `"receivedDocuments": 0` / `10`, `"indexedDocuments": 0` / `10`,
-/// `"deletedDocuments": 0` / `10`.
+/// `"deletedDocuments": 0` / `10`, `"providedIds": 0` / `10`,
+/// `"matchedTasks": 0` / `10`, `"canceledTasks": 0` / `10`,
+/// `"deletedTasks": 0` / `10`.
 /// Optional trailing `,` and `//` / `/*` comment. Incomplete quotes /
 /// missing `:` stay out. Generic `"$schema"` / `"name"` / `"id"` /
 /// `"hits": [` / `"query"` / `"limit"` / `"offset"` / `"page"` /
@@ -30949,7 +30951,9 @@ fn solr_json_bool_and_tail_ok(after_colon: &str) -> bool {
 /// `"numberOfDocuments"` / `"indexSize"` / `"usedIndexSize"` /
 /// `"rawDocumentDbSize"` / `"maxDocumentSize"` / `"avgDocumentSize"` /
 /// `"numberOfEmbeddings"` / `"numberOfEmbeddedDocuments"` /
-/// `"receivedDocuments"` / `"indexedDocuments"` / `"deletedDocuments"`
+/// `"receivedDocuments"` / `"indexedDocuments"` / `"deletedDocuments"` /
+/// `"providedIds"` / `"matchedTasks"` / `"canceledTasks"` /
+/// `"deletedTasks"`
 /// reject leading zeros beyond `0`.
 /// `"rankingScoreThreshold"` / `"current_mean"` / `"current_sigma"` /
 /// `"_rankingScore"` allow a
@@ -31134,6 +31138,10 @@ fn meilisearch_json_key_ok(key: &str) -> bool {
             | "receivedDocuments"
             | "indexedDocuments"
             | "deletedDocuments"
+            | "providedIds"
+            | "matchedTasks"
+            | "canceledTasks"
+            | "deletedTasks"
     )
 }
 
@@ -31395,7 +31403,11 @@ fn meilisearch_json_number_and_tail_ok(key: &str, after_colon: &str) -> bool {
         | "numberOfEmbeddedDocuments"
         | "receivedDocuments"
         | "indexedDocuments"
-        | "deletedDocuments" => {
+        | "deletedDocuments"
+        | "providedIds"
+        | "matchedTasks"
+        | "canceledTasks"
+        | "deletedTasks" => {
             let digits = after_colon
                 .bytes()
                 .take_while(|b| b.is_ascii_digit())

@@ -33104,6 +33104,14 @@ fn meilisearch_json_keys_smoke() {
     assert!(is_meilisearch_json_decl(r#""indexedDocuments": 10"#));
     assert!(is_meilisearch_json_decl(r#""deletedDocuments": 0"#));
     assert!(is_meilisearch_json_decl(r#""deletedDocuments": 10"#));
+    assert!(is_meilisearch_json_decl(r#""providedIds": 0"#));
+    assert!(is_meilisearch_json_decl(r#""providedIds": 10"#));
+    assert!(is_meilisearch_json_decl(r#""matchedTasks": 0"#));
+    assert!(is_meilisearch_json_decl(r#""matchedTasks": 10"#));
+    assert!(is_meilisearch_json_decl(r#""canceledTasks": 0"#));
+    assert!(is_meilisearch_json_decl(r#""canceledTasks": 10"#));
+    assert!(is_meilisearch_json_decl(r#""deletedTasks": 0"#));
+    assert!(is_meilisearch_json_decl(r#""deletedTasks": 10"#));
     // Distinctive neighbours stay out of this scanner.
     assert!(!is_meilisearch_json_decl(r#""responseHeader": {"#));
     assert!(is_solr_json_decl(r#""responseHeader": {"#));
@@ -33295,6 +33303,10 @@ fn meilisearch_json_keys_smoke() {
     assert!(line_is_func_like(r#""receivedDocuments": 10"#));
     assert!(line_is_func_like(r#""indexedDocuments": 10"#));
     assert!(line_is_func_like(r#""deletedDocuments": 10"#));
+    assert!(line_is_func_like(r#""providedIds": 10"#));
+    assert!(line_is_func_like(r#""matchedTasks": 10"#));
+    assert!(line_is_func_like(r#""canceledTasks": 10"#));
+    assert!(line_is_func_like(r#""deletedTasks": 10"#));
 }
 
 #[test]
@@ -34765,6 +34777,50 @@ fn meilisearch_json_keys_count() {
     assert!(!is_meilisearch_json_decl(
         r#""deleted_documents": 10"#
     ));
+    assert!(is_meilisearch_json_decl(r#""providedIds": 0"#));
+    assert!(is_meilisearch_json_decl(r#""providedIds": 10"#));
+    assert!(is_meilisearch_json_decl(r#""providedIds": 10,"#));
+    assert!(is_meilisearch_json_decl(r#""providedIds": 10 // n"#));
+    assert!(!is_meilisearch_json_decl(r#""providedIds": 00"#));
+    assert!(!is_meilisearch_json_decl(r#""providedIds": 01"#));
+    assert!(!is_meilisearch_json_decl(r#""providedIds": true"#));
+    assert!(!is_meilisearch_json_decl(r#""providedIds": {"#));
+    assert!(!is_meilisearch_json_decl(r#""providedIds": "10""#));
+    assert!(!is_meilisearch_json_decl(r#""ProvidedIds": 10"#));
+    assert!(!is_meilisearch_json_decl(r#""provided_ids": 10"#));
+    assert!(is_meilisearch_json_decl(r#""matchedTasks": 0"#));
+    assert!(is_meilisearch_json_decl(r#""matchedTasks": 10"#));
+    assert!(is_meilisearch_json_decl(r#""matchedTasks": 10,"#));
+    assert!(is_meilisearch_json_decl(r#""matchedTasks": 10 // n"#));
+    assert!(!is_meilisearch_json_decl(r#""matchedTasks": 00"#));
+    assert!(!is_meilisearch_json_decl(r#""matchedTasks": 01"#));
+    assert!(!is_meilisearch_json_decl(r#""matchedTasks": true"#));
+    assert!(!is_meilisearch_json_decl(r#""matchedTasks": {"#));
+    assert!(!is_meilisearch_json_decl(r#""matchedTasks": "10""#));
+    assert!(!is_meilisearch_json_decl(r#""MatchedTasks": 10"#));
+    assert!(!is_meilisearch_json_decl(r#""matched_tasks": 10"#));
+    assert!(is_meilisearch_json_decl(r#""canceledTasks": 0"#));
+    assert!(is_meilisearch_json_decl(r#""canceledTasks": 10"#));
+    assert!(is_meilisearch_json_decl(r#""canceledTasks": 10,"#));
+    assert!(is_meilisearch_json_decl(r#""canceledTasks": 10 // n"#));
+    assert!(!is_meilisearch_json_decl(r#""canceledTasks": 00"#));
+    assert!(!is_meilisearch_json_decl(r#""canceledTasks": 01"#));
+    assert!(!is_meilisearch_json_decl(r#""canceledTasks": true"#));
+    assert!(!is_meilisearch_json_decl(r#""canceledTasks": {"#));
+    assert!(!is_meilisearch_json_decl(r#""canceledTasks": "10""#));
+    assert!(!is_meilisearch_json_decl(r#""CanceledTasks": 10"#));
+    assert!(!is_meilisearch_json_decl(r#""canceled_tasks": 10"#));
+    assert!(is_meilisearch_json_decl(r#""deletedTasks": 0"#));
+    assert!(is_meilisearch_json_decl(r#""deletedTasks": 10"#));
+    assert!(is_meilisearch_json_decl(r#""deletedTasks": 10,"#));
+    assert!(is_meilisearch_json_decl(r#""deletedTasks": 10 // n"#));
+    assert!(!is_meilisearch_json_decl(r#""deletedTasks": 00"#));
+    assert!(!is_meilisearch_json_decl(r#""deletedTasks": 01"#));
+    assert!(!is_meilisearch_json_decl(r#""deletedTasks": true"#));
+    assert!(!is_meilisearch_json_decl(r#""deletedTasks": {"#));
+    assert!(!is_meilisearch_json_decl(r#""deletedTasks": "10""#));
+    assert!(!is_meilisearch_json_decl(r#""DeletedTasks": 10"#));
+    assert!(!is_meilisearch_json_decl(r#""deleted_tasks": 10"#));
     // Incomplete / wrong shapes stay out.
     assert!(!is_meilisearch_json_decl(r#""processingTimeMs""#));
     assert!(!is_meilisearch_json_decl(r#""processingTimeMs":"#));
@@ -34895,6 +34951,10 @@ fn meilisearch_json_keys_count() {
     assert!(!is_meilisearch_json_decl(r#""receivedDocuments""#));
     assert!(!is_meilisearch_json_decl(r#""indexedDocuments""#));
     assert!(!is_meilisearch_json_decl(r#""deletedDocuments""#));
+    assert!(!is_meilisearch_json_decl(r#""providedIds""#));
+    assert!(!is_meilisearch_json_decl(r#""matchedTasks""#));
+    assert!(!is_meilisearch_json_decl(r#""canceledTasks""#));
+    assert!(!is_meilisearch_json_decl(r#""deletedTasks""#));
     // Generic / neighbouring stay out.
     assert!(!is_meilisearch_json_decl(
         r#""$schema": "https://json-schema.org/draft/2020-12/schema""#
