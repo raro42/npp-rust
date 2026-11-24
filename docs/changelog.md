@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.973] — 2026-11-24
+
+View:
+
+- **Function List** lists Meilisearch embedder / localized-attributes nested JSON keys: `"pooling": "useModel"` / `"forceMean"` / `"forceCls"`, `"indexingFragments": {`, `"searchFragments": {`, `"searchEmbedder": {`, `"indexingEmbedder": {`, `"attributePatterns": [`. Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing `:` stay out. Empty strings / wrong case / plural misspellings / wrong value shapes stay out. Existing Meilisearch keys (`processingTimeMs`, `estimatedTotalHits`, `exhaustiveNbHits`, `nbHits`, `hitsPerPage`, `facetDistribution`, `facetStats`, `exhaustiveFacetsCount`, `rankingScoreThreshold`, `showRankingScore`, `matchingStrategy`, `attributesToSearchOn`, `filterableAttributes`, `sortableAttributes`, `rankingRules`, `displayedAttributes`, `stopWords`, `synonyms`, `proximityPrecision`, `searchCutoffMs`, `searchableAttributes`, `separatorTokens`, `nonSeparatorTokens`, `dictionary`, `distinctAttribute`, `typoTolerance`, `pagination`, `faceting`, `embedders`, `localizedAttributes`, `facetSearch`, `prefixSearch`, `chat`, `documentTemplate`, `documentTemplateMaxBytes`, `maxTotalHits`, `maxValuesPerFacet`, `sortFacetValuesBy`, `minWordSizeForTypos`, `disableOnWords`, `disableOnAttributes`, `disableOnNumbers`, `binaryQuantized`, …) unchanged. Generic `"filter"` / `"sort"` / `"facets"` / `"limit"` / `"offset"` / `"page"` / `"description"` / `"searchParameters"` / `"enabled"` / `"source"` / `"model"` / `"apiKey"` / `"url"` / `"dimensions"` / `"revision"` / `"distribution"` / `"oneTypo"` / `"twoTypos"` / `"request"` / `"response"` / `"headers"` stay out. Neighbouring search JSON families stay out of Meilisearch for these keys. `"pooling"` only matches its Meilisearch enums. Object `"indexingFragments"` / `"searchFragments"` / `"searchEmbedder"` / `"indexingEmbedder"` require `{`. Array `"attributePatterns"` requires `[`.
+
 ## [0.3.972] — 2026-11-24
 
 View:

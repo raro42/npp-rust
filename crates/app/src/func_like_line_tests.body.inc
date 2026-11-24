@@ -32940,6 +32940,14 @@ fn meilisearch_json_keys_smoke() {
     assert!(is_meilisearch_json_decl(r#""disableOnNumbers": false"#));
     assert!(is_meilisearch_json_decl(r#""binaryQuantized": true"#));
     assert!(is_meilisearch_json_decl(r#""binaryQuantized": false"#));
+    assert!(is_meilisearch_json_decl(r#""pooling": "useModel""#));
+    assert!(is_meilisearch_json_decl(r#""pooling": "forceMean""#));
+    assert!(is_meilisearch_json_decl(r#""pooling": "forceCls""#));
+    assert!(is_meilisearch_json_decl(r#""indexingFragments": {"#));
+    assert!(is_meilisearch_json_decl(r#""searchFragments": {"#));
+    assert!(is_meilisearch_json_decl(r#""searchEmbedder": {"#));
+    assert!(is_meilisearch_json_decl(r#""indexingEmbedder": {"#));
+    assert!(is_meilisearch_json_decl(r#""attributePatterns": ["#));
     // Distinctive neighbours stay out of this scanner.
     assert!(!is_meilisearch_json_decl(r#""responseHeader": {"#));
     assert!(is_solr_json_decl(r#""responseHeader": {"#));
@@ -33036,6 +33044,12 @@ fn meilisearch_json_keys_smoke() {
     assert!(line_is_func_like(r#""disableOnAttributes": ["#));
     assert!(line_is_func_like(r#""disableOnNumbers": true"#));
     assert!(line_is_func_like(r#""binaryQuantized": false"#));
+    assert!(line_is_func_like(r#""pooling": "useModel""#));
+    assert!(line_is_func_like(r#""indexingFragments": {"#));
+    assert!(line_is_func_like(r#""searchFragments": {"#));
+    assert!(line_is_func_like(r#""searchEmbedder": {"#));
+    assert!(line_is_func_like(r#""indexingEmbedder": {"#));
+    assert!(line_is_func_like(r#""attributePatterns": ["#));
 }
 
 #[test]
@@ -33458,6 +33472,55 @@ fn meilisearch_json_keys_count() {
     assert!(!is_meilisearch_json_decl(r#""binaryQuantized": "true""#));
     assert!(!is_meilisearch_json_decl(r#""binaryQuantized": {"#));
     assert!(!is_meilisearch_json_decl(r#""binaryQuantized": ["#));
+    assert!(is_meilisearch_json_decl(r#""pooling": "useModel""#));
+    assert!(is_meilisearch_json_decl(r#""pooling": "forceMean""#));
+    assert!(is_meilisearch_json_decl(r#""pooling": "forceCls""#));
+    assert!(is_meilisearch_json_decl(r#""pooling": "useModel","#));
+    assert!(is_meilisearch_json_decl(
+        r#""pooling": "forceMean" // p"#
+    ));
+    assert!(!is_meilisearch_json_decl(r#""pooling": "mean""#));
+    assert!(!is_meilisearch_json_decl(r#""pooling": "cls""#));
+    assert!(!is_meilisearch_json_decl(r#""pooling": true"#));
+    assert!(!is_meilisearch_json_decl(r#""pooling": {"#));
+    assert!(!is_meilisearch_json_decl(r#""pooling": ["#));
+    assert!(!is_meilisearch_json_decl(r#""pooling": """#));
+    assert!(is_meilisearch_json_decl(r#""indexingFragments": {"#));
+    assert!(is_meilisearch_json_decl(r#""indexingFragments": {,"#));
+    assert!(is_meilisearch_json_decl(
+        r#""indexingFragments": { // i"#
+    ));
+    assert!(!is_meilisearch_json_decl(r#""indexingFragments": ["#));
+    assert!(!is_meilisearch_json_decl(r#""indexingFragments": true"#));
+    assert!(!is_meilisearch_json_decl(r#""indexingFragments": """#));
+    assert!(is_meilisearch_json_decl(r#""searchFragments": {"#));
+    assert!(is_meilisearch_json_decl(r#""searchFragments": {,"#));
+    assert!(is_meilisearch_json_decl(r#""searchFragments": { // s"#));
+    assert!(!is_meilisearch_json_decl(r#""searchFragments": ["#));
+    assert!(!is_meilisearch_json_decl(r#""searchFragments": true"#));
+    assert!(!is_meilisearch_json_decl(r#""searchFragments": """#));
+    assert!(is_meilisearch_json_decl(r#""searchEmbedder": {"#));
+    assert!(is_meilisearch_json_decl(r#""searchEmbedder": {,"#));
+    assert!(is_meilisearch_json_decl(r#""searchEmbedder": { // s"#));
+    assert!(!is_meilisearch_json_decl(r#""searchEmbedder": ["#));
+    assert!(!is_meilisearch_json_decl(r#""searchEmbedder": true"#));
+    assert!(!is_meilisearch_json_decl(r#""searchEmbedder": """#));
+    assert!(is_meilisearch_json_decl(r#""indexingEmbedder": {"#));
+    assert!(is_meilisearch_json_decl(r#""indexingEmbedder": {,"#));
+    assert!(is_meilisearch_json_decl(
+        r#""indexingEmbedder": { // i"#
+    ));
+    assert!(!is_meilisearch_json_decl(r#""indexingEmbedder": ["#));
+    assert!(!is_meilisearch_json_decl(r#""indexingEmbedder": true"#));
+    assert!(!is_meilisearch_json_decl(r#""indexingEmbedder": """#));
+    assert!(is_meilisearch_json_decl(r#""attributePatterns": ["#));
+    assert!(is_meilisearch_json_decl(r#""attributePatterns": [,"#));
+    assert!(is_meilisearch_json_decl(
+        r#""attributePatterns": [ // a"#
+    ));
+    assert!(!is_meilisearch_json_decl(r#""attributePatterns": {"#));
+    assert!(!is_meilisearch_json_decl(r#""attributePatterns": true"#));
+    assert!(!is_meilisearch_json_decl(r#""attributePatterns": """#));
     // Incomplete / wrong shapes stay out.
     assert!(!is_meilisearch_json_decl(r#""processingTimeMs""#));
     assert!(!is_meilisearch_json_decl(r#""processingTimeMs":"#));
@@ -33503,6 +33566,12 @@ fn meilisearch_json_keys_count() {
     assert!(!is_meilisearch_json_decl(r#""disableOnAttributes""#));
     assert!(!is_meilisearch_json_decl(r#""disableOnNumbers""#));
     assert!(!is_meilisearch_json_decl(r#""binaryQuantized""#));
+    assert!(!is_meilisearch_json_decl(r#""pooling""#));
+    assert!(!is_meilisearch_json_decl(r#""indexingFragments""#));
+    assert!(!is_meilisearch_json_decl(r#""searchFragments""#));
+    assert!(!is_meilisearch_json_decl(r#""searchEmbedder""#));
+    assert!(!is_meilisearch_json_decl(r#""indexingEmbedder""#));
+    assert!(!is_meilisearch_json_decl(r#""attributePatterns""#));
     // Generic / neighbouring stay out.
     assert!(!is_meilisearch_json_decl(
         r#""$schema": "https://json-schema.org/draft/2020-12/schema""#
@@ -33526,6 +33595,9 @@ fn meilisearch_json_keys_count() {
     assert!(!is_meilisearch_json_decl(r#""source": "openAi""#));
     assert!(!is_meilisearch_json_decl(r#""oneTypo": 5"#));
     assert!(!is_meilisearch_json_decl(r#""twoTypos": 9"#));
+    assert!(!is_meilisearch_json_decl(r#""request": {"#));
+    assert!(!is_meilisearch_json_decl(r#""response": {"#));
+    assert!(!is_meilisearch_json_decl(r#""headers": {"#));
     assert!(!is_meilisearch_json_decl(
         r#""disableTypoToleranceOnAttributes": ["#
     ));

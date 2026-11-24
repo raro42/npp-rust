@@ -30824,7 +30824,11 @@ fn solr_json_bool_and_tail_ok(after_colon: &str) -> bool {
 /// `"sortFacetValuesBy": {`, `"minWordSizeForTypos": {`,
 /// `"disableOnWords": [`, `"disableOnAttributes": [`,
 /// `"disableOnNumbers": true` / `false`,
-/// `"binaryQuantized": true` / `false`.
+/// `"binaryQuantized": true` / `false`,
+/// `"pooling": "useModel"` / `"forceMean"` / `"forceCls"`,
+/// `"indexingFragments": {`, `"searchFragments": {`,
+/// `"searchEmbedder": {`, `"indexingEmbedder": {`,
+/// `"attributePatterns": [`.
 /// Optional trailing `,` and `//` / `/*` comment. Incomplete quotes /
 /// missing `:` stay out. Generic `"$schema"` / `"name"` / `"id"` /
 /// `"hits": [` / `"query"` / `"limit"` / `"offset"` / `"page"` /
@@ -30832,6 +30836,7 @@ fn solr_json_bool_and_tail_ok(after_colon: &str) -> bool {
 /// `"facets": [` / `"description"` / `"searchParameters"` / `"enabled"` /
 /// `"source"` / `"model"` / `"apiKey"` / `"url"` / `"dimensions"` /
 /// `"revision"` / `"distribution"` / `"oneTypo"` / `"twoTypos"` /
+/// `"request"` / `"response"` / `"headers"` /
 /// Typesense `"search_time_ms"` / `"out_of"` /
 /// `"search_cutoff"` / `"grouped_hits"` / `"facet_counts": [` /
 /// `"default_sorting_field"` / `"enable_nested_fields"` /
@@ -30884,18 +30889,21 @@ fn solr_json_bool_and_tail_ok(after_colon: &str) -> bool {
 /// `"indexFilterable"` / `"indexSearchable"` / `"tokenization"` stay out.
 /// `"matchingStrategy"` only matches its Meilisearch enums.
 /// `"proximityPrecision"` only matches `"byWord"` / `"byAttribute"`.
-/// `"prefixSearch"` only matches `"indexingTime"` / `"disabled"`. Numeric
-/// `"processingTimeMs"` / `"estimatedTotalHits"` / `"nbHits"` /
+/// `"prefixSearch"` only matches `"indexingTime"` / `"disabled"`.
+/// `"pooling"` only matches `"useModel"` / `"forceMean"` / `"forceCls"`.
+/// Numeric `"processingTimeMs"` / `"estimatedTotalHits"` / `"nbHits"` /
 /// `"hitsPerPage"` / `"searchCutoffMs"` / `"documentTemplateMaxBytes"` /
 /// `"maxTotalHits"` / `"maxValuesPerFacet"` reject leading zeros beyond `0`.
 /// `"rankingScoreThreshold"` allows a simple decimal (no exponent). Array
-/// index-setting keys require `[`. Object `"synonyms"` / `"typoTolerance"` /
-/// `"pagination"` / `"faceting"` / `"embedders"` / `"chat"` /
-/// `"sortFacetValuesBy"` / `"minWordSizeForTypos"` require `{`.
-/// String `"distinctAttribute"` / `"documentTemplate"` require a non-empty
-/// quoted string. Bool `"facetSearch"` / `"disableOnNumbers"` /
-/// `"binaryQuantized"` only match `true` / `false`. Algolia string
-/// `"sortFacetValuesBy"` stays out of this scanner (object only).
+/// index-setting keys / `"attributePatterns"` require `[`. Object
+/// `"synonyms"` / `"typoTolerance"` / `"pagination"` / `"faceting"` /
+/// `"embedders"` / `"chat"` / `"sortFacetValuesBy"` /
+/// `"minWordSizeForTypos"` / `"indexingFragments"` / `"searchFragments"` /
+/// `"searchEmbedder"` / `"indexingEmbedder"` require `{`. String
+/// `"distinctAttribute"` / `"documentTemplate"` require a non-empty quoted
+/// string. Bool `"facetSearch"` / `"disableOnNumbers"` / `"binaryQuantized"`
+/// only match `true` / `false`. Algolia string `"sortFacetValuesBy"` stays
+/// out of this scanner (object only).
 fn is_meilisearch_json_decl(s: &str) -> bool {
     let s = s.trim_start();
     let Some(rest) = s.strip_prefix('"') else {
@@ -30962,6 +30970,12 @@ fn meilisearch_json_key_ok(key: &str) -> bool {
             | "disableOnAttributes"
             | "disableOnNumbers"
             | "binaryQuantized"
+            | "pooling"
+            | "indexingFragments"
+            | "searchFragments"
+            | "searchEmbedder"
+            | "indexingEmbedder"
+            | "attributePatterns"
     )
 }
 
@@ -30984,6 +30998,10 @@ fn meilisearch_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool {
                     | "chat"
                     | "sortFacetValuesBy"
                     | "minWordSizeForTypos"
+                    | "indexingFragments"
+                    | "searchFragments"
+                    | "searchEmbedder"
+                    | "indexingEmbedder"
             ) {
                 return false;
             }
@@ -31005,6 +31023,7 @@ fn meilisearch_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool {
                     | "localizedAttributes"
                     | "disableOnWords"
                     | "disableOnAttributes"
+                    | "attributePatterns"
             ) {
                 return false;
             }
@@ -31017,6 +31036,8 @@ fn meilisearch_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool {
                 meilisearch_json_proximity_precision_and_tail_ok(after_colon)
             } else if key == "prefixSearch" {
                 meilisearch_json_prefix_search_and_tail_ok(after_colon)
+            } else if key == "pooling" {
+                meilisearch_json_pooling_and_tail_ok(after_colon)
             } else if key == "distinctAttribute" || key == "documentTemplate" {
                 meilisearch_json_nonempty_string_and_tail_ok(after_colon)
             } else {
@@ -31073,6 +31094,18 @@ fn meilisearch_json_prefix_search_and_tail_ok(after_colon: &str) -> bool {
     };
     let value = &rest[..end];
     if !matches!(value, "indexingTime" | "disabled") {
+        return false;
+    }
+    package_json_tail_ok(&rest[end + 1..])
+}
+
+fn meilisearch_json_pooling_and_tail_ok(after_colon: &str) -> bool {
+    let rest = &after_colon[1..];
+    let Some(end) = rest.find('"') else {
+        return false;
+    };
+    let value = &rest[..end];
+    if !matches!(value, "useModel" | "forceMean" | "forceCls") {
         return false;
     }
     package_json_tail_ok(&rest[end + 1..])
@@ -31189,8 +31222,9 @@ fn meilisearch_json_bool_and_tail_ok(after_colon: &str) -> bool {
 /// `"maxValuesPerFacet"` / `"sortFacetValuesBy"` /
 /// `"minWordSizeForTypos"` / `"disableOnWords"` /
 /// `"disableOnAttributes"` / `"disableOnNumbers"` /
-/// `"binaryQuantized"` / Algolia
-/// `"processingTimeMS"` /
+/// `"binaryQuantized"` / `"pooling"` / `"indexingFragments"` /
+/// `"searchFragments"` / `"searchEmbedder"` / `"indexingEmbedder"` /
+/// `"attributePatterns"` / Algolia `"processingTimeMS"` /
 /// `"nbPages"` / `"serverTimeMS"` / `"queryID"` / `"indexUsed"` /
 /// `"aroundLatLng"` / `"highlightPreTag"` / `"facets_stats"` /
 /// `"renderingContent"` / `"appliedRules"` /
