@@ -1,3 +1,5 @@
+009 keep: Function List Meilisearch indexes/indexSize/usedIndexSize/rawDocumentDbSize/maxDocumentSize/avgDocumentSize/internalDatabaseSizes (v0.3.986)
+
 009 keep: Function List Meilisearch commitSha/commitDate/pkgVersion/databaseSize/usedDatabaseSize/lastUpdate/numberOfDocuments/isIndexing/fieldDistribution (v0.3.985)
 
 009 keep: Function List Meilisearch attributesToCrop/cropLength/cropMarker/showMatchesPosition/retrieveVectors/hybrid/locales/vector/_formatted/_matchesPosition/_rankingScore/_vectors (v0.3.984)
