@@ -33112,6 +33112,21 @@ fn meilisearch_json_keys_smoke() {
     assert!(is_meilisearch_json_decl(r#""canceledTasks": 10"#));
     assert!(is_meilisearch_json_decl(r#""deletedTasks": 0"#));
     assert!(is_meilisearch_json_decl(r#""deletedTasks": 10"#));
+    assert!(is_meilisearch_json_decl(
+        r#""enqueuedAt": "2024-08-08T09:01:13.348471Z""#
+    ));
+    assert!(is_meilisearch_json_decl(
+        r#""startedAt": "2024-08-08T09:01:13.349442Z""#
+    ));
+    assert!(is_meilisearch_json_decl(
+        r#""finishedAt": "2024-08-08T09:01:13.358772Z""#
+    ));
+    assert!(is_meilisearch_json_decl(r#""canceledBy": 0"#));
+    assert!(is_meilisearch_json_decl(r#""canceledBy": 10"#));
+    assert!(is_meilisearch_json_decl(r#""taskUid": 0"#));
+    assert!(is_meilisearch_json_decl(r#""taskUid": 10"#));
+    assert!(is_meilisearch_json_decl(r#""duration": "PT0.009330S""#));
+    assert!(is_meilisearch_json_decl(r#""duration": "PT1S""#));
     // Distinctive neighbours stay out of this scanner.
     assert!(!is_meilisearch_json_decl(r#""responseHeader": {"#));
     assert!(is_solr_json_decl(r#""responseHeader": {"#));
@@ -33307,6 +33322,18 @@ fn meilisearch_json_keys_smoke() {
     assert!(line_is_func_like(r#""matchedTasks": 10"#));
     assert!(line_is_func_like(r#""canceledTasks": 10"#));
     assert!(line_is_func_like(r#""deletedTasks": 10"#));
+    assert!(line_is_func_like(
+        r#""enqueuedAt": "2024-08-08T09:01:13.348471Z""#
+    ));
+    assert!(line_is_func_like(
+        r#""startedAt": "2024-08-08T09:01:13.349442Z""#
+    ));
+    assert!(line_is_func_like(
+        r#""finishedAt": "2024-08-08T09:01:13.358772Z""#
+    ));
+    assert!(line_is_func_like(r#""canceledBy": 10"#));
+    assert!(line_is_func_like(r#""taskUid": 10"#));
+    assert!(line_is_func_like(r#""duration": "PT0.009330S""#));
 }
 
 #[test]
@@ -34821,6 +34848,91 @@ fn meilisearch_json_keys_count() {
     assert!(!is_meilisearch_json_decl(r#""deletedTasks": "10""#));
     assert!(!is_meilisearch_json_decl(r#""DeletedTasks": 10"#));
     assert!(!is_meilisearch_json_decl(r#""deleted_tasks": 10"#));
+    assert!(is_meilisearch_json_decl(
+        r#""enqueuedAt": "2024-08-08T09:01:13.348471Z""#
+    ));
+    assert!(is_meilisearch_json_decl(
+        r#""enqueuedAt": "2024-08-08T09:01:13.348471Z","#
+    ));
+    assert!(is_meilisearch_json_decl(
+        r#""enqueuedAt": "2024-08-08T09:01:13.348471Z" // e"#
+    ));
+    assert!(!is_meilisearch_json_decl(r#""enqueuedAt": """#));
+    assert!(!is_meilisearch_json_decl(r#""enqueuedAt": {"#));
+    assert!(!is_meilisearch_json_decl(r#""enqueuedAt": ["#));
+    assert!(!is_meilisearch_json_decl(r#""enqueuedAt": true"#));
+    assert!(!is_meilisearch_json_decl(r#""EnqueuedAt": "2024-08-08T09:01:13.348471Z""#));
+    assert!(!is_meilisearch_json_decl(
+        r#""enqueued_at": "2024-08-08T09:01:13.348471Z""#
+    ));
+    assert!(is_meilisearch_json_decl(
+        r#""startedAt": "2024-08-08T09:01:13.349442Z""#
+    ));
+    assert!(is_meilisearch_json_decl(
+        r#""startedAt": "2024-08-08T09:01:13.349442Z","#
+    ));
+    assert!(is_meilisearch_json_decl(
+        r#""startedAt": "2024-08-08T09:01:13.349442Z" // s"#
+    ));
+    assert!(!is_meilisearch_json_decl(r#""startedAt": """#));
+    assert!(!is_meilisearch_json_decl(r#""startedAt": {"#));
+    assert!(!is_meilisearch_json_decl(r#""startedAt": ["#));
+    assert!(!is_meilisearch_json_decl(r#""startedAt": true"#));
+    assert!(!is_meilisearch_json_decl(r#""StartedAt": "2024-08-08T09:01:13.349442Z""#));
+    assert!(!is_meilisearch_json_decl(
+        r#""started_at": "2024-08-08T09:01:13.349442Z""#
+    ));
+    assert!(is_meilisearch_json_decl(
+        r#""finishedAt": "2024-08-08T09:01:13.358772Z""#
+    ));
+    assert!(is_meilisearch_json_decl(
+        r#""finishedAt": "2024-08-08T09:01:13.358772Z","#
+    ));
+    assert!(is_meilisearch_json_decl(
+        r#""finishedAt": "2024-08-08T09:01:13.358772Z" // f"#
+    ));
+    assert!(!is_meilisearch_json_decl(r#""finishedAt": """#));
+    assert!(!is_meilisearch_json_decl(r#""finishedAt": {"#));
+    assert!(!is_meilisearch_json_decl(r#""finishedAt": ["#));
+    assert!(!is_meilisearch_json_decl(r#""finishedAt": true"#));
+    assert!(!is_meilisearch_json_decl(r#""FinishedAt": "2024-08-08T09:01:13.358772Z""#));
+    assert!(!is_meilisearch_json_decl(
+        r#""finished_at": "2024-08-08T09:01:13.358772Z""#
+    ));
+    assert!(is_meilisearch_json_decl(r#""canceledBy": 0"#));
+    assert!(is_meilisearch_json_decl(r#""canceledBy": 10"#));
+    assert!(is_meilisearch_json_decl(r#""canceledBy": 10,"#));
+    assert!(is_meilisearch_json_decl(r#""canceledBy": 10 // n"#));
+    assert!(!is_meilisearch_json_decl(r#""canceledBy": 00"#));
+    assert!(!is_meilisearch_json_decl(r#""canceledBy": 01"#));
+    assert!(!is_meilisearch_json_decl(r#""canceledBy": true"#));
+    assert!(!is_meilisearch_json_decl(r#""canceledBy": {"#));
+    assert!(!is_meilisearch_json_decl(r#""canceledBy": "10""#));
+    assert!(!is_meilisearch_json_decl(r#""CanceledBy": 10"#));
+    assert!(!is_meilisearch_json_decl(r#""canceled_by": 10"#));
+    assert!(is_meilisearch_json_decl(r#""taskUid": 0"#));
+    assert!(is_meilisearch_json_decl(r#""taskUid": 10"#));
+    assert!(is_meilisearch_json_decl(r#""taskUid": 10,"#));
+    assert!(is_meilisearch_json_decl(r#""taskUid": 10 // n"#));
+    assert!(!is_meilisearch_json_decl(r#""taskUid": 00"#));
+    assert!(!is_meilisearch_json_decl(r#""taskUid": 01"#));
+    assert!(!is_meilisearch_json_decl(r#""taskUid": true"#));
+    assert!(!is_meilisearch_json_decl(r#""taskUid": {"#));
+    assert!(!is_meilisearch_json_decl(r#""taskUid": "10""#));
+    assert!(!is_meilisearch_json_decl(r#""TaskUid": 10"#));
+    assert!(!is_meilisearch_json_decl(r#""task_uid": 10"#));
+    assert!(is_meilisearch_json_decl(r#""duration": "PT0.009330S""#));
+    assert!(is_meilisearch_json_decl(r#""duration": "PT1S""#));
+    assert!(is_meilisearch_json_decl(r#""duration": "PT0.009330S","#));
+    assert!(is_meilisearch_json_decl(r#""duration": "PT1S" // d"#));
+    assert!(!is_meilisearch_json_decl(r#""duration": """#));
+    assert!(!is_meilisearch_json_decl(r#""duration": "P1S""#));
+    assert!(!is_meilisearch_json_decl(r#""duration": "1S""#));
+    assert!(!is_meilisearch_json_decl(r#""duration": "PT""#));
+    assert!(!is_meilisearch_json_decl(r#""duration": {"#));
+    assert!(!is_meilisearch_json_decl(r#""duration": 10"#));
+    assert!(!is_meilisearch_json_decl(r#""duration": true"#));
+    assert!(!is_meilisearch_json_decl(r#""Duration": "PT1S""#));
     // Incomplete / wrong shapes stay out.
     assert!(!is_meilisearch_json_decl(r#""processingTimeMs""#));
     assert!(!is_meilisearch_json_decl(r#""processingTimeMs":"#));
@@ -34955,6 +35067,12 @@ fn meilisearch_json_keys_count() {
     assert!(!is_meilisearch_json_decl(r#""matchedTasks""#));
     assert!(!is_meilisearch_json_decl(r#""canceledTasks""#));
     assert!(!is_meilisearch_json_decl(r#""deletedTasks""#));
+    assert!(!is_meilisearch_json_decl(r#""enqueuedAt""#));
+    assert!(!is_meilisearch_json_decl(r#""startedAt""#));
+    assert!(!is_meilisearch_json_decl(r#""finishedAt""#));
+    assert!(!is_meilisearch_json_decl(r#""canceledBy""#));
+    assert!(!is_meilisearch_json_decl(r#""taskUid""#));
+    assert!(!is_meilisearch_json_decl(r#""duration""#));
     // Generic / neighbouring stay out.
     assert!(!is_meilisearch_json_decl(
         r#""$schema": "https://json-schema.org/draft/2020-12/schema""#

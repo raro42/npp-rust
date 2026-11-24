@@ -30881,7 +30881,9 @@ fn solr_json_bool_and_tail_ok(after_colon: &str) -> bool {
 /// `"receivedDocuments": 0` / `10`, `"indexedDocuments": 0` / `10`,
 /// `"deletedDocuments": 0` / `10`, `"providedIds": 0` / `10`,
 /// `"matchedTasks": 0` / `10`, `"canceledTasks": 0` / `10`,
-/// `"deletedTasks": 0` / `10`.
+/// `"deletedTasks": 0` / `10`, `"enqueuedAt": "…"`, `"startedAt": "…"`,
+/// `"finishedAt": "…"`, `"canceledBy": 0` / `10`, `"taskUid": 0` / `10`,
+/// `"duration": "PT…"`.
 /// Optional trailing `,` and `//` / `/*` comment. Incomplete quotes /
 /// missing `:` stay out. Generic `"$schema"` / `"name"` / `"id"` /
 /// `"hits": [` / `"query"` / `"limit"` / `"offset"` / `"page"` /
@@ -30953,7 +30955,7 @@ fn solr_json_bool_and_tail_ok(after_colon: &str) -> bool {
 /// `"numberOfEmbeddings"` / `"numberOfEmbeddedDocuments"` /
 /// `"receivedDocuments"` / `"indexedDocuments"` / `"deletedDocuments"` /
 /// `"providedIds"` / `"matchedTasks"` / `"canceledTasks"` /
-/// `"deletedTasks"`
+/// `"deletedTasks"` / `"canceledBy"` / `"taskUid"`
 /// reject leading zeros beyond `0`.
 /// `"rankingScoreThreshold"` / `"current_mean"` / `"current_sigma"` /
 /// `"_rankingScore"` allow a
@@ -30971,8 +30973,9 @@ fn solr_json_bool_and_tail_ok(after_colon: &str) -> bool {
 /// String `"distinctAttribute"` / `"documentTemplate"` / `"foreignIndexUid"` /
 /// `"fieldName"` / `"searchApiKey"` / `"writeApiKey"` / `"leader"` / `"self"` /
 /// `"cropMarker"` / `"commitSha"` / `"commitDate"` / `"pkgVersion"` /
-/// `"lastUpdate"`
-/// require a non-empty quoted string. String `"url"` requires a non-empty
+/// `"lastUpdate"` / `"enqueuedAt"` / `"startedAt"` / `"finishedAt"`
+/// require a non-empty quoted string. String `"duration"` requires a
+/// non-empty `PT…` ISO-8601 duration. String `"url"` requires a non-empty
 /// `http://` or `https://` quoted string (relative paths stay out). Array
 /// `"foreignKeys"` / `"addRemotes"` / `"removeRemotes"` /
 /// `"attributesToRetrieve"` / `"attributesToCrop"` / `"locales"` /
@@ -31142,6 +31145,12 @@ fn meilisearch_json_key_ok(key: &str) -> bool {
             | "matchedTasks"
             | "canceledTasks"
             | "deletedTasks"
+            | "enqueuedAt"
+            | "startedAt"
+            | "finishedAt"
+            | "canceledBy"
+            | "taskUid"
+            | "duration"
     )
 }
 
@@ -31241,8 +31250,13 @@ fn meilisearch_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool {
                 || key == "commitDate"
                 || key == "pkgVersion"
                 || key == "lastUpdate"
+                || key == "enqueuedAt"
+                || key == "startedAt"
+                || key == "finishedAt"
             {
                 meilisearch_json_nonempty_string_and_tail_ok(after_colon)
+            } else if key == "duration" {
+                meilisearch_json_iso8601_duration_and_tail_ok(after_colon)
             } else if key == "url" {
                 meilisearch_json_http_url_and_tail_ok(after_colon)
             } else {
@@ -31407,7 +31421,9 @@ fn meilisearch_json_number_and_tail_ok(key: &str, after_colon: &str) -> bool {
         | "providedIds"
         | "matchedTasks"
         | "canceledTasks"
-        | "deletedTasks" => {
+        | "deletedTasks"
+        | "canceledBy"
+        | "taskUid" => {
             let digits = after_colon
                 .bytes()
                 .take_while(|b| b.is_ascii_digit())
@@ -31425,6 +31441,22 @@ fn meilisearch_json_number_and_tail_ok(key: &str, after_colon: &str) -> bool {
         }
         _ => false,
     }
+}
+
+fn meilisearch_json_iso8601_duration_and_tail_ok(after_colon: &str) -> bool {
+    let rest = &after_colon[1..];
+    let Some(end) = rest.find('"') else {
+        return false;
+    };
+    let value = &rest[..end];
+    if value.contains('\n') {
+        return false;
+    }
+    // Meilisearch task duration is ISO-8601 (e.g. PT0.009330S / PT1S).
+    if !value.starts_with("PT") || value.len() < 3 {
+        return false;
+    }
+    package_json_tail_ok(&rest[end + 1..])
 }
 
 fn meilisearch_json_ranking_score_and_tail_ok(after_colon: &str) -> bool {
