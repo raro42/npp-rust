@@ -33034,6 +33034,18 @@ fn meilisearch_json_keys_smoke() {
     assert!(is_meilisearch_json_decl(
         r#""url": "https://ms-01.example.com""#
     ));
+    assert!(is_meilisearch_json_decl(r#""useNetwork": true"#));
+    assert!(is_meilisearch_json_decl(r#""useNetwork": false"#));
+    assert!(is_meilisearch_json_decl(
+        r#""showRankingScoreDetails": true"#
+    ));
+    assert!(is_meilisearch_json_decl(
+        r#""showRankingScoreDetails": false"#
+    ));
+    assert!(is_meilisearch_json_decl(r#""attributesToRetrieve": ["#));
+    assert!(is_meilisearch_json_decl(r#""federation": {"#));
+    assert!(is_meilisearch_json_decl(r#""_federation": {"#));
+    assert!(is_meilisearch_json_decl(r#""_rankingScoreDetails": {"#));
     // Distinctive neighbours stay out of this scanner.
     assert!(!is_meilisearch_json_decl(r#""responseHeader": {"#));
     assert!(is_solr_json_decl(r#""responseHeader": {"#));
@@ -33177,6 +33189,14 @@ fn meilisearch_json_keys_smoke() {
     assert!(line_is_func_like(r#""self": "ms-0""#));
     assert!(line_is_func_like(r#""url": "http://localhost:7700""#));
     assert!(line_is_func_like(r#""url": "https://ms-01.example.com""#));
+    assert!(line_is_func_like(r#""useNetwork": true"#));
+    assert!(line_is_func_like(r#""useNetwork": false"#));
+    assert!(line_is_func_like(r#""showRankingScoreDetails": true"#));
+    assert!(line_is_func_like(r#""showRankingScoreDetails": false"#));
+    assert!(line_is_func_like(r#""attributesToRetrieve": ["#));
+    assert!(line_is_func_like(r#""federation": {"#));
+    assert!(line_is_func_like(r#""_federation": {"#));
+    assert!(line_is_func_like(r#""_rankingScoreDetails": {"#));
 }
 
 #[test]
@@ -34134,6 +34154,91 @@ fn meilisearch_json_keys_count() {
     assert!(!is_meilisearch_json_decl(
         r#""Url": "http://localhost:7700""#
     ));
+    assert!(is_meilisearch_json_decl(r#""useNetwork": true"#));
+    assert!(is_meilisearch_json_decl(r#""useNetwork": false"#));
+    assert!(is_meilisearch_json_decl(r#""useNetwork": true,"#));
+    assert!(is_meilisearch_json_decl(r#""useNetwork": false // u"#));
+    assert!(!is_meilisearch_json_decl(r#""useNetwork": {"#));
+    assert!(!is_meilisearch_json_decl(r#""useNetwork": ["#));
+    assert!(!is_meilisearch_json_decl(r#""useNetwork": """#));
+    assert!(!is_meilisearch_json_decl(r#""useNetwork": 1"#));
+    assert!(!is_meilisearch_json_decl(r#""UseNetwork": true"#));
+    assert!(!is_meilisearch_json_decl(r#""use_network": true"#));
+    assert!(is_meilisearch_json_decl(
+        r#""showRankingScoreDetails": true"#
+    ));
+    assert!(is_meilisearch_json_decl(
+        r#""showRankingScoreDetails": false"#
+    ));
+    assert!(is_meilisearch_json_decl(
+        r#""showRankingScoreDetails": true,"#
+    ));
+    assert!(is_meilisearch_json_decl(
+        r#""showRankingScoreDetails": false // s"#
+    ));
+    assert!(!is_meilisearch_json_decl(
+        r#""showRankingScoreDetails": {"#
+    ));
+    assert!(!is_meilisearch_json_decl(
+        r#""showRankingScoreDetails": ["#
+    ));
+    assert!(!is_meilisearch_json_decl(
+        r#""showRankingScoreDetails": """#
+    ));
+    assert!(!is_meilisearch_json_decl(
+        r#""showRankingScoreDetails": 1"#
+    ));
+    assert!(!is_meilisearch_json_decl(
+        r#""ShowRankingScoreDetails": true"#
+    ));
+    assert!(!is_meilisearch_json_decl(
+        r#""show_ranking_score_details": true"#
+    ));
+    assert!(is_meilisearch_json_decl(r#""attributesToRetrieve": ["#));
+    assert!(is_meilisearch_json_decl(r#""attributesToRetrieve": [,"#));
+    assert!(is_meilisearch_json_decl(
+        r#""attributesToRetrieve": [ // a"#
+    ));
+    assert!(!is_meilisearch_json_decl(r#""attributesToRetrieve": {"#));
+    assert!(!is_meilisearch_json_decl(r#""attributesToRetrieve": true"#));
+    assert!(!is_meilisearch_json_decl(r#""attributesToRetrieve": """#));
+    assert!(!is_meilisearch_json_decl(
+        r#""AttributesToRetrieve": ["#
+    ));
+    assert!(!is_meilisearch_json_decl(
+        r#""attributes_to_retrieve": ["#
+    ));
+    assert!(is_meilisearch_json_decl(r#""federation": {"#));
+    assert!(is_meilisearch_json_decl(r#""federation": {,"#));
+    assert!(is_meilisearch_json_decl(r#""federation": { // f"#));
+    assert!(!is_meilisearch_json_decl(r#""federation": ["#));
+    assert!(!is_meilisearch_json_decl(r#""federation": true"#));
+    assert!(!is_meilisearch_json_decl(r#""federation": """#));
+    assert!(!is_meilisearch_json_decl(r#""Federation": {"#));
+    assert!(is_meilisearch_json_decl(r#""_federation": {"#));
+    assert!(is_meilisearch_json_decl(r#""_federation": {,"#));
+    assert!(is_meilisearch_json_decl(r#""_federation": { // f"#));
+    assert!(!is_meilisearch_json_decl(r#""_federation": ["#));
+    assert!(!is_meilisearch_json_decl(r#""_federation": true"#));
+    assert!(!is_meilisearch_json_decl(r#""_federation": """#));
+    assert!(!is_meilisearch_json_decl(r#""_Federation": {"#));
+    assert!(!is_meilisearch_json_decl(r#""federation_": {"#));
+    assert!(is_meilisearch_json_decl(r#""_rankingScoreDetails": {"#));
+    assert!(is_meilisearch_json_decl(r#""_rankingScoreDetails": {,"#));
+    assert!(is_meilisearch_json_decl(
+        r#""_rankingScoreDetails": { // r"#
+    ));
+    assert!(!is_meilisearch_json_decl(r#""_rankingScoreDetails": ["#));
+    assert!(!is_meilisearch_json_decl(
+        r#""_rankingScoreDetails": true"#
+    ));
+    assert!(!is_meilisearch_json_decl(r#""_rankingScoreDetails": """#));
+    assert!(!is_meilisearch_json_decl(
+        r#""_RankingScoreDetails": {"#
+    ));
+    assert!(!is_meilisearch_json_decl(
+        r#""rankingScoreDetails": {"#
+    ));
     // Incomplete / wrong shapes stay out.
     assert!(!is_meilisearch_json_decl(r#""processingTimeMs""#));
     assert!(!is_meilisearch_json_decl(r#""processingTimeMs":"#));
@@ -34223,6 +34328,12 @@ fn meilisearch_json_keys_count() {
     assert!(!is_meilisearch_json_decl(r#""leader""#));
     assert!(!is_meilisearch_json_decl(r#""self""#));
     assert!(!is_meilisearch_json_decl(r#""url""#));
+    assert!(!is_meilisearch_json_decl(r#""useNetwork""#));
+    assert!(!is_meilisearch_json_decl(r#""showRankingScoreDetails""#));
+    assert!(!is_meilisearch_json_decl(r#""attributesToRetrieve""#));
+    assert!(!is_meilisearch_json_decl(r#""federation""#));
+    assert!(!is_meilisearch_json_decl(r#""_federation""#));
+    assert!(!is_meilisearch_json_decl(r#""_rankingScoreDetails""#));
     // Generic / neighbouring stay out.
     assert!(!is_meilisearch_json_decl(
         r#""$schema": "https://json-schema.org/draft/2020-12/schema""#
@@ -52999,7 +53110,7 @@ fn instant_meilisearch_json_keys_count() {
     assert!(!is_instant_meilisearch_json_decl(r#""hybrid": true"#));
     assert!(!is_instant_meilisearch_json_decl(r#""hybrid": "x""#));
     assert!(!is_instant_meilisearch_json_decl(r#""Hybrid": {"#));
-    assert!(!is_meilisearch_json_decl(
+    assert!(is_meilisearch_json_decl(
         r#""showRankingScoreDetails": true"#
     ));
     assert!(!is_pagefind_json_decl(

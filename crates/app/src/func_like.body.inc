@@ -30857,7 +30857,12 @@ fn solr_json_bool_and_tail_ok(after_colon: &str) -> bool {
 /// `"remotes": {` / `[`, `"shards": {`, `"previousShards": {`,
 /// `"previousRemotes": {`, `"addRemotes": [`, `"removeRemotes": [`,
 /// `"searchApiKey": "…"`, `"writeApiKey": "…"`, `"leader": "…"`,
-/// `"self": "…"`, `"url": "http://…"` / `"https://…"`.
+/// `"self": "…"`, `"url": "http://…"` / `"https://…"`,
+/// `"useNetwork": true` / `false`,
+/// `"showRankingScoreDetails": true` / `false`,
+/// `"attributesToRetrieve": [`,
+/// `"federation": {`, `"_federation": {`,
+/// `"_rankingScoreDetails": {`.
 /// Optional trailing `,` and `//` / `/*` comment. Incomplete quotes /
 /// missing `:` stay out. Generic `"$schema"` / `"name"` / `"id"` /
 /// `"hits": [` / `"query"` / `"limit"` / `"offset"` / `"page"` /
@@ -30931,20 +30936,23 @@ fn solr_json_bool_and_tail_ok(after_colon: &str) -> bool {
 /// `"embedders"` / `"chat"` / `"sortFacetValuesBy"` /
 /// `"minWordSizeForTypos"` / `"indexingFragments"` / `"searchFragments"` /
 /// `"searchEmbedder"` / `"indexingEmbedder"` / `"wordPosition"` /
-/// `"features"` / `"shards"` / `"previousShards"` / `"previousRemotes"`
+/// `"features"` / `"shards"` / `"previousShards"` / `"previousRemotes"` /
+/// `"federation"` / `"_federation"` / `"_rankingScoreDetails"`
 /// require `{`. Object or array `"remotes"` accepts `{` or `[`.
 /// String `"distinctAttribute"` / `"documentTemplate"` / `"foreignIndexUid"` /
 /// `"fieldName"` / `"searchApiKey"` / `"writeApiKey"` / `"leader"` / `"self"`
 /// require a non-empty quoted string. String `"url"` requires a non-empty
 /// `http://` or `https://` quoted string (relative paths stay out). Array
-/// `"foreignKeys"` / `"addRemotes"` / `"removeRemotes"` require `[`.
+/// `"foreignKeys"` / `"addRemotes"` / `"removeRemotes"` /
+/// `"attributesToRetrieve"` require `[`.
 /// Bool `"facetSearch"` / `"disableOnNumbers"` / `"binaryQuantized"` /
 /// `"equality"` / `"comparison"` / `"editDocumentsByFunction"` /
 /// `"containsFilter"` / `"dynamicSearchRules"` / `"chatCompletions"` /
 /// `"logsRoute"` / `"tasksStreamingRoute"` / `"getTaskDocumentsRoute"` /
 /// `"taskQueueCompactionRoute"` / `"compositeEmbedders"` / `"multimodal"` /
 /// `"metrics"` / `"network"` / `"disableDocumentsFetchQueue"` /
-/// `"legacySearch"` / `"renderRoute"` / `"mcpRoute"` / `"foreignKeys"`
+/// `"legacySearch"` / `"renderRoute"` / `"mcpRoute"` / `"foreignKeys"` /
+/// `"useNetwork"` / `"showRankingScoreDetails"`
 /// only match `true` / `false` (array `"foreignKeys": [` still matches).
 /// Algolia string `"sortFacetValuesBy"` stays out of this scanner (object
 /// only).
@@ -31058,6 +31066,12 @@ fn meilisearch_json_key_ok(key: &str) -> bool {
             | "leader"
             | "self"
             | "url"
+            | "useNetwork"
+            | "showRankingScoreDetails"
+            | "attributesToRetrieve"
+            | "federation"
+            | "_federation"
+            | "_rankingScoreDetails"
     )
 }
 
@@ -31090,6 +31104,9 @@ fn meilisearch_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool {
                     | "shards"
                     | "previousShards"
                     | "previousRemotes"
+                    | "federation"
+                    | "_federation"
+                    | "_rankingScoreDetails"
             ) {
                 return false;
             }
@@ -31116,6 +31133,7 @@ fn meilisearch_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool {
                     | "remotes"
                     | "addRemotes"
                     | "removeRemotes"
+                    | "attributesToRetrieve"
             ) {
                 return false;
             }
@@ -31174,6 +31192,8 @@ fn meilisearch_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool {
                     | "renderRoute"
                     | "mcpRoute"
                     | "foreignKeys"
+                    | "useNetwork"
+                    | "showRankingScoreDetails"
             ) {
                 return false;
             }
