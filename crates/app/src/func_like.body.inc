@@ -30831,14 +30831,17 @@ fn solr_json_bool_and_tail_ok(after_colon: &str) -> bool {
 /// `"attributePatterns": [`,
 /// `"oneTypo": 5` / `0`, `"twoTypos": 9` / `0`,
 /// `"current_mean": 0` / `0.2` / `0.5`,
-/// `"current_sigma": 0` / `0.4` / `1`.
+/// `"current_sigma": 0` / `0.4` / `1`,
+/// `"wordPosition": {`, `"foreignKeys": [`,
+/// `"foreignIndexUid": "…"`.
 /// Optional trailing `,` and `//` / `/*` comment. Incomplete quotes /
 /// missing `:` stay out. Generic `"$schema"` / `"name"` / `"id"` /
 /// `"hits": [` / `"query"` / `"limit"` / `"offset"` / `"page"` /
 /// `"totalHits"` / `"totalPages"` / `"filter"` / `"sort": [` /
 /// `"facets": [` / `"description"` / `"searchParameters"` / `"enabled"` /
 /// `"source"` / `"model"` / `"apiKey"` / `"url"` / `"dimensions"` /
-/// `"revision"` / `"distribution"` /
+/// `"revision"` / `"distribution"` / `"mean"` / `"sigma"` /
+/// `"fieldName"` / `"features"` / `"equality"` / `"comparison"` /
 /// `"request"` / `"response"` / `"headers"` /
 /// Typesense `"search_time_ms"` / `"out_of"` /
 /// `"search_cutoff"` / `"grouped_hits"` / `"facet_counts": [` /
@@ -30904,9 +30907,10 @@ fn solr_json_bool_and_tail_ok(after_colon: &str) -> bool {
 /// `"synonyms"` / `"typoTolerance"` / `"pagination"` / `"faceting"` /
 /// `"embedders"` / `"chat"` / `"sortFacetValuesBy"` /
 /// `"minWordSizeForTypos"` / `"indexingFragments"` / `"searchFragments"` /
-/// `"searchEmbedder"` / `"indexingEmbedder"` require `{`. String
-/// `"distinctAttribute"` / `"documentTemplate"` require a non-empty quoted
-/// string. Bool `"facetSearch"` / `"disableOnNumbers"` / `"binaryQuantized"`
+/// `"searchEmbedder"` / `"indexingEmbedder"` / `"wordPosition"` require `{`.
+/// String `"distinctAttribute"` / `"documentTemplate"` / `"foreignIndexUid"`
+/// require a non-empty quoted string. Array `"foreignKeys"` requires `[`.
+/// Bool `"facetSearch"` / `"disableOnNumbers"` / `"binaryQuantized"`
 /// only match `true` / `false`. Algolia string `"sortFacetValuesBy"` stays
 /// out of this scanner (object only).
 fn is_meilisearch_json_decl(s: &str) -> bool {
@@ -30985,6 +30989,9 @@ fn meilisearch_json_key_ok(key: &str) -> bool {
             | "twoTypos"
             | "current_mean"
             | "current_sigma"
+            | "wordPosition"
+            | "foreignKeys"
+            | "foreignIndexUid"
     )
 }
 
@@ -31011,6 +31018,7 @@ fn meilisearch_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool {
                     | "searchFragments"
                     | "searchEmbedder"
                     | "indexingEmbedder"
+                    | "wordPosition"
             ) {
                 return false;
             }
@@ -31033,6 +31041,7 @@ fn meilisearch_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool {
                     | "disableOnWords"
                     | "disableOnAttributes"
                     | "attributePatterns"
+                    | "foreignKeys"
             ) {
                 return false;
             }
@@ -31047,7 +31056,10 @@ fn meilisearch_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool {
                 meilisearch_json_prefix_search_and_tail_ok(after_colon)
             } else if key == "pooling" {
                 meilisearch_json_pooling_and_tail_ok(after_colon)
-            } else if key == "distinctAttribute" || key == "documentTemplate" {
+            } else if key == "distinctAttribute"
+                || key == "documentTemplate"
+                || key == "foreignIndexUid"
+            {
                 meilisearch_json_nonempty_string_and_tail_ok(after_colon)
             } else {
                 false
@@ -31238,7 +31250,8 @@ fn meilisearch_json_bool_and_tail_ok(after_colon: &str) -> bool {
 /// `"binaryQuantized"` / `"pooling"` / `"indexingFragments"` /
 /// `"searchFragments"` / `"searchEmbedder"` / `"indexingEmbedder"` /
 /// `"attributePatterns"` / `"oneTypo"` / `"twoTypos"` /
-/// `"current_mean"` / `"current_sigma"` / Algolia
+/// `"current_mean"` / `"current_sigma"` / `"wordPosition"` /
+/// `"foreignKeys"` / `"foreignIndexUid"` / Algolia
 /// `"processingTimeMS"` /
 /// `"nbPages"` / `"serverTimeMS"` / `"queryID"` / `"indexUsed"` /
 /// `"aroundLatLng"` / `"highlightPreTag"` / `"facets_stats"` /

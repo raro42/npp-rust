@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.976] — 2026-11-24
+
+View:
+
+- **Function List** lists Meilisearch index-settings JSON keys: `"wordPosition": {`, `"foreignKeys": [`, `"foreignIndexUid": "…"`. Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing `:` stay out. Empty strings / wrong case / snake_case / plural misspellings / wrong value shapes stay out. Existing Meilisearch keys (`processingTimeMs`, `estimatedTotalHits`, `exhaustiveNbHits`, `nbHits`, `hitsPerPage`, `facetDistribution`, `facetStats`, `exhaustiveFacetsCount`, `rankingScoreThreshold`, `showRankingScore`, `matchingStrategy`, `attributesToSearchOn`, `filterableAttributes`, `sortableAttributes`, `rankingRules`, `displayedAttributes`, `stopWords`, `synonyms`, `proximityPrecision`, `searchCutoffMs`, `searchableAttributes`, `separatorTokens`, `nonSeparatorTokens`, `dictionary`, `distinctAttribute`, `typoTolerance`, `pagination`, `faceting`, `embedders`, `localizedAttributes`, `facetSearch`, `prefixSearch`, `chat`, `documentTemplate`, `documentTemplateMaxBytes`, `maxTotalHits`, `maxValuesPerFacet`, `sortFacetValuesBy`, `minWordSizeForTypos`, `disableOnWords`, `disableOnAttributes`, `disableOnNumbers`, `binaryQuantized`, `pooling`, `indexingFragments`, `searchFragments`, `searchEmbedder`, `indexingEmbedder`, `attributePatterns`, `oneTypo`, `twoTypos`, `current_mean`, `current_sigma`, …) unchanged. Generic `"filter"` / `"sort"` / `"facets"` / `"limit"` / `"offset"` / `"page"` / `"description"` / `"searchParameters"` / `"enabled"` / `"source"` / `"model"` / `"apiKey"` / `"url"` / `"dimensions"` / `"revision"` / `"distribution"` / `"mean"` / `"sigma"` / `"fieldName"` / `"features"` / `"equality"` / `"comparison"` / `"request"` / `"response"` / `"headers"` stay out. Neighbouring search JSON families stay out of Meilisearch for these keys. Object `"wordPosition"` requires `{`. Array `"foreignKeys"` requires `[`. String `"foreignIndexUid"` requires a non-empty quoted string.
+
 ## [0.3.975] — 2026-11-24
 
 View:

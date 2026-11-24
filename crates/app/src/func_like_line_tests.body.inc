@@ -32956,6 +32956,11 @@ fn meilisearch_json_keys_smoke() {
     assert!(is_meilisearch_json_decl(r#""current_mean": 0.2"#));
     assert!(is_meilisearch_json_decl(r#""current_sigma": 0"#));
     assert!(is_meilisearch_json_decl(r#""current_sigma": 0.4"#));
+    assert!(is_meilisearch_json_decl(r#""wordPosition": {"#));
+    assert!(is_meilisearch_json_decl(r#""foreignKeys": ["#));
+    assert!(is_meilisearch_json_decl(
+        r#""foreignIndexUid": "products""#
+    ));
     // Distinctive neighbours stay out of this scanner.
     assert!(!is_meilisearch_json_decl(r#""responseHeader": {"#));
     assert!(is_solr_json_decl(r#""responseHeader": {"#));
@@ -33062,6 +33067,9 @@ fn meilisearch_json_keys_smoke() {
     assert!(line_is_func_like(r#""twoTypos": 9"#));
     assert!(line_is_func_like(r#""current_mean": 0.2"#));
     assert!(line_is_func_like(r#""current_sigma": 0.4"#));
+    assert!(line_is_func_like(r#""wordPosition": {"#));
+    assert!(line_is_func_like(r#""foreignKeys": ["#));
+    assert!(line_is_func_like(r#""foreignIndexUid": "products""#));
 }
 
 #[test]
@@ -33581,6 +33589,43 @@ fn meilisearch_json_keys_count() {
     assert!(!is_meilisearch_json_decl(r#""current_sigma": """#));
     assert!(!is_meilisearch_json_decl(r#""Current_sigma": 0.4"#));
     assert!(!is_meilisearch_json_decl(r#""currentSigma": 0.4"#));
+    assert!(is_meilisearch_json_decl(r#""wordPosition": {"#));
+    assert!(is_meilisearch_json_decl(r#""wordPosition": {,"#));
+    assert!(is_meilisearch_json_decl(r#""wordPosition": { // w"#));
+    assert!(!is_meilisearch_json_decl(r#""wordPosition": ["#));
+    assert!(!is_meilisearch_json_decl(r#""wordPosition": true"#));
+    assert!(!is_meilisearch_json_decl(r#""wordPosition": """#));
+    assert!(!is_meilisearch_json_decl(r#""WordPosition": {"#));
+    assert!(!is_meilisearch_json_decl(r#""word_position": {"#));
+    assert!(!is_meilisearch_json_decl(r#""wordPositions": {"#));
+    assert!(is_meilisearch_json_decl(r#""foreignKeys": ["#));
+    assert!(is_meilisearch_json_decl(r#""foreignKeys": [,"#));
+    assert!(is_meilisearch_json_decl(r#""foreignKeys": [ // f"#));
+    assert!(!is_meilisearch_json_decl(r#""foreignKeys": {"#));
+    assert!(!is_meilisearch_json_decl(r#""foreignKeys": true"#));
+    assert!(!is_meilisearch_json_decl(r#""foreignKeys": """#));
+    assert!(!is_meilisearch_json_decl(r#""ForeignKeys": ["#));
+    assert!(!is_meilisearch_json_decl(r#""foreign_keys": ["#));
+    assert!(!is_meilisearch_json_decl(r#""foreignKey": ["#));
+    assert!(is_meilisearch_json_decl(
+        r#""foreignIndexUid": "products""#
+    ));
+    assert!(is_meilisearch_json_decl(
+        r#""foreignIndexUid": "products","#
+    ));
+    assert!(is_meilisearch_json_decl(
+        r#""foreignIndexUid": "products" // f"#
+    ));
+    assert!(!is_meilisearch_json_decl(r#""foreignIndexUid": """#));
+    assert!(!is_meilisearch_json_decl(r#""foreignIndexUid": {"#));
+    assert!(!is_meilisearch_json_decl(r#""foreignIndexUid": ["#));
+    assert!(!is_meilisearch_json_decl(r#""foreignIndexUid": true"#));
+    assert!(!is_meilisearch_json_decl(
+        r#""ForeignIndexUid": "products""#
+    ));
+    assert!(!is_meilisearch_json_decl(
+        r#""foreign_index_uid": "products""#
+    ));
     // Incomplete / wrong shapes stay out.
     assert!(!is_meilisearch_json_decl(r#""processingTimeMs""#));
     assert!(!is_meilisearch_json_decl(r#""processingTimeMs":"#));
@@ -33636,6 +33681,9 @@ fn meilisearch_json_keys_count() {
     assert!(!is_meilisearch_json_decl(r#""twoTypos""#));
     assert!(!is_meilisearch_json_decl(r#""current_mean""#));
     assert!(!is_meilisearch_json_decl(r#""current_sigma""#));
+    assert!(!is_meilisearch_json_decl(r#""wordPosition""#));
+    assert!(!is_meilisearch_json_decl(r#""foreignKeys""#));
+    assert!(!is_meilisearch_json_decl(r#""foreignIndexUid""#));
     // Generic / neighbouring stay out.
     assert!(!is_meilisearch_json_decl(
         r#""$schema": "https://json-schema.org/draft/2020-12/schema""#
@@ -33659,6 +33707,10 @@ fn meilisearch_json_keys_count() {
     assert!(!is_meilisearch_json_decl(r#""distribution": {"#));
     assert!(!is_meilisearch_json_decl(r#""mean": 0.2"#));
     assert!(!is_meilisearch_json_decl(r#""sigma": 0.4"#));
+    assert!(!is_meilisearch_json_decl(r#""fieldName": "productId""#));
+    assert!(!is_meilisearch_json_decl(r#""features": {"#));
+    assert!(!is_meilisearch_json_decl(r#""equality": true"#));
+    assert!(!is_meilisearch_json_decl(r#""comparison": true"#));
     assert!(!is_meilisearch_json_decl(r#""source": "openAi""#));
     assert!(!is_meilisearch_json_decl(r#""request": {"#));
     assert!(!is_meilisearch_json_decl(r#""response": {"#));
@@ -33774,6 +33826,9 @@ fn meilisearch_json_keys_count() {
     assert!(line_is_func_like(r#""twoTypos": 9"#));
     assert!(line_is_func_like(r#""current_mean": 0.2"#));
     assert!(line_is_func_like(r#""current_sigma": 0.4"#));
+    assert!(line_is_func_like(r#""wordPosition": {"#));
+    assert!(line_is_func_like(r#""foreignKeys": ["#));
+    assert!(line_is_func_like(r#""foreignIndexUid": "products""#));
     assert!(!is_meilisearch_json_decl(r#""search_time_ms": 12"#));
     assert!(is_typesense_json_decl(r#""search_time_ms": 12"#));
     assert!(!is_meilisearch_json_decl(r#""out_of": 100"#));
