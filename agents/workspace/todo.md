@@ -1,3 +1,5 @@
+009 keep: Function List Meilisearch current_mean/current_sigma (v0.3.975)
+
 009 keep: Function List Meilisearch oneTypo/twoTypos (v0.3.974)
 
 
