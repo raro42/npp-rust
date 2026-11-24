@@ -1,3 +1,5 @@
+009 keep: Function List Meilisearch batchStrategy/writeChannelCongestion/embedderRequests/currentStep (v0.3.993)
+
 009 keep: Function List Meilisearch totalNbTasks/indexUids/progressTrace (v0.3.992)
 
 009 keep: Function List Meilisearch receivedDocuments/indexedDocuments/deletedDocuments (v0.3.988)
