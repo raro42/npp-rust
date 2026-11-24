@@ -1,3 +1,5 @@
+009 keep: Function List Meilisearch oneTypo/twoTypos (v0.3.974)
+
 
 009 keep: Function List Meilisearch searchableAttributes/separatorTokens/nonSeparatorTokens/dictionary/distinctAttribute/typoTolerance/pagination/faceting (v0.3.969)
 009 keep: Function List Meilisearch filterableAttributes/sortableAttributes/rankingRules/displayedAttributes/stopWords/synonyms/proximityPrecision/searchCutoffMs (v0.3.968)
