@@ -30876,7 +30876,8 @@ fn solr_json_bool_and_tail_ok(after_colon: &str) -> bool {
 /// `"indexes": {`, `"indexSize": 0` / `1572864`,
 /// `"usedIndexSize": 0` / `524288`, `"rawDocumentDbSize": 0` / `100`,
 /// `"maxDocumentSize": 0` / `16`, `"avgDocumentSize": 0` / `10`,
-/// `"internalDatabaseSizes": {`.
+/// `"internalDatabaseSizes": {`, `"numberOfEmbeddings": 0` / `10`,
+/// `"numberOfEmbeddedDocuments": 0` / `10`.
 /// Optional trailing `,` and `//` / `/*` comment. Incomplete quotes /
 /// missing `:` stay out. Generic `"$schema"` / `"name"` / `"id"` /
 /// `"hits": [` / `"query"` / `"limit"` / `"offset"` / `"page"` /
@@ -30944,7 +30945,8 @@ fn solr_json_bool_and_tail_ok(after_colon: &str) -> bool {
 /// `"maxTotalHits"` / `"maxValuesPerFacet"` / `"oneTypo"` / `"twoTypos"` /
 /// `"cropLength"` / `"databaseSize"` / `"usedDatabaseSize"` /
 /// `"numberOfDocuments"` / `"indexSize"` / `"usedIndexSize"` /
-/// `"rawDocumentDbSize"` / `"maxDocumentSize"` / `"avgDocumentSize"`
+/// `"rawDocumentDbSize"` / `"maxDocumentSize"` / `"avgDocumentSize"` /
+/// `"numberOfEmbeddings"` / `"numberOfEmbeddedDocuments"`
 /// reject leading zeros beyond `0`.
 /// `"rankingScoreThreshold"` / `"current_mean"` / `"current_sigma"` /
 /// `"_rankingScore"` allow a
@@ -31124,6 +31126,8 @@ fn meilisearch_json_key_ok(key: &str) -> bool {
             | "maxDocumentSize"
             | "avgDocumentSize"
             | "internalDatabaseSizes"
+            | "numberOfEmbeddings"
+            | "numberOfEmbeddedDocuments"
     )
 }
 
@@ -31380,7 +31384,9 @@ fn meilisearch_json_number_and_tail_ok(key: &str, after_colon: &str) -> bool {
         | "usedIndexSize"
         | "rawDocumentDbSize"
         | "maxDocumentSize"
-        | "avgDocumentSize" => {
+        | "avgDocumentSize"
+        | "numberOfEmbeddings"
+        | "numberOfEmbeddedDocuments" => {
             let digits = after_colon
                 .bytes()
                 .take_while(|b| b.is_ascii_digit())

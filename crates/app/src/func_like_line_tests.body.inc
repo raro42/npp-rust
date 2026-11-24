@@ -33090,6 +33090,14 @@ fn meilisearch_json_keys_smoke() {
     assert!(is_meilisearch_json_decl(r#""avgDocumentSize": 0"#));
     assert!(is_meilisearch_json_decl(r#""avgDocumentSize": 10"#));
     assert!(is_meilisearch_json_decl(r#""internalDatabaseSizes": {"#));
+    assert!(is_meilisearch_json_decl(r#""numberOfEmbeddings": 0"#));
+    assert!(is_meilisearch_json_decl(r#""numberOfEmbeddings": 10"#));
+    assert!(is_meilisearch_json_decl(
+        r#""numberOfEmbeddedDocuments": 0"#
+    ));
+    assert!(is_meilisearch_json_decl(
+        r#""numberOfEmbeddedDocuments": 10"#
+    ));
     // Distinctive neighbours stay out of this scanner.
     assert!(!is_meilisearch_json_decl(r#""responseHeader": {"#));
     assert!(is_solr_json_decl(r#""responseHeader": {"#));
@@ -33276,6 +33284,8 @@ fn meilisearch_json_keys_smoke() {
     assert!(line_is_func_like(r#""maxDocumentSize": 16"#));
     assert!(line_is_func_like(r#""avgDocumentSize": 10"#));
     assert!(line_is_func_like(r#""internalDatabaseSizes": {"#));
+    assert!(line_is_func_like(r#""numberOfEmbeddings": 10"#));
+    assert!(line_is_func_like(r#""numberOfEmbeddedDocuments": 10"#));
 }
 
 #[test]
@@ -34653,6 +34663,54 @@ fn meilisearch_json_keys_count() {
     assert!(!is_meilisearch_json_decl(
         r#""internal_database_sizes": {"#
     ));
+    assert!(is_meilisearch_json_decl(r#""numberOfEmbeddings": 0"#));
+    assert!(is_meilisearch_json_decl(r#""numberOfEmbeddings": 10"#));
+    assert!(is_meilisearch_json_decl(r#""numberOfEmbeddings": 10,"#));
+    assert!(is_meilisearch_json_decl(
+        r#""numberOfEmbeddings": 10 // n"#
+    ));
+    assert!(!is_meilisearch_json_decl(r#""numberOfEmbeddings": 00"#));
+    assert!(!is_meilisearch_json_decl(r#""numberOfEmbeddings": 01"#));
+    assert!(!is_meilisearch_json_decl(r#""numberOfEmbeddings": true"#));
+    assert!(!is_meilisearch_json_decl(r#""numberOfEmbeddings": {"#));
+    assert!(!is_meilisearch_json_decl(r#""numberOfEmbeddings": "10""#));
+    assert!(!is_meilisearch_json_decl(r#""NumberOfEmbeddings": 10"#));
+    assert!(!is_meilisearch_json_decl(
+        r#""number_of_embeddings": 10"#
+    ));
+    assert!(is_meilisearch_json_decl(
+        r#""numberOfEmbeddedDocuments": 0"#
+    ));
+    assert!(is_meilisearch_json_decl(
+        r#""numberOfEmbeddedDocuments": 10"#
+    ));
+    assert!(is_meilisearch_json_decl(
+        r#""numberOfEmbeddedDocuments": 10,"#
+    ));
+    assert!(is_meilisearch_json_decl(
+        r#""numberOfEmbeddedDocuments": 10 // n"#
+    ));
+    assert!(!is_meilisearch_json_decl(
+        r#""numberOfEmbeddedDocuments": 00"#
+    ));
+    assert!(!is_meilisearch_json_decl(
+        r#""numberOfEmbeddedDocuments": 01"#
+    ));
+    assert!(!is_meilisearch_json_decl(
+        r#""numberOfEmbeddedDocuments": true"#
+    ));
+    assert!(!is_meilisearch_json_decl(
+        r#""numberOfEmbeddedDocuments": {"#
+    ));
+    assert!(!is_meilisearch_json_decl(
+        r#""numberOfEmbeddedDocuments": "10""#
+    ));
+    assert!(!is_meilisearch_json_decl(
+        r#""NumberOfEmbeddedDocuments": 10"#
+    ));
+    assert!(!is_meilisearch_json_decl(
+        r#""number_of_embedded_documents": 10"#
+    ));
     // Incomplete / wrong shapes stay out.
     assert!(!is_meilisearch_json_decl(r#""processingTimeMs""#));
     assert!(!is_meilisearch_json_decl(r#""processingTimeMs":"#));
@@ -34776,6 +34834,10 @@ fn meilisearch_json_keys_count() {
     assert!(!is_meilisearch_json_decl(r#""maxDocumentSize""#));
     assert!(!is_meilisearch_json_decl(r#""avgDocumentSize""#));
     assert!(!is_meilisearch_json_decl(r#""internalDatabaseSizes""#));
+    assert!(!is_meilisearch_json_decl(r#""numberOfEmbeddings""#));
+    assert!(!is_meilisearch_json_decl(
+        r#""numberOfEmbeddedDocuments""#
+    ));
     // Generic / neighbouring stay out.
     assert!(!is_meilisearch_json_decl(
         r#""$schema": "https://json-schema.org/draft/2020-12/schema""#
