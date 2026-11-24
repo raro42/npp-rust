@@ -30853,7 +30853,10 @@ fn solr_json_bool_and_tail_ok(after_colon: &str) -> bool {
 /// `"renderRoute": true` / `false`,
 /// `"mcpRoute": true` / `false`
 /// (and `"foreignKeys": true` / `false` for the experimental toggle,
-/// alongside the index-settings `"foreignKeys": [` shape).
+/// alongside the index-settings `"foreignKeys": [` shape),
+/// `"remotes": {` / `[`, `"shards": {`, `"previousShards": {`,
+/// `"previousRemotes": {`, `"addRemotes": [`, `"removeRemotes": [`,
+/// `"searchApiKey": "…"`, `"writeApiKey": "…"`, `"leader": "…"`.
 /// Optional trailing `,` and `//` / `/*` comment. Incomplete quotes /
 /// missing `:` stay out. Generic `"$schema"` / `"name"` / `"id"` /
 /// `"hits": [` / `"query"` / `"limit"` / `"offset"` / `"page"` /
@@ -30861,7 +30864,7 @@ fn solr_json_bool_and_tail_ok(after_colon: &str) -> bool {
 /// `"facets": [` / `"description"` / `"searchParameters"` / `"enabled"` /
 /// `"source"` / `"model"` / `"apiKey"` / `"url"` / `"dimensions"` /
 /// `"revision"` / `"distribution"` / `"mean"` / `"sigma"` /
-/// `"request"` / `"response"` / `"headers"` /
+/// `"request"` / `"response"` / `"headers"` / `"self"` /
 /// Typesense `"search_time_ms"` / `"out_of"` /
 /// `"search_cutoff"` / `"grouped_hits"` / `"facet_counts": [` /
 /// `"default_sorting_field"` / `"enable_nested_fields"` /
@@ -30927,10 +30930,12 @@ fn solr_json_bool_and_tail_ok(after_colon: &str) -> bool {
 /// `"embedders"` / `"chat"` / `"sortFacetValuesBy"` /
 /// `"minWordSizeForTypos"` / `"indexingFragments"` / `"searchFragments"` /
 /// `"searchEmbedder"` / `"indexingEmbedder"` / `"wordPosition"` /
-/// `"features"` require `{`.
+/// `"features"` / `"shards"` / `"previousShards"` / `"previousRemotes"`
+/// require `{`. Object or array `"remotes"` accepts `{` or `[`.
 /// String `"distinctAttribute"` / `"documentTemplate"` / `"foreignIndexUid"` /
-/// `"fieldName"` require a non-empty quoted string. Array `"foreignKeys"`
-/// requires `[`.
+/// `"fieldName"` / `"searchApiKey"` / `"writeApiKey"` / `"leader"` require a
+/// non-empty quoted string. Array `"foreignKeys"` / `"addRemotes"` /
+/// `"removeRemotes"` require `[`.
 /// Bool `"facetSearch"` / `"disableOnNumbers"` / `"binaryQuantized"` /
 /// `"equality"` / `"comparison"` / `"editDocumentsByFunction"` /
 /// `"containsFilter"` / `"dynamicSearchRules"` / `"chatCompletions"` /
@@ -31040,6 +31045,15 @@ fn meilisearch_json_key_ok(key: &str) -> bool {
             | "legacySearch"
             | "renderRoute"
             | "mcpRoute"
+            | "remotes"
+            | "shards"
+            | "previousShards"
+            | "previousRemotes"
+            | "addRemotes"
+            | "removeRemotes"
+            | "searchApiKey"
+            | "writeApiKey"
+            | "leader"
     )
 }
 
@@ -31068,6 +31082,10 @@ fn meilisearch_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool {
                     | "indexingEmbedder"
                     | "wordPosition"
                     | "features"
+                    | "remotes"
+                    | "shards"
+                    | "previousShards"
+                    | "previousRemotes"
             ) {
                 return false;
             }
@@ -31091,6 +31109,9 @@ fn meilisearch_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool {
                     | "disableOnAttributes"
                     | "attributePatterns"
                     | "foreignKeys"
+                    | "remotes"
+                    | "addRemotes"
+                    | "removeRemotes"
             ) {
                 return false;
             }
@@ -31109,6 +31130,9 @@ fn meilisearch_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool {
                 || key == "documentTemplate"
                 || key == "foreignIndexUid"
                 || key == "fieldName"
+                || key == "searchApiKey"
+                || key == "writeApiKey"
+                || key == "leader"
             {
                 meilisearch_json_nonempty_string_and_tail_ok(after_colon)
             } else {
@@ -31328,7 +31352,10 @@ fn meilisearch_json_bool_and_tail_ok(after_colon: &str) -> bool {
 /// `"taskQueueCompactionRoute"` / `"compositeEmbedders"` /
 /// `"multimodal"` / `"metrics"` / `"network"` /
 /// `"disableDocumentsFetchQueue"` / `"legacySearch"` /
-/// `"renderRoute"` / `"mcpRoute"` / Algolia
+/// `"renderRoute"` / `"mcpRoute"` / `"remotes"` / `"shards"` /
+/// `"previousShards"` / `"previousRemotes"` / `"addRemotes"` /
+/// `"removeRemotes"` / `"searchApiKey"` / `"writeApiKey"` /
+/// `"leader"` / Algolia
 /// `"processingTimeMS"` /
 /// `"nbPages"` / `"serverTimeMS"` / `"queryID"` / `"indexUsed"` /
 /// `"aroundLatLng"` / `"highlightPreTag"` / `"facets_stats"` /
