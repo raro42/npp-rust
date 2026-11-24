@@ -32999,6 +32999,24 @@ fn meilisearch_json_keys_smoke() {
     assert!(is_meilisearch_json_decl(r#""compositeEmbedders": false"#));
     assert!(is_meilisearch_json_decl(r#""multimodal": true"#));
     assert!(is_meilisearch_json_decl(r#""multimodal": false"#));
+    assert!(is_meilisearch_json_decl(r#""metrics": true"#));
+    assert!(is_meilisearch_json_decl(r#""metrics": false"#));
+    assert!(is_meilisearch_json_decl(r#""network": true"#));
+    assert!(is_meilisearch_json_decl(r#""network": false"#));
+    assert!(is_meilisearch_json_decl(
+        r#""disableDocumentsFetchQueue": true"#
+    ));
+    assert!(is_meilisearch_json_decl(
+        r#""disableDocumentsFetchQueue": false"#
+    ));
+    assert!(is_meilisearch_json_decl(r#""legacySearch": true"#));
+    assert!(is_meilisearch_json_decl(r#""legacySearch": false"#));
+    assert!(is_meilisearch_json_decl(r#""renderRoute": true"#));
+    assert!(is_meilisearch_json_decl(r#""renderRoute": false"#));
+    assert!(is_meilisearch_json_decl(r#""mcpRoute": true"#));
+    assert!(is_meilisearch_json_decl(r#""mcpRoute": false"#));
+    assert!(is_meilisearch_json_decl(r#""foreignKeys": true"#));
+    assert!(is_meilisearch_json_decl(r#""foreignKeys": false"#));
     // Distinctive neighbours stay out of this scanner.
     assert!(!is_meilisearch_json_decl(r#""responseHeader": {"#));
     assert!(is_solr_json_decl(r#""responseHeader": {"#));
@@ -33122,6 +33140,13 @@ fn meilisearch_json_keys_smoke() {
     assert!(line_is_func_like(r#""taskQueueCompactionRoute": false"#));
     assert!(line_is_func_like(r#""compositeEmbedders": true"#));
     assert!(line_is_func_like(r#""multimodal": false"#));
+    assert!(line_is_func_like(r#""metrics": true"#));
+    assert!(line_is_func_like(r#""network": false"#));
+    assert!(line_is_func_like(r#""disableDocumentsFetchQueue": true"#));
+    assert!(line_is_func_like(r#""legacySearch": false"#));
+    assert!(line_is_func_like(r#""renderRoute": true"#));
+    assert!(line_is_func_like(r#""mcpRoute": false"#));
+    assert!(line_is_func_like(r#""foreignKeys": true"#));
 }
 
 #[test]
@@ -33654,7 +33679,8 @@ fn meilisearch_json_keys_count() {
     assert!(is_meilisearch_json_decl(r#""foreignKeys": [,"#));
     assert!(is_meilisearch_json_decl(r#""foreignKeys": [ // f"#));
     assert!(!is_meilisearch_json_decl(r#""foreignKeys": {"#));
-    assert!(!is_meilisearch_json_decl(r#""foreignKeys": true"#));
+    assert!(is_meilisearch_json_decl(r#""foreignKeys": true"#));
+    assert!(is_meilisearch_json_decl(r#""foreignKeys": false"#));
     assert!(!is_meilisearch_json_decl(r#""foreignKeys": """#));
     assert!(!is_meilisearch_json_decl(r#""ForeignKeys": ["#));
     assert!(!is_meilisearch_json_decl(r#""foreign_keys": ["#));
@@ -33882,6 +33908,93 @@ fn meilisearch_json_keys_count() {
     assert!(!is_meilisearch_json_decl(r#""multimodal": 1"#));
     assert!(!is_meilisearch_json_decl(r#""Multimodal": true"#));
     assert!(!is_meilisearch_json_decl(r#""multi_modal": true"#));
+    assert!(is_meilisearch_json_decl(r#""metrics": true"#));
+    assert!(is_meilisearch_json_decl(r#""metrics": false"#));
+    assert!(is_meilisearch_json_decl(r#""metrics": true,"#));
+    assert!(is_meilisearch_json_decl(r#""metrics": true // m"#));
+    assert!(!is_meilisearch_json_decl(r#""metrics": {"#));
+    assert!(!is_meilisearch_json_decl(r#""metrics": ["#));
+    assert!(!is_meilisearch_json_decl(r#""metrics": """#));
+    assert!(!is_meilisearch_json_decl(r#""metrics": 1"#));
+    assert!(!is_meilisearch_json_decl(r#""Metrics": true"#));
+    assert!(!is_meilisearch_json_decl(r#""metric": true"#));
+    assert!(is_meilisearch_json_decl(r#""network": true"#));
+    assert!(is_meilisearch_json_decl(r#""network": false"#));
+    assert!(is_meilisearch_json_decl(r#""network": false,"#));
+    assert!(is_meilisearch_json_decl(r#""network": false // n"#));
+    assert!(!is_meilisearch_json_decl(r#""network": {"#));
+    assert!(!is_meilisearch_json_decl(r#""network": ["#));
+    assert!(!is_meilisearch_json_decl(r#""network": """#));
+    assert!(!is_meilisearch_json_decl(r#""network": 1"#));
+    assert!(!is_meilisearch_json_decl(r#""Network": true"#));
+    assert!(!is_meilisearch_json_decl(r#""networks": true"#));
+    assert!(is_meilisearch_json_decl(
+        r#""disableDocumentsFetchQueue": true"#
+    ));
+    assert!(is_meilisearch_json_decl(
+        r#""disableDocumentsFetchQueue": false"#
+    ));
+    assert!(is_meilisearch_json_decl(
+        r#""disableDocumentsFetchQueue": true,"#
+    ));
+    assert!(is_meilisearch_json_decl(
+        r#""disableDocumentsFetchQueue": true // d"#
+    ));
+    assert!(!is_meilisearch_json_decl(
+        r#""disableDocumentsFetchQueue": {"#
+    ));
+    assert!(!is_meilisearch_json_decl(
+        r#""disableDocumentsFetchQueue": ["#
+    ));
+    assert!(!is_meilisearch_json_decl(
+        r#""disableDocumentsFetchQueue": """#
+    ));
+    assert!(!is_meilisearch_json_decl(
+        r#""disableDocumentsFetchQueue": 1"#
+    ));
+    assert!(!is_meilisearch_json_decl(
+        r#""DisableDocumentsFetchQueue": true"#
+    ));
+    assert!(!is_meilisearch_json_decl(
+        r#""disable_documents_fetch_queue": true"#
+    ));
+    assert!(is_meilisearch_json_decl(r#""legacySearch": true"#));
+    assert!(is_meilisearch_json_decl(r#""legacySearch": false"#));
+    assert!(is_meilisearch_json_decl(r#""legacySearch": false,"#));
+    assert!(is_meilisearch_json_decl(r#""legacySearch": false // l"#));
+    assert!(!is_meilisearch_json_decl(r#""legacySearch": {"#));
+    assert!(!is_meilisearch_json_decl(r#""legacySearch": ["#));
+    assert!(!is_meilisearch_json_decl(r#""legacySearch": """#));
+    assert!(!is_meilisearch_json_decl(r#""legacySearch": 1"#));
+    assert!(!is_meilisearch_json_decl(r#""LegacySearch": true"#));
+    assert!(!is_meilisearch_json_decl(r#""legacy_search": true"#));
+    assert!(is_meilisearch_json_decl(r#""renderRoute": true"#));
+    assert!(is_meilisearch_json_decl(r#""renderRoute": false"#));
+    assert!(is_meilisearch_json_decl(r#""renderRoute": true,"#));
+    assert!(is_meilisearch_json_decl(r#""renderRoute": true // r"#));
+    assert!(!is_meilisearch_json_decl(r#""renderRoute": {"#));
+    assert!(!is_meilisearch_json_decl(r#""renderRoute": ["#));
+    assert!(!is_meilisearch_json_decl(r#""renderRoute": """#));
+    assert!(!is_meilisearch_json_decl(r#""renderRoute": 1"#));
+    assert!(!is_meilisearch_json_decl(r#""RenderRoute": true"#));
+    assert!(!is_meilisearch_json_decl(r#""render_route": true"#));
+    assert!(is_meilisearch_json_decl(r#""mcpRoute": true"#));
+    assert!(is_meilisearch_json_decl(r#""mcpRoute": false"#));
+    assert!(is_meilisearch_json_decl(r#""mcpRoute": false,"#));
+    assert!(is_meilisearch_json_decl(r#""mcpRoute": false // m"#));
+    assert!(!is_meilisearch_json_decl(r#""mcpRoute": {"#));
+    assert!(!is_meilisearch_json_decl(r#""mcpRoute": ["#));
+    assert!(!is_meilisearch_json_decl(r#""mcpRoute": """#));
+    assert!(!is_meilisearch_json_decl(r#""mcpRoute": 1"#));
+    assert!(!is_meilisearch_json_decl(r#""McpRoute": true"#));
+    assert!(!is_meilisearch_json_decl(r#""mcp_route": true"#));
+    assert!(is_meilisearch_json_decl(r#""foreignKeys": true"#));
+    assert!(is_meilisearch_json_decl(r#""foreignKeys": false"#));
+    assert!(is_meilisearch_json_decl(r#""foreignKeys": true,"#));
+    assert!(is_meilisearch_json_decl(r#""foreignKeys": true // f"#));
+    assert!(!is_meilisearch_json_decl(r#""foreignKeys": {"#));
+    assert!(!is_meilisearch_json_decl(r#""foreignKeys": """#));
+    assert!(!is_meilisearch_json_decl(r#""foreignKeys": 1"#));
     // Incomplete / wrong shapes stay out.
     assert!(!is_meilisearch_json_decl(r#""processingTimeMs""#));
     assert!(!is_meilisearch_json_decl(r#""processingTimeMs":"#));
@@ -33954,6 +34067,12 @@ fn meilisearch_json_keys_count() {
     assert!(!is_meilisearch_json_decl(r#""taskQueueCompactionRoute""#));
     assert!(!is_meilisearch_json_decl(r#""compositeEmbedders""#));
     assert!(!is_meilisearch_json_decl(r#""multimodal""#));
+    assert!(!is_meilisearch_json_decl(r#""metrics""#));
+    assert!(!is_meilisearch_json_decl(r#""network""#));
+    assert!(!is_meilisearch_json_decl(r#""disableDocumentsFetchQueue""#));
+    assert!(!is_meilisearch_json_decl(r#""legacySearch""#));
+    assert!(!is_meilisearch_json_decl(r#""renderRoute""#));
+    assert!(!is_meilisearch_json_decl(r#""mcpRoute""#));
     // Generic / neighbouring stay out.
     assert!(!is_meilisearch_json_decl(
         r#""$schema": "https://json-schema.org/draft/2020-12/schema""#

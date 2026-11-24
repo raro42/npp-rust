@@ -30845,7 +30845,15 @@ fn solr_json_bool_and_tail_ok(after_colon: &str) -> bool {
 /// `"getTaskDocumentsRoute": true` / `false`,
 /// `"taskQueueCompactionRoute": true` / `false`,
 /// `"compositeEmbedders": true` / `false`,
-/// `"multimodal": true` / `false`.
+/// `"multimodal": true` / `false`,
+/// `"metrics": true` / `false`,
+/// `"network": true` / `false`,
+/// `"disableDocumentsFetchQueue": true` / `false`,
+/// `"legacySearch": true` / `false`,
+/// `"renderRoute": true` / `false`,
+/// `"mcpRoute": true` / `false`
+/// (and `"foreignKeys": true` / `false` for the experimental toggle,
+/// alongside the index-settings `"foreignKeys": [` shape).
 /// Optional trailing `,` and `//` / `/*` comment. Incomplete quotes /
 /// missing `:` stay out. Generic `"$schema"` / `"name"` / `"id"` /
 /// `"hits": [` / `"query"` / `"limit"` / `"offset"` / `"page"` /
@@ -30927,9 +30935,12 @@ fn solr_json_bool_and_tail_ok(after_colon: &str) -> bool {
 /// `"equality"` / `"comparison"` / `"editDocumentsByFunction"` /
 /// `"containsFilter"` / `"dynamicSearchRules"` / `"chatCompletions"` /
 /// `"logsRoute"` / `"tasksStreamingRoute"` / `"getTaskDocumentsRoute"` /
-/// `"taskQueueCompactionRoute"` / `"compositeEmbedders"` / `"multimodal"`
-/// only match `true` / `false`. Algolia string `"sortFacetValuesBy"` stays
-/// out of this scanner (object only).
+/// `"taskQueueCompactionRoute"` / `"compositeEmbedders"` / `"multimodal"` /
+/// `"metrics"` / `"network"` / `"disableDocumentsFetchQueue"` /
+/// `"legacySearch"` / `"renderRoute"` / `"mcpRoute"` / `"foreignKeys"`
+/// only match `true` / `false` (array `"foreignKeys": [` still matches).
+/// Algolia string `"sortFacetValuesBy"` stays out of this scanner (object
+/// only).
 fn is_meilisearch_json_decl(s: &str) -> bool {
     let s = s.trim_start();
     let Some(rest) = s.strip_prefix('"') else {
@@ -31023,6 +31034,12 @@ fn meilisearch_json_key_ok(key: &str) -> bool {
             | "taskQueueCompactionRoute"
             | "compositeEmbedders"
             | "multimodal"
+            | "metrics"
+            | "network"
+            | "disableDocumentsFetchQueue"
+            | "legacySearch"
+            | "renderRoute"
+            | "mcpRoute"
     )
 }
 
@@ -31119,6 +31136,13 @@ fn meilisearch_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool {
                     | "taskQueueCompactionRoute"
                     | "compositeEmbedders"
                     | "multimodal"
+                    | "metrics"
+                    | "network"
+                    | "disableDocumentsFetchQueue"
+                    | "legacySearch"
+                    | "renderRoute"
+                    | "mcpRoute"
+                    | "foreignKeys"
             ) {
                 return false;
             }
@@ -31302,7 +31326,9 @@ fn meilisearch_json_bool_and_tail_ok(after_colon: &str) -> bool {
 /// `"dynamicSearchRules"` / `"chatCompletions"` / `"logsRoute"` /
 /// `"tasksStreamingRoute"` / `"getTaskDocumentsRoute"` /
 /// `"taskQueueCompactionRoute"` / `"compositeEmbedders"` /
-/// `"multimodal"` / Algolia
+/// `"multimodal"` / `"metrics"` / `"network"` /
+/// `"disableDocumentsFetchQueue"` / `"legacySearch"` /
+/// `"renderRoute"` / `"mcpRoute"` / Algolia
 /// `"processingTimeMS"` /
 /// `"nbPages"` / `"serverTimeMS"` / `"queryID"` / `"indexUsed"` /
 /// `"aroundLatLng"` / `"highlightPreTag"` / `"facets_stats"` /
