@@ -1,3 +1,5 @@
+009 keep: Function List Meilisearch editDocumentsByFunction/containsFilter/dynamicSearchRules/chatCompletions (v0.3.978)
+
 009 keep: Function List Meilisearch fieldName/features/equality/comparison (v0.3.977)
 
 009 keep: Function List Meilisearch wordPosition/foreignKeys/foreignIndexUid (v0.3.976)
