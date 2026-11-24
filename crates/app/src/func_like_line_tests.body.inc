@@ -32961,6 +32961,12 @@ fn meilisearch_json_keys_smoke() {
     assert!(is_meilisearch_json_decl(
         r#""foreignIndexUid": "products""#
     ));
+    assert!(is_meilisearch_json_decl(r#""fieldName": "productId""#));
+    assert!(is_meilisearch_json_decl(r#""features": {"#));
+    assert!(is_meilisearch_json_decl(r#""equality": true"#));
+    assert!(is_meilisearch_json_decl(r#""equality": false"#));
+    assert!(is_meilisearch_json_decl(r#""comparison": true"#));
+    assert!(is_meilisearch_json_decl(r#""comparison": false"#));
     // Distinctive neighbours stay out of this scanner.
     assert!(!is_meilisearch_json_decl(r#""responseHeader": {"#));
     assert!(is_solr_json_decl(r#""responseHeader": {"#));
@@ -33070,6 +33076,10 @@ fn meilisearch_json_keys_smoke() {
     assert!(line_is_func_like(r#""wordPosition": {"#));
     assert!(line_is_func_like(r#""foreignKeys": ["#));
     assert!(line_is_func_like(r#""foreignIndexUid": "products""#));
+    assert!(line_is_func_like(r#""fieldName": "productId""#));
+    assert!(line_is_func_like(r#""features": {"#));
+    assert!(line_is_func_like(r#""equality": true"#));
+    assert!(line_is_func_like(r#""comparison": false"#));
 }
 
 #[test]
@@ -33626,6 +33636,46 @@ fn meilisearch_json_keys_count() {
     assert!(!is_meilisearch_json_decl(
         r#""foreign_index_uid": "products""#
     ));
+    assert!(is_meilisearch_json_decl(r#""fieldName": "productId""#));
+    assert!(is_meilisearch_json_decl(r#""fieldName": "productId","#));
+    assert!(is_meilisearch_json_decl(
+        r#""fieldName": "productId" // f"#
+    ));
+    assert!(!is_meilisearch_json_decl(r#""fieldName": """#));
+    assert!(!is_meilisearch_json_decl(r#""fieldName": {"#));
+    assert!(!is_meilisearch_json_decl(r#""fieldName": ["#));
+    assert!(!is_meilisearch_json_decl(r#""fieldName": true"#));
+    assert!(!is_meilisearch_json_decl(r#""FieldName": "productId""#));
+    assert!(!is_meilisearch_json_decl(r#""field_name": "productId""#));
+    assert!(!is_meilisearch_json_decl(r#""fieldNames": "productId""#));
+    assert!(is_meilisearch_json_decl(r#""features": {"#));
+    assert!(is_meilisearch_json_decl(r#""features": {,"#));
+    assert!(is_meilisearch_json_decl(r#""features": { // f"#));
+    assert!(!is_meilisearch_json_decl(r#""features": ["#));
+    assert!(!is_meilisearch_json_decl(r#""features": true"#));
+    assert!(!is_meilisearch_json_decl(r#""features": """#));
+    assert!(!is_meilisearch_json_decl(r#""Features": {"#));
+    assert!(!is_meilisearch_json_decl(r#""feature": {"#));
+    assert!(is_meilisearch_json_decl(r#""equality": true"#));
+    assert!(is_meilisearch_json_decl(r#""equality": false"#));
+    assert!(is_meilisearch_json_decl(r#""equality": true,"#));
+    assert!(is_meilisearch_json_decl(r#""equality": true // e"#));
+    assert!(!is_meilisearch_json_decl(r#""equality": {"#));
+    assert!(!is_meilisearch_json_decl(r#""equality": ["#));
+    assert!(!is_meilisearch_json_decl(r#""equality": """#));
+    assert!(!is_meilisearch_json_decl(r#""equality": 1"#));
+    assert!(!is_meilisearch_json_decl(r#""Equality": true"#));
+    assert!(!is_meilisearch_json_decl(r#""equalities": true"#));
+    assert!(is_meilisearch_json_decl(r#""comparison": true"#));
+    assert!(is_meilisearch_json_decl(r#""comparison": false"#));
+    assert!(is_meilisearch_json_decl(r#""comparison": false,"#));
+    assert!(is_meilisearch_json_decl(r#""comparison": false // c"#));
+    assert!(!is_meilisearch_json_decl(r#""comparison": {"#));
+    assert!(!is_meilisearch_json_decl(r#""comparison": ["#));
+    assert!(!is_meilisearch_json_decl(r#""comparison": """#));
+    assert!(!is_meilisearch_json_decl(r#""comparison": 1"#));
+    assert!(!is_meilisearch_json_decl(r#""Comparison": true"#));
+    assert!(!is_meilisearch_json_decl(r#""comparisons": true"#));
     // Incomplete / wrong shapes stay out.
     assert!(!is_meilisearch_json_decl(r#""processingTimeMs""#));
     assert!(!is_meilisearch_json_decl(r#""processingTimeMs":"#));
@@ -33684,6 +33734,10 @@ fn meilisearch_json_keys_count() {
     assert!(!is_meilisearch_json_decl(r#""wordPosition""#));
     assert!(!is_meilisearch_json_decl(r#""foreignKeys""#));
     assert!(!is_meilisearch_json_decl(r#""foreignIndexUid""#));
+    assert!(!is_meilisearch_json_decl(r#""fieldName""#));
+    assert!(!is_meilisearch_json_decl(r#""features""#));
+    assert!(!is_meilisearch_json_decl(r#""equality""#));
+    assert!(!is_meilisearch_json_decl(r#""comparison""#));
     // Generic / neighbouring stay out.
     assert!(!is_meilisearch_json_decl(
         r#""$schema": "https://json-schema.org/draft/2020-12/schema""#
@@ -33707,10 +33761,6 @@ fn meilisearch_json_keys_count() {
     assert!(!is_meilisearch_json_decl(r#""distribution": {"#));
     assert!(!is_meilisearch_json_decl(r#""mean": 0.2"#));
     assert!(!is_meilisearch_json_decl(r#""sigma": 0.4"#));
-    assert!(!is_meilisearch_json_decl(r#""fieldName": "productId""#));
-    assert!(!is_meilisearch_json_decl(r#""features": {"#));
-    assert!(!is_meilisearch_json_decl(r#""equality": true"#));
-    assert!(!is_meilisearch_json_decl(r#""comparison": true"#));
     assert!(!is_meilisearch_json_decl(r#""source": "openAi""#));
     assert!(!is_meilisearch_json_decl(r#""request": {"#));
     assert!(!is_meilisearch_json_decl(r#""response": {"#));
