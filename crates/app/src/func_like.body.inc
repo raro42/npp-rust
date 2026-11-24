@@ -30890,7 +30890,7 @@ fn solr_json_bool_and_tail_ok(after_colon: &str) -> bool {
 /// `"currentStep": "…"`, `"attempts": 0` / `120`,
 /// `"blocking_attempts": 0` / `30`, `"blocking_ratio": 0.25`,
 /// `"lastError": "…"`, `"percentage": 0` / `37.98`, `"steps": [`,
-/// `"finished": 0` / `12300`.
+/// `"finished": 0` / `12300`, `"total": 0` / `19546`.
 /// Optional trailing `,` and `//` / `/*` comment. Incomplete quotes /
 /// missing `:` stay out. Generic `"$schema"` / `"name"` / `"id"` /
 /// `"hits": [` / `"query"` / `"limit"` / `"offset"` / `"page"` /
@@ -30963,7 +30963,8 @@ fn solr_json_bool_and_tail_ok(after_colon: &str) -> bool {
 /// `"receivedDocuments"` / `"indexedDocuments"` / `"deletedDocuments"` /
 /// `"providedIds"` / `"matchedTasks"` / `"canceledTasks"` /
 /// `"deletedTasks"` / `"canceledBy"` / `"taskUid"` / `"batchUid"` /
-/// `"totalNbTasks"` / `"attempts"` / `"blocking_attempts"` / `"finished"`
+/// `"totalNbTasks"` / `"attempts"` / `"blocking_attempts"` / `"finished"` /
+/// `"total"`
 /// reject leading zeros beyond `0`.
 /// `"rankingScoreThreshold"` / `"current_mean"` / `"current_sigma"` /
 /// `"_rankingScore"` / `"blocking_ratio"` / `"percentage"` allow a
@@ -31181,6 +31182,7 @@ fn meilisearch_json_key_ok(key: &str) -> bool {
             | "percentage"
             | "steps"
             | "finished"
+            | "total"
     )
 }
 
@@ -31469,7 +31471,8 @@ fn meilisearch_json_number_and_tail_ok(key: &str, after_colon: &str) -> bool {
         | "totalNbTasks"
         | "attempts"
         | "blocking_attempts"
-        | "finished" => {
+        | "finished"
+        | "total" => {
             let digits = after_colon
                 .bytes()
                 .take_while(|b| b.is_ascii_digit())
