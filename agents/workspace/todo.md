@@ -1,3 +1,5 @@
+009 keep: Function List Meilisearch logsRoute/tasksStreamingRoute/getTaskDocumentsRoute/taskQueueCompactionRoute/compositeEmbedders/multimodal (v0.3.979)
+
 009 keep: Function List Meilisearch editDocumentsByFunction/containsFilter/dynamicSearchRules/chatCompletions (v0.3.978)
 
 009 keep: Function List Meilisearch fieldName/features/equality/comparison (v0.3.977)
