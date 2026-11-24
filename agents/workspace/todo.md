@@ -1,3 +1,5 @@
+009 keep: Function List Meilisearch fieldName/features/equality/comparison (v0.3.977)
+
 009 keep: Function List Meilisearch wordPosition/foreignKeys/foreignIndexUid (v0.3.976)
 
 009 keep: Function List Meilisearch current_mean/current_sigma (v0.3.975)
