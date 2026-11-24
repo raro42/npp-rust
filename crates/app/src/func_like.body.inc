@@ -30862,7 +30862,13 @@ fn solr_json_bool_and_tail_ok(after_colon: &str) -> bool {
 /// `"showRankingScoreDetails": true` / `false`,
 /// `"attributesToRetrieve": [`,
 /// `"federation": {`, `"_federation": {`,
-/// `"_rankingScoreDetails": {`.
+/// `"_rankingScoreDetails": {`,
+/// `"attributesToCrop": [`, `"cropLength": 0` / `10`,
+/// `"cropMarker": "…"`, `"showMatchesPosition": true` / `false`,
+/// `"retrieveVectors": true` / `false`, `"hybrid": {`,
+/// `"locales": [`, `"vector": [`,
+/// `"_formatted": {`, `"_matchesPosition": {`,
+/// `"_rankingScore": 0.5`, `"_vectors": {`.
 /// Optional trailing `,` and `//` / `/*` comment. Incomplete quotes /
 /// missing `:` stay out. Generic `"$schema"` / `"name"` / `"id"` /
 /// `"hits": [` / `"query"` / `"limit"` / `"offset"` / `"page"` /
@@ -30927,9 +30933,11 @@ fn solr_json_bool_and_tail_ok(after_colon: &str) -> bool {
 /// `"pooling"` only matches `"useModel"` / `"forceMean"` / `"forceCls"`.
 /// Numeric `"processingTimeMs"` / `"estimatedTotalHits"` / `"nbHits"` /
 /// `"hitsPerPage"` / `"searchCutoffMs"` / `"documentTemplateMaxBytes"` /
-/// `"maxTotalHits"` / `"maxValuesPerFacet"` / `"oneTypo"` / `"twoTypos"`
+/// `"maxTotalHits"` / `"maxValuesPerFacet"` / `"oneTypo"` / `"twoTypos"` /
+/// `"cropLength"`
 /// reject leading zeros beyond `0`.
-/// `"rankingScoreThreshold"` / `"current_mean"` / `"current_sigma"` allow a
+/// `"rankingScoreThreshold"` / `"current_mean"` / `"current_sigma"` /
+/// `"_rankingScore"` allow a
 /// simple decimal (no exponent). Array
 /// index-setting keys / `"attributePatterns"` require `[`. Object
 /// `"synonyms"` / `"typoTolerance"` / `"pagination"` / `"faceting"` /
@@ -30937,14 +30945,17 @@ fn solr_json_bool_and_tail_ok(after_colon: &str) -> bool {
 /// `"minWordSizeForTypos"` / `"indexingFragments"` / `"searchFragments"` /
 /// `"searchEmbedder"` / `"indexingEmbedder"` / `"wordPosition"` /
 /// `"features"` / `"shards"` / `"previousShards"` / `"previousRemotes"` /
-/// `"federation"` / `"_federation"` / `"_rankingScoreDetails"`
+/// `"federation"` / `"_federation"` / `"_rankingScoreDetails"` /
+/// `"hybrid"` / `"_formatted"` / `"_matchesPosition"` / `"_vectors"`
 /// require `{`. Object or array `"remotes"` accepts `{` or `[`.
 /// String `"distinctAttribute"` / `"documentTemplate"` / `"foreignIndexUid"` /
-/// `"fieldName"` / `"searchApiKey"` / `"writeApiKey"` / `"leader"` / `"self"`
+/// `"fieldName"` / `"searchApiKey"` / `"writeApiKey"` / `"leader"` / `"self"` /
+/// `"cropMarker"`
 /// require a non-empty quoted string. String `"url"` requires a non-empty
 /// `http://` or `https://` quoted string (relative paths stay out). Array
 /// `"foreignKeys"` / `"addRemotes"` / `"removeRemotes"` /
-/// `"attributesToRetrieve"` require `[`.
+/// `"attributesToRetrieve"` / `"attributesToCrop"` / `"locales"` /
+/// `"vector"` require `[`.
 /// Bool `"facetSearch"` / `"disableOnNumbers"` / `"binaryQuantized"` /
 /// `"equality"` / `"comparison"` / `"editDocumentsByFunction"` /
 /// `"containsFilter"` / `"dynamicSearchRules"` / `"chatCompletions"` /
@@ -30952,7 +30963,8 @@ fn solr_json_bool_and_tail_ok(after_colon: &str) -> bool {
 /// `"taskQueueCompactionRoute"` / `"compositeEmbedders"` / `"multimodal"` /
 /// `"metrics"` / `"network"` / `"disableDocumentsFetchQueue"` /
 /// `"legacySearch"` / `"renderRoute"` / `"mcpRoute"` / `"foreignKeys"` /
-/// `"useNetwork"` / `"showRankingScoreDetails"`
+/// `"useNetwork"` / `"showRankingScoreDetails"` /
+/// `"showMatchesPosition"` / `"retrieveVectors"`
 /// only match `true` / `false` (array `"foreignKeys": [` still matches).
 /// Algolia string `"sortFacetValuesBy"` stays out of this scanner (object
 /// only).
@@ -31072,6 +31084,18 @@ fn meilisearch_json_key_ok(key: &str) -> bool {
             | "federation"
             | "_federation"
             | "_rankingScoreDetails"
+            | "attributesToCrop"
+            | "cropLength"
+            | "cropMarker"
+            | "showMatchesPosition"
+            | "retrieveVectors"
+            | "hybrid"
+            | "locales"
+            | "vector"
+            | "_formatted"
+            | "_matchesPosition"
+            | "_rankingScore"
+            | "_vectors"
     )
 }
 
@@ -31107,6 +31131,10 @@ fn meilisearch_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool {
                     | "federation"
                     | "_federation"
                     | "_rankingScoreDetails"
+                    | "hybrid"
+                    | "_formatted"
+                    | "_matchesPosition"
+                    | "_vectors"
             ) {
                 return false;
             }
@@ -31134,6 +31162,9 @@ fn meilisearch_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool {
                     | "addRemotes"
                     | "removeRemotes"
                     | "attributesToRetrieve"
+                    | "attributesToCrop"
+                    | "locales"
+                    | "vector"
             ) {
                 return false;
             }
@@ -31156,6 +31187,7 @@ fn meilisearch_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool {
                 || key == "writeApiKey"
                 || key == "leader"
                 || key == "self"
+                || key == "cropMarker"
             {
                 meilisearch_json_nonempty_string_and_tail_ok(after_colon)
             } else if key == "url" {
@@ -31194,6 +31226,8 @@ fn meilisearch_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool {
                     | "foreignKeys"
                     | "useNetwork"
                     | "showRankingScoreDetails"
+                    | "showMatchesPosition"
+                    | "retrieveVectors"
             ) {
                 return false;
             }
@@ -31301,7 +31335,8 @@ fn meilisearch_json_number_and_tail_ok(key: &str, after_colon: &str) -> bool {
         | "maxTotalHits"
         | "maxValuesPerFacet"
         | "oneTypo"
-        | "twoTypos" => {
+        | "twoTypos"
+        | "cropLength" => {
             let digits = after_colon
                 .bytes()
                 .take_while(|b| b.is_ascii_digit())
@@ -31314,7 +31349,7 @@ fn meilisearch_json_number_and_tail_ok(key: &str, after_colon: &str) -> bool {
             }
             package_json_tail_ok(&after_colon[digits..])
         }
-        "rankingScoreThreshold" | "current_mean" | "current_sigma" => {
+        "rankingScoreThreshold" | "current_mean" | "current_sigma" | "_rankingScore" => {
             meilisearch_json_ranking_score_and_tail_ok(after_colon)
         }
         _ => false,

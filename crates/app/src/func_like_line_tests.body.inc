@@ -33046,6 +33046,21 @@ fn meilisearch_json_keys_smoke() {
     assert!(is_meilisearch_json_decl(r#""federation": {"#));
     assert!(is_meilisearch_json_decl(r#""_federation": {"#));
     assert!(is_meilisearch_json_decl(r#""_rankingScoreDetails": {"#));
+    assert!(is_meilisearch_json_decl(r#""attributesToCrop": ["#));
+    assert!(is_meilisearch_json_decl(r#""cropLength": 0"#));
+    assert!(is_meilisearch_json_decl(r#""cropLength": 10"#));
+    assert!(is_meilisearch_json_decl(r#""cropMarker": "…""#));
+    assert!(is_meilisearch_json_decl(r#""showMatchesPosition": true"#));
+    assert!(is_meilisearch_json_decl(r#""showMatchesPosition": false"#));
+    assert!(is_meilisearch_json_decl(r#""retrieveVectors": true"#));
+    assert!(is_meilisearch_json_decl(r#""retrieveVectors": false"#));
+    assert!(is_meilisearch_json_decl(r#""hybrid": {"#));
+    assert!(is_meilisearch_json_decl(r#""locales": ["#));
+    assert!(is_meilisearch_json_decl(r#""vector": ["#));
+    assert!(is_meilisearch_json_decl(r#""_formatted": {"#));
+    assert!(is_meilisearch_json_decl(r#""_matchesPosition": {"#));
+    assert!(is_meilisearch_json_decl(r#""_rankingScore": 0.5"#));
+    assert!(is_meilisearch_json_decl(r#""_vectors": {"#));
     // Distinctive neighbours stay out of this scanner.
     assert!(!is_meilisearch_json_decl(r#""responseHeader": {"#));
     assert!(is_solr_json_decl(r#""responseHeader": {"#));
@@ -33197,6 +33212,20 @@ fn meilisearch_json_keys_smoke() {
     assert!(line_is_func_like(r#""federation": {"#));
     assert!(line_is_func_like(r#""_federation": {"#));
     assert!(line_is_func_like(r#""_rankingScoreDetails": {"#));
+    assert!(line_is_func_like(r#""attributesToCrop": ["#));
+    assert!(line_is_func_like(r#""cropLength": 10"#));
+    assert!(line_is_func_like(r#""cropMarker": "…""#));
+    assert!(line_is_func_like(r#""showMatchesPosition": true"#));
+    assert!(line_is_func_like(r#""showMatchesPosition": false"#));
+    assert!(line_is_func_like(r#""retrieveVectors": true"#));
+    assert!(line_is_func_like(r#""retrieveVectors": false"#));
+    assert!(line_is_func_like(r#""hybrid": {"#));
+    assert!(line_is_func_like(r#""locales": ["#));
+    assert!(line_is_func_like(r#""vector": ["#));
+    assert!(line_is_func_like(r#""_formatted": {"#));
+    assert!(line_is_func_like(r#""_matchesPosition": {"#));
+    assert!(line_is_func_like(r#""_rankingScore": 0.5"#));
+    assert!(line_is_func_like(r#""_vectors": {"#));
 }
 
 #[test]
@@ -34239,6 +34268,125 @@ fn meilisearch_json_keys_count() {
     assert!(!is_meilisearch_json_decl(
         r#""rankingScoreDetails": {"#
     ));
+    assert!(is_meilisearch_json_decl(r#""attributesToCrop": ["#));
+    assert!(is_meilisearch_json_decl(r#""attributesToCrop": [,"#));
+    assert!(is_meilisearch_json_decl(r#""attributesToCrop": [ // a"#));
+    assert!(!is_meilisearch_json_decl(r#""attributesToCrop": {"#));
+    assert!(!is_meilisearch_json_decl(r#""attributesToCrop": true"#));
+    assert!(!is_meilisearch_json_decl(r#""attributesToCrop": """#));
+    assert!(!is_meilisearch_json_decl(r#""AttributesToCrop": ["#));
+    assert!(!is_meilisearch_json_decl(
+        r#""attributes_to_crop": ["#
+    ));
+    assert!(is_meilisearch_json_decl(r#""cropLength": 0"#));
+    assert!(is_meilisearch_json_decl(r#""cropLength": 10"#));
+    assert!(is_meilisearch_json_decl(r#""cropLength": 10,"#));
+    assert!(is_meilisearch_json_decl(r#""cropLength": 10 // c"#));
+    assert!(!is_meilisearch_json_decl(r#""cropLength": 00"#));
+    assert!(!is_meilisearch_json_decl(r#""cropLength": 01"#));
+    assert!(!is_meilisearch_json_decl(r#""cropLength": true"#));
+    assert!(!is_meilisearch_json_decl(r#""cropLength": {"#));
+    assert!(!is_meilisearch_json_decl(r#""cropLength": "10""#));
+    assert!(!is_meilisearch_json_decl(r#""CropLength": 10"#));
+    assert!(is_meilisearch_json_decl(r#""cropMarker": "…""#));
+    assert!(is_meilisearch_json_decl(r#""cropMarker": "…","#));
+    assert!(is_meilisearch_json_decl(r#""cropMarker": "…" // c"#));
+    assert!(!is_meilisearch_json_decl(r#""cropMarker": """#));
+    assert!(!is_meilisearch_json_decl(r#""cropMarker": {"#));
+    assert!(!is_meilisearch_json_decl(r#""cropMarker": ["#));
+    assert!(!is_meilisearch_json_decl(r#""cropMarker": true"#));
+    assert!(!is_meilisearch_json_decl(r#""CropMarker": "…""#));
+    assert!(is_meilisearch_json_decl(r#""showMatchesPosition": true"#));
+    assert!(is_meilisearch_json_decl(r#""showMatchesPosition": false"#));
+    assert!(is_meilisearch_json_decl(
+        r#""showMatchesPosition": true,"#
+    ));
+    assert!(is_meilisearch_json_decl(
+        r#""showMatchesPosition": false // s"#
+    ));
+    assert!(!is_meilisearch_json_decl(r#""showMatchesPosition": {"#));
+    assert!(!is_meilisearch_json_decl(r#""showMatchesPosition": ["#));
+    assert!(!is_meilisearch_json_decl(r#""showMatchesPosition": """#));
+    assert!(!is_meilisearch_json_decl(r#""showMatchesPosition": 1"#));
+    assert!(!is_meilisearch_json_decl(
+        r#""ShowMatchesPosition": true"#
+    ));
+    assert!(!is_meilisearch_json_decl(
+        r#""show_matches_position": true"#
+    ));
+    assert!(is_meilisearch_json_decl(r#""retrieveVectors": true"#));
+    assert!(is_meilisearch_json_decl(r#""retrieveVectors": false"#));
+    assert!(is_meilisearch_json_decl(r#""retrieveVectors": true,"#));
+    assert!(is_meilisearch_json_decl(
+        r#""retrieveVectors": false // r"#
+    ));
+    assert!(!is_meilisearch_json_decl(r#""retrieveVectors": {"#));
+    assert!(!is_meilisearch_json_decl(r#""retrieveVectors": ["#));
+    assert!(!is_meilisearch_json_decl(r#""retrieveVectors": """#));
+    assert!(!is_meilisearch_json_decl(r#""retrieveVectors": 1"#));
+    assert!(!is_meilisearch_json_decl(r#""RetrieveVectors": true"#));
+    assert!(!is_meilisearch_json_decl(
+        r#""retrieve_vectors": true"#
+    ));
+    assert!(is_meilisearch_json_decl(r#""hybrid": {"#));
+    assert!(is_meilisearch_json_decl(r#""hybrid": {,"#));
+    assert!(is_meilisearch_json_decl(r#""hybrid": { // h"#));
+    assert!(!is_meilisearch_json_decl(r#""hybrid": ["#));
+    assert!(!is_meilisearch_json_decl(r#""hybrid": true"#));
+    assert!(!is_meilisearch_json_decl(r#""hybrid": """#));
+    assert!(!is_meilisearch_json_decl(r#""Hybrid": {"#));
+    assert!(is_meilisearch_json_decl(r#""locales": ["#));
+    assert!(is_meilisearch_json_decl(r#""locales": [,"#));
+    assert!(is_meilisearch_json_decl(r#""locales": [ // l"#));
+    assert!(!is_meilisearch_json_decl(r#""locales": {"#));
+    assert!(!is_meilisearch_json_decl(r#""locales": true"#));
+    assert!(!is_meilisearch_json_decl(r#""locales": """#));
+    assert!(!is_meilisearch_json_decl(r#""Locales": ["#));
+    assert!(is_meilisearch_json_decl(r#""vector": ["#));
+    assert!(is_meilisearch_json_decl(r#""vector": [,"#));
+    assert!(is_meilisearch_json_decl(r#""vector": [ // v"#));
+    assert!(!is_meilisearch_json_decl(r#""vector": {"#));
+    assert!(!is_meilisearch_json_decl(r#""vector": true"#));
+    assert!(!is_meilisearch_json_decl(r#""vector": """#));
+    assert!(!is_meilisearch_json_decl(r#""Vector": ["#));
+    assert!(is_meilisearch_json_decl(r#""_formatted": {"#));
+    assert!(is_meilisearch_json_decl(r#""_formatted": {,"#));
+    assert!(is_meilisearch_json_decl(r#""_formatted": { // f"#));
+    assert!(!is_meilisearch_json_decl(r#""_formatted": ["#));
+    assert!(!is_meilisearch_json_decl(r#""_formatted": true"#));
+    assert!(!is_meilisearch_json_decl(r#""_formatted": """#));
+    assert!(!is_meilisearch_json_decl(r#""_Formatted": {"#));
+    assert!(!is_meilisearch_json_decl(r#""formatted": {"#));
+    assert!(is_meilisearch_json_decl(r#""_matchesPosition": {"#));
+    assert!(is_meilisearch_json_decl(r#""_matchesPosition": {,"#));
+    assert!(is_meilisearch_json_decl(
+        r#""_matchesPosition": { // m"#
+    ));
+    assert!(!is_meilisearch_json_decl(r#""_matchesPosition": ["#));
+    assert!(!is_meilisearch_json_decl(r#""_matchesPosition": true"#));
+    assert!(!is_meilisearch_json_decl(r#""_matchesPosition": """#));
+    assert!(!is_meilisearch_json_decl(r#""_MatchesPosition": {"#));
+    assert!(!is_meilisearch_json_decl(r#""matchesPosition": {"#));
+    assert!(is_meilisearch_json_decl(r#""_rankingScore": 0"#));
+    assert!(is_meilisearch_json_decl(r#""_rankingScore": 0.5"#));
+    assert!(is_meilisearch_json_decl(r#""_rankingScore": 1"#));
+    assert!(is_meilisearch_json_decl(r#""_rankingScore": 0.5,"#));
+    assert!(is_meilisearch_json_decl(r#""_rankingScore": 0.5 // r"#));
+    assert!(!is_meilisearch_json_decl(r#""_rankingScore": 00"#));
+    assert!(!is_meilisearch_json_decl(r#""_rankingScore": 01"#));
+    assert!(!is_meilisearch_json_decl(r#""_rankingScore": true"#));
+    assert!(!is_meilisearch_json_decl(r#""_rankingScore": {"#));
+    assert!(!is_meilisearch_json_decl(r#""_rankingScore": "0.5""#));
+    assert!(!is_meilisearch_json_decl(r#""_RankingScore": 0.5"#));
+    assert!(!is_meilisearch_json_decl(r#""rankingScore": 0.5"#));
+    assert!(is_meilisearch_json_decl(r#""_vectors": {"#));
+    assert!(is_meilisearch_json_decl(r#""_vectors": {,"#));
+    assert!(is_meilisearch_json_decl(r#""_vectors": { // v"#));
+    assert!(!is_meilisearch_json_decl(r#""_vectors": ["#));
+    assert!(!is_meilisearch_json_decl(r#""_vectors": true"#));
+    assert!(!is_meilisearch_json_decl(r#""_vectors": """#));
+    assert!(!is_meilisearch_json_decl(r#""_Vectors": {"#));
+    assert!(!is_meilisearch_json_decl(r#""vectors": {"#));
     // Incomplete / wrong shapes stay out.
     assert!(!is_meilisearch_json_decl(r#""processingTimeMs""#));
     assert!(!is_meilisearch_json_decl(r#""processingTimeMs":"#));
@@ -34334,6 +34482,18 @@ fn meilisearch_json_keys_count() {
     assert!(!is_meilisearch_json_decl(r#""federation""#));
     assert!(!is_meilisearch_json_decl(r#""_federation""#));
     assert!(!is_meilisearch_json_decl(r#""_rankingScoreDetails""#));
+    assert!(!is_meilisearch_json_decl(r#""attributesToCrop""#));
+    assert!(!is_meilisearch_json_decl(r#""cropLength""#));
+    assert!(!is_meilisearch_json_decl(r#""cropMarker""#));
+    assert!(!is_meilisearch_json_decl(r#""showMatchesPosition""#));
+    assert!(!is_meilisearch_json_decl(r#""retrieveVectors""#));
+    assert!(!is_meilisearch_json_decl(r#""hybrid""#));
+    assert!(!is_meilisearch_json_decl(r#""locales""#));
+    assert!(!is_meilisearch_json_decl(r#""vector""#));
+    assert!(!is_meilisearch_json_decl(r#""_formatted""#));
+    assert!(!is_meilisearch_json_decl(r#""_matchesPosition""#));
+    assert!(!is_meilisearch_json_decl(r#""_rankingScore""#));
+    assert!(!is_meilisearch_json_decl(r#""_vectors""#));
     // Generic / neighbouring stay out.
     assert!(!is_meilisearch_json_decl(
         r#""$schema": "https://json-schema.org/draft/2020-12/schema""#
@@ -53063,7 +53223,7 @@ fn instant_meilisearch_json_keys_count() {
     assert!(!is_instant_meilisearch_json_decl(r#""httpClient": "x""#));
     assert!(!is_instant_meilisearch_json_decl(r#""HttpClient": {"#));
     assert!(!is_instant_meilisearch_json_decl(r#""httpClients": {"#));
-    assert!(!is_meilisearch_json_decl(r#""cropMarker": "...""#));
+    assert!(is_meilisearch_json_decl(r#""cropMarker": "...""#));
     assert!(!is_pagefind_json_decl(r#""cropMarker": "...""#));
     assert!(is_instant_meilisearch_json_decl(r#""cropMarker": "...""#));
     assert!(is_instant_meilisearch_json_decl(r#""cropMarker": "...","#));
@@ -53072,7 +53232,7 @@ fn instant_meilisearch_json_keys_count() {
     assert!(!is_instant_meilisearch_json_decl(r#""cropMarker": true"#));
     assert!(!is_instant_meilisearch_json_decl(r#""cropMarker": 1"#));
     assert!(!is_instant_meilisearch_json_decl(r#""CropMarker": "...""#));
-    assert!(!is_meilisearch_json_decl(r#""cropLength": 10"#));
+    assert!(is_meilisearch_json_decl(r#""cropLength": 10"#));
     assert!(!is_pagefind_json_decl(r#""cropLength": 10"#));
     assert!(is_instant_meilisearch_json_decl(r#""cropLength": 0"#));
     assert!(is_instant_meilisearch_json_decl(r#""cropLength": 10"#));
@@ -53082,7 +53242,7 @@ fn instant_meilisearch_json_keys_count() {
     assert!(!is_instant_meilisearch_json_decl(r#""cropLength": true"#));
     assert!(!is_instant_meilisearch_json_decl(r#""cropLength": "10""#));
     assert!(!is_instant_meilisearch_json_decl(r#""CropLength": 10"#));
-    assert!(!is_meilisearch_json_decl(r#""attributesToCrop": ["#));
+    assert!(is_meilisearch_json_decl(r#""attributesToCrop": ["#));
     assert!(!is_pagefind_json_decl(r#""attributesToCrop": ["#));
     assert!(is_instant_meilisearch_json_decl(r#""attributesToCrop": ["#));
     assert!(is_instant_meilisearch_json_decl(r#""attributesToCrop": [,"#));
@@ -53091,7 +53251,7 @@ fn instant_meilisearch_json_keys_count() {
     assert!(!is_instant_meilisearch_json_decl(r#""attributesToCrop": true"#));
     assert!(!is_instant_meilisearch_json_decl(r#""attributesToCrop": "x""#));
     assert!(!is_instant_meilisearch_json_decl(r#""AttributesToCrop": ["#));
-    assert!(!is_meilisearch_json_decl(r#""showMatchesPosition": true"#));
+    assert!(is_meilisearch_json_decl(r#""showMatchesPosition": true"#));
     assert!(!is_pagefind_json_decl(r#""showMatchesPosition": true"#));
     assert!(is_instant_meilisearch_json_decl(r#""showMatchesPosition": true"#));
     assert!(is_instant_meilisearch_json_decl(r#""showMatchesPosition": false"#));
@@ -53101,7 +53261,7 @@ fn instant_meilisearch_json_keys_count() {
     assert!(!is_instant_meilisearch_json_decl(r#""showMatchesPosition": "true""#));
     assert!(!is_instant_meilisearch_json_decl(r#""showMatchesPosition": {"#));
     assert!(!is_instant_meilisearch_json_decl(r#""ShowMatchesPosition": true"#));
-    assert!(!is_meilisearch_json_decl(r#""hybrid": {"#));
+    assert!(is_meilisearch_json_decl(r#""hybrid": {"#));
     assert!(!is_pagefind_json_decl(r#""hybrid": {"#));
     assert!(is_instant_meilisearch_json_decl(r#""hybrid": {"#));
     assert!(is_instant_meilisearch_json_decl(r#""hybrid": {,"#));
@@ -53140,7 +53300,7 @@ fn instant_meilisearch_json_keys_count() {
     assert!(!is_instant_meilisearch_json_decl(
         r#""ShowRankingScoreDetails": true"#
     ));
-    assert!(!is_meilisearch_json_decl(r#""retrieveVectors": true"#));
+    assert!(is_meilisearch_json_decl(r#""retrieveVectors": true"#));
     assert!(!is_pagefind_json_decl(r#""retrieveVectors": true"#));
     assert!(is_instant_meilisearch_json_decl(
         r#""retrieveVectors": true"#
@@ -53166,7 +53326,7 @@ fn instant_meilisearch_json_keys_count() {
     assert!(!is_instant_meilisearch_json_decl(
         r#""RetrieveVectors": true"#
     ));
-    assert!(!is_meilisearch_json_decl(r#""locales": ["#));
+    assert!(is_meilisearch_json_decl(r#""locales": ["#));
     assert!(!is_pagefind_json_decl(r#""locales": ["#));
     assert!(is_instant_meilisearch_json_decl(r#""locales": ["#));
     assert!(is_instant_meilisearch_json_decl(r#""locales": [,"#));
@@ -53210,7 +53370,7 @@ fn instant_meilisearch_json_keys_count() {
     assert!(!is_instant_meilisearch_json_decl(r#""indexUid": true"#));
     assert!(!is_instant_meilisearch_json_decl(r#""indexUid": 1"#));
     assert!(!is_instant_meilisearch_json_decl(r#""IndexUid": "movies""#));
-    assert!(!is_meilisearch_json_decl(r#""vector": ["#));
+    assert!(is_meilisearch_json_decl(r#""vector": ["#));
     assert!(!is_pagefind_json_decl(r#""vector": ["#));
     assert!(is_instant_meilisearch_json_decl(r#""vector": ["#));
     assert!(is_instant_meilisearch_json_decl(r#""vector": [,"#));
