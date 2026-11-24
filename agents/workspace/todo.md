@@ -1,3 +1,5 @@
+009 keep: Function List Meilisearch attempts/blocking_attempts/blocking_ratio/lastError (v0.3.994)
+
 009 keep: Function List Meilisearch batchStrategy/writeChannelCongestion/embedderRequests/currentStep (v0.3.993)
 
 009 keep: Function List Meilisearch totalNbTasks/indexUids/progressTrace (v0.3.992)
