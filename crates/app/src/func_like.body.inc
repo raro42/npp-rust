@@ -30884,7 +30884,8 @@ fn solr_json_bool_and_tail_ok(after_colon: &str) -> bool {
 /// `"deletedTasks": 0` / `10`, `"enqueuedAt": "…"`, `"startedAt": "…"`,
 /// `"finishedAt": "…"`, `"canceledBy": 0` / `10`, `"taskUid": 0` / `10`,
 /// `"duration": "PT…"`, `"batchUid": 0` / `12`, `"originalFilter": "…"`,
-/// `"dumpUid": "…"`, `"swaps": [`.
+/// `"dumpUid": "…"`, `"swaps": [`, `"totalNbTasks": 0` / `5`,
+/// `"indexUids": {`, `"progressTrace": {`.
 /// Optional trailing `,` and `//` / `/*` comment. Incomplete quotes /
 /// missing `:` stay out. Generic `"$schema"` / `"name"` / `"id"` /
 /// `"hits": [` / `"query"` / `"limit"` / `"offset"` / `"page"` /
@@ -30956,7 +30957,8 @@ fn solr_json_bool_and_tail_ok(after_colon: &str) -> bool {
 /// `"numberOfEmbeddings"` / `"numberOfEmbeddedDocuments"` /
 /// `"receivedDocuments"` / `"indexedDocuments"` / `"deletedDocuments"` /
 /// `"providedIds"` / `"matchedTasks"` / `"canceledTasks"` /
-/// `"deletedTasks"` / `"canceledBy"` / `"taskUid"` / `"batchUid"`
+/// `"deletedTasks"` / `"canceledBy"` / `"taskUid"` / `"batchUid"` /
+/// `"totalNbTasks"`
 /// reject leading zeros beyond `0`.
 /// `"rankingScoreThreshold"` / `"current_mean"` / `"current_sigma"` /
 /// `"_rankingScore"` allow a
@@ -30969,7 +30971,8 @@ fn solr_json_bool_and_tail_ok(after_colon: &str) -> bool {
 /// `"features"` / `"shards"` / `"previousShards"` / `"previousRemotes"` /
 /// `"federation"` / `"_federation"` / `"_rankingScoreDetails"` /
 /// `"hybrid"` / `"_formatted"` / `"_matchesPosition"` / `"_vectors"` /
-/// `"fieldDistribution"` / `"indexes"` / `"internalDatabaseSizes"`
+/// `"fieldDistribution"` / `"indexes"` / `"internalDatabaseSizes"` /
+/// `"indexUids"` / `"progressTrace"`
 /// require `{`. Object or array `"remotes"` accepts `{` or `[`.
 /// String `"distinctAttribute"` / `"documentTemplate"` / `"foreignIndexUid"` /
 /// `"fieldName"` / `"searchApiKey"` / `"writeApiKey"` / `"leader"` / `"self"` /
@@ -31157,6 +31160,9 @@ fn meilisearch_json_key_ok(key: &str) -> bool {
             | "originalFilter"
             | "dumpUid"
             | "swaps"
+            | "totalNbTasks"
+            | "indexUids"
+            | "progressTrace"
     )
 }
 
@@ -31199,6 +31205,8 @@ fn meilisearch_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool {
                     | "fieldDistribution"
                     | "indexes"
                     | "internalDatabaseSizes"
+                    | "indexUids"
+                    | "progressTrace"
             ) {
                 return false;
             }
@@ -31433,7 +31441,8 @@ fn meilisearch_json_number_and_tail_ok(key: &str, after_colon: &str) -> bool {
         | "deletedTasks"
         | "canceledBy"
         | "taskUid"
-        | "batchUid" => {
+        | "batchUid"
+        | "totalNbTasks" => {
             let digits = after_colon
                 .bytes()
                 .take_while(|b| b.is_ascii_digit())

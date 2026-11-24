@@ -33136,6 +33136,10 @@ fn meilisearch_json_keys_smoke() {
         r#""dumpUid": "20250710-133700205""#
     ));
     assert!(is_meilisearch_json_decl(r#""swaps": ["#));
+    assert!(is_meilisearch_json_decl(r#""totalNbTasks": 0"#));
+    assert!(is_meilisearch_json_decl(r#""totalNbTasks": 5"#));
+    assert!(is_meilisearch_json_decl(r#""indexUids": {"#));
+    assert!(is_meilisearch_json_decl(r#""progressTrace": {"#));
     // Distinctive neighbours stay out of this scanner.
     assert!(!is_meilisearch_json_decl(r#""responseHeader": {"#));
     assert!(is_solr_json_decl(r#""responseHeader": {"#));
@@ -33347,6 +33351,9 @@ fn meilisearch_json_keys_smoke() {
     assert!(line_is_func_like(r#""originalFilter": "?uids=1,2""#));
     assert!(line_is_func_like(r#""dumpUid": "20250710-133700205""#));
     assert!(line_is_func_like(r#""swaps": ["#));
+    assert!(line_is_func_like(r#""totalNbTasks": 5"#));
+    assert!(line_is_func_like(r#""indexUids": {"#));
+    assert!(line_is_func_like(r#""progressTrace": {"#));
 }
 
 #[test]
@@ -35002,6 +35009,35 @@ fn meilisearch_json_keys_count() {
     assert!(!is_meilisearch_json_decl(r#""swaps": 1"#));
     assert!(!is_meilisearch_json_decl(r#""Swaps": ["#));
     assert!(!is_meilisearch_json_decl(r#""swap": ["#));
+    assert!(is_meilisearch_json_decl(r#""totalNbTasks": 0"#));
+    assert!(is_meilisearch_json_decl(r#""totalNbTasks": 5"#));
+    assert!(is_meilisearch_json_decl(r#""totalNbTasks": 5,"#));
+    assert!(is_meilisearch_json_decl(r#""totalNbTasks": 5 // n"#));
+    assert!(!is_meilisearch_json_decl(r#""totalNbTasks": 00"#));
+    assert!(!is_meilisearch_json_decl(r#""totalNbTasks": 05"#));
+    assert!(!is_meilisearch_json_decl(r#""totalNbTasks": true"#));
+    assert!(!is_meilisearch_json_decl(r#""totalNbTasks": {"#));
+    assert!(!is_meilisearch_json_decl(r#""totalNbTasks": "5""#));
+    assert!(!is_meilisearch_json_decl(r#""TotalNbTasks": 5"#));
+    assert!(!is_meilisearch_json_decl(r#""total_nb_tasks": 5"#));
+    assert!(is_meilisearch_json_decl(r#""indexUids": {"#));
+    assert!(is_meilisearch_json_decl(r#""indexUids": {,"#));
+    assert!(is_meilisearch_json_decl(r#""indexUids": { // i"#));
+    assert!(!is_meilisearch_json_decl(r#""indexUids": ["#));
+    assert!(!is_meilisearch_json_decl(r#""indexUids": true"#));
+    assert!(!is_meilisearch_json_decl(r#""indexUids": 1"#));
+    assert!(!is_meilisearch_json_decl(r#""indexUids": "movies""#));
+    assert!(!is_meilisearch_json_decl(r#""IndexUids": {"#));
+    assert!(!is_meilisearch_json_decl(r#""index_uids": {"#));
+    assert!(is_meilisearch_json_decl(r#""progressTrace": {"#));
+    assert!(is_meilisearch_json_decl(r#""progressTrace": {,"#));
+    assert!(is_meilisearch_json_decl(r#""progressTrace": { // p"#));
+    assert!(!is_meilisearch_json_decl(r#""progressTrace": ["#));
+    assert!(!is_meilisearch_json_decl(r#""progressTrace": true"#));
+    assert!(!is_meilisearch_json_decl(r#""progressTrace": 1"#));
+    assert!(!is_meilisearch_json_decl(r#""progressTrace": "trace""#));
+    assert!(!is_meilisearch_json_decl(r#""ProgressTrace": {"#));
+    assert!(!is_meilisearch_json_decl(r#""progress_trace": {"#));
     // Incomplete / wrong shapes stay out.
     assert!(!is_meilisearch_json_decl(r#""processingTimeMs""#));
     assert!(!is_meilisearch_json_decl(r#""processingTimeMs":"#));
@@ -35146,6 +35182,9 @@ fn meilisearch_json_keys_count() {
     assert!(!is_meilisearch_json_decl(r#""originalFilter""#));
     assert!(!is_meilisearch_json_decl(r#""dumpUid""#));
     assert!(!is_meilisearch_json_decl(r#""swaps""#));
+    assert!(!is_meilisearch_json_decl(r#""totalNbTasks""#));
+    assert!(!is_meilisearch_json_decl(r#""indexUids""#));
+    assert!(!is_meilisearch_json_decl(r#""progressTrace""#));
     // Generic / neighbouring stay out.
     assert!(!is_meilisearch_json_decl(
         r#""$schema": "https://json-schema.org/draft/2020-12/schema""#
