@@ -1604,3 +1604,5 @@
 009 keep: Function List Meilisearch embedders/localizedAttributes/facetSearch/prefixSearch (v0.3.970)
 
 009 keep: Function List Meilisearch chat/documentTemplate/documentTemplateMaxBytes (v0.3.971)
+
+009 keep: Function List Meilisearch maxTotalHits/maxValuesPerFacet/sortFacetValuesBy/minWordSizeForTypos/disableOnWords/disableOnAttributes/disableOnNumbers/binaryQuantized (v0.3.972)
