@@ -32952,6 +32952,10 @@ fn meilisearch_json_keys_smoke() {
     assert!(is_meilisearch_json_decl(r#""oneTypo": 5"#));
     assert!(is_meilisearch_json_decl(r#""twoTypos": 0"#));
     assert!(is_meilisearch_json_decl(r#""twoTypos": 9"#));
+    assert!(is_meilisearch_json_decl(r#""current_mean": 0"#));
+    assert!(is_meilisearch_json_decl(r#""current_mean": 0.2"#));
+    assert!(is_meilisearch_json_decl(r#""current_sigma": 0"#));
+    assert!(is_meilisearch_json_decl(r#""current_sigma": 0.4"#));
     // Distinctive neighbours stay out of this scanner.
     assert!(!is_meilisearch_json_decl(r#""responseHeader": {"#));
     assert!(is_solr_json_decl(r#""responseHeader": {"#));
@@ -33056,6 +33060,8 @@ fn meilisearch_json_keys_smoke() {
     assert!(line_is_func_like(r#""attributePatterns": ["#));
     assert!(line_is_func_like(r#""oneTypo": 5"#));
     assert!(line_is_func_like(r#""twoTypos": 9"#));
+    assert!(line_is_func_like(r#""current_mean": 0.2"#));
+    assert!(line_is_func_like(r#""current_sigma": 0.4"#));
 }
 
 #[test]
@@ -33547,6 +33553,34 @@ fn meilisearch_json_keys_count() {
     assert!(!is_meilisearch_json_decl(r#""twoTypos": {"#));
     assert!(!is_meilisearch_json_decl(r#""twoTypos": ["#));
     assert!(!is_meilisearch_json_decl(r#""twoTypos": """#));
+    assert!(is_meilisearch_json_decl(r#""current_mean": 0"#));
+    assert!(is_meilisearch_json_decl(r#""current_mean": 0.2"#));
+    assert!(is_meilisearch_json_decl(r#""current_mean": 0.5"#));
+    assert!(is_meilisearch_json_decl(r#""current_mean": 0.2,"#));
+    assert!(is_meilisearch_json_decl(r#""current_mean": 0.2 // m"#));
+    assert!(!is_meilisearch_json_decl(r#""current_mean": 00"#));
+    assert!(!is_meilisearch_json_decl(r#""current_mean": 01"#));
+    assert!(!is_meilisearch_json_decl(r#""current_mean": 0.2.3"#));
+    assert!(!is_meilisearch_json_decl(r#""current_mean": true"#));
+    assert!(!is_meilisearch_json_decl(r#""current_mean": {"#));
+    assert!(!is_meilisearch_json_decl(r#""current_mean": ["#));
+    assert!(!is_meilisearch_json_decl(r#""current_mean": """#));
+    assert!(!is_meilisearch_json_decl(r#""Current_mean": 0.2"#));
+    assert!(!is_meilisearch_json_decl(r#""currentMean": 0.2"#));
+    assert!(is_meilisearch_json_decl(r#""current_sigma": 0"#));
+    assert!(is_meilisearch_json_decl(r#""current_sigma": 0.4"#));
+    assert!(is_meilisearch_json_decl(r#""current_sigma": 1"#));
+    assert!(is_meilisearch_json_decl(r#""current_sigma": 0.4,"#));
+    assert!(is_meilisearch_json_decl(r#""current_sigma": 0.4 // s"#));
+    assert!(!is_meilisearch_json_decl(r#""current_sigma": 00"#));
+    assert!(!is_meilisearch_json_decl(r#""current_sigma": 01"#));
+    assert!(!is_meilisearch_json_decl(r#""current_sigma": 0.4.1"#));
+    assert!(!is_meilisearch_json_decl(r#""current_sigma": true"#));
+    assert!(!is_meilisearch_json_decl(r#""current_sigma": {"#));
+    assert!(!is_meilisearch_json_decl(r#""current_sigma": ["#));
+    assert!(!is_meilisearch_json_decl(r#""current_sigma": """#));
+    assert!(!is_meilisearch_json_decl(r#""Current_sigma": 0.4"#));
+    assert!(!is_meilisearch_json_decl(r#""currentSigma": 0.4"#));
     // Incomplete / wrong shapes stay out.
     assert!(!is_meilisearch_json_decl(r#""processingTimeMs""#));
     assert!(!is_meilisearch_json_decl(r#""processingTimeMs":"#));
@@ -33600,6 +33634,8 @@ fn meilisearch_json_keys_count() {
     assert!(!is_meilisearch_json_decl(r#""attributePatterns""#));
     assert!(!is_meilisearch_json_decl(r#""oneTypo""#));
     assert!(!is_meilisearch_json_decl(r#""twoTypos""#));
+    assert!(!is_meilisearch_json_decl(r#""current_mean""#));
+    assert!(!is_meilisearch_json_decl(r#""current_sigma""#));
     // Generic / neighbouring stay out.
     assert!(!is_meilisearch_json_decl(
         r#""$schema": "https://json-schema.org/draft/2020-12/schema""#
@@ -33620,6 +33656,9 @@ fn meilisearch_json_keys_count() {
     ));
     assert!(!is_meilisearch_json_decl(r#""searchParameters": {"#));
     assert!(!is_meilisearch_json_decl(r#""enabled": true"#));
+    assert!(!is_meilisearch_json_decl(r#""distribution": {"#));
+    assert!(!is_meilisearch_json_decl(r#""mean": 0.2"#));
+    assert!(!is_meilisearch_json_decl(r#""sigma": 0.4"#));
     assert!(!is_meilisearch_json_decl(r#""source": "openAi""#));
     assert!(!is_meilisearch_json_decl(r#""request": {"#));
     assert!(!is_meilisearch_json_decl(r#""response": {"#));
@@ -33733,6 +33772,8 @@ fn meilisearch_json_keys_count() {
     assert!(line_is_func_like(r#""binaryQuantized": true"#));
     assert!(line_is_func_like(r#""oneTypo": 5"#));
     assert!(line_is_func_like(r#""twoTypos": 9"#));
+    assert!(line_is_func_like(r#""current_mean": 0.2"#));
+    assert!(line_is_func_like(r#""current_sigma": 0.4"#));
     assert!(!is_meilisearch_json_decl(r#""search_time_ms": 12"#));
     assert!(is_typesense_json_decl(r#""search_time_ms": 12"#));
     assert!(!is_meilisearch_json_decl(r#""out_of": 100"#));

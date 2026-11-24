@@ -30829,7 +30829,9 @@ fn solr_json_bool_and_tail_ok(after_colon: &str) -> bool {
 /// `"indexingFragments": {`, `"searchFragments": {`,
 /// `"searchEmbedder": {`, `"indexingEmbedder": {`,
 /// `"attributePatterns": [`,
-/// `"oneTypo": 5` / `0`, `"twoTypos": 9` / `0`.
+/// `"oneTypo": 5` / `0`, `"twoTypos": 9` / `0`,
+/// `"current_mean": 0` / `0.2` / `0.5`,
+/// `"current_sigma": 0` / `0.4` / `1`.
 /// Optional trailing `,` and `//` / `/*` comment. Incomplete quotes /
 /// missing `:` stay out. Generic `"$schema"` / `"name"` / `"id"` /
 /// `"hits": [` / `"query"` / `"limit"` / `"offset"` / `"page"` /
@@ -30896,7 +30898,8 @@ fn solr_json_bool_and_tail_ok(after_colon: &str) -> bool {
 /// `"hitsPerPage"` / `"searchCutoffMs"` / `"documentTemplateMaxBytes"` /
 /// `"maxTotalHits"` / `"maxValuesPerFacet"` / `"oneTypo"` / `"twoTypos"`
 /// reject leading zeros beyond `0`.
-/// `"rankingScoreThreshold"` allows a simple decimal (no exponent). Array
+/// `"rankingScoreThreshold"` / `"current_mean"` / `"current_sigma"` allow a
+/// simple decimal (no exponent). Array
 /// index-setting keys / `"attributePatterns"` require `[`. Object
 /// `"synonyms"` / `"typoTolerance"` / `"pagination"` / `"faceting"` /
 /// `"embedders"` / `"chat"` / `"sortFacetValuesBy"` /
@@ -30980,6 +30983,8 @@ fn meilisearch_json_key_ok(key: &str) -> bool {
             | "attributePatterns"
             | "oneTypo"
             | "twoTypos"
+            | "current_mean"
+            | "current_sigma"
     )
 }
 
@@ -31151,7 +31156,9 @@ fn meilisearch_json_number_and_tail_ok(key: &str, after_colon: &str) -> bool {
             }
             package_json_tail_ok(&after_colon[digits..])
         }
-        "rankingScoreThreshold" => meilisearch_json_ranking_score_and_tail_ok(after_colon),
+        "rankingScoreThreshold" | "current_mean" | "current_sigma" => {
+            meilisearch_json_ranking_score_and_tail_ok(after_colon)
+        }
         _ => false,
     }
 }
@@ -31230,7 +31237,8 @@ fn meilisearch_json_bool_and_tail_ok(after_colon: &str) -> bool {
 /// `"disableOnAttributes"` / `"disableOnNumbers"` /
 /// `"binaryQuantized"` / `"pooling"` / `"indexingFragments"` /
 /// `"searchFragments"` / `"searchEmbedder"` / `"indexingEmbedder"` /
-/// `"attributePatterns"` / `"oneTypo"` / `"twoTypos"` / Algolia
+/// `"attributePatterns"` / `"oneTypo"` / `"twoTypos"` /
+/// `"current_mean"` / `"current_sigma"` / Algolia
 /// `"processingTimeMS"` /
 /// `"nbPages"` / `"serverTimeMS"` / `"queryID"` / `"indexUsed"` /
 /// `"aroundLatLng"` / `"highlightPreTag"` / `"facets_stats"` /

@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.975] — 2026-11-24
+
+View:
+
+- **Function List** lists Meilisearch embedder distribution-shift nested JSON keys: `"current_mean": 0` / `0.2` / `0.5`, `"current_sigma": 0` / `0.4` / `1`. Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing `:` stay out. Empty strings / wrong case / camelCase / plural misspellings / wrong value shapes stay out. Existing Meilisearch keys (`processingTimeMs`, `estimatedTotalHits`, `exhaustiveNbHits`, `nbHits`, `hitsPerPage`, `facetDistribution`, `facetStats`, `exhaustiveFacetsCount`, `rankingScoreThreshold`, `showRankingScore`, `matchingStrategy`, `attributesToSearchOn`, `filterableAttributes`, `sortableAttributes`, `rankingRules`, `displayedAttributes`, `stopWords`, `synonyms`, `proximityPrecision`, `searchCutoffMs`, `searchableAttributes`, `separatorTokens`, `nonSeparatorTokens`, `dictionary`, `distinctAttribute`, `typoTolerance`, `pagination`, `faceting`, `embedders`, `localizedAttributes`, `facetSearch`, `prefixSearch`, `chat`, `documentTemplate`, `documentTemplateMaxBytes`, `maxTotalHits`, `maxValuesPerFacet`, `sortFacetValuesBy`, `minWordSizeForTypos`, `disableOnWords`, `disableOnAttributes`, `disableOnNumbers`, `binaryQuantized`, `pooling`, `indexingFragments`, `searchFragments`, `searchEmbedder`, `indexingEmbedder`, `attributePatterns`, `oneTypo`, `twoTypos`, …) unchanged. Generic `"filter"` / `"sort"` / `"facets"` / `"limit"` / `"offset"` / `"page"` / `"description"` / `"searchParameters"` / `"enabled"` / `"source"` / `"model"` / `"apiKey"` / `"url"` / `"dimensions"` / `"revision"` / `"distribution"` / `"mean"` / `"sigma"` / `"request"` / `"response"` / `"headers"` stay out. Neighbouring search JSON families stay out of Meilisearch for these keys. Numeric `"current_mean"` / `"current_sigma"` allow a simple decimal (no exponent) and reject leading zeros beyond `0`.
+
 ## [0.3.974] — 2026-11-24
 
 View:
