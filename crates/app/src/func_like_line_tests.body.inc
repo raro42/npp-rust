@@ -32948,6 +32948,10 @@ fn meilisearch_json_keys_smoke() {
     assert!(is_meilisearch_json_decl(r#""searchEmbedder": {"#));
     assert!(is_meilisearch_json_decl(r#""indexingEmbedder": {"#));
     assert!(is_meilisearch_json_decl(r#""attributePatterns": ["#));
+    assert!(is_meilisearch_json_decl(r#""oneTypo": 0"#));
+    assert!(is_meilisearch_json_decl(r#""oneTypo": 5"#));
+    assert!(is_meilisearch_json_decl(r#""twoTypos": 0"#));
+    assert!(is_meilisearch_json_decl(r#""twoTypos": 9"#));
     // Distinctive neighbours stay out of this scanner.
     assert!(!is_meilisearch_json_decl(r#""responseHeader": {"#));
     assert!(is_solr_json_decl(r#""responseHeader": {"#));
@@ -33050,6 +33054,8 @@ fn meilisearch_json_keys_smoke() {
     assert!(line_is_func_like(r#""searchEmbedder": {"#));
     assert!(line_is_func_like(r#""indexingEmbedder": {"#));
     assert!(line_is_func_like(r#""attributePatterns": ["#));
+    assert!(line_is_func_like(r#""oneTypo": 5"#));
+    assert!(line_is_func_like(r#""twoTypos": 9"#));
 }
 
 #[test]
@@ -33521,6 +33527,26 @@ fn meilisearch_json_keys_count() {
     assert!(!is_meilisearch_json_decl(r#""attributePatterns": {"#));
     assert!(!is_meilisearch_json_decl(r#""attributePatterns": true"#));
     assert!(!is_meilisearch_json_decl(r#""attributePatterns": """#));
+    assert!(is_meilisearch_json_decl(r#""oneTypo": 0"#));
+    assert!(is_meilisearch_json_decl(r#""oneTypo": 5"#));
+    assert!(is_meilisearch_json_decl(r#""oneTypo": 5,"#));
+    assert!(is_meilisearch_json_decl(r#""oneTypo": 5 // o"#));
+    assert!(!is_meilisearch_json_decl(r#""oneTypo": 00"#));
+    assert!(!is_meilisearch_json_decl(r#""oneTypo": 01"#));
+    assert!(!is_meilisearch_json_decl(r#""oneTypo": true"#));
+    assert!(!is_meilisearch_json_decl(r#""oneTypo": {"#));
+    assert!(!is_meilisearch_json_decl(r#""oneTypo": ["#));
+    assert!(!is_meilisearch_json_decl(r#""oneTypo": """#));
+    assert!(is_meilisearch_json_decl(r#""twoTypos": 0"#));
+    assert!(is_meilisearch_json_decl(r#""twoTypos": 9"#));
+    assert!(is_meilisearch_json_decl(r#""twoTypos": 9,"#));
+    assert!(is_meilisearch_json_decl(r#""twoTypos": 9 // t"#));
+    assert!(!is_meilisearch_json_decl(r#""twoTypos": 00"#));
+    assert!(!is_meilisearch_json_decl(r#""twoTypos": 01"#));
+    assert!(!is_meilisearch_json_decl(r#""twoTypos": true"#));
+    assert!(!is_meilisearch_json_decl(r#""twoTypos": {"#));
+    assert!(!is_meilisearch_json_decl(r#""twoTypos": ["#));
+    assert!(!is_meilisearch_json_decl(r#""twoTypos": """#));
     // Incomplete / wrong shapes stay out.
     assert!(!is_meilisearch_json_decl(r#""processingTimeMs""#));
     assert!(!is_meilisearch_json_decl(r#""processingTimeMs":"#));
@@ -33572,6 +33598,8 @@ fn meilisearch_json_keys_count() {
     assert!(!is_meilisearch_json_decl(r#""searchEmbedder""#));
     assert!(!is_meilisearch_json_decl(r#""indexingEmbedder""#));
     assert!(!is_meilisearch_json_decl(r#""attributePatterns""#));
+    assert!(!is_meilisearch_json_decl(r#""oneTypo""#));
+    assert!(!is_meilisearch_json_decl(r#""twoTypos""#));
     // Generic / neighbouring stay out.
     assert!(!is_meilisearch_json_decl(
         r#""$schema": "https://json-schema.org/draft/2020-12/schema""#
@@ -33593,8 +33621,6 @@ fn meilisearch_json_keys_count() {
     assert!(!is_meilisearch_json_decl(r#""searchParameters": {"#));
     assert!(!is_meilisearch_json_decl(r#""enabled": true"#));
     assert!(!is_meilisearch_json_decl(r#""source": "openAi""#));
-    assert!(!is_meilisearch_json_decl(r#""oneTypo": 5"#));
-    assert!(!is_meilisearch_json_decl(r#""twoTypos": 9"#));
     assert!(!is_meilisearch_json_decl(r#""request": {"#));
     assert!(!is_meilisearch_json_decl(r#""response": {"#));
     assert!(!is_meilisearch_json_decl(r#""headers": {"#));
@@ -33705,6 +33731,8 @@ fn meilisearch_json_keys_count() {
     assert!(line_is_func_like(r#""disableOnAttributes": ["#));
     assert!(line_is_func_like(r#""disableOnNumbers": false"#));
     assert!(line_is_func_like(r#""binaryQuantized": true"#));
+    assert!(line_is_func_like(r#""oneTypo": 5"#));
+    assert!(line_is_func_like(r#""twoTypos": 9"#));
     assert!(!is_meilisearch_json_decl(r#""search_time_ms": 12"#));
     assert!(is_typesense_json_decl(r#""search_time_ms": 12"#));
     assert!(!is_meilisearch_json_decl(r#""out_of": 100"#));

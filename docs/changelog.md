@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.974] — 2026-11-24
+
+View:
+
+- **Function List** lists Meilisearch typo-tolerance nested JSON keys: `"oneTypo": 0` / `5`, `"twoTypos": 0` / `9`. Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing `:` stay out. Empty strings / wrong case / plural misspellings / wrong value shapes stay out. Existing Meilisearch keys (`processingTimeMs`, `estimatedTotalHits`, `exhaustiveNbHits`, `nbHits`, `hitsPerPage`, `facetDistribution`, `facetStats`, `exhaustiveFacetsCount`, `rankingScoreThreshold`, `showRankingScore`, `matchingStrategy`, `attributesToSearchOn`, `filterableAttributes`, `sortableAttributes`, `rankingRules`, `displayedAttributes`, `stopWords`, `synonyms`, `proximityPrecision`, `searchCutoffMs`, `searchableAttributes`, `separatorTokens`, `nonSeparatorTokens`, `dictionary`, `distinctAttribute`, `typoTolerance`, `pagination`, `faceting`, `embedders`, `localizedAttributes`, `facetSearch`, `prefixSearch`, `chat`, `documentTemplate`, `documentTemplateMaxBytes`, `maxTotalHits`, `maxValuesPerFacet`, `sortFacetValuesBy`, `minWordSizeForTypos`, `disableOnWords`, `disableOnAttributes`, `disableOnNumbers`, `binaryQuantized`, `pooling`, `indexingFragments`, `searchFragments`, `searchEmbedder`, `indexingEmbedder`, `attributePatterns`, …) unchanged. Generic `"filter"` / `"sort"` / `"facets"` / `"limit"` / `"offset"` / `"page"` / `"description"` / `"searchParameters"` / `"enabled"` / `"source"` / `"model"` / `"apiKey"` / `"url"` / `"dimensions"` / `"revision"` / `"distribution"` / `"request"` / `"response"` / `"headers"` stay out. Neighbouring search JSON families stay out of Meilisearch for these keys. Numeric `"oneTypo"` / `"twoTypos"` reject leading zeros beyond `0`.
+
 ## [0.3.973] — 2026-11-24
 
 View:

@@ -30828,14 +30828,15 @@ fn solr_json_bool_and_tail_ok(after_colon: &str) -> bool {
 /// `"pooling": "useModel"` / `"forceMean"` / `"forceCls"`,
 /// `"indexingFragments": {`, `"searchFragments": {`,
 /// `"searchEmbedder": {`, `"indexingEmbedder": {`,
-/// `"attributePatterns": [`.
+/// `"attributePatterns": [`,
+/// `"oneTypo": 5` / `0`, `"twoTypos": 9` / `0`.
 /// Optional trailing `,` and `//` / `/*` comment. Incomplete quotes /
 /// missing `:` stay out. Generic `"$schema"` / `"name"` / `"id"` /
 /// `"hits": [` / `"query"` / `"limit"` / `"offset"` / `"page"` /
 /// `"totalHits"` / `"totalPages"` / `"filter"` / `"sort": [` /
 /// `"facets": [` / `"description"` / `"searchParameters"` / `"enabled"` /
 /// `"source"` / `"model"` / `"apiKey"` / `"url"` / `"dimensions"` /
-/// `"revision"` / `"distribution"` / `"oneTypo"` / `"twoTypos"` /
+/// `"revision"` / `"distribution"` /
 /// `"request"` / `"response"` / `"headers"` /
 /// Typesense `"search_time_ms"` / `"out_of"` /
 /// `"search_cutoff"` / `"grouped_hits"` / `"facet_counts": [` /
@@ -30893,7 +30894,8 @@ fn solr_json_bool_and_tail_ok(after_colon: &str) -> bool {
 /// `"pooling"` only matches `"useModel"` / `"forceMean"` / `"forceCls"`.
 /// Numeric `"processingTimeMs"` / `"estimatedTotalHits"` / `"nbHits"` /
 /// `"hitsPerPage"` / `"searchCutoffMs"` / `"documentTemplateMaxBytes"` /
-/// `"maxTotalHits"` / `"maxValuesPerFacet"` reject leading zeros beyond `0`.
+/// `"maxTotalHits"` / `"maxValuesPerFacet"` / `"oneTypo"` / `"twoTypos"`
+/// reject leading zeros beyond `0`.
 /// `"rankingScoreThreshold"` allows a simple decimal (no exponent). Array
 /// index-setting keys / `"attributePatterns"` require `[`. Object
 /// `"synonyms"` / `"typoTolerance"` / `"pagination"` / `"faceting"` /
@@ -30976,6 +30978,8 @@ fn meilisearch_json_key_ok(key: &str) -> bool {
             | "searchEmbedder"
             | "indexingEmbedder"
             | "attributePatterns"
+            | "oneTypo"
+            | "twoTypos"
     )
 }
 
@@ -31132,7 +31136,9 @@ fn meilisearch_json_number_and_tail_ok(key: &str, after_colon: &str) -> bool {
         | "searchCutoffMs"
         | "documentTemplateMaxBytes"
         | "maxTotalHits"
-        | "maxValuesPerFacet" => {
+        | "maxValuesPerFacet"
+        | "oneTypo"
+        | "twoTypos" => {
             let digits = after_colon
                 .bytes()
                 .take_while(|b| b.is_ascii_digit())
@@ -31224,7 +31230,8 @@ fn meilisearch_json_bool_and_tail_ok(after_colon: &str) -> bool {
 /// `"disableOnAttributes"` / `"disableOnNumbers"` /
 /// `"binaryQuantized"` / `"pooling"` / `"indexingFragments"` /
 /// `"searchFragments"` / `"searchEmbedder"` / `"indexingEmbedder"` /
-/// `"attributePatterns"` / Algolia `"processingTimeMS"` /
+/// `"attributePatterns"` / `"oneTypo"` / `"twoTypos"` / Algolia
+/// `"processingTimeMS"` /
 /// `"nbPages"` / `"serverTimeMS"` / `"queryID"` / `"indexUsed"` /
 /// `"aroundLatLng"` / `"highlightPreTag"` / `"facets_stats"` /
 /// `"renderingContent"` / `"appliedRules"` /
