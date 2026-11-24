@@ -33061,6 +33061,23 @@ fn meilisearch_json_keys_smoke() {
     assert!(is_meilisearch_json_decl(r#""_matchesPosition": {"#));
     assert!(is_meilisearch_json_decl(r#""_rankingScore": 0.5"#));
     assert!(is_meilisearch_json_decl(r#""_vectors": {"#));
+    assert!(is_meilisearch_json_decl(
+        r#""commitSha": "b46889b5f0f2f8b91438a08a358ba8f05fc09fc1""#
+    ));
+    assert!(is_meilisearch_json_decl(r#""commitDate": "2021-07-08""#));
+    assert!(is_meilisearch_json_decl(r#""pkgVersion": "1.58.0""#));
+    assert!(is_meilisearch_json_decl(r#""databaseSize": 0"#));
+    assert!(is_meilisearch_json_decl(r#""databaseSize": 567"#));
+    assert!(is_meilisearch_json_decl(r#""usedDatabaseSize": 0"#));
+    assert!(is_meilisearch_json_decl(r#""usedDatabaseSize": 456"#));
+    assert!(is_meilisearch_json_decl(
+        r#""lastUpdate": "2019-11-20T09:40:33.711324Z""#
+    ));
+    assert!(is_meilisearch_json_decl(r#""numberOfDocuments": 0"#));
+    assert!(is_meilisearch_json_decl(r#""numberOfDocuments": 10"#));
+    assert!(is_meilisearch_json_decl(r#""isIndexing": true"#));
+    assert!(is_meilisearch_json_decl(r#""isIndexing": false"#));
+    assert!(is_meilisearch_json_decl(r#""fieldDistribution": {"#));
     // Distinctive neighbours stay out of this scanner.
     assert!(!is_meilisearch_json_decl(r#""responseHeader": {"#));
     assert!(is_solr_json_decl(r#""responseHeader": {"#));
@@ -33226,6 +33243,20 @@ fn meilisearch_json_keys_smoke() {
     assert!(line_is_func_like(r#""_matchesPosition": {"#));
     assert!(line_is_func_like(r#""_rankingScore": 0.5"#));
     assert!(line_is_func_like(r#""_vectors": {"#));
+    assert!(line_is_func_like(
+        r#""commitSha": "b46889b5f0f2f8b91438a08a358ba8f05fc09fc1""#
+    ));
+    assert!(line_is_func_like(r#""commitDate": "2021-07-08""#));
+    assert!(line_is_func_like(r#""pkgVersion": "1.58.0""#));
+    assert!(line_is_func_like(r#""databaseSize": 567"#));
+    assert!(line_is_func_like(r#""usedDatabaseSize": 456"#));
+    assert!(line_is_func_like(
+        r#""lastUpdate": "2019-11-20T09:40:33.711324Z""#
+    ));
+    assert!(line_is_func_like(r#""numberOfDocuments": 10"#));
+    assert!(line_is_func_like(r#""isIndexing": true"#));
+    assert!(line_is_func_like(r#""isIndexing": false"#));
+    assert!(line_is_func_like(r#""fieldDistribution": {"#));
 }
 
 #[test]
@@ -34387,6 +34418,125 @@ fn meilisearch_json_keys_count() {
     assert!(!is_meilisearch_json_decl(r#""_vectors": """#));
     assert!(!is_meilisearch_json_decl(r#""_Vectors": {"#));
     assert!(!is_meilisearch_json_decl(r#""vectors": {"#));
+    assert!(is_meilisearch_json_decl(
+        r#""commitSha": "b46889b5f0f2f8b91438a08a358ba8f05fc09fc1""#
+    ));
+    assert!(is_meilisearch_json_decl(
+        r#""commitSha": "b46889b5f0f2f8b91438a08a358ba8f05fc09fc1","#
+    ));
+    assert!(is_meilisearch_json_decl(
+        r#""commitSha": "b46889b5f0f2f8b91438a08a358ba8f05fc09fc1" // c"#
+    ));
+    assert!(!is_meilisearch_json_decl(r#""commitSha": """#));
+    assert!(!is_meilisearch_json_decl(r#""commitSha": {"#));
+    assert!(!is_meilisearch_json_decl(r#""commitSha": ["#));
+    assert!(!is_meilisearch_json_decl(r#""commitSha": true"#));
+    assert!(!is_meilisearch_json_decl(r#""CommitSha": "abc""#));
+    assert!(!is_meilisearch_json_decl(r#""commit_sha": "abc""#));
+    assert!(is_meilisearch_json_decl(r#""commitDate": "2021-07-08""#));
+    assert!(is_meilisearch_json_decl(r#""commitDate": "2021-07-08","#));
+    assert!(is_meilisearch_json_decl(
+        r#""commitDate": "2021-07-08" // d"#
+    ));
+    assert!(!is_meilisearch_json_decl(r#""commitDate": """#));
+    assert!(!is_meilisearch_json_decl(r#""commitDate": {"#));
+    assert!(!is_meilisearch_json_decl(r#""commitDate": ["#));
+    assert!(!is_meilisearch_json_decl(r#""commitDate": true"#));
+    assert!(!is_meilisearch_json_decl(r#""CommitDate": "2021-07-08""#));
+    assert!(!is_meilisearch_json_decl(
+        r#""commit_date": "2021-07-08""#
+    ));
+    assert!(is_meilisearch_json_decl(r#""pkgVersion": "1.58.0""#));
+    assert!(is_meilisearch_json_decl(r#""pkgVersion": "1.58.0","#));
+    assert!(is_meilisearch_json_decl(r#""pkgVersion": "1.58.0" // v"#));
+    assert!(!is_meilisearch_json_decl(r#""pkgVersion": """#));
+    assert!(!is_meilisearch_json_decl(r#""pkgVersion": {"#));
+    assert!(!is_meilisearch_json_decl(r#""pkgVersion": ["#));
+    assert!(!is_meilisearch_json_decl(r#""pkgVersion": true"#));
+    assert!(!is_meilisearch_json_decl(r#""PkgVersion": "1.58.0""#));
+    assert!(!is_meilisearch_json_decl(r#""pkg_version": "1.58.0""#));
+    assert!(is_meilisearch_json_decl(r#""databaseSize": 0"#));
+    assert!(is_meilisearch_json_decl(r#""databaseSize": 567"#));
+    assert!(is_meilisearch_json_decl(r#""databaseSize": 567,"#));
+    assert!(is_meilisearch_json_decl(r#""databaseSize": 567 // d"#));
+    assert!(!is_meilisearch_json_decl(r#""databaseSize": 00"#));
+    assert!(!is_meilisearch_json_decl(r#""databaseSize": 01"#));
+    assert!(!is_meilisearch_json_decl(r#""databaseSize": true"#));
+    assert!(!is_meilisearch_json_decl(r#""databaseSize": {"#));
+    assert!(!is_meilisearch_json_decl(r#""databaseSize": "567""#));
+    assert!(!is_meilisearch_json_decl(r#""DatabaseSize": 567"#));
+    assert!(!is_meilisearch_json_decl(r#""database_size": 567"#));
+    assert!(is_meilisearch_json_decl(r#""usedDatabaseSize": 0"#));
+    assert!(is_meilisearch_json_decl(r#""usedDatabaseSize": 456"#));
+    assert!(is_meilisearch_json_decl(r#""usedDatabaseSize": 456,"#));
+    assert!(is_meilisearch_json_decl(
+        r#""usedDatabaseSize": 456 // u"#
+    ));
+    assert!(!is_meilisearch_json_decl(r#""usedDatabaseSize": 00"#));
+    assert!(!is_meilisearch_json_decl(r#""usedDatabaseSize": 01"#));
+    assert!(!is_meilisearch_json_decl(r#""usedDatabaseSize": true"#));
+    assert!(!is_meilisearch_json_decl(r#""usedDatabaseSize": {"#));
+    assert!(!is_meilisearch_json_decl(r#""usedDatabaseSize": "456""#));
+    assert!(!is_meilisearch_json_decl(r#""UsedDatabaseSize": 456"#));
+    assert!(!is_meilisearch_json_decl(
+        r#""used_database_size": 456"#
+    ));
+    assert!(is_meilisearch_json_decl(
+        r#""lastUpdate": "2019-11-20T09:40:33.711324Z""#
+    ));
+    assert!(is_meilisearch_json_decl(
+        r#""lastUpdate": "2019-11-20T09:40:33.711324Z","#
+    ));
+    assert!(is_meilisearch_json_decl(
+        r#""lastUpdate": "2019-11-20T09:40:33.711324Z" // l"#
+    ));
+    assert!(!is_meilisearch_json_decl(r#""lastUpdate": """#));
+    assert!(!is_meilisearch_json_decl(r#""lastUpdate": {"#));
+    assert!(!is_meilisearch_json_decl(r#""lastUpdate": ["#));
+    assert!(!is_meilisearch_json_decl(r#""lastUpdate": true"#));
+    assert!(!is_meilisearch_json_decl(
+        r#""LastUpdate": "2019-11-20T09:40:33.711324Z""#
+    ));
+    assert!(!is_meilisearch_json_decl(
+        r#""last_update": "2019-11-20T09:40:33.711324Z""#
+    ));
+    assert!(is_meilisearch_json_decl(r#""numberOfDocuments": 0"#));
+    assert!(is_meilisearch_json_decl(r#""numberOfDocuments": 10"#));
+    assert!(is_meilisearch_json_decl(r#""numberOfDocuments": 10,"#));
+    assert!(is_meilisearch_json_decl(
+        r#""numberOfDocuments": 10 // n"#
+    ));
+    assert!(!is_meilisearch_json_decl(r#""numberOfDocuments": 00"#));
+    assert!(!is_meilisearch_json_decl(r#""numberOfDocuments": 01"#));
+    assert!(!is_meilisearch_json_decl(r#""numberOfDocuments": true"#));
+    assert!(!is_meilisearch_json_decl(r#""numberOfDocuments": {"#));
+    assert!(!is_meilisearch_json_decl(r#""numberOfDocuments": "10""#));
+    assert!(!is_meilisearch_json_decl(r#""NumberOfDocuments": 10"#));
+    assert!(!is_meilisearch_json_decl(
+        r#""number_of_documents": 10"#
+    ));
+    assert!(is_meilisearch_json_decl(r#""isIndexing": true"#));
+    assert!(is_meilisearch_json_decl(r#""isIndexing": false"#));
+    assert!(is_meilisearch_json_decl(r#""isIndexing": true,"#));
+    assert!(is_meilisearch_json_decl(r#""isIndexing": false // i"#));
+    assert!(!is_meilisearch_json_decl(r#""isIndexing": {"#));
+    assert!(!is_meilisearch_json_decl(r#""isIndexing": ["#));
+    assert!(!is_meilisearch_json_decl(r#""isIndexing": """#));
+    assert!(!is_meilisearch_json_decl(r#""isIndexing": 1"#));
+    assert!(!is_meilisearch_json_decl(r#""IsIndexing": true"#));
+    assert!(!is_meilisearch_json_decl(r#""is_indexing": true"#));
+    assert!(is_meilisearch_json_decl(r#""fieldDistribution": {"#));
+    assert!(is_meilisearch_json_decl(r#""fieldDistribution": {,"#));
+    assert!(is_meilisearch_json_decl(
+        r#""fieldDistribution": { // f"#
+    ));
+    assert!(!is_meilisearch_json_decl(r#""fieldDistribution": ["#));
+    assert!(!is_meilisearch_json_decl(r#""fieldDistribution": true"#));
+    assert!(!is_meilisearch_json_decl(r#""fieldDistribution": """#));
+    assert!(!is_meilisearch_json_decl(r#""FieldDistribution": {"#));
+    assert!(!is_meilisearch_json_decl(
+        r#""field_distribution": {"#
+    ));
     // Incomplete / wrong shapes stay out.
     assert!(!is_meilisearch_json_decl(r#""processingTimeMs""#));
     assert!(!is_meilisearch_json_decl(r#""processingTimeMs":"#));
@@ -34494,6 +34644,15 @@ fn meilisearch_json_keys_count() {
     assert!(!is_meilisearch_json_decl(r#""_matchesPosition""#));
     assert!(!is_meilisearch_json_decl(r#""_rankingScore""#));
     assert!(!is_meilisearch_json_decl(r#""_vectors""#));
+    assert!(!is_meilisearch_json_decl(r#""commitSha""#));
+    assert!(!is_meilisearch_json_decl(r#""commitDate""#));
+    assert!(!is_meilisearch_json_decl(r#""pkgVersion""#));
+    assert!(!is_meilisearch_json_decl(r#""databaseSize""#));
+    assert!(!is_meilisearch_json_decl(r#""usedDatabaseSize""#));
+    assert!(!is_meilisearch_json_decl(r#""lastUpdate""#));
+    assert!(!is_meilisearch_json_decl(r#""numberOfDocuments""#));
+    assert!(!is_meilisearch_json_decl(r#""isIndexing""#));
+    assert!(!is_meilisearch_json_decl(r#""fieldDistribution""#));
     // Generic / neighbouring stay out.
     assert!(!is_meilisearch_json_decl(
         r#""$schema": "https://json-schema.org/draft/2020-12/schema""#

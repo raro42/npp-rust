@@ -30868,7 +30868,11 @@ fn solr_json_bool_and_tail_ok(after_colon: &str) -> bool {
 /// `"retrieveVectors": true` / `false`, `"hybrid": {`,
 /// `"locales": [`, `"vector": [`,
 /// `"_formatted": {`, `"_matchesPosition": {`,
-/// `"_rankingScore": 0.5`, `"_vectors": {`.
+/// `"_rankingScore": 0.5`, `"_vectors": {`,
+/// `"commitSha": "…"`, `"commitDate": "…"`, `"pkgVersion": "…"`,
+/// `"databaseSize": 0` / `567`, `"usedDatabaseSize": 0` / `456`,
+/// `"lastUpdate": "…"`, `"numberOfDocuments": 0` / `10`,
+/// `"isIndexing": true` / `false`, `"fieldDistribution": {`.
 /// Optional trailing `,` and `//` / `/*` comment. Incomplete quotes /
 /// missing `:` stay out. Generic `"$schema"` / `"name"` / `"id"` /
 /// `"hits": [` / `"query"` / `"limit"` / `"offset"` / `"page"` /
@@ -30934,7 +30938,8 @@ fn solr_json_bool_and_tail_ok(after_colon: &str) -> bool {
 /// Numeric `"processingTimeMs"` / `"estimatedTotalHits"` / `"nbHits"` /
 /// `"hitsPerPage"` / `"searchCutoffMs"` / `"documentTemplateMaxBytes"` /
 /// `"maxTotalHits"` / `"maxValuesPerFacet"` / `"oneTypo"` / `"twoTypos"` /
-/// `"cropLength"`
+/// `"cropLength"` / `"databaseSize"` / `"usedDatabaseSize"` /
+/// `"numberOfDocuments"`
 /// reject leading zeros beyond `0`.
 /// `"rankingScoreThreshold"` / `"current_mean"` / `"current_sigma"` /
 /// `"_rankingScore"` allow a
@@ -30946,11 +30951,13 @@ fn solr_json_bool_and_tail_ok(after_colon: &str) -> bool {
 /// `"searchEmbedder"` / `"indexingEmbedder"` / `"wordPosition"` /
 /// `"features"` / `"shards"` / `"previousShards"` / `"previousRemotes"` /
 /// `"federation"` / `"_federation"` / `"_rankingScoreDetails"` /
-/// `"hybrid"` / `"_formatted"` / `"_matchesPosition"` / `"_vectors"`
+/// `"hybrid"` / `"_formatted"` / `"_matchesPosition"` / `"_vectors"` /
+/// `"fieldDistribution"`
 /// require `{`. Object or array `"remotes"` accepts `{` or `[`.
 /// String `"distinctAttribute"` / `"documentTemplate"` / `"foreignIndexUid"` /
 /// `"fieldName"` / `"searchApiKey"` / `"writeApiKey"` / `"leader"` / `"self"` /
-/// `"cropMarker"`
+/// `"cropMarker"` / `"commitSha"` / `"commitDate"` / `"pkgVersion"` /
+/// `"lastUpdate"`
 /// require a non-empty quoted string. String `"url"` requires a non-empty
 /// `http://` or `https://` quoted string (relative paths stay out). Array
 /// `"foreignKeys"` / `"addRemotes"` / `"removeRemotes"` /
@@ -30964,7 +30971,7 @@ fn solr_json_bool_and_tail_ok(after_colon: &str) -> bool {
 /// `"metrics"` / `"network"` / `"disableDocumentsFetchQueue"` /
 /// `"legacySearch"` / `"renderRoute"` / `"mcpRoute"` / `"foreignKeys"` /
 /// `"useNetwork"` / `"showRankingScoreDetails"` /
-/// `"showMatchesPosition"` / `"retrieveVectors"`
+/// `"showMatchesPosition"` / `"retrieveVectors"` / `"isIndexing"`
 /// only match `true` / `false` (array `"foreignKeys": [` still matches).
 /// Algolia string `"sortFacetValuesBy"` stays out of this scanner (object
 /// only).
@@ -31096,6 +31103,15 @@ fn meilisearch_json_key_ok(key: &str) -> bool {
             | "_matchesPosition"
             | "_rankingScore"
             | "_vectors"
+            | "commitSha"
+            | "commitDate"
+            | "pkgVersion"
+            | "databaseSize"
+            | "usedDatabaseSize"
+            | "lastUpdate"
+            | "numberOfDocuments"
+            | "isIndexing"
+            | "fieldDistribution"
     )
 }
 
@@ -31135,6 +31151,7 @@ fn meilisearch_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool {
                     | "_formatted"
                     | "_matchesPosition"
                     | "_vectors"
+                    | "fieldDistribution"
             ) {
                 return false;
             }
@@ -31188,6 +31205,10 @@ fn meilisearch_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool {
                 || key == "leader"
                 || key == "self"
                 || key == "cropMarker"
+                || key == "commitSha"
+                || key == "commitDate"
+                || key == "pkgVersion"
+                || key == "lastUpdate"
             {
                 meilisearch_json_nonempty_string_and_tail_ok(after_colon)
             } else if key == "url" {
@@ -31228,6 +31249,7 @@ fn meilisearch_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool {
                     | "showRankingScoreDetails"
                     | "showMatchesPosition"
                     | "retrieveVectors"
+                    | "isIndexing"
             ) {
                 return false;
             }
@@ -31336,7 +31358,10 @@ fn meilisearch_json_number_and_tail_ok(key: &str, after_colon: &str) -> bool {
         | "maxValuesPerFacet"
         | "oneTypo"
         | "twoTypos"
-        | "cropLength" => {
+        | "cropLength"
+        | "databaseSize"
+        | "usedDatabaseSize"
+        | "numberOfDocuments" => {
             let digits = after_colon
                 .bytes()
                 .take_while(|b| b.is_ascii_digit())
