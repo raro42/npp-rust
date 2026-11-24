@@ -30839,7 +30839,13 @@ fn solr_json_bool_and_tail_ok(after_colon: &str) -> bool {
 /// `"editDocumentsByFunction": true` / `false`,
 /// `"containsFilter": true` / `false`,
 /// `"dynamicSearchRules": true` / `false`,
-/// `"chatCompletions": true` / `false`.
+/// `"chatCompletions": true` / `false`,
+/// `"logsRoute": true` / `false`,
+/// `"tasksStreamingRoute": true` / `false`,
+/// `"getTaskDocumentsRoute": true` / `false`,
+/// `"taskQueueCompactionRoute": true` / `false`,
+/// `"compositeEmbedders": true` / `false`,
+/// `"multimodal": true` / `false`.
 /// Optional trailing `,` and `//` / `/*` comment. Incomplete quotes /
 /// missing `:` stay out. Generic `"$schema"` / `"name"` / `"id"` /
 /// `"hits": [` / `"query"` / `"limit"` / `"offset"` / `"page"` /
@@ -30919,9 +30925,11 @@ fn solr_json_bool_and_tail_ok(after_colon: &str) -> bool {
 /// requires `[`.
 /// Bool `"facetSearch"` / `"disableOnNumbers"` / `"binaryQuantized"` /
 /// `"equality"` / `"comparison"` / `"editDocumentsByFunction"` /
-/// `"containsFilter"` / `"dynamicSearchRules"` / `"chatCompletions"` only
-/// match `true` / `false`. Algolia string `"sortFacetValuesBy"` stays out of
-/// this scanner (object only).
+/// `"containsFilter"` / `"dynamicSearchRules"` / `"chatCompletions"` /
+/// `"logsRoute"` / `"tasksStreamingRoute"` / `"getTaskDocumentsRoute"` /
+/// `"taskQueueCompactionRoute"` / `"compositeEmbedders"` / `"multimodal"`
+/// only match `true` / `false`. Algolia string `"sortFacetValuesBy"` stays
+/// out of this scanner (object only).
 fn is_meilisearch_json_decl(s: &str) -> bool {
     let s = s.trim_start();
     let Some(rest) = s.strip_prefix('"') else {
@@ -31009,6 +31017,12 @@ fn meilisearch_json_key_ok(key: &str) -> bool {
             | "containsFilter"
             | "dynamicSearchRules"
             | "chatCompletions"
+            | "logsRoute"
+            | "tasksStreamingRoute"
+            | "getTaskDocumentsRoute"
+            | "taskQueueCompactionRoute"
+            | "compositeEmbedders"
+            | "multimodal"
     )
 }
 
@@ -31099,6 +31113,12 @@ fn meilisearch_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool {
                     | "containsFilter"
                     | "dynamicSearchRules"
                     | "chatCompletions"
+                    | "logsRoute"
+                    | "tasksStreamingRoute"
+                    | "getTaskDocumentsRoute"
+                    | "taskQueueCompactionRoute"
+                    | "compositeEmbedders"
+                    | "multimodal"
             ) {
                 return false;
             }
@@ -31279,7 +31299,10 @@ fn meilisearch_json_bool_and_tail_ok(after_colon: &str) -> bool {
 /// `"foreignKeys"` / `"foreignIndexUid"` / `"fieldName"` /
 /// `"features"` / `"equality"` / `"comparison"` /
 /// `"editDocumentsByFunction"` / `"containsFilter"` /
-/// `"dynamicSearchRules"` / `"chatCompletions"` / Algolia
+/// `"dynamicSearchRules"` / `"chatCompletions"` / `"logsRoute"` /
+/// `"tasksStreamingRoute"` / `"getTaskDocumentsRoute"` /
+/// `"taskQueueCompactionRoute"` / `"compositeEmbedders"` /
+/// `"multimodal"` / Algolia
 /// `"processingTimeMS"` /
 /// `"nbPages"` / `"serverTimeMS"` / `"queryID"` / `"indexUsed"` /
 /// `"aroundLatLng"` / `"highlightPreTag"` / `"facets_stats"` /

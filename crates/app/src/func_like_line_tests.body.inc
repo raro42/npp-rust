@@ -32979,6 +32979,26 @@ fn meilisearch_json_keys_smoke() {
     assert!(is_meilisearch_json_decl(r#""dynamicSearchRules": false"#));
     assert!(is_meilisearch_json_decl(r#""chatCompletions": true"#));
     assert!(is_meilisearch_json_decl(r#""chatCompletions": false"#));
+    assert!(is_meilisearch_json_decl(r#""logsRoute": true"#));
+    assert!(is_meilisearch_json_decl(r#""logsRoute": false"#));
+    assert!(is_meilisearch_json_decl(r#""tasksStreamingRoute": true"#));
+    assert!(is_meilisearch_json_decl(r#""tasksStreamingRoute": false"#));
+    assert!(is_meilisearch_json_decl(
+        r#""getTaskDocumentsRoute": true"#
+    ));
+    assert!(is_meilisearch_json_decl(
+        r#""getTaskDocumentsRoute": false"#
+    ));
+    assert!(is_meilisearch_json_decl(
+        r#""taskQueueCompactionRoute": true"#
+    ));
+    assert!(is_meilisearch_json_decl(
+        r#""taskQueueCompactionRoute": false"#
+    ));
+    assert!(is_meilisearch_json_decl(r#""compositeEmbedders": true"#));
+    assert!(is_meilisearch_json_decl(r#""compositeEmbedders": false"#));
+    assert!(is_meilisearch_json_decl(r#""multimodal": true"#));
+    assert!(is_meilisearch_json_decl(r#""multimodal": false"#));
     // Distinctive neighbours stay out of this scanner.
     assert!(!is_meilisearch_json_decl(r#""responseHeader": {"#));
     assert!(is_solr_json_decl(r#""responseHeader": {"#));
@@ -33096,6 +33116,12 @@ fn meilisearch_json_keys_smoke() {
     assert!(line_is_func_like(r#""containsFilter": false"#));
     assert!(line_is_func_like(r#""dynamicSearchRules": true"#));
     assert!(line_is_func_like(r#""chatCompletions": false"#));
+    assert!(line_is_func_like(r#""logsRoute": true"#));
+    assert!(line_is_func_like(r#""tasksStreamingRoute": false"#));
+    assert!(line_is_func_like(r#""getTaskDocumentsRoute": true"#));
+    assert!(line_is_func_like(r#""taskQueueCompactionRoute": false"#));
+    assert!(line_is_func_like(r#""compositeEmbedders": true"#));
+    assert!(line_is_func_like(r#""multimodal": false"#));
 }
 
 #[test]
@@ -33756,6 +33782,106 @@ fn meilisearch_json_keys_count() {
     assert!(!is_meilisearch_json_decl(r#""chatCompletions": 1"#));
     assert!(!is_meilisearch_json_decl(r#""ChatCompletions": true"#));
     assert!(!is_meilisearch_json_decl(r#""chat_completions": true"#));
+    assert!(is_meilisearch_json_decl(r#""logsRoute": true"#));
+    assert!(is_meilisearch_json_decl(r#""logsRoute": false"#));
+    assert!(is_meilisearch_json_decl(r#""logsRoute": true,"#));
+    assert!(is_meilisearch_json_decl(r#""logsRoute": true // l"#));
+    assert!(!is_meilisearch_json_decl(r#""logsRoute": {"#));
+    assert!(!is_meilisearch_json_decl(r#""logsRoute": ["#));
+    assert!(!is_meilisearch_json_decl(r#""logsRoute": """#));
+    assert!(!is_meilisearch_json_decl(r#""logsRoute": 1"#));
+    assert!(!is_meilisearch_json_decl(r#""LogsRoute": true"#));
+    assert!(!is_meilisearch_json_decl(r#""logs_route": true"#));
+    assert!(is_meilisearch_json_decl(r#""tasksStreamingRoute": true"#));
+    assert!(is_meilisearch_json_decl(r#""tasksStreamingRoute": false"#));
+    assert!(is_meilisearch_json_decl(r#""tasksStreamingRoute": true,"#));
+    assert!(is_meilisearch_json_decl(
+        r#""tasksStreamingRoute": true // t"#
+    ));
+    assert!(!is_meilisearch_json_decl(r#""tasksStreamingRoute": {"#));
+    assert!(!is_meilisearch_json_decl(r#""tasksStreamingRoute": ["#));
+    assert!(!is_meilisearch_json_decl(r#""tasksStreamingRoute": """#));
+    assert!(!is_meilisearch_json_decl(r#""tasksStreamingRoute": 1"#));
+    assert!(!is_meilisearch_json_decl(r#""TasksStreamingRoute": true"#));
+    assert!(!is_meilisearch_json_decl(
+        r#""tasks_streaming_route": true"#
+    ));
+    assert!(is_meilisearch_json_decl(
+        r#""getTaskDocumentsRoute": true"#
+    ));
+    assert!(is_meilisearch_json_decl(
+        r#""getTaskDocumentsRoute": false"#
+    ));
+    assert!(is_meilisearch_json_decl(
+        r#""getTaskDocumentsRoute": true,"#
+    ));
+    assert!(is_meilisearch_json_decl(
+        r#""getTaskDocumentsRoute": true // g"#
+    ));
+    assert!(!is_meilisearch_json_decl(r#""getTaskDocumentsRoute": {"#));
+    assert!(!is_meilisearch_json_decl(r#""getTaskDocumentsRoute": ["#));
+    assert!(!is_meilisearch_json_decl(r#""getTaskDocumentsRoute": """#));
+    assert!(!is_meilisearch_json_decl(r#""getTaskDocumentsRoute": 1"#));
+    assert!(!is_meilisearch_json_decl(
+        r#""GetTaskDocumentsRoute": true"#
+    ));
+    assert!(!is_meilisearch_json_decl(
+        r#""get_task_documents_route": true"#
+    ));
+    assert!(is_meilisearch_json_decl(
+        r#""taskQueueCompactionRoute": true"#
+    ));
+    assert!(is_meilisearch_json_decl(
+        r#""taskQueueCompactionRoute": false"#
+    ));
+    assert!(is_meilisearch_json_decl(
+        r#""taskQueueCompactionRoute": true,"#
+    ));
+    assert!(is_meilisearch_json_decl(
+        r#""taskQueueCompactionRoute": true // q"#
+    ));
+    assert!(!is_meilisearch_json_decl(
+        r#""taskQueueCompactionRoute": {"#
+    ));
+    assert!(!is_meilisearch_json_decl(
+        r#""taskQueueCompactionRoute": ["#
+    ));
+    assert!(!is_meilisearch_json_decl(
+        r#""taskQueueCompactionRoute": """#
+    ));
+    assert!(!is_meilisearch_json_decl(
+        r#""taskQueueCompactionRoute": 1"#
+    ));
+    assert!(!is_meilisearch_json_decl(
+        r#""TaskQueueCompactionRoute": true"#
+    ));
+    assert!(!is_meilisearch_json_decl(
+        r#""task_queue_compaction_route": true"#
+    ));
+    assert!(is_meilisearch_json_decl(r#""compositeEmbedders": true"#));
+    assert!(is_meilisearch_json_decl(r#""compositeEmbedders": false"#));
+    assert!(is_meilisearch_json_decl(r#""compositeEmbedders": true,"#));
+    assert!(is_meilisearch_json_decl(
+        r#""compositeEmbedders": true // c"#
+    ));
+    assert!(!is_meilisearch_json_decl(r#""compositeEmbedders": {"#));
+    assert!(!is_meilisearch_json_decl(r#""compositeEmbedders": ["#));
+    assert!(!is_meilisearch_json_decl(r#""compositeEmbedders": """#));
+    assert!(!is_meilisearch_json_decl(r#""compositeEmbedders": 1"#));
+    assert!(!is_meilisearch_json_decl(r#""CompositeEmbedders": true"#));
+    assert!(!is_meilisearch_json_decl(
+        r#""composite_embedders": true"#
+    ));
+    assert!(is_meilisearch_json_decl(r#""multimodal": true"#));
+    assert!(is_meilisearch_json_decl(r#""multimodal": false"#));
+    assert!(is_meilisearch_json_decl(r#""multimodal": false,"#));
+    assert!(is_meilisearch_json_decl(r#""multimodal": false // m"#));
+    assert!(!is_meilisearch_json_decl(r#""multimodal": {"#));
+    assert!(!is_meilisearch_json_decl(r#""multimodal": ["#));
+    assert!(!is_meilisearch_json_decl(r#""multimodal": """#));
+    assert!(!is_meilisearch_json_decl(r#""multimodal": 1"#));
+    assert!(!is_meilisearch_json_decl(r#""Multimodal": true"#));
+    assert!(!is_meilisearch_json_decl(r#""multi_modal": true"#));
     // Incomplete / wrong shapes stay out.
     assert!(!is_meilisearch_json_decl(r#""processingTimeMs""#));
     assert!(!is_meilisearch_json_decl(r#""processingTimeMs":"#));
@@ -33822,6 +33948,12 @@ fn meilisearch_json_keys_count() {
     assert!(!is_meilisearch_json_decl(r#""containsFilter""#));
     assert!(!is_meilisearch_json_decl(r#""dynamicSearchRules""#));
     assert!(!is_meilisearch_json_decl(r#""chatCompletions""#));
+    assert!(!is_meilisearch_json_decl(r#""logsRoute""#));
+    assert!(!is_meilisearch_json_decl(r#""tasksStreamingRoute""#));
+    assert!(!is_meilisearch_json_decl(r#""getTaskDocumentsRoute""#));
+    assert!(!is_meilisearch_json_decl(r#""taskQueueCompactionRoute""#));
+    assert!(!is_meilisearch_json_decl(r#""compositeEmbedders""#));
+    assert!(!is_meilisearch_json_decl(r#""multimodal""#));
     // Generic / neighbouring stay out.
     assert!(!is_meilisearch_json_decl(
         r#""$schema": "https://json-schema.org/draft/2020-12/schema""#
