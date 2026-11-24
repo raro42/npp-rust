@@ -30885,7 +30885,9 @@ fn solr_json_bool_and_tail_ok(after_colon: &str) -> bool {
 /// `"finishedAt": "…"`, `"canceledBy": 0` / `10`, `"taskUid": 0` / `10`,
 /// `"duration": "PT…"`, `"batchUid": 0` / `12`, `"originalFilter": "…"`,
 /// `"dumpUid": "…"`, `"swaps": [`, `"totalNbTasks": 0` / `5`,
-/// `"indexUids": {`, `"progressTrace": {`.
+/// `"indexUids": {`, `"progressTrace": {`, `"batchStrategy": "…"`,
+/// `"writeChannelCongestion": {`, `"embedderRequests": {`,
+/// `"currentStep": "…"`.
 /// Optional trailing `,` and `//` / `/*` comment. Incomplete quotes /
 /// missing `:` stay out. Generic `"$schema"` / `"name"` / `"id"` /
 /// `"hits": [` / `"query"` / `"limit"` / `"offset"` / `"page"` /
@@ -30972,13 +30974,14 @@ fn solr_json_bool_and_tail_ok(after_colon: &str) -> bool {
 /// `"federation"` / `"_federation"` / `"_rankingScoreDetails"` /
 /// `"hybrid"` / `"_formatted"` / `"_matchesPosition"` / `"_vectors"` /
 /// `"fieldDistribution"` / `"indexes"` / `"internalDatabaseSizes"` /
-/// `"indexUids"` / `"progressTrace"`
+/// `"indexUids"` / `"progressTrace"` / `"writeChannelCongestion"` /
+/// `"embedderRequests"`
 /// require `{`. Object or array `"remotes"` accepts `{` or `[`.
 /// String `"distinctAttribute"` / `"documentTemplate"` / `"foreignIndexUid"` /
 /// `"fieldName"` / `"searchApiKey"` / `"writeApiKey"` / `"leader"` / `"self"` /
 /// `"cropMarker"` / `"commitSha"` / `"commitDate"` / `"pkgVersion"` /
 /// `"lastUpdate"` / `"enqueuedAt"` / `"startedAt"` / `"finishedAt"` /
-/// `"originalFilter"` / `"dumpUid"`
+/// `"originalFilter"` / `"dumpUid"` / `"batchStrategy"` / `"currentStep"`
 /// require a non-empty quoted string. String `"duration"` requires a
 /// non-empty `PT…` ISO-8601 duration. String `"url"` requires a non-empty
 /// `http://` or `https://` quoted string (relative paths stay out). Array
@@ -31163,6 +31166,10 @@ fn meilisearch_json_key_ok(key: &str) -> bool {
             | "totalNbTasks"
             | "indexUids"
             | "progressTrace"
+            | "batchStrategy"
+            | "writeChannelCongestion"
+            | "embedderRequests"
+            | "currentStep"
     )
 }
 
@@ -31207,6 +31214,8 @@ fn meilisearch_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool {
                     | "internalDatabaseSizes"
                     | "indexUids"
                     | "progressTrace"
+                    | "writeChannelCongestion"
+                    | "embedderRequests"
             ) {
                 return false;
             }
@@ -31270,6 +31279,8 @@ fn meilisearch_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool {
                 || key == "finishedAt"
                 || key == "originalFilter"
                 || key == "dumpUid"
+                || key == "batchStrategy"
+                || key == "currentStep"
             {
                 meilisearch_json_nonempty_string_and_tail_ok(after_colon)
             } else if key == "duration" {

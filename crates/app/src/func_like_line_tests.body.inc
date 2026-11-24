@@ -33140,6 +33140,12 @@ fn meilisearch_json_keys_smoke() {
     assert!(is_meilisearch_json_decl(r#""totalNbTasks": 5"#));
     assert!(is_meilisearch_json_decl(r#""indexUids": {"#));
     assert!(is_meilisearch_json_decl(r#""progressTrace": {"#));
+    assert!(is_meilisearch_json_decl(
+        r#""batchStrategy": "batched all enqueued tasks""#
+    ));
+    assert!(is_meilisearch_json_decl(r#""writeChannelCongestion": {"#));
+    assert!(is_meilisearch_json_decl(r#""embedderRequests": {"#));
+    assert!(is_meilisearch_json_decl(r#""currentStep": "indexing""#));
     // Distinctive neighbours stay out of this scanner.
     assert!(!is_meilisearch_json_decl(r#""responseHeader": {"#));
     assert!(is_solr_json_decl(r#""responseHeader": {"#));
@@ -33354,6 +33360,12 @@ fn meilisearch_json_keys_smoke() {
     assert!(line_is_func_like(r#""totalNbTasks": 5"#));
     assert!(line_is_func_like(r#""indexUids": {"#));
     assert!(line_is_func_like(r#""progressTrace": {"#));
+    assert!(line_is_func_like(
+        r#""batchStrategy": "batched all enqueued tasks""#
+    ));
+    assert!(line_is_func_like(r#""writeChannelCongestion": {"#));
+    assert!(line_is_func_like(r#""embedderRequests": {"#));
+    assert!(line_is_func_like(r#""currentStep": "indexing""#));
 }
 
 #[test]
@@ -35038,6 +35050,58 @@ fn meilisearch_json_keys_count() {
     assert!(!is_meilisearch_json_decl(r#""progressTrace": "trace""#));
     assert!(!is_meilisearch_json_decl(r#""ProgressTrace": {"#));
     assert!(!is_meilisearch_json_decl(r#""progress_trace": {"#));
+    assert!(is_meilisearch_json_decl(
+        r#""batchStrategy": "batched all enqueued tasks""#
+    ));
+    assert!(is_meilisearch_json_decl(
+        r#""batchStrategy": "batched all enqueued tasks","#
+    ));
+    assert!(is_meilisearch_json_decl(
+        r#""batchStrategy": "batched all enqueued tasks" // b"#
+    ));
+    assert!(!is_meilisearch_json_decl(r#""batchStrategy": """#));
+    assert!(!is_meilisearch_json_decl(r#""batchStrategy": {"#));
+    assert!(!is_meilisearch_json_decl(r#""batchStrategy": ["#));
+    assert!(!is_meilisearch_json_decl(r#""batchStrategy": true"#));
+    assert!(!is_meilisearch_json_decl(
+        r#""BatchStrategy": "batched all enqueued tasks""#
+    ));
+    assert!(!is_meilisearch_json_decl(
+        r#""batch_strategy": "batched all enqueued tasks""#
+    ));
+    assert!(is_meilisearch_json_decl(r#""writeChannelCongestion": {"#));
+    assert!(is_meilisearch_json_decl(r#""writeChannelCongestion": {,"#));
+    assert!(is_meilisearch_json_decl(
+        r#""writeChannelCongestion": { // w"#
+    ));
+    assert!(!is_meilisearch_json_decl(r#""writeChannelCongestion": ["#));
+    assert!(!is_meilisearch_json_decl(r#""writeChannelCongestion": true"#));
+    assert!(!is_meilisearch_json_decl(r#""writeChannelCongestion": 1"#));
+    assert!(!is_meilisearch_json_decl(
+        r#""writeChannelCongestion": "busy""#
+    ));
+    assert!(!is_meilisearch_json_decl(r#""WriteChannelCongestion": {"#));
+    assert!(!is_meilisearch_json_decl(
+        r#""write_channel_congestion": {"#
+    ));
+    assert!(is_meilisearch_json_decl(r#""embedderRequests": {"#));
+    assert!(is_meilisearch_json_decl(r#""embedderRequests": {,"#));
+    assert!(is_meilisearch_json_decl(r#""embedderRequests": { // e"#));
+    assert!(!is_meilisearch_json_decl(r#""embedderRequests": ["#));
+    assert!(!is_meilisearch_json_decl(r#""embedderRequests": true"#));
+    assert!(!is_meilisearch_json_decl(r#""embedderRequests": 1"#));
+    assert!(!is_meilisearch_json_decl(r#""embedderRequests": "12""#));
+    assert!(!is_meilisearch_json_decl(r#""EmbedderRequests": {"#));
+    assert!(!is_meilisearch_json_decl(r#""embedder_requests": {"#));
+    assert!(is_meilisearch_json_decl(r#""currentStep": "indexing""#));
+    assert!(is_meilisearch_json_decl(r#""currentStep": "indexing","#));
+    assert!(is_meilisearch_json_decl(r#""currentStep": "indexing" // c"#));
+    assert!(!is_meilisearch_json_decl(r#""currentStep": """#));
+    assert!(!is_meilisearch_json_decl(r#""currentStep": {"#));
+    assert!(!is_meilisearch_json_decl(r#""currentStep": ["#));
+    assert!(!is_meilisearch_json_decl(r#""currentStep": true"#));
+    assert!(!is_meilisearch_json_decl(r#""CurrentStep": "indexing""#));
+    assert!(!is_meilisearch_json_decl(r#""current_step": "indexing""#));
     // Incomplete / wrong shapes stay out.
     assert!(!is_meilisearch_json_decl(r#""processingTimeMs""#));
     assert!(!is_meilisearch_json_decl(r#""processingTimeMs":"#));
