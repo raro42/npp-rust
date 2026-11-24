@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+## [0.3.972] — 2026-11-24
+
+View:
+
+- **Function List** lists Meilisearch nested index-settings JSON keys: `"maxTotalHits": 0` / `1000`, `"maxValuesPerFacet": 0` / `100`, `"sortFacetValuesBy": {`, `"minWordSizeForTypos": {`, `"disableOnWords": [`, `"disableOnAttributes": [`, `"disableOnNumbers": true` / `false`, `"binaryQuantized": true` / `false`. Optional trailing `,` and `//` / `/*` comment. Incomplete quotes / missing `:` stay out. Empty strings / wrong case / plural misspellings / wrong value shapes stay out. Existing Meilisearch keys (`processingTimeMs`, `estimatedTotalHits`, `exhaustiveNbHits`, `nbHits`, `hitsPerPage`, `facetDistribution`, `facetStats`, `exhaustiveFacetsCount`, `rankingScoreThreshold`, `showRankingScore`, `matchingStrategy`, `attributesToSearchOn`, `filterableAttributes`, `sortableAttributes`, `rankingRules`, `displayedAttributes`, `stopWords`, `synonyms`, `proximityPrecision`, `searchCutoffMs`, `searchableAttributes`, `separatorTokens`, `nonSeparatorTokens`, `dictionary`, `distinctAttribute`, `typoTolerance`, `pagination`, `faceting`, `embedders`, `localizedAttributes`, `facetSearch`, `prefixSearch`, `chat`, `documentTemplate`, `documentTemplateMaxBytes`, …) unchanged. Generic `"filter"` / `"sort"` / `"facets"` / `"limit"` / `"offset"` / `"page"` / `"description"` / `"searchParameters"` / `"enabled"` / `"source"` / `"oneTypo"` / `"twoTypos"` / Algolia `"disableTypoToleranceOnAttributes"` / `"disableTypoToleranceOnWords"` / string `"sortFacetValuesBy"` stay out. Neighbouring search JSON families stay out of Meilisearch for these keys. Object `"sortFacetValuesBy"` / `"minWordSizeForTypos"` require `{`. Array `"disableOnWords"` / `"disableOnAttributes"` require `[`. Bool `"disableOnNumbers"` / `"binaryQuantized"` only match `true` / `false`. Numeric `"maxTotalHits"` / `"maxValuesPerFacet"` reject leading zeros beyond `0`.
+
 ## [0.3.971] — 2026-11-24
 
 View:

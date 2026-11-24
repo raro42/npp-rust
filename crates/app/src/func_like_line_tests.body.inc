@@ -32928,6 +32928,18 @@ fn meilisearch_json_keys_smoke() {
     assert!(is_meilisearch_json_decl(
         r#""documentTemplateMaxBytes": 400"#
     ));
+    assert!(is_meilisearch_json_decl(r#""maxTotalHits": 0"#));
+    assert!(is_meilisearch_json_decl(r#""maxTotalHits": 1000"#));
+    assert!(is_meilisearch_json_decl(r#""maxValuesPerFacet": 0"#));
+    assert!(is_meilisearch_json_decl(r#""maxValuesPerFacet": 100"#));
+    assert!(is_meilisearch_json_decl(r#""sortFacetValuesBy": {"#));
+    assert!(is_meilisearch_json_decl(r#""minWordSizeForTypos": {"#));
+    assert!(is_meilisearch_json_decl(r#""disableOnWords": ["#));
+    assert!(is_meilisearch_json_decl(r#""disableOnAttributes": ["#));
+    assert!(is_meilisearch_json_decl(r#""disableOnNumbers": true"#));
+    assert!(is_meilisearch_json_decl(r#""disableOnNumbers": false"#));
+    assert!(is_meilisearch_json_decl(r#""binaryQuantized": true"#));
+    assert!(is_meilisearch_json_decl(r#""binaryQuantized": false"#));
     // Distinctive neighbours stay out of this scanner.
     assert!(!is_meilisearch_json_decl(r#""responseHeader": {"#));
     assert!(is_solr_json_decl(r#""responseHeader": {"#));
@@ -33016,6 +33028,14 @@ fn meilisearch_json_keys_smoke() {
         r#""documentTemplate": "{{doc.title}}""#
     ));
     assert!(line_is_func_like(r#""documentTemplateMaxBytes": 400"#));
+    assert!(line_is_func_like(r#""maxTotalHits": 1000"#));
+    assert!(line_is_func_like(r#""maxValuesPerFacet": 100"#));
+    assert!(line_is_func_like(r#""sortFacetValuesBy": {"#));
+    assert!(line_is_func_like(r#""minWordSizeForTypos": {"#));
+    assert!(line_is_func_like(r#""disableOnWords": ["#));
+    assert!(line_is_func_like(r#""disableOnAttributes": ["#));
+    assert!(line_is_func_like(r#""disableOnNumbers": true"#));
+    assert!(line_is_func_like(r#""binaryQuantized": false"#));
 }
 
 #[test]
@@ -33360,6 +33380,84 @@ fn meilisearch_json_keys_count() {
     assert!(!is_meilisearch_json_decl(
         r#""documentTemplateMaxBytes": """#
     ));
+    assert!(is_meilisearch_json_decl(r#""maxTotalHits": 0"#));
+    assert!(is_meilisearch_json_decl(r#""maxTotalHits": 1000"#));
+    assert!(is_meilisearch_json_decl(r#""maxTotalHits": 1000,"#));
+    assert!(is_meilisearch_json_decl(r#""maxTotalHits": 1000 // m"#));
+    assert!(!is_meilisearch_json_decl(r#""maxTotalHits": 00"#));
+    assert!(!is_meilisearch_json_decl(r#""maxTotalHits": 01"#));
+    assert!(!is_meilisearch_json_decl(r#""maxTotalHits": true"#));
+    assert!(!is_meilisearch_json_decl(r#""maxTotalHits": {"#));
+    assert!(!is_meilisearch_json_decl(r#""maxTotalHits": ["#));
+    assert!(!is_meilisearch_json_decl(r#""maxTotalHits": """#));
+    assert!(is_meilisearch_json_decl(r#""maxValuesPerFacet": 0"#));
+    assert!(is_meilisearch_json_decl(r#""maxValuesPerFacet": 100"#));
+    assert!(is_meilisearch_json_decl(r#""maxValuesPerFacet": 100,"#));
+    assert!(is_meilisearch_json_decl(
+        r#""maxValuesPerFacet": 100 // m"#
+    ));
+    assert!(!is_meilisearch_json_decl(r#""maxValuesPerFacet": 00"#));
+    assert!(!is_meilisearch_json_decl(r#""maxValuesPerFacet": 01"#));
+    assert!(!is_meilisearch_json_decl(r#""maxValuesPerFacet": true"#));
+    assert!(!is_meilisearch_json_decl(r#""maxValuesPerFacet": {"#));
+    assert!(!is_meilisearch_json_decl(r#""maxValuesPerFacet": ["#));
+    assert!(!is_meilisearch_json_decl(r#""maxValuesPerFacet": """#));
+    assert!(is_meilisearch_json_decl(r#""sortFacetValuesBy": {"#));
+    assert!(is_meilisearch_json_decl(r#""sortFacetValuesBy": {,"#));
+    assert!(is_meilisearch_json_decl(
+        r#""sortFacetValuesBy": { // s"#
+    ));
+    assert!(!is_meilisearch_json_decl(r#""sortFacetValuesBy": ["#));
+    assert!(!is_meilisearch_json_decl(r#""sortFacetValuesBy": true"#));
+    assert!(!is_meilisearch_json_decl(
+        r#""sortFacetValuesBy": "count""#
+    ));
+    assert!(!is_meilisearch_json_decl(
+        r#""sortFacetValuesBy": "alpha""#
+    ));
+    assert!(!is_meilisearch_json_decl(r#""sortFacetValuesBy": """#));
+    assert!(is_meilisearch_json_decl(r#""minWordSizeForTypos": {"#));
+    assert!(is_meilisearch_json_decl(r#""minWordSizeForTypos": {,"#));
+    assert!(is_meilisearch_json_decl(
+        r#""minWordSizeForTypos": { // m"#
+    ));
+    assert!(!is_meilisearch_json_decl(r#""minWordSizeForTypos": ["#));
+    assert!(!is_meilisearch_json_decl(r#""minWordSizeForTypos": true"#));
+    assert!(!is_meilisearch_json_decl(r#""minWordSizeForTypos": """#));
+    assert!(is_meilisearch_json_decl(r#""disableOnWords": ["#));
+    assert!(is_meilisearch_json_decl(r#""disableOnWords": [,"#));
+    assert!(is_meilisearch_json_decl(r#""disableOnWords": [ // d"#));
+    assert!(!is_meilisearch_json_decl(r#""disableOnWords": {"#));
+    assert!(!is_meilisearch_json_decl(r#""disableOnWords": true"#));
+    assert!(!is_meilisearch_json_decl(r#""disableOnWords": """#));
+    assert!(is_meilisearch_json_decl(r#""disableOnAttributes": ["#));
+    assert!(is_meilisearch_json_decl(r#""disableOnAttributes": [,"#));
+    assert!(is_meilisearch_json_decl(
+        r#""disableOnAttributes": [ // d"#
+    ));
+    assert!(!is_meilisearch_json_decl(r#""disableOnAttributes": {"#));
+    assert!(!is_meilisearch_json_decl(r#""disableOnAttributes": true"#));
+    assert!(!is_meilisearch_json_decl(r#""disableOnAttributes": """#));
+    assert!(is_meilisearch_json_decl(r#""disableOnNumbers": true"#));
+    assert!(is_meilisearch_json_decl(r#""disableOnNumbers": false"#));
+    assert!(is_meilisearch_json_decl(r#""disableOnNumbers": true,"#));
+    assert!(is_meilisearch_json_decl(
+        r#""disableOnNumbers": false // d"#
+    ));
+    assert!(!is_meilisearch_json_decl(r#""disableOnNumbers": 1"#));
+    assert!(!is_meilisearch_json_decl(r#""disableOnNumbers": "true""#));
+    assert!(!is_meilisearch_json_decl(r#""disableOnNumbers": {"#));
+    assert!(!is_meilisearch_json_decl(r#""disableOnNumbers": ["#));
+    assert!(is_meilisearch_json_decl(r#""binaryQuantized": true"#));
+    assert!(is_meilisearch_json_decl(r#""binaryQuantized": false"#));
+    assert!(is_meilisearch_json_decl(r#""binaryQuantized": true,"#));
+    assert!(is_meilisearch_json_decl(
+        r#""binaryQuantized": false // b"#
+    ));
+    assert!(!is_meilisearch_json_decl(r#""binaryQuantized": 1"#));
+    assert!(!is_meilisearch_json_decl(r#""binaryQuantized": "true""#));
+    assert!(!is_meilisearch_json_decl(r#""binaryQuantized": {"#));
+    assert!(!is_meilisearch_json_decl(r#""binaryQuantized": ["#));
     // Incomplete / wrong shapes stay out.
     assert!(!is_meilisearch_json_decl(r#""processingTimeMs""#));
     assert!(!is_meilisearch_json_decl(r#""processingTimeMs":"#));
@@ -33397,6 +33495,14 @@ fn meilisearch_json_keys_count() {
     assert!(!is_meilisearch_json_decl(r#""chat""#));
     assert!(!is_meilisearch_json_decl(r#""documentTemplate""#));
     assert!(!is_meilisearch_json_decl(r#""documentTemplateMaxBytes""#));
+    assert!(!is_meilisearch_json_decl(r#""maxTotalHits""#));
+    assert!(!is_meilisearch_json_decl(r#""maxValuesPerFacet""#));
+    assert!(!is_meilisearch_json_decl(r#""sortFacetValuesBy""#));
+    assert!(!is_meilisearch_json_decl(r#""minWordSizeForTypos""#));
+    assert!(!is_meilisearch_json_decl(r#""disableOnWords""#));
+    assert!(!is_meilisearch_json_decl(r#""disableOnAttributes""#));
+    assert!(!is_meilisearch_json_decl(r#""disableOnNumbers""#));
+    assert!(!is_meilisearch_json_decl(r#""binaryQuantized""#));
     // Generic / neighbouring stay out.
     assert!(!is_meilisearch_json_decl(
         r#""$schema": "https://json-schema.org/draft/2020-12/schema""#
@@ -33412,6 +33518,20 @@ fn meilisearch_json_keys_count() {
     assert!(!is_meilisearch_json_decl(r#""filter": "id > 1""#));
     assert!(!is_meilisearch_json_decl(r#""sort": ["#));
     assert!(!is_meilisearch_json_decl(r#""facets": ["#));
+    assert!(!is_meilisearch_json_decl(
+        r#""description": "A movie database""#
+    ));
+    assert!(!is_meilisearch_json_decl(r#""searchParameters": {"#));
+    assert!(!is_meilisearch_json_decl(r#""enabled": true"#));
+    assert!(!is_meilisearch_json_decl(r#""source": "openAi""#));
+    assert!(!is_meilisearch_json_decl(r#""oneTypo": 5"#));
+    assert!(!is_meilisearch_json_decl(r#""twoTypos": 9"#));
+    assert!(!is_meilisearch_json_decl(
+        r#""disableTypoToleranceOnAttributes": ["#
+    ));
+    assert!(!is_meilisearch_json_decl(
+        r#""disableTypoToleranceOnWords": ["#
+    ));
     assert!(!is_meilisearch_json_decl(r#""responseHeader": {"#));
     assert!(is_solr_json_decl(r#""responseHeader": {"#));
     assert!(!is_meilisearch_json_decl(r#""numFound": 10"#));
@@ -33505,6 +33625,14 @@ fn meilisearch_json_keys_count() {
         r#""documentTemplate": "{{doc.title}}""#
     ));
     assert!(line_is_func_like(r#""documentTemplateMaxBytes": 0"#));
+    assert!(line_is_func_like(r#""maxTotalHits": 0"#));
+    assert!(line_is_func_like(r#""maxValuesPerFacet": 0"#));
+    assert!(line_is_func_like(r#""sortFacetValuesBy": {"#));
+    assert!(line_is_func_like(r#""minWordSizeForTypos": {"#));
+    assert!(line_is_func_like(r#""disableOnWords": ["#));
+    assert!(line_is_func_like(r#""disableOnAttributes": ["#));
+    assert!(line_is_func_like(r#""disableOnNumbers": false"#));
+    assert!(line_is_func_like(r#""binaryQuantized": true"#));
     assert!(!is_meilisearch_json_decl(r#""search_time_ms": 12"#));
     assert!(is_typesense_json_decl(r#""search_time_ms": 12"#));
     assert!(!is_meilisearch_json_decl(r#""out_of": 100"#));
