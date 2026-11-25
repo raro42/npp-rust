@@ -1,3 +1,5 @@
+009 keep: Function List Meilisearch progress/details/stats (v0.3.998)
+
 009 keep: Function List Meilisearch percentage/steps/finished (v0.3.995)
 
 009 keep: Function List Meilisearch attempts/blocking_attempts/blocking_ratio/lastError (v0.3.994)
