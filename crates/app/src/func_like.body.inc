@@ -30917,7 +30917,8 @@ fn solr_json_bool_and_tail_ok(after_colon: &str) -> bool {
 /// `"targetTotalRuleCount": 0` / `10`,
 /// `"needsProcessing": true` / `false`, `"taskUids": [`,
 /// `"current": {`, `"target": {`, `"pin": [`, `"scale": [`,
-/// `"words": "…"`, `"values": {`.
+/// `"words": "…"`, `"values": {`, `"position": 0` / `1`, `"ids": [`,
+/// `"customMetadata": "…"`.
 /// Optional trailing `,` and `//` / `/*` comment. Incomplete quotes /
 /// missing `:` stay out. Generic `"$schema"` / `"name"` / `"id"` /
 /// `"hits": [` / `"query"` / `"limit"` / `"offset"` / `"page"` /
@@ -30992,7 +30993,8 @@ fn solr_json_bool_and_tail_ok(after_colon: &str) -> bool {
 /// `"deletedTasks"` / `"canceledBy"` / `"taskUid"` / `"batchUid"` /
 /// `"totalNbTasks"` / `"attempts"` / `"blocking_attempts"` / `"finished"` /
 /// `"total"` / `"semanticHitCount"` / `"queriesPosition"` / `"queryPosition"` /
-/// `"precedence"` / `"totalRuleCount"` / `"targetTotalRuleCount"`
+/// `"precedence"` / `"totalRuleCount"` / `"targetTotalRuleCount"` /
+/// `"position"`
 /// reject leading zeros beyond `0`.
 /// `"rankingScoreThreshold"` / `"current_mean"` / `"current_sigma"` /
 /// `"_rankingScore"` / `"blocking_ratio"` / `"percentage"` /
@@ -31023,7 +31025,7 @@ fn solr_json_bool_and_tail_ok(after_colon: &str) -> bool {
 /// `"lastError"` / `"facetName"` / `"facetQuery"` / `"indexUid"` /
 /// `"embedder"` / `"highlightPreTag"` / `"highlightPostTag"` /
 /// `"distinct"` / `"primaryKey"` / `"userContext"` / `"requestUid"` /
-/// `"queryUid"` / `"lastUpdatedAt"` / `"words"`
+/// `"queryUid"` / `"lastUpdatedAt"` / `"words"` / `"customMetadata"`
 /// require a non-empty quoted string. String `"duration"` requires a
 /// non-empty `PT…` ISO-8601 duration. String `"url"` requires a non-empty
 /// `http://` or `https://` quoted string (relative paths stay out). String
@@ -31036,8 +31038,8 @@ fn solr_json_bool_and_tail_ok(after_colon: &str) -> bool {
 /// `"foreignKeys"` / `"addRemotes"` / `"removeRemotes"` /
 /// `"attributesToRetrieve"` / `"attributesToCrop"` / `"locales"` /
 /// `"vector"` / `"queryVector"` / `"swaps"` / `"steps"` / `"facetHits"` /
-/// `"attributesToHighlight"` / `"taskUids"` / `"pin"` / `"scale"` require
-/// `[`.
+/// `"attributesToHighlight"` / `"taskUids"` / `"pin"` / `"scale"` /
+/// `"ids"` require `[`.
 /// Bool `"facetSearch"` / `"disableOnNumbers"` / `"binaryQuantized"` /
 /// `"equality"` / `"comparison"` / `"editDocumentsByFunction"` /
 /// `"containsFilter"` / `"dynamicSearchRules"` / `"chatCompletions"` /
@@ -31057,7 +31059,8 @@ fn solr_json_bool_and_tail_ok(after_colon: &str) -> bool {
 /// stays out). String `"words"` requires a non-empty quoted string
 /// (CSpell array `"words": [` stays out of this scanner).
 /// Algolia string `"sortFacetValuesBy"` stays out of this scanner (object
-/// only).
+/// only). Generic `"active"` / `"conditions"` / `"actions"` / `"weight"` /
+/// `"results"` stay out.
 fn is_meilisearch_json_decl(s: &str) -> bool {
     let s = s.trim_start();
     let Some(rest) = s.strip_prefix('"') else {
@@ -31289,6 +31292,9 @@ fn meilisearch_json_key_ok(key: &str) -> bool {
             | "scale"
             | "words"
             | "values"
+            | "position"
+            | "ids"
+            | "customMetadata"
     )
 }
 
@@ -31392,6 +31398,7 @@ fn meilisearch_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool {
                     | "taskUids"
                     | "pin"
                     | "scale"
+                    | "ids"
             ) {
                 return false;
             }
@@ -31448,6 +31455,7 @@ fn meilisearch_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool {
                 || key == "queryUid"
                 || key == "lastUpdatedAt"
                 || key == "words"
+                || key == "customMetadata"
             {
                 meilisearch_json_nonempty_string_and_tail_ok(after_colon)
             } else if key == "duration" {
@@ -31675,7 +31683,8 @@ fn meilisearch_json_number_and_tail_ok(key: &str, after_colon: &str) -> bool {
         | "queryPosition"
         | "precedence"
         | "totalRuleCount"
-        | "targetTotalRuleCount" => {
+        | "targetTotalRuleCount"
+        | "position" => {
             let digits = after_colon
                 .bytes()
                 .take_while(|b| b.is_ascii_digit())

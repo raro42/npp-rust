@@ -33287,6 +33287,12 @@ fn meilisearch_json_keys_smoke() {
     assert!(is_meilisearch_json_decl(r#""scale": ["#));
     assert!(is_meilisearch_json_decl(r#""words": "summer""#));
     assert!(is_meilisearch_json_decl(r#""values": {"#));
+    assert!(is_meilisearch_json_decl(r#""position": 0"#));
+    assert!(is_meilisearch_json_decl(r#""position": 1"#));
+    assert!(is_meilisearch_json_decl(r#""ids": ["#));
+    assert!(is_meilisearch_json_decl(
+        r#""customMetadata": "job-42""#
+    ));
     // Distinctive neighbours stay out of this scanner.
     assert!(!is_meilisearch_json_decl(r#""responseHeader": {"#));
     assert!(is_solr_json_decl(r#""responseHeader": {"#));
@@ -33606,6 +33612,10 @@ fn meilisearch_json_keys_smoke() {
     assert!(line_is_func_like(r#""scale": ["#));
     assert!(line_is_func_like(r#""words": "summer""#));
     assert!(line_is_func_like(r#""values": {"#));
+    assert!(line_is_func_like(r#""position": 0"#));
+    assert!(line_is_func_like(r#""position": 1"#));
+    assert!(line_is_func_like(r#""ids": ["#));
+    assert!(line_is_func_like(r#""customMetadata": "job-42""#));
 }
 
 #[test]
@@ -36205,6 +36215,49 @@ fn meilisearch_json_keys_count() {
     assert!(!is_meilisearch_json_decl(r#""values": 1"#));
     assert!(!is_meilisearch_json_decl(r#""Values": {"#));
     assert!(!is_meilisearch_json_decl(r#""VALUES": {"#));
+    assert!(is_meilisearch_json_decl(r#""position": 0"#));
+    assert!(is_meilisearch_json_decl(r#""position": 1"#));
+    assert!(is_meilisearch_json_decl(r#""position": 42"#));
+    assert!(is_meilisearch_json_decl(r#""position": 42,"#));
+    assert!(is_meilisearch_json_decl(r#""position": 42 // p"#));
+    assert!(!is_meilisearch_json_decl(r#""position": 00"#));
+    assert!(!is_meilisearch_json_decl(r#""position": 01"#));
+    assert!(!is_meilisearch_json_decl(r#""position": 042"#));
+    assert!(!is_meilisearch_json_decl(r#""position": true"#));
+    assert!(!is_meilisearch_json_decl(r#""position": {"#));
+    assert!(!is_meilisearch_json_decl(r#""position": ["#));
+    assert!(!is_meilisearch_json_decl(r#""position": """#));
+    assert!(!is_meilisearch_json_decl(r#""Position": 1"#));
+    assert!(!is_meilisearch_json_decl(r#""POSITION": 1"#));
+    assert!(is_meilisearch_json_decl(r#""ids": ["#));
+    assert!(is_meilisearch_json_decl(r#""ids": [,"#));
+    assert!(is_meilisearch_json_decl(r#""ids": [ // i"#));
+    assert!(!is_meilisearch_json_decl(r#""ids": {"#));
+    assert!(!is_meilisearch_json_decl(r#""ids": true"#));
+    assert!(!is_meilisearch_json_decl(r#""ids": 1"#));
+    assert!(!is_meilisearch_json_decl(r#""ids": """#));
+    assert!(!is_meilisearch_json_decl(r#""Ids": ["#));
+    assert!(!is_meilisearch_json_decl(r#""IDS": ["#));
+    assert!(is_meilisearch_json_decl(
+        r#""customMetadata": "job-42""#
+    ));
+    assert!(is_meilisearch_json_decl(
+        r#""customMetadata": "job-42","#
+    ));
+    assert!(is_meilisearch_json_decl(
+        r#""customMetadata": "job-42" // c"#
+    ));
+    assert!(!is_meilisearch_json_decl(r#""customMetadata": """#));
+    assert!(!is_meilisearch_json_decl(r#""customMetadata": {"#));
+    assert!(!is_meilisearch_json_decl(r#""customMetadata": ["#));
+    assert!(!is_meilisearch_json_decl(r#""customMetadata": true"#));
+    assert!(!is_meilisearch_json_decl(r#""customMetadata": 1"#));
+    assert!(!is_meilisearch_json_decl(
+        r#""CustomMetadata": "job-42""#
+    ));
+    assert!(!is_meilisearch_json_decl(
+        r#""CUSTOMMETADATA": "job-42""#
+    ));
     // Incomplete / wrong shapes stay out.
     assert!(!is_meilisearch_json_decl(r#""processingTimeMs""#));
     assert!(!is_meilisearch_json_decl(r#""processingTimeMs":"#));
@@ -36417,6 +36470,9 @@ fn meilisearch_json_keys_count() {
     assert!(!is_meilisearch_json_decl(r#""scale""#));
     assert!(!is_meilisearch_json_decl(r#""words""#));
     assert!(!is_meilisearch_json_decl(r#""values""#));
+    assert!(!is_meilisearch_json_decl(r#""position""#));
+    assert!(!is_meilisearch_json_decl(r#""ids""#));
+    assert!(!is_meilisearch_json_decl(r#""customMetadata""#));
     // Generic / neighbouring stay out.
     assert!(!is_meilisearch_json_decl(
         r#""$schema": "https://json-schema.org/draft/2020-12/schema""#
@@ -36438,6 +36494,11 @@ fn meilisearch_json_keys_count() {
     ));
     assert!(!is_meilisearch_json_decl(r#""searchParameters": {"#));
     assert!(!is_meilisearch_json_decl(r#""enabled": true"#));
+    assert!(!is_meilisearch_json_decl(r#""active": true"#));
+    assert!(!is_meilisearch_json_decl(r#""conditions": {"#));
+    assert!(!is_meilisearch_json_decl(r#""actions": {"#));
+    assert!(!is_meilisearch_json_decl(r#""weight": 1.5"#));
+    assert!(!is_meilisearch_json_decl(r#""results": ["#));
     assert!(!is_meilisearch_json_decl(r#""distribution": {"#));
     assert!(!is_meilisearch_json_decl(r#""mean": 0.2"#));
     assert!(!is_meilisearch_json_decl(r#""sigma": 0.4"#));
