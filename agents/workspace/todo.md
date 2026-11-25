@@ -1,3 +1,5 @@
+009 keep: Function List Meilisearch attributesToHighlight/highlightPreTag/highlightPostTag/distinct/primaryKey (v0.3.1002)
+
 009 keep: Function List Meilisearch indexUid/federationOptions/embedder/semanticRatio/queryPosition (v0.3.1001)
 
 009 keep: Function List Meilisearch exhaustiveFacetCount/semanticHitCount/queriesPosition/facetsByIndex/remoteErrors/mergeFacets (v0.3.1000)
