@@ -33281,6 +33281,12 @@ fn meilisearch_json_keys_smoke() {
     assert!(is_meilisearch_json_decl(r#""needsProcessing": true"#));
     assert!(is_meilisearch_json_decl(r#""needsProcessing": false"#));
     assert!(is_meilisearch_json_decl(r#""taskUids": ["#));
+    assert!(is_meilisearch_json_decl(r#""current": {"#));
+    assert!(is_meilisearch_json_decl(r#""target": {"#));
+    assert!(is_meilisearch_json_decl(r#""pin": ["#));
+    assert!(is_meilisearch_json_decl(r#""scale": ["#));
+    assert!(is_meilisearch_json_decl(r#""words": "summer""#));
+    assert!(is_meilisearch_json_decl(r#""values": {"#));
     // Distinctive neighbours stay out of this scanner.
     assert!(!is_meilisearch_json_decl(r#""responseHeader": {"#));
     assert!(is_solr_json_decl(r#""responseHeader": {"#));
@@ -33594,6 +33600,12 @@ fn meilisearch_json_keys_smoke() {
     assert!(line_is_func_like(r#""needsProcessing": true"#));
     assert!(line_is_func_like(r#""needsProcessing": false"#));
     assert!(line_is_func_like(r#""taskUids": ["#));
+    assert!(line_is_func_like(r#""current": {"#));
+    assert!(line_is_func_like(r#""target": {"#));
+    assert!(line_is_func_like(r#""pin": ["#));
+    assert!(line_is_func_like(r#""scale": ["#));
+    assert!(line_is_func_like(r#""words": "summer""#));
+    assert!(line_is_func_like(r#""values": {"#));
 }
 
 #[test]
@@ -36138,6 +36150,61 @@ fn meilisearch_json_keys_count() {
     assert!(!is_meilisearch_json_decl(r#""taskUids": """#));
     assert!(!is_meilisearch_json_decl(r#""TaskUids": ["#));
     assert!(!is_meilisearch_json_decl(r#""TASKUIDS": ["#));
+    assert!(is_meilisearch_json_decl(r#""current": {"#));
+    assert!(is_meilisearch_json_decl(r#""current": {,"#));
+    assert!(is_meilisearch_json_decl(r#""current": { // c"#));
+    assert!(!is_meilisearch_json_decl(r#""current": ["#));
+    assert!(!is_meilisearch_json_decl(r#""current": true"#));
+    assert!(!is_meilisearch_json_decl(r#""current": """#));
+    assert!(!is_meilisearch_json_decl(r#""current": 1"#));
+    assert!(!is_meilisearch_json_decl(r#""Current": {"#));
+    assert!(!is_meilisearch_json_decl(r#""CURRENT": {"#));
+    assert!(is_meilisearch_json_decl(r#""target": {"#));
+    assert!(is_meilisearch_json_decl(r#""target": {,"#));
+    assert!(is_meilisearch_json_decl(r#""target": { // t"#));
+    assert!(!is_meilisearch_json_decl(r#""target": ["#));
+    assert!(!is_meilisearch_json_decl(r#""target": true"#));
+    assert!(!is_meilisearch_json_decl(r#""target": "ES2022""#));
+    assert!(!is_meilisearch_json_decl(r#""target": 1"#));
+    assert!(!is_meilisearch_json_decl(r#""Target": {"#));
+    assert!(!is_meilisearch_json_decl(r#""TARGET": {"#));
+    assert!(is_meilisearch_json_decl(r#""pin": ["#));
+    assert!(is_meilisearch_json_decl(r#""pin": [,"#));
+    assert!(is_meilisearch_json_decl(r#""pin": [ // p"#));
+    assert!(!is_meilisearch_json_decl(r#""pin": {"#));
+    assert!(!is_meilisearch_json_decl(r#""pin": true"#));
+    assert!(!is_meilisearch_json_decl(r#""pin": 1"#));
+    assert!(!is_meilisearch_json_decl(r#""pin": """#));
+    assert!(!is_meilisearch_json_decl(r#""Pin": ["#));
+    assert!(!is_meilisearch_json_decl(r#""PIN": ["#));
+    assert!(is_meilisearch_json_decl(r#""scale": ["#));
+    assert!(is_meilisearch_json_decl(r#""scale": [,"#));
+    assert!(is_meilisearch_json_decl(r#""scale": [ // s"#));
+    assert!(!is_meilisearch_json_decl(r#""scale": {"#));
+    assert!(!is_meilisearch_json_decl(r#""scale": true"#));
+    assert!(!is_meilisearch_json_decl(r#""scale": 1"#));
+    assert!(!is_meilisearch_json_decl(r#""scale": """#));
+    assert!(!is_meilisearch_json_decl(r#""Scale": ["#));
+    assert!(!is_meilisearch_json_decl(r#""SCALE": ["#));
+    assert!(is_meilisearch_json_decl(r#""words": "summer""#));
+    assert!(is_meilisearch_json_decl(r#""words": "summer sale""#));
+    assert!(is_meilisearch_json_decl(r#""words": "summer","#));
+    assert!(is_meilisearch_json_decl(r#""words": "summer" // w"#));
+    assert!(!is_meilisearch_json_decl(r#""words": ["#));
+    assert!(!is_meilisearch_json_decl(r#""words": {"#));
+    assert!(!is_meilisearch_json_decl(r#""words": true"#));
+    assert!(!is_meilisearch_json_decl(r#""words": """#));
+    assert!(!is_meilisearch_json_decl(r#""Words": "summer""#));
+    assert!(!is_meilisearch_json_decl(r#""WORDS": "summer""#));
+    assert!(is_meilisearch_json_decl(r#""values": {"#));
+    assert!(is_meilisearch_json_decl(r#""values": {,"#));
+    assert!(is_meilisearch_json_decl(r#""values": { // v"#));
+    assert!(!is_meilisearch_json_decl(r#""values": ["#));
+    assert!(!is_meilisearch_json_decl(r#""values": true"#));
+    assert!(!is_meilisearch_json_decl(r#""values": """#));
+    assert!(!is_meilisearch_json_decl(r#""values": 1"#));
+    assert!(!is_meilisearch_json_decl(r#""Values": {"#));
+    assert!(!is_meilisearch_json_decl(r#""VALUES": {"#));
     // Incomplete / wrong shapes stay out.
     assert!(!is_meilisearch_json_decl(r#""processingTimeMs""#));
     assert!(!is_meilisearch_json_decl(r#""processingTimeMs":"#));
@@ -36344,6 +36411,12 @@ fn meilisearch_json_keys_count() {
     assert!(!is_meilisearch_json_decl(r#""targetTotalRuleCount""#));
     assert!(!is_meilisearch_json_decl(r#""needsProcessing""#));
     assert!(!is_meilisearch_json_decl(r#""taskUids""#));
+    assert!(!is_meilisearch_json_decl(r#""current""#));
+    assert!(!is_meilisearch_json_decl(r#""target""#));
+    assert!(!is_meilisearch_json_decl(r#""pin""#));
+    assert!(!is_meilisearch_json_decl(r#""scale""#));
+    assert!(!is_meilisearch_json_decl(r#""words""#));
+    assert!(!is_meilisearch_json_decl(r#""values""#));
     // Generic / neighbouring stay out.
     assert!(!is_meilisearch_json_decl(
         r#""$schema": "https://json-schema.org/draft/2020-12/schema""#

@@ -30915,7 +30915,9 @@ fn solr_json_bool_and_tail_ok(after_colon: &str) -> bool {
 /// `"isEmpty": true` / `false`,
 /// `"showTarget": true` / `false`, `"totalRuleCount": 0` / `10`,
 /// `"targetTotalRuleCount": 0` / `10`,
-/// `"needsProcessing": true` / `false`, `"taskUids": [`.
+/// `"needsProcessing": true` / `false`, `"taskUids": [`,
+/// `"current": {`, `"target": {`, `"pin": [`, `"scale": [`,
+/// `"words": "…"`, `"values": {`.
 /// Optional trailing `,` and `//` / `/*` comment. Incomplete quotes /
 /// missing `:` stay out. Generic `"$schema"` / `"name"` / `"id"` /
 /// `"hits": [` / `"query"` / `"limit"` / `"offset"` / `"page"` /
@@ -31021,7 +31023,7 @@ fn solr_json_bool_and_tail_ok(after_colon: &str) -> bool {
 /// `"lastError"` / `"facetName"` / `"facetQuery"` / `"indexUid"` /
 /// `"embedder"` / `"highlightPreTag"` / `"highlightPostTag"` /
 /// `"distinct"` / `"primaryKey"` / `"userContext"` / `"requestUid"` /
-/// `"queryUid"` / `"lastUpdatedAt"`
+/// `"queryUid"` / `"lastUpdatedAt"` / `"words"`
 /// require a non-empty quoted string. String `"duration"` requires a
 /// non-empty `PT…` ISO-8601 duration. String `"url"` requires a non-empty
 /// `http://` or `https://` quoted string (relative paths stay out). String
@@ -31034,7 +31036,8 @@ fn solr_json_bool_and_tail_ok(after_colon: &str) -> bool {
 /// `"foreignKeys"` / `"addRemotes"` / `"removeRemotes"` /
 /// `"attributesToRetrieve"` / `"attributesToCrop"` / `"locales"` /
 /// `"vector"` / `"queryVector"` / `"swaps"` / `"steps"` / `"facetHits"` /
-/// `"attributesToHighlight"` / `"taskUids"` require `[`.
+/// `"attributesToHighlight"` / `"taskUids"` / `"pin"` / `"scale"` require
+/// `[`.
 /// Bool `"facetSearch"` / `"disableOnNumbers"` / `"binaryQuantized"` /
 /// `"equality"` / `"comparison"` / `"editDocumentsByFunction"` /
 /// `"containsFilter"` / `"dynamicSearchRules"` / `"chatCompletions"` /
@@ -31049,8 +31052,10 @@ fn solr_json_bool_and_tail_ok(after_colon: &str) -> bool {
 /// `"needsProcessing"`
 /// only match `true` / `false` (array `"foreignKeys": [` still matches).
 /// Object `"media"` / `"personalize"` / `"performanceDetails"` /
-/// `"inlineRule"` / `"inlineRuleConditionOutcomes"` require `{` (Synerise
-/// bool `"personalize"` stays out).
+/// `"inlineRule"` / `"inlineRuleConditionOutcomes"` / `"current"` /
+/// `"target"` / `"values"` require `{` (Synerise bool `"personalize"`
+/// stays out). String `"words"` requires a non-empty quoted string
+/// (CSpell array `"words": [` stays out of this scanner).
 /// Algolia string `"sortFacetValuesBy"` stays out of this scanner (object
 /// only).
 fn is_meilisearch_json_decl(s: &str) -> bool {
@@ -31278,6 +31283,12 @@ fn meilisearch_json_key_ok(key: &str) -> bool {
             | "targetTotalRuleCount"
             | "needsProcessing"
             | "taskUids"
+            | "current"
+            | "target"
+            | "pin"
+            | "scale"
+            | "words"
+            | "values"
     )
 }
 
@@ -31340,6 +31351,9 @@ fn meilisearch_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool {
                     | "inlineRuleConditionOutcomes"
                     | "satisfiesQueryWordsCondition"
                     | "satisfiesFilterCondition"
+                    | "current"
+                    | "target"
+                    | "values"
             ) {
                 return false;
             }
@@ -31376,6 +31390,8 @@ fn meilisearch_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool {
                     | "facetHits"
                     | "attributesToHighlight"
                     | "taskUids"
+                    | "pin"
+                    | "scale"
             ) {
                 return false;
             }
@@ -31431,6 +31447,7 @@ fn meilisearch_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool {
                 || key == "requestUid"
                 || key == "queryUid"
                 || key == "lastUpdatedAt"
+                || key == "words"
             {
                 meilisearch_json_nonempty_string_and_tail_ok(after_colon)
             } else if key == "duration" {
