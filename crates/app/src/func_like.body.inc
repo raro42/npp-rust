@@ -30897,7 +30897,9 @@ fn solr_json_bool_and_tail_ok(after_colon: &str) -> bool {
 /// `"semanticHitCount": 0` / `3`, `"queriesPosition": 0` / `1`,
 /// `"facetsByIndex": {`, `"remoteErrors": {`, `"mergeFacets": {`,
 /// `"indexUid": "…"`, `"federationOptions": {`, `"embedder": "…"`,
-/// `"semanticRatio": 0` / `0.5` / `1`, `"queryPosition": 0` / `1`.
+/// `"semanticRatio": 0` / `0.5` / `1`, `"queryPosition": 0` / `1`,
+/// `"attributesToHighlight": [`, `"highlightPreTag": "…"`,
+/// `"highlightPostTag": "…"`, `"distinct": "…"`, `"primaryKey": "…"`.
 /// Optional trailing `,` and `//` / `/*` comment. Incomplete quotes /
 /// missing `:` stay out. Generic `"$schema"` / `"name"` / `"id"` /
 /// `"hits": [` / `"query"` / `"limit"` / `"offset"` / `"page"` /
@@ -30913,9 +30915,9 @@ fn solr_json_bool_and_tail_ok(after_colon: &str) -> bool {
 /// `"drop_tokens_threshold"` / `"typo_tokens_threshold"` /
 /// `"prioritize_exact_match"` / `"exhaustive_search"` / Algolia
 /// `"processingTimeMS"` / `"nbPages"` / `"serverTimeMS"` / `"queryID"` /
-/// `"indexUsed"` / `"aroundLatLng"` / `"highlightPreTag"` /
+/// `"indexUsed"` / `"aroundLatLng"` /
 /// `"facets_stats"` / `"renderingContent"` / `"appliedRules"` /
-/// `"attributesToHighlight"` / `"getRankingInfo"` / `"clickAnalytics"` /
+/// `"getRankingInfo"` / `"clickAnalytics"` /
 /// `"enablePersonalization"` / `"removeWordsIfNoResults"` /
 /// `"disableTypoToleranceOnAttributes"` /
 /// `"disableTypoToleranceOnWords"` / Solr
@@ -30997,13 +30999,15 @@ fn solr_json_bool_and_tail_ok(after_colon: &str) -> bool {
 /// `"lastUpdate"` / `"enqueuedAt"` / `"startedAt"` / `"finishedAt"` /
 /// `"originalFilter"` / `"dumpUid"` / `"batchStrategy"` / `"currentStep"` /
 /// `"lastError"` / `"facetName"` / `"facetQuery"` / `"indexUid"` /
-/// `"embedder"`
+/// `"embedder"` / `"highlightPreTag"` / `"highlightPostTag"` /
+/// `"distinct"` / `"primaryKey"`
 /// require a non-empty quoted string. String `"duration"` requires a
 /// non-empty `PT…` ISO-8601 duration. String `"url"` requires a non-empty
 /// `http://` or `https://` quoted string (relative paths stay out). Array
 /// `"foreignKeys"` / `"addRemotes"` / `"removeRemotes"` /
 /// `"attributesToRetrieve"` / `"attributesToCrop"` / `"locales"` /
-/// `"vector"` / `"swaps"` / `"steps"` / `"facetHits"` require `[`.
+/// `"vector"` / `"swaps"` / `"steps"` / `"facetHits"` /
+/// `"attributesToHighlight"` require `[`.
 /// Bool `"facetSearch"` / `"disableOnNumbers"` / `"binaryQuantized"` /
 /// `"equality"` / `"comparison"` / `"editDocumentsByFunction"` /
 /// `"containsFilter"` / `"dynamicSearchRules"` / `"chatCompletions"` /
@@ -31214,6 +31218,11 @@ fn meilisearch_json_key_ok(key: &str) -> bool {
             | "embedder"
             | "semanticRatio"
             | "queryPosition"
+            | "attributesToHighlight"
+            | "highlightPreTag"
+            | "highlightPostTag"
+            | "distinct"
+            | "primaryKey"
     )
 }
 
@@ -31302,6 +31311,7 @@ fn meilisearch_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool {
                     | "swaps"
                     | "steps"
                     | "facetHits"
+                    | "attributesToHighlight"
             ) {
                 return false;
             }
@@ -31341,6 +31351,10 @@ fn meilisearch_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool {
                 || key == "facetQuery"
                 || key == "indexUid"
                 || key == "embedder"
+                || key == "highlightPreTag"
+                || key == "highlightPostTag"
+                || key == "distinct"
+                || key == "primaryKey"
             {
                 meilisearch_json_nonempty_string_and_tail_ok(after_colon)
             } else if key == "duration" {

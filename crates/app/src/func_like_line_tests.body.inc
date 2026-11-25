@@ -33189,6 +33189,11 @@ fn meilisearch_json_keys_smoke() {
     assert!(is_meilisearch_json_decl(r#""semanticRatio": 0.5"#));
     assert!(is_meilisearch_json_decl(r#""queryPosition": 0"#));
     assert!(is_meilisearch_json_decl(r#""queryPosition": 1"#));
+    assert!(is_meilisearch_json_decl(r#""attributesToHighlight": ["#));
+    assert!(is_meilisearch_json_decl(r#""highlightPreTag": "<em>""#));
+    assert!(is_meilisearch_json_decl(r#""highlightPostTag": "</em>""#));
+    assert!(is_meilisearch_json_decl(r#""distinct": "movie_id""#));
+    assert!(is_meilisearch_json_decl(r#""primaryKey": "id""#));
     // Distinctive neighbours stay out of this scanner.
     assert!(!is_meilisearch_json_decl(r#""responseHeader": {"#));
     assert!(is_solr_json_decl(r#""responseHeader": {"#));
@@ -33440,6 +33445,11 @@ fn meilisearch_json_keys_smoke() {
     assert!(line_is_func_like(r#""semanticRatio": 0.5"#));
     assert!(line_is_func_like(r#""queryPosition": 0"#));
     assert!(line_is_func_like(r#""queryPosition": 1"#));
+    assert!(line_is_func_like(r#""attributesToHighlight": ["#));
+    assert!(line_is_func_like(r#""highlightPreTag": "<em>""#));
+    assert!(line_is_func_like(r#""highlightPostTag": "</em>""#));
+    assert!(line_is_func_like(r#""distinct": "movie_id""#));
+    assert!(line_is_func_like(r#""primaryKey": "id""#));
 }
 
 #[test]
@@ -35469,6 +35479,68 @@ fn meilisearch_json_keys_count() {
     assert!(!is_meilisearch_json_decl(r#""queryPosition": ["#));
     assert!(!is_meilisearch_json_decl(r#""QueryPosition": 0"#));
     assert!(!is_meilisearch_json_decl(r#""QUERYPOSITION": 0"#));
+    assert!(is_meilisearch_json_decl(r#""attributesToHighlight": ["#));
+    assert!(is_meilisearch_json_decl(r#""attributesToHighlight": [,"#));
+    assert!(is_meilisearch_json_decl(
+        r#""attributesToHighlight": [ // a"#
+    ));
+    assert!(!is_meilisearch_json_decl(r#""attributesToHighlight": {"#));
+    assert!(!is_meilisearch_json_decl(
+        r#""attributesToHighlight": true"#
+    ));
+    assert!(!is_meilisearch_json_decl(
+        r#""attributesToHighlight": "title""#
+    ));
+    assert!(!is_meilisearch_json_decl(
+        r#""AttributesToHighlight": ["#
+    ));
+    assert!(!is_meilisearch_json_decl(
+        r#""ATTRIBUTESTOHIGHLIGHT": ["#
+    ));
+    assert!(is_meilisearch_json_decl(r#""highlightPreTag": "<em>""#));
+    assert!(is_meilisearch_json_decl(r#""highlightPreTag": "<em>","#));
+    assert!(is_meilisearch_json_decl(
+        r#""highlightPreTag": "<em>" // h"#
+    ));
+    assert!(!is_meilisearch_json_decl(r#""highlightPreTag": """#));
+    assert!(!is_meilisearch_json_decl(r#""highlightPreTag": true"#));
+    assert!(!is_meilisearch_json_decl(r#""highlightPreTag": 1"#));
+    assert!(!is_meilisearch_json_decl(r#""highlightPreTag": {"#));
+    assert!(!is_meilisearch_json_decl(r#""highlightPreTag": ["#));
+    assert!(!is_meilisearch_json_decl(r#""HighlightPreTag": "<em>""#));
+    assert!(!is_meilisearch_json_decl(r#""HIGHLIGHTPRETAG": "<em>""#));
+    assert!(is_meilisearch_json_decl(r#""highlightPostTag": "</em>""#));
+    assert!(is_meilisearch_json_decl(r#""highlightPostTag": "</em>","#));
+    assert!(is_meilisearch_json_decl(
+        r#""highlightPostTag": "</em>" // h"#
+    ));
+    assert!(!is_meilisearch_json_decl(r#""highlightPostTag": """#));
+    assert!(!is_meilisearch_json_decl(r#""highlightPostTag": true"#));
+    assert!(!is_meilisearch_json_decl(r#""highlightPostTag": 1"#));
+    assert!(!is_meilisearch_json_decl(r#""highlightPostTag": {"#));
+    assert!(!is_meilisearch_json_decl(r#""highlightPostTag": ["#));
+    assert!(!is_meilisearch_json_decl(r#""HighlightPostTag": "</em>""#));
+    assert!(!is_meilisearch_json_decl(r#""HIGHLIGHTPOSTTAG": "</em>""#));
+    assert!(is_meilisearch_json_decl(r#""distinct": "movie_id""#));
+    assert!(is_meilisearch_json_decl(r#""distinct": "movie_id","#));
+    assert!(is_meilisearch_json_decl(r#""distinct": "movie_id" // d"#));
+    assert!(!is_meilisearch_json_decl(r#""distinct": """#));
+    assert!(!is_meilisearch_json_decl(r#""distinct": true"#));
+    assert!(!is_meilisearch_json_decl(r#""distinct": 1"#));
+    assert!(!is_meilisearch_json_decl(r#""distinct": {"#));
+    assert!(!is_meilisearch_json_decl(r#""distinct": ["#));
+    assert!(!is_meilisearch_json_decl(r#""Distinct": "movie_id""#));
+    assert!(!is_meilisearch_json_decl(r#""DISTINCT": "movie_id""#));
+    assert!(is_meilisearch_json_decl(r#""primaryKey": "id""#));
+    assert!(is_meilisearch_json_decl(r#""primaryKey": "id","#));
+    assert!(is_meilisearch_json_decl(r#""primaryKey": "id" // p"#));
+    assert!(!is_meilisearch_json_decl(r#""primaryKey": """#));
+    assert!(!is_meilisearch_json_decl(r#""primaryKey": true"#));
+    assert!(!is_meilisearch_json_decl(r#""primaryKey": 1"#));
+    assert!(!is_meilisearch_json_decl(r#""primaryKey": {"#));
+    assert!(!is_meilisearch_json_decl(r#""primaryKey": ["#));
+    assert!(!is_meilisearch_json_decl(r#""PrimaryKey": "id""#));
+    assert!(!is_meilisearch_json_decl(r#""PRIMARYKEY": "id""#));
     // Incomplete / wrong shapes stay out.
     assert!(!is_meilisearch_json_decl(r#""processingTimeMs""#));
     assert!(!is_meilisearch_json_decl(r#""processingTimeMs":"#));
@@ -35635,6 +35707,11 @@ fn meilisearch_json_keys_count() {
     assert!(!is_meilisearch_json_decl(r#""embedder""#));
     assert!(!is_meilisearch_json_decl(r#""semanticRatio""#));
     assert!(!is_meilisearch_json_decl(r#""queryPosition""#));
+    assert!(!is_meilisearch_json_decl(r#""attributesToHighlight""#));
+    assert!(!is_meilisearch_json_decl(r#""highlightPreTag""#));
+    assert!(!is_meilisearch_json_decl(r#""highlightPostTag""#));
+    assert!(!is_meilisearch_json_decl(r#""distinct""#));
+    assert!(!is_meilisearch_json_decl(r#""primaryKey""#));
     // Generic / neighbouring stay out.
     assert!(!is_meilisearch_json_decl(
         r#""$schema": "https://json-schema.org/draft/2020-12/schema""#
@@ -54476,6 +54553,20 @@ fn instant_meilisearch_json_keys_count() {
     assert!(!is_instant_meilisearch_json_decl(r#""locales": true"#));
     assert!(!is_instant_meilisearch_json_decl(r#""locales": "en""#));
     assert!(!is_instant_meilisearch_json_decl(r#""Locales": ["#));
+    assert!(is_meilisearch_json_decl(r#""attributesToHighlight": ["#));
+    assert!(!is_pagefind_json_decl(r#""attributesToHighlight": ["#));
+    assert!(is_algolia_json_decl(r#""attributesToHighlight": ["#));
+    assert!(is_meilisearch_json_decl(r#""highlightPreTag": "<em>""#));
+    assert!(!is_pagefind_json_decl(r#""highlightPreTag": "<em>""#));
+    assert!(is_algolia_json_decl(r#""highlightPreTag": "<em>""#));
+    assert!(is_meilisearch_json_decl(r#""highlightPostTag": "</em>""#));
+    assert!(!is_pagefind_json_decl(r#""highlightPostTag": "</em>""#));
+    assert!(is_meilisearch_json_decl(r#""distinct": "movie_id""#));
+    assert!(!is_pagefind_json_decl(r#""distinct": "movie_id""#));
+    assert!(!is_meilisearch_json_decl(r#""distinct": true"#));
+    assert!(is_meilisearch_json_decl(r#""primaryKey": "id""#));
+    assert!(!is_pagefind_json_decl(r#""primaryKey": "id""#));
+    assert!(is_instant_meilisearch_json_decl(r#""primaryKey": "id""#));
     assert!(is_meilisearch_json_decl(r#""embedder": "default""#));
     assert!(!is_pagefind_json_decl(r#""embedder": "default""#));
     assert!(is_instant_meilisearch_json_decl(r#""embedder": "default""#));
