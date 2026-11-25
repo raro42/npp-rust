@@ -33272,6 +33272,15 @@ fn meilisearch_json_keys_smoke() {
     ));
     assert!(is_meilisearch_json_decl(r#""isEmpty": true"#));
     assert!(is_meilisearch_json_decl(r#""isEmpty": false"#));
+    assert!(is_meilisearch_json_decl(r#""showTarget": true"#));
+    assert!(is_meilisearch_json_decl(r#""showTarget": false"#));
+    assert!(is_meilisearch_json_decl(r#""totalRuleCount": 0"#));
+    assert!(is_meilisearch_json_decl(r#""totalRuleCount": 10"#));
+    assert!(is_meilisearch_json_decl(r#""targetTotalRuleCount": 0"#));
+    assert!(is_meilisearch_json_decl(r#""targetTotalRuleCount": 10"#));
+    assert!(is_meilisearch_json_decl(r#""needsProcessing": true"#));
+    assert!(is_meilisearch_json_decl(r#""needsProcessing": false"#));
+    assert!(is_meilisearch_json_decl(r#""taskUids": ["#));
     // Distinctive neighbours stay out of this scanner.
     assert!(!is_meilisearch_json_decl(r#""responseHeader": {"#));
     assert!(is_solr_json_decl(r#""responseHeader": {"#));
@@ -33578,6 +33587,13 @@ fn meilisearch_json_keys_smoke() {
     ));
     assert!(line_is_func_like(r#""isEmpty": true"#));
     assert!(line_is_func_like(r#""isEmpty": false"#));
+    assert!(line_is_func_like(r#""showTarget": true"#));
+    assert!(line_is_func_like(r#""showTarget": false"#));
+    assert!(line_is_func_like(r#""totalRuleCount": 10"#));
+    assert!(line_is_func_like(r#""targetTotalRuleCount": 10"#));
+    assert!(line_is_func_like(r#""needsProcessing": true"#));
+    assert!(line_is_func_like(r#""needsProcessing": false"#));
+    assert!(line_is_func_like(r#""taskUids": ["#));
 }
 
 #[test]
@@ -36059,6 +36075,69 @@ fn meilisearch_json_keys_count() {
     assert!(!is_meilisearch_json_decl(r#""isEmpty": 1"#));
     assert!(!is_meilisearch_json_decl(r#""IsEmpty": true"#));
     assert!(!is_meilisearch_json_decl(r#""ISEMPTY": true"#));
+    assert!(is_meilisearch_json_decl(r#""showTarget": true"#));
+    assert!(is_meilisearch_json_decl(r#""showTarget": false"#));
+    assert!(is_meilisearch_json_decl(r#""showTarget": true,"#));
+    assert!(is_meilisearch_json_decl(r#""showTarget": false // s"#));
+    assert!(!is_meilisearch_json_decl(r#""showTarget": {"#));
+    assert!(!is_meilisearch_json_decl(r#""showTarget": ["#));
+    assert!(!is_meilisearch_json_decl(r#""showTarget": """#));
+    assert!(!is_meilisearch_json_decl(r#""showTarget": 1"#));
+    assert!(!is_meilisearch_json_decl(r#""ShowTarget": true"#));
+    assert!(!is_meilisearch_json_decl(r#""SHOWTARGET": true"#));
+    assert!(is_meilisearch_json_decl(r#""totalRuleCount": 0"#));
+    assert!(is_meilisearch_json_decl(r#""totalRuleCount": 10"#));
+    assert!(is_meilisearch_json_decl(r#""totalRuleCount": 10,"#));
+    assert!(is_meilisearch_json_decl(r#""totalRuleCount": 10 // t"#));
+    assert!(!is_meilisearch_json_decl(r#""totalRuleCount": 00"#));
+    assert!(!is_meilisearch_json_decl(r#""totalRuleCount": 01"#));
+    assert!(!is_meilisearch_json_decl(r#""totalRuleCount": true"#));
+    assert!(!is_meilisearch_json_decl(r#""totalRuleCount": {"#));
+    assert!(!is_meilisearch_json_decl(r#""totalRuleCount": ["#));
+    assert!(!is_meilisearch_json_decl(r#""totalRuleCount": "10""#));
+    assert!(!is_meilisearch_json_decl(r#""TotalRuleCount": 10"#));
+    assert!(!is_meilisearch_json_decl(r#""TOTALRULECOUNT": 10"#));
+    assert!(is_meilisearch_json_decl(r#""targetTotalRuleCount": 0"#));
+    assert!(is_meilisearch_json_decl(r#""targetTotalRuleCount": 10"#));
+    assert!(is_meilisearch_json_decl(r#""targetTotalRuleCount": 10,"#));
+    assert!(is_meilisearch_json_decl(
+        r#""targetTotalRuleCount": 10 // t"#
+    ));
+    assert!(!is_meilisearch_json_decl(r#""targetTotalRuleCount": 00"#));
+    assert!(!is_meilisearch_json_decl(r#""targetTotalRuleCount": 01"#));
+    assert!(!is_meilisearch_json_decl(r#""targetTotalRuleCount": true"#));
+    assert!(!is_meilisearch_json_decl(r#""targetTotalRuleCount": {"#));
+    assert!(!is_meilisearch_json_decl(r#""targetTotalRuleCount": ["#));
+    assert!(!is_meilisearch_json_decl(
+        r#""targetTotalRuleCount": "10""#
+    ));
+    assert!(!is_meilisearch_json_decl(
+        r#""TargetTotalRuleCount": 10"#
+    ));
+    assert!(!is_meilisearch_json_decl(
+        r#""TARGETTOTALRULECOUNT": 10"#
+    ));
+    assert!(is_meilisearch_json_decl(r#""needsProcessing": true"#));
+    assert!(is_meilisearch_json_decl(r#""needsProcessing": false"#));
+    assert!(is_meilisearch_json_decl(r#""needsProcessing": true,"#));
+    assert!(is_meilisearch_json_decl(
+        r#""needsProcessing": false // n"#
+    ));
+    assert!(!is_meilisearch_json_decl(r#""needsProcessing": {"#));
+    assert!(!is_meilisearch_json_decl(r#""needsProcessing": ["#));
+    assert!(!is_meilisearch_json_decl(r#""needsProcessing": """#));
+    assert!(!is_meilisearch_json_decl(r#""needsProcessing": 1"#));
+    assert!(!is_meilisearch_json_decl(r#""NeedsProcessing": true"#));
+    assert!(!is_meilisearch_json_decl(r#""NEEDSPROCESSING": true"#));
+    assert!(is_meilisearch_json_decl(r#""taskUids": ["#));
+    assert!(is_meilisearch_json_decl(r#""taskUids": [,"#));
+    assert!(is_meilisearch_json_decl(r#""taskUids": [ // t"#));
+    assert!(!is_meilisearch_json_decl(r#""taskUids": {"#));
+    assert!(!is_meilisearch_json_decl(r#""taskUids": true"#));
+    assert!(!is_meilisearch_json_decl(r#""taskUids": 1"#));
+    assert!(!is_meilisearch_json_decl(r#""taskUids": """#));
+    assert!(!is_meilisearch_json_decl(r#""TaskUids": ["#));
+    assert!(!is_meilisearch_json_decl(r#""TASKUIDS": ["#));
     // Incomplete / wrong shapes stay out.
     assert!(!is_meilisearch_json_decl(r#""processingTimeMs""#));
     assert!(!is_meilisearch_json_decl(r#""processingTimeMs":"#));
@@ -36260,6 +36339,11 @@ fn meilisearch_json_keys_count() {
     assert!(!is_meilisearch_json_decl(r#""precedence""#));
     assert!(!is_meilisearch_json_decl(r#""lastUpdatedAt""#));
     assert!(!is_meilisearch_json_decl(r#""isEmpty""#));
+    assert!(!is_meilisearch_json_decl(r#""showTarget""#));
+    assert!(!is_meilisearch_json_decl(r#""totalRuleCount""#));
+    assert!(!is_meilisearch_json_decl(r#""targetTotalRuleCount""#));
+    assert!(!is_meilisearch_json_decl(r#""needsProcessing""#));
+    assert!(!is_meilisearch_json_decl(r#""taskUids""#));
     // Generic / neighbouring stay out.
     assert!(!is_meilisearch_json_decl(
         r#""$schema": "https://json-schema.org/draft/2020-12/schema""#

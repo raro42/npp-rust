@@ -30912,7 +30912,10 @@ fn solr_json_bool_and_tail_ok(after_colon: &str) -> bool {
 /// `"satisfiesQueryWordsCondition": "satisfied"` / `"noConstraint"` / `{`,
 /// `"satisfiesFilterCondition": "satisfied"` / `"noConstraint"` / `{`,
 /// `"precedence": 0` / `10`, `"lastUpdatedAt": "…"`,
-/// `"isEmpty": true` / `false`.
+/// `"isEmpty": true` / `false`,
+/// `"showTarget": true` / `false`, `"totalRuleCount": 0` / `10`,
+/// `"targetTotalRuleCount": 0` / `10`,
+/// `"needsProcessing": true` / `false`, `"taskUids": [`.
 /// Optional trailing `,` and `//` / `/*` comment. Incomplete quotes /
 /// missing `:` stay out. Generic `"$schema"` / `"name"` / `"id"` /
 /// `"hits": [` / `"query"` / `"limit"` / `"offset"` / `"page"` /
@@ -30987,7 +30990,7 @@ fn solr_json_bool_and_tail_ok(after_colon: &str) -> bool {
 /// `"deletedTasks"` / `"canceledBy"` / `"taskUid"` / `"batchUid"` /
 /// `"totalNbTasks"` / `"attempts"` / `"blocking_attempts"` / `"finished"` /
 /// `"total"` / `"semanticHitCount"` / `"queriesPosition"` / `"queryPosition"` /
-/// `"precedence"`
+/// `"precedence"` / `"totalRuleCount"` / `"targetTotalRuleCount"`
 /// reject leading zeros beyond `0`.
 /// `"rankingScoreThreshold"` / `"current_mean"` / `"current_sigma"` /
 /// `"_rankingScore"` / `"blocking_ratio"` / `"percentage"` /
@@ -31031,7 +31034,7 @@ fn solr_json_bool_and_tail_ok(after_colon: &str) -> bool {
 /// `"foreignKeys"` / `"addRemotes"` / `"removeRemotes"` /
 /// `"attributesToRetrieve"` / `"attributesToCrop"` / `"locales"` /
 /// `"vector"` / `"queryVector"` / `"swaps"` / `"steps"` / `"facetHits"` /
-/// `"attributesToHighlight"` require `[`.
+/// `"attributesToHighlight"` / `"taskUids"` require `[`.
 /// Bool `"facetSearch"` / `"disableOnNumbers"` / `"binaryQuantized"` /
 /// `"equality"` / `"comparison"` / `"editDocumentsByFunction"` /
 /// `"containsFilter"` / `"dynamicSearchRules"` / `"chatCompletions"` /
@@ -31042,7 +31045,8 @@ fn solr_json_bool_and_tail_ok(after_colon: &str) -> bool {
 /// `"useNetwork"` / `"showRankingScoreDetails"` /
 /// `"showMatchesPosition"` / `"retrieveVectors"` / `"isIndexing"` /
 /// `"exhaustiveFacetCount"` / `"showPerformanceDetails"` /
-/// `"satisfiesActiveCondition"` / `"isEmpty"`
+/// `"satisfiesActiveCondition"` / `"isEmpty"` / `"showTarget"` /
+/// `"needsProcessing"`
 /// only match `true` / `false` (array `"foreignKeys": [` still matches).
 /// Object `"media"` / `"personalize"` / `"performanceDetails"` /
 /// `"inlineRule"` / `"inlineRuleConditionOutcomes"` require `{` (Synerise
@@ -31269,6 +31273,11 @@ fn meilisearch_json_key_ok(key: &str) -> bool {
             | "precedence"
             | "lastUpdatedAt"
             | "isEmpty"
+            | "showTarget"
+            | "totalRuleCount"
+            | "targetTotalRuleCount"
+            | "needsProcessing"
+            | "taskUids"
     )
 }
 
@@ -31366,6 +31375,7 @@ fn meilisearch_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool {
                     | "steps"
                     | "facetHits"
                     | "attributesToHighlight"
+                    | "taskUids"
             ) {
                 return false;
             }
@@ -31468,6 +31478,8 @@ fn meilisearch_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool {
                     | "showPerformanceDetails"
                     | "satisfiesActiveCondition"
                     | "isEmpty"
+                    | "showTarget"
+                    | "needsProcessing"
             ) {
                 return false;
             }
@@ -31644,7 +31656,9 @@ fn meilisearch_json_number_and_tail_ok(key: &str, after_colon: &str) -> bool {
         | "semanticHitCount"
         | "queriesPosition"
         | "queryPosition"
-        | "precedence" => {
+        | "precedence"
+        | "totalRuleCount"
+        | "targetTotalRuleCount" => {
             let digits = after_colon
                 .bytes()
                 .take_while(|b| b.is_ascii_digit())
