@@ -1,3 +1,5 @@
+009 keep: Function List Meilisearch requestUid/queryUid/queryVector/inlineRuleConditionOutcomes/satisfiesActiveCondition (v0.3.1004)
+
 009 keep: Function List Meilisearch media/personalize/showPerformanceDetails/performanceDetails/inlineRule/userContext (v0.3.1003)
 
 009 keep: Function List Meilisearch attributesToHighlight/highlightPreTag/highlightPostTag/distinct/primaryKey (v0.3.1002)
