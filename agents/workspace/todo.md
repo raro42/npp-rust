@@ -1,3 +1,5 @@
+009 keep: Function List Meilisearch exhaustiveFacetCount/semanticHitCount/queriesPosition/facetsByIndex/remoteErrors/mergeFacets (v0.3.1000)
+
 009 keep: Function List Meilisearch progress/details/stats (v0.3.998)
 
 009 keep: Function List Meilisearch percentage/steps/finished (v0.3.995)
