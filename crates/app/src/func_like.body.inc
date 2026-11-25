@@ -30910,7 +30910,9 @@ fn solr_json_bool_and_tail_ok(after_colon: &str) -> bool {
 /// `"satisfiesQueryEmptyCondition": "satisfied"` / `"noConstraint"` /
 /// `"queryNotEmpty"` / `"queryEmpty"`,
 /// `"satisfiesQueryWordsCondition": "satisfied"` / `"noConstraint"` / `{`,
-/// `"satisfiesFilterCondition": "satisfied"` / `"noConstraint"` / `{`.
+/// `"satisfiesFilterCondition": "satisfied"` / `"noConstraint"` / `{`,
+/// `"precedence": 0` / `10`, `"lastUpdatedAt": "…"`,
+/// `"isEmpty": true` / `false`.
 /// Optional trailing `,` and `//` / `/*` comment. Incomplete quotes /
 /// missing `:` stay out. Generic `"$schema"` / `"name"` / `"id"` /
 /// `"hits": [` / `"query"` / `"limit"` / `"offset"` / `"page"` /
@@ -30984,7 +30986,8 @@ fn solr_json_bool_and_tail_ok(after_colon: &str) -> bool {
 /// `"providedIds"` / `"matchedTasks"` / `"canceledTasks"` /
 /// `"deletedTasks"` / `"canceledBy"` / `"taskUid"` / `"batchUid"` /
 /// `"totalNbTasks"` / `"attempts"` / `"blocking_attempts"` / `"finished"` /
-/// `"total"` / `"semanticHitCount"` / `"queriesPosition"` / `"queryPosition"`
+/// `"total"` / `"semanticHitCount"` / `"queriesPosition"` / `"queryPosition"` /
+/// `"precedence"`
 /// reject leading zeros beyond `0`.
 /// `"rankingScoreThreshold"` / `"current_mean"` / `"current_sigma"` /
 /// `"_rankingScore"` / `"blocking_ratio"` / `"percentage"` /
@@ -31015,7 +31018,7 @@ fn solr_json_bool_and_tail_ok(after_colon: &str) -> bool {
 /// `"lastError"` / `"facetName"` / `"facetQuery"` / `"indexUid"` /
 /// `"embedder"` / `"highlightPreTag"` / `"highlightPostTag"` /
 /// `"distinct"` / `"primaryKey"` / `"userContext"` / `"requestUid"` /
-/// `"queryUid"`
+/// `"queryUid"` / `"lastUpdatedAt"`
 /// require a non-empty quoted string. String `"duration"` requires a
 /// non-empty `PT…` ISO-8601 duration. String `"url"` requires a non-empty
 /// `http://` or `https://` quoted string (relative paths stay out). String
@@ -31039,7 +31042,7 @@ fn solr_json_bool_and_tail_ok(after_colon: &str) -> bool {
 /// `"useNetwork"` / `"showRankingScoreDetails"` /
 /// `"showMatchesPosition"` / `"retrieveVectors"` / `"isIndexing"` /
 /// `"exhaustiveFacetCount"` / `"showPerformanceDetails"` /
-/// `"satisfiesActiveCondition"`
+/// `"satisfiesActiveCondition"` / `"isEmpty"`
 /// only match `true` / `false` (array `"foreignKeys": [` still matches).
 /// Object `"media"` / `"personalize"` / `"performanceDetails"` /
 /// `"inlineRule"` / `"inlineRuleConditionOutcomes"` require `{` (Synerise
@@ -31263,6 +31266,9 @@ fn meilisearch_json_key_ok(key: &str) -> bool {
             | "satisfiesQueryEmptyCondition"
             | "satisfiesQueryWordsCondition"
             | "satisfiesFilterCondition"
+            | "precedence"
+            | "lastUpdatedAt"
+            | "isEmpty"
     )
 }
 
@@ -31414,6 +31420,7 @@ fn meilisearch_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool {
                 || key == "userContext"
                 || key == "requestUid"
                 || key == "queryUid"
+                || key == "lastUpdatedAt"
             {
                 meilisearch_json_nonempty_string_and_tail_ok(after_colon)
             } else if key == "duration" {
@@ -31460,6 +31467,7 @@ fn meilisearch_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool {
                     | "exhaustiveFacetCount"
                     | "showPerformanceDetails"
                     | "satisfiesActiveCondition"
+                    | "isEmpty"
             ) {
                 return false;
             }
@@ -31635,7 +31643,8 @@ fn meilisearch_json_number_and_tail_ok(key: &str, after_colon: &str) -> bool {
         | "total"
         | "semanticHitCount"
         | "queriesPosition"
-        | "queryPosition" => {
+        | "queryPosition"
+        | "precedence" => {
             let digits = after_colon
                 .bytes()
                 .take_while(|b| b.is_ascii_digit())

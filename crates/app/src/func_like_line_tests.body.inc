@@ -33265,6 +33265,13 @@ fn meilisearch_json_keys_smoke() {
     assert!(is_meilisearch_json_decl(
         r#""satisfiesFilterCondition": {"#
     ));
+    assert!(is_meilisearch_json_decl(r#""precedence": 0"#));
+    assert!(is_meilisearch_json_decl(r#""precedence": 10"#));
+    assert!(is_meilisearch_json_decl(
+        r#""lastUpdatedAt": "2025-11-28T00:00:00Z""#
+    ));
+    assert!(is_meilisearch_json_decl(r#""isEmpty": true"#));
+    assert!(is_meilisearch_json_decl(r#""isEmpty": false"#));
     // Distinctive neighbours stay out of this scanner.
     assert!(!is_meilisearch_json_decl(r#""responseHeader": {"#));
     assert!(is_solr_json_decl(r#""responseHeader": {"#));
@@ -33565,6 +33572,12 @@ fn meilisearch_json_keys_smoke() {
         r#""satisfiesFilterCondition": "noConstraint""#
     ));
     assert!(line_is_func_like(r#""satisfiesFilterCondition": {"#));
+    assert!(line_is_func_like(r#""precedence": 10"#));
+    assert!(line_is_func_like(
+        r#""lastUpdatedAt": "2025-11-28T00:00:00Z""#
+    ));
+    assert!(line_is_func_like(r#""isEmpty": true"#));
+    assert!(line_is_func_like(r#""isEmpty": false"#));
 }
 
 #[test]
@@ -36004,6 +36017,48 @@ fn meilisearch_json_keys_count() {
     assert!(!is_meilisearch_json_decl(
         r#""SATISFIESFILTERCONDITION": "satisfied""#
     ));
+    assert!(is_meilisearch_json_decl(r#""precedence": 0"#));
+    assert!(is_meilisearch_json_decl(r#""precedence": 10"#));
+    assert!(is_meilisearch_json_decl(r#""precedence": 10,"#));
+    assert!(is_meilisearch_json_decl(r#""precedence": 10 // p"#));
+    assert!(!is_meilisearch_json_decl(r#""precedence": 00"#));
+    assert!(!is_meilisearch_json_decl(r#""precedence": 01"#));
+    assert!(!is_meilisearch_json_decl(r#""precedence": true"#));
+    assert!(!is_meilisearch_json_decl(r#""precedence": {"#));
+    assert!(!is_meilisearch_json_decl(r#""precedence": ["#));
+    assert!(!is_meilisearch_json_decl(r#""precedence": "10""#));
+    assert!(!is_meilisearch_json_decl(r#""Precedence": 10"#));
+    assert!(!is_meilisearch_json_decl(r#""PRECEDENCE": 10"#));
+    assert!(is_meilisearch_json_decl(
+        r#""lastUpdatedAt": "2025-11-28T00:00:00Z""#
+    ));
+    assert!(is_meilisearch_json_decl(
+        r#""lastUpdatedAt": "2025-11-28T00:00:00Z","#
+    ));
+    assert!(is_meilisearch_json_decl(
+        r#""lastUpdatedAt": "2025-11-28T00:00:00Z" // l"#
+    ));
+    assert!(!is_meilisearch_json_decl(r#""lastUpdatedAt": """#));
+    assert!(!is_meilisearch_json_decl(r#""lastUpdatedAt": true"#));
+    assert!(!is_meilisearch_json_decl(r#""lastUpdatedAt": 1"#));
+    assert!(!is_meilisearch_json_decl(r#""lastUpdatedAt": {"#));
+    assert!(!is_meilisearch_json_decl(r#""lastUpdatedAt": ["#));
+    assert!(!is_meilisearch_json_decl(
+        r#""LastUpdatedAt": "2025-11-28T00:00:00Z""#
+    ));
+    assert!(!is_meilisearch_json_decl(
+        r#""LASTUPDATEDAT": "2025-11-28T00:00:00Z""#
+    ));
+    assert!(is_meilisearch_json_decl(r#""isEmpty": true"#));
+    assert!(is_meilisearch_json_decl(r#""isEmpty": false"#));
+    assert!(is_meilisearch_json_decl(r#""isEmpty": true,"#));
+    assert!(is_meilisearch_json_decl(r#""isEmpty": false // i"#));
+    assert!(!is_meilisearch_json_decl(r#""isEmpty": {"#));
+    assert!(!is_meilisearch_json_decl(r#""isEmpty": ["#));
+    assert!(!is_meilisearch_json_decl(r#""isEmpty": """#));
+    assert!(!is_meilisearch_json_decl(r#""isEmpty": 1"#));
+    assert!(!is_meilisearch_json_decl(r#""IsEmpty": true"#));
+    assert!(!is_meilisearch_json_decl(r#""ISEMPTY": true"#));
     // Incomplete / wrong shapes stay out.
     assert!(!is_meilisearch_json_decl(r#""processingTimeMs""#));
     assert!(!is_meilisearch_json_decl(r#""processingTimeMs":"#));
@@ -36202,6 +36257,9 @@ fn meilisearch_json_keys_count() {
     assert!(!is_meilisearch_json_decl(
         r#""satisfiesFilterCondition""#
     ));
+    assert!(!is_meilisearch_json_decl(r#""precedence""#));
+    assert!(!is_meilisearch_json_decl(r#""lastUpdatedAt""#));
+    assert!(!is_meilisearch_json_decl(r#""isEmpty""#));
     // Generic / neighbouring stay out.
     assert!(!is_meilisearch_json_decl(
         r#""$schema": "https://json-schema.org/draft/2020-12/schema""#
