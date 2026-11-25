@@ -1658,3 +1658,5 @@
 009 keep: Function List Meilisearch ProgressStep total (v0.3.996)
 
 009 keep: Function List Meilisearch status/types (v0.3.997)
+
+009 keep: Function List Meilisearch facetHits/facetName/facetQuery (v0.3.999)
