@@ -1,3 +1,5 @@
+009 keep: Function List Meilisearch position/ids/customMetadata (v0.3.1009)
+
 009 keep: Function List Meilisearch current/target/pin/scale/words/values (v0.3.1008)
 
 009 keep: Function List Meilisearch showTarget/totalRuleCount/targetTotalRuleCount/needsProcessing/taskUids (v0.3.1007)
