@@ -33194,6 +33194,19 @@ fn meilisearch_json_keys_smoke() {
     assert!(is_meilisearch_json_decl(r#""highlightPostTag": "</em>""#));
     assert!(is_meilisearch_json_decl(r#""distinct": "movie_id""#));
     assert!(is_meilisearch_json_decl(r#""primaryKey": "id""#));
+    assert!(is_meilisearch_json_decl(r#""media": {"#));
+    assert!(is_meilisearch_json_decl(r#""personalize": {"#));
+    assert!(is_meilisearch_json_decl(
+        r#""showPerformanceDetails": true"#
+    ));
+    assert!(is_meilisearch_json_decl(
+        r#""showPerformanceDetails": false"#
+    ));
+    assert!(is_meilisearch_json_decl(r#""performanceDetails": {"#));
+    assert!(is_meilisearch_json_decl(r#""inlineRule": {"#));
+    assert!(is_meilisearch_json_decl(
+        r#""userContext": "prefers running shoes""#
+    ));
     // Distinctive neighbours stay out of this scanner.
     assert!(!is_meilisearch_json_decl(r#""responseHeader": {"#));
     assert!(is_solr_json_decl(r#""responseHeader": {"#));
@@ -33450,6 +33463,15 @@ fn meilisearch_json_keys_smoke() {
     assert!(line_is_func_like(r#""highlightPostTag": "</em>""#));
     assert!(line_is_func_like(r#""distinct": "movie_id""#));
     assert!(line_is_func_like(r#""primaryKey": "id""#));
+    assert!(line_is_func_like(r#""media": {"#));
+    assert!(line_is_func_like(r#""personalize": {"#));
+    assert!(line_is_func_like(r#""showPerformanceDetails": true"#));
+    assert!(line_is_func_like(r#""showPerformanceDetails": false"#));
+    assert!(line_is_func_like(r#""performanceDetails": {"#));
+    assert!(line_is_func_like(r#""inlineRule": {"#));
+    assert!(line_is_func_like(
+        r#""userContext": "prefers running shoes""#
+    ));
 }
 
 #[test]
@@ -35541,6 +35563,102 @@ fn meilisearch_json_keys_count() {
     assert!(!is_meilisearch_json_decl(r#""primaryKey": ["#));
     assert!(!is_meilisearch_json_decl(r#""PrimaryKey": "id""#));
     assert!(!is_meilisearch_json_decl(r#""PRIMARYKEY": "id""#));
+    assert!(is_meilisearch_json_decl(r#""media": {"#));
+    assert!(is_meilisearch_json_decl(r#""media": {,"#));
+    assert!(is_meilisearch_json_decl(r#""media": { // m"#));
+    assert!(!is_meilisearch_json_decl(r#""media": ["#));
+    assert!(!is_meilisearch_json_decl(r#""media": true"#));
+    assert!(!is_meilisearch_json_decl(r#""media": """#));
+    assert!(!is_meilisearch_json_decl(r#""Media": {"#));
+    assert!(!is_meilisearch_json_decl(r#""MEDIA": {"#));
+    assert!(is_meilisearch_json_decl(r#""personalize": {"#));
+    assert!(is_meilisearch_json_decl(r#""personalize": {,"#));
+    assert!(is_meilisearch_json_decl(r#""personalize": { // p"#));
+    assert!(!is_meilisearch_json_decl(r#""personalize": true"#));
+    assert!(!is_meilisearch_json_decl(r#""personalize": false"#));
+    assert!(!is_meilisearch_json_decl(r#""personalize": ["#));
+    assert!(!is_meilisearch_json_decl(r#""personalize": """#));
+    assert!(!is_meilisearch_json_decl(r#""Personalize": {"#));
+    assert!(!is_meilisearch_json_decl(r#""PERSONALIZE": {"#));
+    assert!(is_synerise_json_decl(r#""personalize": true"#));
+    assert!(is_meilisearch_json_decl(
+        r#""showPerformanceDetails": true"#
+    ));
+    assert!(is_meilisearch_json_decl(
+        r#""showPerformanceDetails": false"#
+    ));
+    assert!(is_meilisearch_json_decl(
+        r#""showPerformanceDetails": true,"#
+    ));
+    assert!(is_meilisearch_json_decl(
+        r#""showPerformanceDetails": false // s"#
+    ));
+    assert!(!is_meilisearch_json_decl(
+        r#""showPerformanceDetails": {"#
+    ));
+    assert!(!is_meilisearch_json_decl(
+        r#""showPerformanceDetails": ["#
+    ));
+    assert!(!is_meilisearch_json_decl(
+        r#""showPerformanceDetails": """#
+    ));
+    assert!(!is_meilisearch_json_decl(
+        r#""showPerformanceDetails": 1"#
+    ));
+    assert!(!is_meilisearch_json_decl(
+        r#""ShowPerformanceDetails": true"#
+    ));
+    assert!(!is_meilisearch_json_decl(
+        r#""SHOWPERFORMANCEDETAILS": true"#
+    ));
+    assert!(is_meilisearch_json_decl(r#""performanceDetails": {"#));
+    assert!(is_meilisearch_json_decl(r#""performanceDetails": {,"#));
+    assert!(is_meilisearch_json_decl(
+        r#""performanceDetails": { // p"#
+    ));
+    assert!(!is_meilisearch_json_decl(
+        r#""performanceDetails": ["#
+    ));
+    assert!(!is_meilisearch_json_decl(
+        r#""performanceDetails": true"#
+    ));
+    assert!(!is_meilisearch_json_decl(
+        r#""performanceDetails": """#
+    ));
+    assert!(!is_meilisearch_json_decl(
+        r#""PerformanceDetails": {"#
+    ));
+    assert!(!is_meilisearch_json_decl(
+        r#""PERFORMANCEDETAILS": {"#
+    ));
+    assert!(is_meilisearch_json_decl(r#""inlineRule": {"#));
+    assert!(is_meilisearch_json_decl(r#""inlineRule": {,"#));
+    assert!(is_meilisearch_json_decl(r#""inlineRule": { // i"#));
+    assert!(!is_meilisearch_json_decl(r#""inlineRule": ["#));
+    assert!(!is_meilisearch_json_decl(r#""inlineRule": true"#));
+    assert!(!is_meilisearch_json_decl(r#""inlineRule": """#));
+    assert!(!is_meilisearch_json_decl(r#""InlineRule": {"#));
+    assert!(!is_meilisearch_json_decl(r#""INLINERULE": {"#));
+    assert!(is_meilisearch_json_decl(
+        r#""userContext": "prefers running shoes""#
+    ));
+    assert!(is_meilisearch_json_decl(
+        r#""userContext": "prefers running shoes","#
+    ));
+    assert!(is_meilisearch_json_decl(
+        r#""userContext": "prefers running shoes" // u"#
+    ));
+    assert!(!is_meilisearch_json_decl(r#""userContext": """#));
+    assert!(!is_meilisearch_json_decl(r#""userContext": true"#));
+    assert!(!is_meilisearch_json_decl(r#""userContext": 1"#));
+    assert!(!is_meilisearch_json_decl(r#""userContext": {"#));
+    assert!(!is_meilisearch_json_decl(r#""userContext": ["#));
+    assert!(!is_meilisearch_json_decl(
+        r#""UserContext": "prefers running shoes""#
+    ));
+    assert!(!is_meilisearch_json_decl(
+        r#""USERCONTEXT": "prefers running shoes""#
+    ));
     // Incomplete / wrong shapes stay out.
     assert!(!is_meilisearch_json_decl(r#""processingTimeMs""#));
     assert!(!is_meilisearch_json_decl(r#""processingTimeMs":"#));
@@ -35712,6 +35830,12 @@ fn meilisearch_json_keys_count() {
     assert!(!is_meilisearch_json_decl(r#""highlightPostTag""#));
     assert!(!is_meilisearch_json_decl(r#""distinct""#));
     assert!(!is_meilisearch_json_decl(r#""primaryKey""#));
+    assert!(!is_meilisearch_json_decl(r#""media""#));
+    assert!(!is_meilisearch_json_decl(r#""personalize""#));
+    assert!(!is_meilisearch_json_decl(r#""showPerformanceDetails""#));
+    assert!(!is_meilisearch_json_decl(r#""performanceDetails""#));
+    assert!(!is_meilisearch_json_decl(r#""inlineRule""#));
+    assert!(!is_meilisearch_json_decl(r#""userContext""#));
     // Generic / neighbouring stay out.
     assert!(!is_meilisearch_json_decl(
         r#""$schema": "https://json-schema.org/draft/2020-12/schema""#

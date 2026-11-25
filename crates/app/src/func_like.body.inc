@@ -30899,7 +30899,10 @@ fn solr_json_bool_and_tail_ok(after_colon: &str) -> bool {
 /// `"indexUid": "…"`, `"federationOptions": {`, `"embedder": "…"`,
 /// `"semanticRatio": 0` / `0.5` / `1`, `"queryPosition": 0` / `1`,
 /// `"attributesToHighlight": [`, `"highlightPreTag": "…"`,
-/// `"highlightPostTag": "…"`, `"distinct": "…"`, `"primaryKey": "…"`.
+/// `"highlightPostTag": "…"`, `"distinct": "…"`, `"primaryKey": "…"`,
+/// `"media": {`, `"personalize": {`, `"showPerformanceDetails": true` /
+/// `false`, `"performanceDetails": {`, `"inlineRule": {`,
+/// `"userContext": "…"`.
 /// Optional trailing `,` and `//` / `/*` comment. Incomplete quotes /
 /// missing `:` stay out. Generic `"$schema"` / `"name"` / `"id"` /
 /// `"hits": [` / `"query"` / `"limit"` / `"offset"` / `"page"` /
@@ -30991,7 +30994,8 @@ fn solr_json_bool_and_tail_ok(after_colon: &str) -> bool {
 /// `"indexUids"` / `"progressTrace"` / `"writeChannelCongestion"` /
 /// `"embedderRequests"` / `"status"` / `"types"` / `"progress"` /
 /// `"details"` / `"stats"` / `"facetsByIndex"` / `"remoteErrors"` /
-/// `"mergeFacets"` / `"federationOptions"`
+/// `"mergeFacets"` / `"federationOptions"` / `"media"` / `"personalize"` /
+/// `"performanceDetails"` / `"inlineRule"`
 /// require `{`. Object or array `"remotes"` accepts `{` or `[`.
 /// String `"distinctAttribute"` / `"documentTemplate"` / `"foreignIndexUid"` /
 /// `"fieldName"` / `"searchApiKey"` / `"writeApiKey"` / `"leader"` / `"self"` /
@@ -31000,7 +31004,7 @@ fn solr_json_bool_and_tail_ok(after_colon: &str) -> bool {
 /// `"originalFilter"` / `"dumpUid"` / `"batchStrategy"` / `"currentStep"` /
 /// `"lastError"` / `"facetName"` / `"facetQuery"` / `"indexUid"` /
 /// `"embedder"` / `"highlightPreTag"` / `"highlightPostTag"` /
-/// `"distinct"` / `"primaryKey"`
+/// `"distinct"` / `"primaryKey"` / `"userContext"`
 /// require a non-empty quoted string. String `"duration"` requires a
 /// non-empty `PT…` ISO-8601 duration. String `"url"` requires a non-empty
 /// `http://` or `https://` quoted string (relative paths stay out). Array
@@ -31017,8 +31021,10 @@ fn solr_json_bool_and_tail_ok(after_colon: &str) -> bool {
 /// `"legacySearch"` / `"renderRoute"` / `"mcpRoute"` / `"foreignKeys"` /
 /// `"useNetwork"` / `"showRankingScoreDetails"` /
 /// `"showMatchesPosition"` / `"retrieveVectors"` / `"isIndexing"` /
-/// `"exhaustiveFacetCount"`
+/// `"exhaustiveFacetCount"` / `"showPerformanceDetails"`
 /// only match `true` / `false` (array `"foreignKeys": [` still matches).
+/// Object `"media"` / `"personalize"` / `"performanceDetails"` /
+/// `"inlineRule"` require `{` (Synerise bool `"personalize"` stays out).
 /// Algolia string `"sortFacetValuesBy"` stays out of this scanner (object
 /// only).
 fn is_meilisearch_json_decl(s: &str) -> bool {
@@ -31223,6 +31229,12 @@ fn meilisearch_json_key_ok(key: &str) -> bool {
             | "highlightPostTag"
             | "distinct"
             | "primaryKey"
+            | "media"
+            | "personalize"
+            | "showPerformanceDetails"
+            | "performanceDetails"
+            | "inlineRule"
+            | "userContext"
     )
 }
 
@@ -31278,6 +31290,10 @@ fn meilisearch_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool {
                     | "remoteErrors"
                     | "mergeFacets"
                     | "federationOptions"
+                    | "media"
+                    | "personalize"
+                    | "performanceDetails"
+                    | "inlineRule"
             ) {
                 return false;
             }
@@ -31355,6 +31371,7 @@ fn meilisearch_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool {
                 || key == "highlightPostTag"
                 || key == "distinct"
                 || key == "primaryKey"
+                || key == "userContext"
             {
                 meilisearch_json_nonempty_string_and_tail_ok(after_colon)
             } else if key == "duration" {
@@ -31399,6 +31416,7 @@ fn meilisearch_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool {
                     | "retrieveVectors"
                     | "isIndexing"
                     | "exhaustiveFacetCount"
+                    | "showPerformanceDetails"
             ) {
                 return false;
             }
