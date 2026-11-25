@@ -33169,6 +33169,19 @@ fn meilisearch_json_keys_smoke() {
     assert!(is_meilisearch_json_decl(r#""facetHits": ["#));
     assert!(is_meilisearch_json_decl(r#""facetName": "genres""#));
     assert!(is_meilisearch_json_decl(r#""facetQuery": "Romance""#));
+    assert!(is_meilisearch_json_decl(
+        r#""exhaustiveFacetCount": true"#
+    ));
+    assert!(is_meilisearch_json_decl(
+        r#""exhaustiveFacetCount": false"#
+    ));
+    assert!(is_meilisearch_json_decl(r#""semanticHitCount": 0"#));
+    assert!(is_meilisearch_json_decl(r#""semanticHitCount": 3"#));
+    assert!(is_meilisearch_json_decl(r#""queriesPosition": 0"#));
+    assert!(is_meilisearch_json_decl(r#""queriesPosition": 1"#));
+    assert!(is_meilisearch_json_decl(r#""facetsByIndex": {"#));
+    assert!(is_meilisearch_json_decl(r#""remoteErrors": {"#));
+    assert!(is_meilisearch_json_decl(r#""mergeFacets": {"#));
     // Distinctive neighbours stay out of this scanner.
     assert!(!is_meilisearch_json_decl(r#""responseHeader": {"#));
     assert!(is_solr_json_decl(r#""responseHeader": {"#));
@@ -33405,6 +33418,15 @@ fn meilisearch_json_keys_smoke() {
     assert!(line_is_func_like(r#""facetHits": ["#));
     assert!(line_is_func_like(r#""facetName": "genres""#));
     assert!(line_is_func_like(r#""facetQuery": "Romance""#));
+    assert!(line_is_func_like(r#""exhaustiveFacetCount": true"#));
+    assert!(line_is_func_like(r#""exhaustiveFacetCount": false"#));
+    assert!(line_is_func_like(r#""semanticHitCount": 0"#));
+    assert!(line_is_func_like(r#""semanticHitCount": 3"#));
+    assert!(line_is_func_like(r#""queriesPosition": 0"#));
+    assert!(line_is_func_like(r#""queriesPosition": 1"#));
+    assert!(line_is_func_like(r#""facetsByIndex": {"#));
+    assert!(line_is_func_like(r#""remoteErrors": {"#));
+    assert!(line_is_func_like(r#""mergeFacets": {"#));
 }
 
 #[test]
@@ -35307,6 +35329,80 @@ fn meilisearch_json_keys_count() {
     assert!(!is_meilisearch_json_decl(r#""facetQuery": true"#));
     assert!(!is_meilisearch_json_decl(r#""FacetQuery": "Romance""#));
     assert!(!is_meilisearch_json_decl(r#""FACETQUERY": "Romance""#));
+    assert!(is_meilisearch_json_decl(
+        r#""exhaustiveFacetCount": true"#
+    ));
+    assert!(is_meilisearch_json_decl(
+        r#""exhaustiveFacetCount": false"#
+    ));
+    assert!(is_meilisearch_json_decl(
+        r#""exhaustiveFacetCount": true,"#
+    ));
+    assert!(is_meilisearch_json_decl(
+        r#""exhaustiveFacetCount": false // e"#
+    ));
+    assert!(!is_meilisearch_json_decl(r#""exhaustiveFacetCount": 1"#));
+    assert!(!is_meilisearch_json_decl(
+        r#""exhaustiveFacetCount": "true""#
+    ));
+    assert!(!is_meilisearch_json_decl(r#""exhaustiveFacetCount": {"#));
+    assert!(!is_meilisearch_json_decl(
+        r#""ExhaustiveFacetCount": true"#
+    ));
+    assert!(!is_meilisearch_json_decl(
+        r#""EXHAUSTIVEFACETCOUNT": true"#
+    ));
+    assert!(is_meilisearch_json_decl(r#""semanticHitCount": 0"#));
+    assert!(is_meilisearch_json_decl(r#""semanticHitCount": 3"#));
+    assert!(is_meilisearch_json_decl(r#""semanticHitCount": 0,"#));
+    assert!(is_meilisearch_json_decl(r#""semanticHitCount": 3 // s"#));
+    assert!(!is_meilisearch_json_decl(r#""semanticHitCount": 03"#));
+    assert!(!is_meilisearch_json_decl(r#""semanticHitCount": true"#));
+    assert!(!is_meilisearch_json_decl(r#""semanticHitCount": {"#));
+    assert!(!is_meilisearch_json_decl(r#""semanticHitCount": ["#));
+    assert!(!is_meilisearch_json_decl(r#""SemanticHitCount": 0"#));
+    assert!(!is_meilisearch_json_decl(r#""SEMANTICHITCOUNT": 0"#));
+    assert!(is_meilisearch_json_decl(r#""queriesPosition": 0"#));
+    assert!(is_meilisearch_json_decl(r#""queriesPosition": 1"#));
+    assert!(is_meilisearch_json_decl(r#""queriesPosition": 0,"#));
+    assert!(is_meilisearch_json_decl(r#""queriesPosition": 1 // q"#));
+    assert!(!is_meilisearch_json_decl(r#""queriesPosition": 01"#));
+    assert!(!is_meilisearch_json_decl(r#""queriesPosition": true"#));
+    assert!(!is_meilisearch_json_decl(r#""queriesPosition": {"#));
+    assert!(!is_meilisearch_json_decl(r#""queriesPosition": ["#));
+    assert!(!is_meilisearch_json_decl(r#""QueriesPosition": 0"#));
+    assert!(!is_meilisearch_json_decl(r#""QUERIESPOSITION": 0"#));
+    assert!(is_meilisearch_json_decl(r#""facetsByIndex": {"#));
+    assert!(is_meilisearch_json_decl(r#""facetsByIndex": {,"#));
+    assert!(is_meilisearch_json_decl(r#""facetsByIndex": { // f"#));
+    assert!(!is_meilisearch_json_decl(r#""facetsByIndex": ["#));
+    assert!(!is_meilisearch_json_decl(r#""facetsByIndex": true"#));
+    assert!(!is_meilisearch_json_decl(r#""facetsByIndex": 1"#));
+    assert!(!is_meilisearch_json_decl(
+        r#""facetsByIndex": "movies""#
+    ));
+    assert!(!is_meilisearch_json_decl(r#""FacetsByIndex": {"#));
+    assert!(!is_meilisearch_json_decl(r#""FACETSBYINDEX": {"#));
+    assert!(is_meilisearch_json_decl(r#""remoteErrors": {"#));
+    assert!(is_meilisearch_json_decl(r#""remoteErrors": {,"#));
+    assert!(is_meilisearch_json_decl(r#""remoteErrors": { // r"#));
+    assert!(!is_meilisearch_json_decl(r#""remoteErrors": ["#));
+    assert!(!is_meilisearch_json_decl(r#""remoteErrors": true"#));
+    assert!(!is_meilisearch_json_decl(r#""remoteErrors": 1"#));
+    assert!(!is_meilisearch_json_decl(
+        r#""remoteErrors": "timeout""#
+    ));
+    assert!(!is_meilisearch_json_decl(r#""RemoteErrors": {"#));
+    assert!(!is_meilisearch_json_decl(r#""REMOTEERRORS": {"#));
+    assert!(is_meilisearch_json_decl(r#""mergeFacets": {"#));
+    assert!(is_meilisearch_json_decl(r#""mergeFacets": {,"#));
+    assert!(is_meilisearch_json_decl(r#""mergeFacets": { // m"#));
+    assert!(!is_meilisearch_json_decl(r#""mergeFacets": ["#));
+    assert!(!is_meilisearch_json_decl(r#""mergeFacets": true"#));
+    assert!(!is_meilisearch_json_decl(r#""mergeFacets": 1"#));
+    assert!(!is_meilisearch_json_decl(r#""mergeFacets": "count""#));
+    assert!(!is_meilisearch_json_decl(r#""MergeFacets": {"#));
+    assert!(!is_meilisearch_json_decl(r#""MERGEFACETS": {"#));
     // Incomplete / wrong shapes stay out.
     assert!(!is_meilisearch_json_decl(r#""processingTimeMs""#));
     assert!(!is_meilisearch_json_decl(r#""processingTimeMs":"#));
@@ -35462,6 +35558,12 @@ fn meilisearch_json_keys_count() {
     assert!(!is_meilisearch_json_decl(r#""facetHits""#));
     assert!(!is_meilisearch_json_decl(r#""facetName""#));
     assert!(!is_meilisearch_json_decl(r#""facetQuery""#));
+    assert!(!is_meilisearch_json_decl(r#""exhaustiveFacetCount""#));
+    assert!(!is_meilisearch_json_decl(r#""semanticHitCount""#));
+    assert!(!is_meilisearch_json_decl(r#""queriesPosition""#));
+    assert!(!is_meilisearch_json_decl(r#""facetsByIndex""#));
+    assert!(!is_meilisearch_json_decl(r#""remoteErrors""#));
+    assert!(!is_meilisearch_json_decl(r#""mergeFacets""#));
     // Generic / neighbouring stay out.
     assert!(!is_meilisearch_json_decl(
         r#""$schema": "https://json-schema.org/draft/2020-12/schema""#

@@ -30893,7 +30893,9 @@ fn solr_json_bool_and_tail_ok(after_colon: &str) -> bool {
 /// `"finished": 0` / `12300`, `"total": 0` / `19546`,
 /// `"status": {`, `"types": {`, `"progress": {`, `"details": {`,
 /// `"stats": {`, `"facetHits": [`, `"facetName": "…"`,
-/// `"facetQuery": "…"`.
+/// `"facetQuery": "…"`, `"exhaustiveFacetCount": true` / `false`,
+/// `"semanticHitCount": 0` / `3`, `"queriesPosition": 0` / `1`,
+/// `"facetsByIndex": {`, `"remoteErrors": {`, `"mergeFacets": {`.
 /// Optional trailing `,` and `//` / `/*` comment. Incomplete quotes /
 /// missing `:` stay out. Generic `"$schema"` / `"name"` / `"id"` /
 /// `"hits": [` / `"query"` / `"limit"` / `"offset"` / `"page"` /
@@ -30967,7 +30969,7 @@ fn solr_json_bool_and_tail_ok(after_colon: &str) -> bool {
 /// `"providedIds"` / `"matchedTasks"` / `"canceledTasks"` /
 /// `"deletedTasks"` / `"canceledBy"` / `"taskUid"` / `"batchUid"` /
 /// `"totalNbTasks"` / `"attempts"` / `"blocking_attempts"` / `"finished"` /
-/// `"total"`
+/// `"total"` / `"semanticHitCount"` / `"queriesPosition"`
 /// reject leading zeros beyond `0`.
 /// `"rankingScoreThreshold"` / `"current_mean"` / `"current_sigma"` /
 /// `"_rankingScore"` / `"blocking_ratio"` / `"percentage"` allow a
@@ -30983,7 +30985,8 @@ fn solr_json_bool_and_tail_ok(after_colon: &str) -> bool {
 /// `"fieldDistribution"` / `"indexes"` / `"internalDatabaseSizes"` /
 /// `"indexUids"` / `"progressTrace"` / `"writeChannelCongestion"` /
 /// `"embedderRequests"` / `"status"` / `"types"` / `"progress"` /
-/// `"details"` / `"stats"`
+/// `"details"` / `"stats"` / `"facetsByIndex"` / `"remoteErrors"` /
+/// `"mergeFacets"`
 /// require `{`. Object or array `"remotes"` accepts `{` or `[`.
 /// String `"distinctAttribute"` / `"documentTemplate"` / `"foreignIndexUid"` /
 /// `"fieldName"` / `"searchApiKey"` / `"writeApiKey"` / `"leader"` / `"self"` /
@@ -31005,7 +31008,8 @@ fn solr_json_bool_and_tail_ok(after_colon: &str) -> bool {
 /// `"metrics"` / `"network"` / `"disableDocumentsFetchQueue"` /
 /// `"legacySearch"` / `"renderRoute"` / `"mcpRoute"` / `"foreignKeys"` /
 /// `"useNetwork"` / `"showRankingScoreDetails"` /
-/// `"showMatchesPosition"` / `"retrieveVectors"` / `"isIndexing"`
+/// `"showMatchesPosition"` / `"retrieveVectors"` / `"isIndexing"` /
+/// `"exhaustiveFacetCount"`
 /// only match `true` / `false` (array `"foreignKeys": [` still matches).
 /// Algolia string `"sortFacetValuesBy"` stays out of this scanner (object
 /// only).
@@ -31195,6 +31199,12 @@ fn meilisearch_json_key_ok(key: &str) -> bool {
             | "facetHits"
             | "facetName"
             | "facetQuery"
+            | "exhaustiveFacetCount"
+            | "semanticHitCount"
+            | "queriesPosition"
+            | "facetsByIndex"
+            | "remoteErrors"
+            | "mergeFacets"
     )
 }
 
@@ -31246,6 +31256,9 @@ fn meilisearch_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool {
                     | "progress"
                     | "details"
                     | "stats"
+                    | "facetsByIndex"
+                    | "remoteErrors"
+                    | "mergeFacets"
             ) {
                 return false;
             }
@@ -31359,6 +31372,7 @@ fn meilisearch_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool {
                     | "showMatchesPosition"
                     | "retrieveVectors"
                     | "isIndexing"
+                    | "exhaustiveFacetCount"
             ) {
                 return false;
             }
@@ -31492,7 +31506,9 @@ fn meilisearch_json_number_and_tail_ok(key: &str, after_colon: &str) -> bool {
         | "attempts"
         | "blocking_attempts"
         | "finished"
-        | "total" => {
+        | "total"
+        | "semanticHitCount"
+        | "queriesPosition" => {
             let digits = after_colon
                 .bytes()
                 .take_while(|b| b.is_ascii_digit())
