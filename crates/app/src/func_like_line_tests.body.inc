@@ -33223,6 +33223,48 @@ fn meilisearch_json_keys_smoke() {
     assert!(is_meilisearch_json_decl(
         r#""satisfiesActiveCondition": false"#
     ));
+    assert!(is_meilisearch_json_decl(
+        r#""satisfiesTimeCondition": "satisfied""#
+    ));
+    assert!(is_meilisearch_json_decl(
+        r#""satisfiesTimeCondition": "noConstraint""#
+    ));
+    assert!(is_meilisearch_json_decl(
+        r#""satisfiesTimeCondition": "tooEarly""#
+    ));
+    assert!(is_meilisearch_json_decl(
+        r#""satisfiesTimeCondition": "tooLate""#
+    ));
+    assert!(is_meilisearch_json_decl(
+        r#""satisfiesQueryEmptyCondition": "satisfied""#
+    ));
+    assert!(is_meilisearch_json_decl(
+        r#""satisfiesQueryEmptyCondition": "noConstraint""#
+    ));
+    assert!(is_meilisearch_json_decl(
+        r#""satisfiesQueryEmptyCondition": "queryNotEmpty""#
+    ));
+    assert!(is_meilisearch_json_decl(
+        r#""satisfiesQueryEmptyCondition": "queryEmpty""#
+    ));
+    assert!(is_meilisearch_json_decl(
+        r#""satisfiesQueryWordsCondition": "satisfied""#
+    ));
+    assert!(is_meilisearch_json_decl(
+        r#""satisfiesQueryWordsCondition": "noConstraint""#
+    ));
+    assert!(is_meilisearch_json_decl(
+        r#""satisfiesQueryWordsCondition": {"#
+    ));
+    assert!(is_meilisearch_json_decl(
+        r#""satisfiesFilterCondition": "satisfied""#
+    ));
+    assert!(is_meilisearch_json_decl(
+        r#""satisfiesFilterCondition": "noConstraint""#
+    ));
+    assert!(is_meilisearch_json_decl(
+        r#""satisfiesFilterCondition": {"#
+    ));
     // Distinctive neighbours stay out of this scanner.
     assert!(!is_meilisearch_json_decl(r#""responseHeader": {"#));
     assert!(is_solr_json_decl(r#""responseHeader": {"#));
@@ -33504,6 +33546,25 @@ fn meilisearch_json_keys_smoke() {
     assert!(line_is_func_like(
         r#""satisfiesActiveCondition": false"#
     ));
+    assert!(line_is_func_like(
+        r#""satisfiesTimeCondition": "satisfied""#
+    ));
+    assert!(line_is_func_like(
+        r#""satisfiesTimeCondition": "tooLate""#
+    ));
+    assert!(line_is_func_like(
+        r#""satisfiesQueryEmptyCondition": "queryEmpty""#
+    ));
+    assert!(line_is_func_like(
+        r#""satisfiesQueryWordsCondition": "satisfied""#
+    ));
+    assert!(line_is_func_like(
+        r#""satisfiesQueryWordsCondition": {"#
+    ));
+    assert!(line_is_func_like(
+        r#""satisfiesFilterCondition": "noConstraint""#
+    ));
+    assert!(line_is_func_like(r#""satisfiesFilterCondition": {"#));
 }
 
 #[test]
@@ -35793,6 +35854,156 @@ fn meilisearch_json_keys_count() {
     assert!(!is_meilisearch_json_decl(
         r#""SATISFIESACTIVECONDITION": true"#
     ));
+    assert!(is_meilisearch_json_decl(
+        r#""satisfiesTimeCondition": "satisfied""#
+    ));
+    assert!(is_meilisearch_json_decl(
+        r#""satisfiesTimeCondition": "noConstraint""#
+    ));
+    assert!(is_meilisearch_json_decl(
+        r#""satisfiesTimeCondition": "tooEarly""#
+    ));
+    assert!(is_meilisearch_json_decl(
+        r#""satisfiesTimeCondition": "tooLate""#
+    ));
+    assert!(is_meilisearch_json_decl(
+        r#""satisfiesTimeCondition": "satisfied","#
+    ));
+    assert!(is_meilisearch_json_decl(
+        r#""satisfiesTimeCondition": "tooLate" // s"#
+    ));
+    assert!(!is_meilisearch_json_decl(
+        r#""satisfiesTimeCondition": "active""#
+    ));
+    assert!(!is_meilisearch_json_decl(
+        r#""satisfiesTimeCondition": true"#
+    ));
+    assert!(!is_meilisearch_json_decl(
+        r#""satisfiesTimeCondition": {"#
+    ));
+    assert!(!is_meilisearch_json_decl(
+        r#""satisfiesTimeCondition": ["#
+    ));
+    assert!(!is_meilisearch_json_decl(
+        r#""SatisfiesTimeCondition": "satisfied""#
+    ));
+    assert!(!is_meilisearch_json_decl(
+        r#""SATISFIESTIMECONDITION": "satisfied""#
+    ));
+    assert!(is_meilisearch_json_decl(
+        r#""satisfiesQueryEmptyCondition": "satisfied""#
+    ));
+    assert!(is_meilisearch_json_decl(
+        r#""satisfiesQueryEmptyCondition": "noConstraint""#
+    ));
+    assert!(is_meilisearch_json_decl(
+        r#""satisfiesQueryEmptyCondition": "queryNotEmpty""#
+    ));
+    assert!(is_meilisearch_json_decl(
+        r#""satisfiesQueryEmptyCondition": "queryEmpty""#
+    ));
+    assert!(is_meilisearch_json_decl(
+        r#""satisfiesQueryEmptyCondition": "queryEmpty","#
+    ));
+    assert!(is_meilisearch_json_decl(
+        r#""satisfiesQueryEmptyCondition": "satisfied" // s"#
+    ));
+    assert!(!is_meilisearch_json_decl(
+        r#""satisfiesQueryEmptyCondition": "empty""#
+    ));
+    assert!(!is_meilisearch_json_decl(
+        r#""satisfiesQueryEmptyCondition": true"#
+    ));
+    assert!(!is_meilisearch_json_decl(
+        r#""satisfiesQueryEmptyCondition": {"#
+    ));
+    assert!(!is_meilisearch_json_decl(
+        r#""satisfiesQueryEmptyCondition": ["#
+    ));
+    assert!(!is_meilisearch_json_decl(
+        r#""SatisfiesQueryEmptyCondition": "satisfied""#
+    ));
+    assert!(!is_meilisearch_json_decl(
+        r#""SATISFIESQUERYEMPTYCONDITION": "satisfied""#
+    ));
+    assert!(is_meilisearch_json_decl(
+        r#""satisfiesQueryWordsCondition": "satisfied""#
+    ));
+    assert!(is_meilisearch_json_decl(
+        r#""satisfiesQueryWordsCondition": "noConstraint""#
+    ));
+    assert!(is_meilisearch_json_decl(
+        r#""satisfiesQueryWordsCondition": "satisfied","#
+    ));
+    assert!(is_meilisearch_json_decl(
+        r#""satisfiesQueryWordsCondition": "noConstraint" // s"#
+    ));
+    assert!(is_meilisearch_json_decl(
+        r#""satisfiesQueryWordsCondition": {"#
+    ));
+    assert!(is_meilisearch_json_decl(
+        r#""satisfiesQueryWordsCondition": {,"#
+    ));
+    assert!(is_meilisearch_json_decl(
+        r#""satisfiesQueryWordsCondition": { // s"#
+    ));
+    assert!(!is_meilisearch_json_decl(
+        r#""satisfiesQueryWordsCondition": "missingWord""#
+    ));
+    assert!(!is_meilisearch_json_decl(
+        r#""satisfiesQueryWordsCondition": true"#
+    ));
+    assert!(!is_meilisearch_json_decl(
+        r#""satisfiesQueryWordsCondition": ["#
+    ));
+    assert!(!is_meilisearch_json_decl(
+        r#""satisfiesQueryWordsCondition": """#
+    ));
+    assert!(!is_meilisearch_json_decl(
+        r#""SatisfiesQueryWordsCondition": "satisfied""#
+    ));
+    assert!(!is_meilisearch_json_decl(
+        r#""SATISFIESQUERYWORDSCONDITION": "satisfied""#
+    ));
+    assert!(is_meilisearch_json_decl(
+        r#""satisfiesFilterCondition": "satisfied""#
+    ));
+    assert!(is_meilisearch_json_decl(
+        r#""satisfiesFilterCondition": "noConstraint""#
+    ));
+    assert!(is_meilisearch_json_decl(
+        r#""satisfiesFilterCondition": "satisfied","#
+    ));
+    assert!(is_meilisearch_json_decl(
+        r#""satisfiesFilterCondition": "noConstraint" // s"#
+    ));
+    assert!(is_meilisearch_json_decl(
+        r#""satisfiesFilterCondition": {"#
+    ));
+    assert!(is_meilisearch_json_decl(
+        r#""satisfiesFilterCondition": {,"#
+    ));
+    assert!(is_meilisearch_json_decl(
+        r#""satisfiesFilterCondition": { // s"#
+    ));
+    assert!(!is_meilisearch_json_decl(
+        r#""satisfiesFilterCondition": "missingConstraintOnField""#
+    ));
+    assert!(!is_meilisearch_json_decl(
+        r#""satisfiesFilterCondition": true"#
+    ));
+    assert!(!is_meilisearch_json_decl(
+        r#""satisfiesFilterCondition": ["#
+    ));
+    assert!(!is_meilisearch_json_decl(
+        r#""satisfiesFilterCondition": """#
+    ));
+    assert!(!is_meilisearch_json_decl(
+        r#""SatisfiesFilterCondition": "satisfied""#
+    ));
+    assert!(!is_meilisearch_json_decl(
+        r#""SATISFIESFILTERCONDITION": "satisfied""#
+    ));
     // Incomplete / wrong shapes stay out.
     assert!(!is_meilisearch_json_decl(r#""processingTimeMs""#));
     assert!(!is_meilisearch_json_decl(r#""processingTimeMs":"#));
@@ -35978,6 +36189,18 @@ fn meilisearch_json_keys_count() {
     ));
     assert!(!is_meilisearch_json_decl(
         r#""satisfiesActiveCondition""#
+    ));
+    assert!(!is_meilisearch_json_decl(
+        r#""satisfiesTimeCondition""#
+    ));
+    assert!(!is_meilisearch_json_decl(
+        r#""satisfiesQueryEmptyCondition""#
+    ));
+    assert!(!is_meilisearch_json_decl(
+        r#""satisfiesQueryWordsCondition""#
+    ));
+    assert!(!is_meilisearch_json_decl(
+        r#""satisfiesFilterCondition""#
     ));
     // Generic / neighbouring stay out.
     assert!(!is_meilisearch_json_decl(

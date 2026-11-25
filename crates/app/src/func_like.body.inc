@@ -30904,7 +30904,13 @@ fn solr_json_bool_and_tail_ok(after_colon: &str) -> bool {
 /// `false`, `"performanceDetails": {`, `"inlineRule": {`,
 /// `"userContext": "…"`, `"requestUid": "…"`, `"queryUid": "…"`,
 /// `"queryVector": [`, `"inlineRuleConditionOutcomes": {`,
-/// `"satisfiesActiveCondition": true` / `false`.
+/// `"satisfiesActiveCondition": true` / `false`,
+/// `"satisfiesTimeCondition": "satisfied"` / `"noConstraint"` /
+/// `"tooEarly"` / `"tooLate"`,
+/// `"satisfiesQueryEmptyCondition": "satisfied"` / `"noConstraint"` /
+/// `"queryNotEmpty"` / `"queryEmpty"`,
+/// `"satisfiesQueryWordsCondition": "satisfied"` / `"noConstraint"` / `{`,
+/// `"satisfiesFilterCondition": "satisfied"` / `"noConstraint"` / `{`.
 /// Optional trailing `,` and `//` / `/*` comment. Incomplete quotes /
 /// missing `:` stay out. Generic `"$schema"` / `"name"` / `"id"` /
 /// `"hits": [` / `"query"` / `"limit"` / `"offset"` / `"page"` /
@@ -30997,8 +31003,10 @@ fn solr_json_bool_and_tail_ok(after_colon: &str) -> bool {
 /// `"embedderRequests"` / `"status"` / `"types"` / `"progress"` /
 /// `"details"` / `"stats"` / `"facetsByIndex"` / `"remoteErrors"` /
 /// `"mergeFacets"` / `"federationOptions"` / `"media"` / `"personalize"` /
-/// `"performanceDetails"` / `"inlineRule"` / `"inlineRuleConditionOutcomes"`
-/// require `{`. Object or array `"remotes"` accepts `{` or `[`.
+/// `"performanceDetails"` / `"inlineRule"` / `"inlineRuleConditionOutcomes"` /
+/// `"satisfiesQueryWordsCondition"` / `"satisfiesFilterCondition"`
+/// require `{` (string enum forms of the latter two still match). Object or
+/// array `"remotes"` accepts `{` or `[`.
 /// String `"distinctAttribute"` / `"documentTemplate"` / `"foreignIndexUid"` /
 /// `"fieldName"` / `"searchApiKey"` / `"writeApiKey"` / `"leader"` / `"self"` /
 /// `"cropMarker"` / `"commitSha"` / `"commitDate"` / `"pkgVersion"` /
@@ -31010,7 +31018,13 @@ fn solr_json_bool_and_tail_ok(after_colon: &str) -> bool {
 /// `"queryUid"`
 /// require a non-empty quoted string. String `"duration"` requires a
 /// non-empty `PT…` ISO-8601 duration. String `"url"` requires a non-empty
-/// `http://` or `https://` quoted string (relative paths stay out). Array
+/// `http://` or `https://` quoted string (relative paths stay out). String
+/// `"satisfiesTimeCondition"` requires `"satisfied"` / `"noConstraint"` /
+/// `"tooEarly"` / `"tooLate"`. String `"satisfiesQueryEmptyCondition"`
+/// requires `"satisfied"` / `"noConstraint"` / `"queryNotEmpty"` /
+/// `"queryEmpty"`. String `"satisfiesQueryWordsCondition"` /
+/// `"satisfiesFilterCondition"` require `"satisfied"` / `"noConstraint"`
+/// (object `{` forms still match). Array
 /// `"foreignKeys"` / `"addRemotes"` / `"removeRemotes"` /
 /// `"attributesToRetrieve"` / `"attributesToCrop"` / `"locales"` /
 /// `"vector"` / `"queryVector"` / `"swaps"` / `"steps"` / `"facetHits"` /
@@ -31245,6 +31259,10 @@ fn meilisearch_json_key_ok(key: &str) -> bool {
             | "queryVector"
             | "inlineRuleConditionOutcomes"
             | "satisfiesActiveCondition"
+            | "satisfiesTimeCondition"
+            | "satisfiesQueryEmptyCondition"
+            | "satisfiesQueryWordsCondition"
+            | "satisfiesFilterCondition"
     )
 }
 
@@ -31305,6 +31323,8 @@ fn meilisearch_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool {
                     | "performanceDetails"
                     | "inlineRule"
                     | "inlineRuleConditionOutcomes"
+                    | "satisfiesQueryWordsCondition"
+                    | "satisfiesFilterCondition"
             ) {
                 return false;
             }
@@ -31354,6 +31374,14 @@ fn meilisearch_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool {
                 meilisearch_json_prefix_search_and_tail_ok(after_colon)
             } else if key == "pooling" {
                 meilisearch_json_pooling_and_tail_ok(after_colon)
+            } else if key == "satisfiesTimeCondition" {
+                meilisearch_json_satisfies_time_condition_and_tail_ok(after_colon)
+            } else if key == "satisfiesQueryEmptyCondition" {
+                meilisearch_json_satisfies_query_empty_condition_and_tail_ok(after_colon)
+            } else if key == "satisfiesQueryWordsCondition"
+                || key == "satisfiesFilterCondition"
+            {
+                meilisearch_json_satisfies_constraint_outcome_and_tail_ok(after_colon)
             } else if key == "distinctAttribute"
                 || key == "documentTemplate"
                 || key == "foreignIndexUid"
@@ -31473,6 +31501,45 @@ fn meilisearch_json_prefix_search_and_tail_ok(after_colon: &str) -> bool {
     };
     let value = &rest[..end];
     if !matches!(value, "indexingTime" | "disabled") {
+        return false;
+    }
+    package_json_tail_ok(&rest[end + 1..])
+}
+
+fn meilisearch_json_satisfies_time_condition_and_tail_ok(after_colon: &str) -> bool {
+    let rest = &after_colon[1..];
+    let Some(end) = rest.find('"') else {
+        return false;
+    };
+    let value = &rest[..end];
+    if !matches!(value, "satisfied" | "noConstraint" | "tooEarly" | "tooLate") {
+        return false;
+    }
+    package_json_tail_ok(&rest[end + 1..])
+}
+
+fn meilisearch_json_satisfies_query_empty_condition_and_tail_ok(after_colon: &str) -> bool {
+    let rest = &after_colon[1..];
+    let Some(end) = rest.find('"') else {
+        return false;
+    };
+    let value = &rest[..end];
+    if !matches!(
+        value,
+        "satisfied" | "noConstraint" | "queryNotEmpty" | "queryEmpty"
+    ) {
+        return false;
+    }
+    package_json_tail_ok(&rest[end + 1..])
+}
+
+fn meilisearch_json_satisfies_constraint_outcome_and_tail_ok(after_colon: &str) -> bool {
+    let rest = &after_colon[1..];
+    let Some(end) = rest.find('"') else {
+        return false;
+    };
+    let value = &rest[..end];
+    if !matches!(value, "satisfied" | "noConstraint") {
         return false;
     }
     package_json_tail_ok(&rest[end + 1..])
