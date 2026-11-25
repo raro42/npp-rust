@@ -30895,7 +30895,9 @@ fn solr_json_bool_and_tail_ok(after_colon: &str) -> bool {
 /// `"stats": {`, `"facetHits": [`, `"facetName": "…"`,
 /// `"facetQuery": "…"`, `"exhaustiveFacetCount": true` / `false`,
 /// `"semanticHitCount": 0` / `3`, `"queriesPosition": 0` / `1`,
-/// `"facetsByIndex": {`, `"remoteErrors": {`, `"mergeFacets": {`.
+/// `"facetsByIndex": {`, `"remoteErrors": {`, `"mergeFacets": {`,
+/// `"indexUid": "…"`, `"federationOptions": {`, `"embedder": "…"`,
+/// `"semanticRatio": 0` / `0.5` / `1`, `"queryPosition": 0` / `1`.
 /// Optional trailing `,` and `//` / `/*` comment. Incomplete quotes /
 /// missing `:` stay out. Generic `"$schema"` / `"name"` / `"id"` /
 /// `"hits": [` / `"query"` / `"limit"` / `"offset"` / `"page"` /
@@ -30969,10 +30971,11 @@ fn solr_json_bool_and_tail_ok(after_colon: &str) -> bool {
 /// `"providedIds"` / `"matchedTasks"` / `"canceledTasks"` /
 /// `"deletedTasks"` / `"canceledBy"` / `"taskUid"` / `"batchUid"` /
 /// `"totalNbTasks"` / `"attempts"` / `"blocking_attempts"` / `"finished"` /
-/// `"total"` / `"semanticHitCount"` / `"queriesPosition"`
+/// `"total"` / `"semanticHitCount"` / `"queriesPosition"` / `"queryPosition"`
 /// reject leading zeros beyond `0`.
 /// `"rankingScoreThreshold"` / `"current_mean"` / `"current_sigma"` /
-/// `"_rankingScore"` / `"blocking_ratio"` / `"percentage"` allow a
+/// `"_rankingScore"` / `"blocking_ratio"` / `"percentage"` /
+/// `"semanticRatio"` allow a
 /// simple decimal (no exponent). Array
 /// index-setting keys / `"attributePatterns"` require `[`. Object
 /// `"synonyms"` / `"typoTolerance"` / `"pagination"` / `"faceting"` /
@@ -30986,14 +30989,15 @@ fn solr_json_bool_and_tail_ok(after_colon: &str) -> bool {
 /// `"indexUids"` / `"progressTrace"` / `"writeChannelCongestion"` /
 /// `"embedderRequests"` / `"status"` / `"types"` / `"progress"` /
 /// `"details"` / `"stats"` / `"facetsByIndex"` / `"remoteErrors"` /
-/// `"mergeFacets"`
+/// `"mergeFacets"` / `"federationOptions"`
 /// require `{`. Object or array `"remotes"` accepts `{` or `[`.
 /// String `"distinctAttribute"` / `"documentTemplate"` / `"foreignIndexUid"` /
 /// `"fieldName"` / `"searchApiKey"` / `"writeApiKey"` / `"leader"` / `"self"` /
 /// `"cropMarker"` / `"commitSha"` / `"commitDate"` / `"pkgVersion"` /
 /// `"lastUpdate"` / `"enqueuedAt"` / `"startedAt"` / `"finishedAt"` /
 /// `"originalFilter"` / `"dumpUid"` / `"batchStrategy"` / `"currentStep"` /
-/// `"lastError"` / `"facetName"` / `"facetQuery"`
+/// `"lastError"` / `"facetName"` / `"facetQuery"` / `"indexUid"` /
+/// `"embedder"`
 /// require a non-empty quoted string. String `"duration"` requires a
 /// non-empty `PT…` ISO-8601 duration. String `"url"` requires a non-empty
 /// `http://` or `https://` quoted string (relative paths stay out). Array
@@ -31205,6 +31209,11 @@ fn meilisearch_json_key_ok(key: &str) -> bool {
             | "facetsByIndex"
             | "remoteErrors"
             | "mergeFacets"
+            | "indexUid"
+            | "federationOptions"
+            | "embedder"
+            | "semanticRatio"
+            | "queryPosition"
     )
 }
 
@@ -31259,6 +31268,7 @@ fn meilisearch_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool {
                     | "facetsByIndex"
                     | "remoteErrors"
                     | "mergeFacets"
+                    | "federationOptions"
             ) {
                 return false;
             }
@@ -31329,6 +31339,8 @@ fn meilisearch_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool {
                 || key == "lastError"
                 || key == "facetName"
                 || key == "facetQuery"
+                || key == "indexUid"
+                || key == "embedder"
             {
                 meilisearch_json_nonempty_string_and_tail_ok(after_colon)
             } else if key == "duration" {
@@ -31508,7 +31520,8 @@ fn meilisearch_json_number_and_tail_ok(key: &str, after_colon: &str) -> bool {
         | "finished"
         | "total"
         | "semanticHitCount"
-        | "queriesPosition" => {
+        | "queriesPosition"
+        | "queryPosition" => {
             let digits = after_colon
                 .bytes()
                 .take_while(|b| b.is_ascii_digit())
@@ -31526,7 +31539,8 @@ fn meilisearch_json_number_and_tail_ok(key: &str, after_colon: &str) -> bool {
         | "current_sigma"
         | "_rankingScore"
         | "blocking_ratio"
-        | "percentage" => {
+        | "percentage"
+        | "semanticRatio" => {
             meilisearch_json_ranking_score_and_tail_ok(after_colon)
         }
         _ => false,
