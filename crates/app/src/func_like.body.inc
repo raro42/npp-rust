@@ -30890,7 +30890,8 @@ fn solr_json_bool_and_tail_ok(after_colon: &str) -> bool {
 /// `"currentStep": "…"`, `"attempts": 0` / `120`,
 /// `"blocking_attempts": 0` / `30`, `"blocking_ratio": 0.25`,
 /// `"lastError": "…"`, `"percentage": 0` / `37.98`, `"steps": [`,
-/// `"finished": 0` / `12300`, `"total": 0` / `19546`.
+/// `"finished": 0` / `12300`, `"total": 0` / `19546`,
+/// `"status": {`, `"types": {`.
 /// Optional trailing `,` and `//` / `/*` comment. Incomplete quotes /
 /// missing `:` stay out. Generic `"$schema"` / `"name"` / `"id"` /
 /// `"hits": [` / `"query"` / `"limit"` / `"offset"` / `"page"` /
@@ -30979,7 +30980,7 @@ fn solr_json_bool_and_tail_ok(after_colon: &str) -> bool {
 /// `"hybrid"` / `"_formatted"` / `"_matchesPosition"` / `"_vectors"` /
 /// `"fieldDistribution"` / `"indexes"` / `"internalDatabaseSizes"` /
 /// `"indexUids"` / `"progressTrace"` / `"writeChannelCongestion"` /
-/// `"embedderRequests"`
+/// `"embedderRequests"` / `"status"` / `"types"`
 /// require `{`. Object or array `"remotes"` accepts `{` or `[`.
 /// String `"distinctAttribute"` / `"documentTemplate"` / `"foreignIndexUid"` /
 /// `"fieldName"` / `"searchApiKey"` / `"writeApiKey"` / `"leader"` / `"self"` /
@@ -31183,6 +31184,8 @@ fn meilisearch_json_key_ok(key: &str) -> bool {
             | "steps"
             | "finished"
             | "total"
+            | "status"
+            | "types"
     )
 }
 
@@ -31229,6 +31232,8 @@ fn meilisearch_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool {
                     | "progressTrace"
                     | "writeChannelCongestion"
                     | "embedderRequests"
+                    | "status"
+                    | "types"
             ) {
                 return false;
             }

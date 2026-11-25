@@ -33161,6 +33161,8 @@ fn meilisearch_json_keys_smoke() {
     assert!(is_meilisearch_json_decl(r#""finished": 12300"#));
     assert!(is_meilisearch_json_decl(r#""total": 0"#));
     assert!(is_meilisearch_json_decl(r#""total": 19546"#));
+    assert!(is_meilisearch_json_decl(r#""status": {"#));
+    assert!(is_meilisearch_json_decl(r#""types": {"#));
     // Distinctive neighbours stay out of this scanner.
     assert!(!is_meilisearch_json_decl(r#""responseHeader": {"#));
     assert!(is_solr_json_decl(r#""responseHeader": {"#));
@@ -33389,6 +33391,8 @@ fn meilisearch_json_keys_smoke() {
     assert!(line_is_func_like(r#""steps": ["#));
     assert!(line_is_func_like(r#""finished": 12300"#));
     assert!(line_is_func_like(r#""total": 19546"#));
+    assert!(line_is_func_like(r#""status": {"#));
+    assert!(line_is_func_like(r#""types": {"#));
 }
 
 #[test]
@@ -35217,6 +35221,26 @@ fn meilisearch_json_keys_count() {
     assert!(!is_meilisearch_json_decl(r#""total": "19546""#));
     assert!(!is_meilisearch_json_decl(r#""Total": 19546"#));
     assert!(!is_meilisearch_json_decl(r#""TOTAL": 19546"#));
+    assert!(is_meilisearch_json_decl(r#""status": {"#));
+    assert!(is_meilisearch_json_decl(r#""status": {,"#));
+    assert!(is_meilisearch_json_decl(r#""status": { // s"#));
+    assert!(!is_meilisearch_json_decl(r#""status": ["#));
+    assert!(!is_meilisearch_json_decl(r#""status": true"#));
+    assert!(!is_meilisearch_json_decl(r#""status": 1"#));
+    assert!(!is_meilisearch_json_decl(r#""status": "succeeded""#));
+    assert!(!is_meilisearch_json_decl(r#""Status": {"#));
+    assert!(!is_meilisearch_json_decl(r#""STATUS": {"#));
+    assert!(is_meilisearch_json_decl(r#""types": {"#));
+    assert!(is_meilisearch_json_decl(r#""types": {,"#));
+    assert!(is_meilisearch_json_decl(r#""types": { // t"#));
+    assert!(!is_meilisearch_json_decl(r#""types": ["#));
+    assert!(!is_meilisearch_json_decl(r#""types": true"#));
+    assert!(!is_meilisearch_json_decl(r#""types": 1"#));
+    assert!(!is_meilisearch_json_decl(
+        r#""types": "documentAdditionOrUpdate""#
+    ));
+    assert!(!is_meilisearch_json_decl(r#""Types": {"#));
+    assert!(!is_meilisearch_json_decl(r#""TYPES": {"#));
     // Incomplete / wrong shapes stay out.
     assert!(!is_meilisearch_json_decl(r#""processingTimeMs""#));
     assert!(!is_meilisearch_json_decl(r#""processingTimeMs":"#));
@@ -35364,6 +35388,8 @@ fn meilisearch_json_keys_count() {
     assert!(!is_meilisearch_json_decl(r#""totalNbTasks""#));
     assert!(!is_meilisearch_json_decl(r#""indexUids""#));
     assert!(!is_meilisearch_json_decl(r#""progressTrace""#));
+    assert!(!is_meilisearch_json_decl(r#""status""#));
+    assert!(!is_meilisearch_json_decl(r#""types""#));
     // Generic / neighbouring stay out.
     assert!(!is_meilisearch_json_decl(
         r#""$schema": "https://json-schema.org/draft/2020-12/schema""#
