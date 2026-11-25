@@ -33166,6 +33166,9 @@ fn meilisearch_json_keys_smoke() {
     assert!(is_meilisearch_json_decl(r#""progress": {"#));
     assert!(is_meilisearch_json_decl(r#""details": {"#));
     assert!(is_meilisearch_json_decl(r#""stats": {"#));
+    assert!(is_meilisearch_json_decl(r#""facetHits": ["#));
+    assert!(is_meilisearch_json_decl(r#""facetName": "genres""#));
+    assert!(is_meilisearch_json_decl(r#""facetQuery": "Romance""#));
     // Distinctive neighbours stay out of this scanner.
     assert!(!is_meilisearch_json_decl(r#""responseHeader": {"#));
     assert!(is_solr_json_decl(r#""responseHeader": {"#));
@@ -33399,6 +33402,9 @@ fn meilisearch_json_keys_smoke() {
     assert!(line_is_func_like(r#""progress": {"#));
     assert!(line_is_func_like(r#""details": {"#));
     assert!(line_is_func_like(r#""stats": {"#));
+    assert!(line_is_func_like(r#""facetHits": ["#));
+    assert!(line_is_func_like(r#""facetName": "genres""#));
+    assert!(line_is_func_like(r#""facetQuery": "Romance""#));
 }
 
 #[test]
@@ -35274,6 +35280,33 @@ fn meilisearch_json_keys_count() {
     assert!(!is_meilisearch_json_decl(r#""stats": "batch""#));
     assert!(!is_meilisearch_json_decl(r#""Stats": {"#));
     assert!(!is_meilisearch_json_decl(r#""STATS": {"#));
+    assert!(is_meilisearch_json_decl(r#""facetHits": ["#));
+    assert!(is_meilisearch_json_decl(r#""facetHits": [,"#));
+    assert!(is_meilisearch_json_decl(r#""facetHits": [ // f"#));
+    assert!(!is_meilisearch_json_decl(r#""facetHits": {"#));
+    assert!(!is_meilisearch_json_decl(r#""facetHits": true"#));
+    assert!(!is_meilisearch_json_decl(r#""facetHits": 1"#));
+    assert!(!is_meilisearch_json_decl(r#""facetHits": "fantasy""#));
+    assert!(!is_meilisearch_json_decl(r#""FacetHits": ["#));
+    assert!(!is_meilisearch_json_decl(r#""FACETHITS": ["#));
+    assert!(is_meilisearch_json_decl(r#""facetName": "genres""#));
+    assert!(is_meilisearch_json_decl(r#""facetName": "genres","#));
+    assert!(is_meilisearch_json_decl(r#""facetName": "genres" // f"#));
+    assert!(!is_meilisearch_json_decl(r#""facetName": """#));
+    assert!(!is_meilisearch_json_decl(r#""facetName": ["#));
+    assert!(!is_meilisearch_json_decl(r#""facetName": {"#));
+    assert!(!is_meilisearch_json_decl(r#""facetName": true"#));
+    assert!(!is_meilisearch_json_decl(r#""FacetName": "genres""#));
+    assert!(!is_meilisearch_json_decl(r#""FACETNAME": "genres""#));
+    assert!(is_meilisearch_json_decl(r#""facetQuery": "Romance""#));
+    assert!(is_meilisearch_json_decl(r#""facetQuery": "Romance","#));
+    assert!(is_meilisearch_json_decl(r#""facetQuery": "Romance" // f"#));
+    assert!(!is_meilisearch_json_decl(r#""facetQuery": """#));
+    assert!(!is_meilisearch_json_decl(r#""facetQuery": ["#));
+    assert!(!is_meilisearch_json_decl(r#""facetQuery": {"#));
+    assert!(!is_meilisearch_json_decl(r#""facetQuery": true"#));
+    assert!(!is_meilisearch_json_decl(r#""FacetQuery": "Romance""#));
+    assert!(!is_meilisearch_json_decl(r#""FACETQUERY": "Romance""#));
     // Incomplete / wrong shapes stay out.
     assert!(!is_meilisearch_json_decl(r#""processingTimeMs""#));
     assert!(!is_meilisearch_json_decl(r#""processingTimeMs":"#));
@@ -35426,6 +35459,9 @@ fn meilisearch_json_keys_count() {
     assert!(!is_meilisearch_json_decl(r#""progress""#));
     assert!(!is_meilisearch_json_decl(r#""details""#));
     assert!(!is_meilisearch_json_decl(r#""stats""#));
+    assert!(!is_meilisearch_json_decl(r#""facetHits""#));
+    assert!(!is_meilisearch_json_decl(r#""facetName""#));
+    assert!(!is_meilisearch_json_decl(r#""facetQuery""#));
     // Generic / neighbouring stay out.
     assert!(!is_meilisearch_json_decl(
         r#""$schema": "https://json-schema.org/draft/2020-12/schema""#

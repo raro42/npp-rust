@@ -30892,7 +30892,8 @@ fn solr_json_bool_and_tail_ok(after_colon: &str) -> bool {
 /// `"lastError": "…"`, `"percentage": 0` / `37.98`, `"steps": [`,
 /// `"finished": 0` / `12300`, `"total": 0` / `19546`,
 /// `"status": {`, `"types": {`, `"progress": {`, `"details": {`,
-/// `"stats": {`.
+/// `"stats": {`, `"facetHits": [`, `"facetName": "…"`,
+/// `"facetQuery": "…"`.
 /// Optional trailing `,` and `//` / `/*` comment. Incomplete quotes /
 /// missing `:` stay out. Generic `"$schema"` / `"name"` / `"id"` /
 /// `"hits": [` / `"query"` / `"limit"` / `"offset"` / `"page"` /
@@ -30989,13 +30990,13 @@ fn solr_json_bool_and_tail_ok(after_colon: &str) -> bool {
 /// `"cropMarker"` / `"commitSha"` / `"commitDate"` / `"pkgVersion"` /
 /// `"lastUpdate"` / `"enqueuedAt"` / `"startedAt"` / `"finishedAt"` /
 /// `"originalFilter"` / `"dumpUid"` / `"batchStrategy"` / `"currentStep"` /
-/// `"lastError"`
+/// `"lastError"` / `"facetName"` / `"facetQuery"`
 /// require a non-empty quoted string. String `"duration"` requires a
 /// non-empty `PT…` ISO-8601 duration. String `"url"` requires a non-empty
 /// `http://` or `https://` quoted string (relative paths stay out). Array
 /// `"foreignKeys"` / `"addRemotes"` / `"removeRemotes"` /
 /// `"attributesToRetrieve"` / `"attributesToCrop"` / `"locales"` /
-/// `"vector"` / `"swaps"` / `"steps"` require `[`.
+/// `"vector"` / `"swaps"` / `"steps"` / `"facetHits"` require `[`.
 /// Bool `"facetSearch"` / `"disableOnNumbers"` / `"binaryQuantized"` /
 /// `"equality"` / `"comparison"` / `"editDocumentsByFunction"` /
 /// `"containsFilter"` / `"dynamicSearchRules"` / `"chatCompletions"` /
@@ -31191,6 +31192,9 @@ fn meilisearch_json_key_ok(key: &str) -> bool {
             | "progress"
             | "details"
             | "stats"
+            | "facetHits"
+            | "facetName"
+            | "facetQuery"
     )
 }
 
@@ -31274,6 +31278,7 @@ fn meilisearch_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool {
                     | "vector"
                     | "swaps"
                     | "steps"
+                    | "facetHits"
             ) {
                 return false;
             }
@@ -31309,6 +31314,8 @@ fn meilisearch_json_value_and_tail_ok(key: &str, after_colon: &str) -> bool {
                 || key == "batchStrategy"
                 || key == "currentStep"
                 || key == "lastError"
+                || key == "facetName"
+                || key == "facetQuery"
             {
                 meilisearch_json_nonempty_string_and_tail_ok(after_colon)
             } else if key == "duration" {
