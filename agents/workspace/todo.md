@@ -1654,3 +1654,5 @@
 009 keep: Function List Meilisearch batchUid/originalFilter/dumpUid/swaps (v0.3.991)
 
 009 keep: Function List Meilisearch ProgressStep total (v0.3.996)
+
+009 keep: Function List Meilisearch status/types (v0.3.997)
