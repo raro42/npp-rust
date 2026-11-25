@@ -1,3 +1,5 @@
+009 keep: Function List Meilisearch showTarget/totalRuleCount/targetTotalRuleCount/needsProcessing/taskUids (v0.3.1007)
+
 009 keep: Function List Meilisearch satisfiesTimeCondition/satisfiesQueryEmptyCondition/satisfiesQueryWordsCondition/satisfiesFilterCondition (v0.3.1005)
 
 009 keep: Function List Meilisearch requestUid/queryUid/queryVector/inlineRuleConditionOutcomes/satisfiesActiveCondition (v0.3.1004)
