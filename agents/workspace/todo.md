@@ -1672,3 +1672,5 @@
 009 keep: Function List Meilisearch status/types (v0.3.997)
 
 009 keep: Function List Meilisearch facetHits/facetName/facetQuery (v0.3.999)
+
+009 keep: Function List Meilisearch precedence/lastUpdatedAt/isEmpty (v0.3.1006)
