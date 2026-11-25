@@ -33163,6 +33163,9 @@ fn meilisearch_json_keys_smoke() {
     assert!(is_meilisearch_json_decl(r#""total": 19546"#));
     assert!(is_meilisearch_json_decl(r#""status": {"#));
     assert!(is_meilisearch_json_decl(r#""types": {"#));
+    assert!(is_meilisearch_json_decl(r#""progress": {"#));
+    assert!(is_meilisearch_json_decl(r#""details": {"#));
+    assert!(is_meilisearch_json_decl(r#""stats": {"#));
     // Distinctive neighbours stay out of this scanner.
     assert!(!is_meilisearch_json_decl(r#""responseHeader": {"#));
     assert!(is_solr_json_decl(r#""responseHeader": {"#));
@@ -33393,6 +33396,9 @@ fn meilisearch_json_keys_smoke() {
     assert!(line_is_func_like(r#""total": 19546"#));
     assert!(line_is_func_like(r#""status": {"#));
     assert!(line_is_func_like(r#""types": {"#));
+    assert!(line_is_func_like(r#""progress": {"#));
+    assert!(line_is_func_like(r#""details": {"#));
+    assert!(line_is_func_like(r#""stats": {"#));
 }
 
 #[test]
@@ -35241,6 +35247,33 @@ fn meilisearch_json_keys_count() {
     ));
     assert!(!is_meilisearch_json_decl(r#""Types": {"#));
     assert!(!is_meilisearch_json_decl(r#""TYPES": {"#));
+    assert!(is_meilisearch_json_decl(r#""progress": {"#));
+    assert!(is_meilisearch_json_decl(r#""progress": {,"#));
+    assert!(is_meilisearch_json_decl(r#""progress": { // p"#));
+    assert!(!is_meilisearch_json_decl(r#""progress": ["#));
+    assert!(!is_meilisearch_json_decl(r#""progress": true"#));
+    assert!(!is_meilisearch_json_decl(r#""progress": 1"#));
+    assert!(!is_meilisearch_json_decl(r#""progress": "indexing""#));
+    assert!(!is_meilisearch_json_decl(r#""Progress": {"#));
+    assert!(!is_meilisearch_json_decl(r#""PROGRESS": {"#));
+    assert!(is_meilisearch_json_decl(r#""details": {"#));
+    assert!(is_meilisearch_json_decl(r#""details": {,"#));
+    assert!(is_meilisearch_json_decl(r#""details": { // d"#));
+    assert!(!is_meilisearch_json_decl(r#""details": ["#));
+    assert!(!is_meilisearch_json_decl(r#""details": true"#));
+    assert!(!is_meilisearch_json_decl(r#""details": 1"#));
+    assert!(!is_meilisearch_json_decl(r#""details": "received""#));
+    assert!(!is_meilisearch_json_decl(r#""Details": {"#));
+    assert!(!is_meilisearch_json_decl(r#""DETAILS": {"#));
+    assert!(is_meilisearch_json_decl(r#""stats": {"#));
+    assert!(is_meilisearch_json_decl(r#""stats": {,"#));
+    assert!(is_meilisearch_json_decl(r#""stats": { // s"#));
+    assert!(!is_meilisearch_json_decl(r#""stats": ["#));
+    assert!(!is_meilisearch_json_decl(r#""stats": true"#));
+    assert!(!is_meilisearch_json_decl(r#""stats": 1"#));
+    assert!(!is_meilisearch_json_decl(r#""stats": "batch""#));
+    assert!(!is_meilisearch_json_decl(r#""Stats": {"#));
+    assert!(!is_meilisearch_json_decl(r#""STATS": {"#));
     // Incomplete / wrong shapes stay out.
     assert!(!is_meilisearch_json_decl(r#""processingTimeMs""#));
     assert!(!is_meilisearch_json_decl(r#""processingTimeMs":"#));
@@ -35390,6 +35423,9 @@ fn meilisearch_json_keys_count() {
     assert!(!is_meilisearch_json_decl(r#""progressTrace""#));
     assert!(!is_meilisearch_json_decl(r#""status""#));
     assert!(!is_meilisearch_json_decl(r#""types""#));
+    assert!(!is_meilisearch_json_decl(r#""progress""#));
+    assert!(!is_meilisearch_json_decl(r#""details""#));
+    assert!(!is_meilisearch_json_decl(r#""stats""#));
     // Generic / neighbouring stay out.
     assert!(!is_meilisearch_json_decl(
         r#""$schema": "https://json-schema.org/draft/2020-12/schema""#
